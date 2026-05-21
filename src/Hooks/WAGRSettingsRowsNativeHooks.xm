@@ -1,14 +1,18 @@
 // WAGRSettingsRowsNativeHooks.xm
 // ─────────────────────────────────────────────────────────────────────────────
-// Native WASettingsViewController integration.
+// Watusi-style Settings entry for WATweaks.
 //
-// No startup constructor here. This file must not run broad Settings work during
-// WhatsApp launch. Tweak.x calls WAGRSettingsRowsNativeEnsureHooksInstalled() and
-// WAGRSettingsRowsNativeInjectIfPossible(vc) only after it sees a live
-// WASettingsViewController table on screen.
+// The Watusi IPA does not rely on fragile UITableViewCellContentView mutation.
+// It ships its own settings stack (WSSettings / WSSettingsController / sections)
+// and presents that stack from WhatsApp settings. The safe equivalent here is:
+//   • do not mutate WhatsApp's WATableSection rows for our own menu;
+//   • add a retained UIBarButtonItem to WASettingsViewController when that VC is
+//     already visible;
+//   • keep the existing long-press path as the only fallback;
+//   • keep native hidden-row hooks limited to boolean/provider methods.
 //
-// No UIKit footer-row fallback. If native insertion fails, long-press remains the
-// only fallback path.
+// No constructor. No UIKit footer fallback. No broad ivar scan. No WATableRow custom
+// injection for WATweaks/Developer/Payments.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import <Foundation/Foundation.h>
@@ -23,34 +27,27 @@ extern "C" NSUInteger WAGRReinstallPersistedHooks(void);
 extern "C" void WAGRWAABEnsureHooksInstalled(void);
 extern "C" void WAGRAuraEnsureHooksInstalled(void);
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void);
-extern "C" BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
 
 static BOOL gWAGRSettingsRowsAttempted = NO;
 static BOOL gWAGRSettingsRowsHooksInstalled = NO;
-static BOOL gWAGRSettingsRowsWATweaksInserted = NO;
-static BOOL gWAGRSettingsRowsDeveloperInserted = NO;
-static BOOL gWAGRSettingsRowsPaymentsInserted = NO;
-static BOOL gWAGRSettingsRowsFactoryFailed = NO;
+static BOOL gWAGRSettingsRowsButtonInserted = NO;
 static NSUInteger gWAGRSettingsRowsInstalledHookCount = 0;
-static NSUInteger gWAGRSettingsRowsInsertAttempts = 0;
+static NSUInteger gWAGRSettingsRowsInjectAttempts = 0;
 static NSUInteger gWAGRSettingsRowsSubscriptionForces = 0;
 static NSUInteger gWAGRSettingsRowsPaymentsForces = 0;
 static NSString *gWAGRSettingsRowsLastError = nil;
 
-static const void *kWAGRNativeWATweaksRowMarker = &kWAGRNativeWATweaksRowMarker;
-static const void *kWAGRNativeDeveloperRowMarker = &kWAGRNativeDeveloperRowMarker;
-static const void *kWAGRNativePaymentsRowMarker = &kWAGRNativePaymentsRowMarker;
+static const void *kWAGRSettingsButtonTargetKey = &kWAGRSettingsButtonTargetKey;
+static const void *kWAGRSettingsButtonInstalledKey = &kWAGRSettingsButtonInstalledKey;
 static const void *kWAGRNativeSettingsRefreshMarker = &kWAGRNativeSettingsRefreshMarker;
-static const void *kWAGRNativeSettingsHandlerMarker = &kWAGRNativeSettingsHandlerMarker;
 
-static void (*origAddStorageAndDataRow)(id, SEL, id, id) = NULL;
 static void (*origCheckSubscriptionsEligibility)(id, SEL) = NULL;
 static BOOL (*origIsSubscriptionsRowPresent)(id, SEL) = NULL;
 static void (*origRemoveSubscriptionsRow)(id, SEL) = NULL;
 static void (*origInsertSubscriptionsRow)(id, SEL) = NULL;
 static void (*origAddSubscriptionsRowToSection)(id, SEL, id) = NULL;
+static id (*origCreatePaymentRowIfNeeded)(id, SEL) = NULL;
 static void (*origAddPaymentsRowToSection)(id, SEL, id) = NULL;
-static id (*origCreatePaymentRowIfNeeded)(id, SEL, id) = NULL;
 static BOOL (*origShowBRConsumerPaymentsHome)(id, SEL) = NULL;
 static id (*origGetSettingsViewModel)(id, SEL) = NULL;
 static id (*origCreateSettingsEntryPointViewModel)(id, SEL) = NULL;
@@ -62,8 +59,7 @@ static void WAGRSetLastSettingsRowsError(NSString *error) {
 static BOOL WAGRIsWASettingsVC(id obj) {
     if (!obj) return NO;
     NSString *name = NSStringFromClass([obj class]);
-    return [name isEqualToString:@"WASettingsViewController"] ||
-           [name containsString:@"WASettingsViewController"];
+    return [name isEqualToString:@"WASettingsViewController"] || [name containsString:@"WASettingsViewController"];
 }
 
 static UIViewController *WAGRTopViewController(void) {
@@ -72,7 +68,6 @@ static UIViewController *WAGRTopViewController(void) {
         if (!win.isHidden && win.rootViewController) { root = win.rootViewController; break; }
     }
     if (!root) root = UIApplication.sharedApplication.keyWindow.rootViewController;
-
     UIViewController *p = root;
     while (p.presentedViewController) p = p.presentedViewController;
     if ([p isKindOfClass:UINavigationController.class]) {
@@ -96,61 +91,39 @@ static void WAGRPresentWATweaksMenuFromSettings(id settingsVC) {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *host = WAGRPresenterForSettings(settingsVC);
         if (!host) return;
-
         WAGRSurfaceListVC *menu = [[WAGRSurfaceListVC alloc] init];
         UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:menu];
         nav.modalPresentationStyle = UIModalPresentationFormSheet;
-
         if (@available(iOS 15.0, *)) {
             UISheetPresentationController *sheet = nav.sheetPresentationController;
             sheet.prefersGrabberVisible = YES;
             sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
         }
-
         [host presentViewController:nav animated:YES completion:nil];
     });
 }
 
-static void WAGRPresentDeveloperMenuFromSettings(id settingsVC) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSError *err = nil;
-        UIViewController *host = WAGRPresenterForSettings(settingsVC) ?: WAGRTopViewController();
-        BOOL ok = WAGRLaunchNativeDeveloperMenu(host, &err);
-        if (!ok) NSLog(@"[WATweaks][NativeSettingsRows] Developer row launcher failed: %@", err.localizedDescription ?: @"unknown");
-    });
-}
+@interface WAGRSettingsButtonTarget : NSObject
+@property(nonatomic, assign) id settingsVC;
++ (instancetype)targetForSettingsVC:(id)settingsVC;
+- (void)openWATweaks:(id)sender;
+@end
 
-static void WAGRPresentPaymentsFromSettings(id settingsVC) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if ([settingsVC respondsToSelector:NSSelectorFromString(@"showBRConsumerPaymentsHome")]) {
-            ((void (*)(id, SEL))objc_msgSend)(settingsVC, NSSelectorFromString(@"showBRConsumerPaymentsHome"));
-            return;
-        }
-        WAGRPresentWATweaksMenuFromSettings(settingsVC);
-    });
+@implementation WAGRSettingsButtonTarget
++ (instancetype)targetForSettingsVC:(id)settingsVC {
+    WAGRSettingsButtonTarget *target = objc_getAssociatedObject(settingsVC, kWAGRSettingsButtonTargetKey);
+    if (!target) {
+        target = [WAGRSettingsButtonTarget new];
+        target.settingsVC = settingsVC;
+        objc_setAssociatedObject(settingsVC, kWAGRSettingsButtonTargetKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return target;
 }
-
-static BOOL WAGRResponds(id obj, NSString *selectorName) {
-    return obj && [obj respondsToSelector:NSSelectorFromString(selectorName)];
+- (void)openWATweaks:(id)sender {
+    (void)sender;
+    WAGRPresentWATweaksMenuFromSettings(self.settingsVC);
 }
-
-static id WAGRCallObj0(id obj, NSString *selectorName) {
-    if (!WAGRResponds(obj, selectorName)) return nil;
-    SEL sel = NSSelectorFromString(selectorName);
-    return ((id (*)(id, SEL))objc_msgSend)(obj, sel);
-}
-
-static void WAGRCallVoid1(id obj, NSString *selectorName, id arg) {
-    if (!WAGRResponds(obj, selectorName)) return;
-    SEL sel = NSSelectorFromString(selectorName);
-    ((void (*)(id, SEL, id))objc_msgSend)(obj, sel, arg);
-}
-
-static void WAGRCallVoidInt(id obj, NSString *selectorName, NSInteger value) {
-    if (!WAGRResponds(obj, selectorName)) return;
-    SEL sel = NSSelectorFromString(selectorName);
-    ((void (*)(id, SEL, NSInteger))objc_msgSend)(obj, sel, value);
-}
+@end
 
 static BOOL WAGRWAABAnyOn(NSArray<NSString *> *flags) {
     for (NSString *flag in flags) if (WAGRIsOn(flag)) return YES;
@@ -165,28 +138,11 @@ static BOOL WAGRSettingsRowsShouldForceSubscriptions(void) {
         @"aura_subscription_simulation_enabled",
         @"wa_subscriptions_entry_point_settings_enabled",
         @"wa_plus_settings_row_enabled",
+        @"wa_plus_custom_ringtones",
+        @"meta_subs_benefit_wa_ringtones_upsell",
         @"isEligibleForSubscriptions",
         @"isSubscribedToAiBenefit",
         @"isAISubscriptionEnabled"
-    ]);
-}
-
-static BOOL WAGRSettingsRowsShouldForceDeveloper(void) {
-    if (WAGRPref(@"wagr.settingsrows.force_developer")) return YES;
-    if (WAGRPref(kWAGRDebugMenuNative) || WAGRPref(kWAGRInternalMaster) ||
-        WAGRPref(kWAGREmployeeMaster)  || WAGRPref(kWAGRDebugMode)) return YES;
-
-    NSString *allowedKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuAllowed");
-    NSString *shortcutKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuShortcutEnabled");
-    if ((WAGRHasOverride(allowedKey) && WAGROverrideBool(allowedKey)) ||
-        (WAGRHasOverride(shortcutKey) && WAGROverrideBool(shortcutKey))) return YES;
-
-    return WAGRWAABAnyOn(@[
-        @"sections_in_help_menu",
-        @"mobile_config_debug_internal",
-        @"dogfooder_diagnostics",
-        @"ios_internal_hall_enabled",
-        @"is_internal_tester"
     ]);
 }
 
@@ -200,315 +156,74 @@ static BOOL WAGRSettingsRowsShouldForcePayments(void) {
         @"payments_home_ui_updates_enabled",
         @"payment_settings_add_bank_account_row",
         @"payment_settings_add_upi_number_row",
-        @"br_payments_pix_native_enabled"
+        @"payment_settings_add_bank_banner",
+        @"payment_settings_invite_others_row",
+        @"payment_settings_remove_payment_info_row",
+        @"br_payments_pix_native_enabled",
+        @"br_payments_pix_groups_enabled",
+        @"br_p2p_add_pix_key_from_payment_settings",
+        @"br_payment_smb_connect_to_bank_enabled",
+        @"enable_payment_passkey",
+        @"br_payments_passkey_enable"
     ]);
 }
 
 static void WAGRSettingsRowsEnsureRuntimeOwners(void) {
-    // Settings-only path. Do not call this from startup.
+    // Settings-only path. Tweak.x calls this only after WASettingsViewController
+    // is already visible or when the debug menu explicitly requests diagnostics.
     WAGRWAABEnsureHooksInstalled();
     WAGRAuraEnsureHooksInstalled();
     WAGRNativeDevMenuEnsureHooksInstalled();
     WAGRReinstallPersistedHooks();
 }
 
-static NSString *WAGRRowDebugString(id row) {
-    if (!row) return @"";
-    NSMutableArray<NSString *> *parts = [NSMutableArray array];
+static void WAGRInstallSettingsBarButton(id settingsVC) {
+    if (!WAGRIsWASettingsVC(settingsVC) || ![settingsVC isKindOfClass:UIViewController.class]) return;
+    gWAGRSettingsRowsInjectAttempts++;
 
-    for (NSString *selName in @[@"identifier", @"accessibilityIdentifier", @"title", @"name", @"text", @"cellText"]) {
-        @try {
-            id value = WAGRCallObj0(row, selName);
-            if ([value isKindOfClass:NSString.class] && [value length]) [parts addObject:[value lowercaseString]];
-        } @catch (__unused id ex) {}
-    }
+    if ([objc_getAssociatedObject(settingsVC, kWAGRSettingsButtonInstalledKey) boolValue]) return;
 
-    @try {
-        NSString *desc = [[row description] lowercaseString];
-        if (desc.length) [parts addObject:desc];
-    } @catch (__unused id ex) {}
+    UIViewController *vc = (UIViewController *)settingsVC;
+    UINavigationItem *item = vc.navigationItem;
+    if (!item) return;
 
-    return [parts componentsJoinedByString:@" "];
-}
-
-static BOOL WAGRRowLooksLike(id row, NSString *needle) {
-    if (!row || !needle.length) return NO;
-    return [WAGRRowDebugString(row) containsString:needle.lowercaseString];
-}
-
-static NSArray *WAGRRowsForSection(id section) {
-    id rows = WAGRCallObj0(section, @"rows");
-    return [rows isKindOfClass:NSArray.class] ? rows : nil;
-}
-
-static BOOL WAGRSectionAlreadyHasRow(id section, NSString *identifierNeedle) {
-    for (id row in WAGRRowsForSection(section)) {
-        if (WAGRRowLooksLike(row, identifierNeedle)) return YES;
-    }
-    return NO;
-}
-
-static id WAGRCreateNativeRow(id settingsVC, NSString *identifier, NSString *title, NSString *subtitle, NSString *imageName, dispatch_block_t tapBlock) {
-    if (!settingsVC || !identifier.length) return nil;
-
-    id handler = [^(__unused id row, __unused id cell) {
-        if (tapBlock) tapBlock();
-    } copy];
-
-    objc_setAssociatedObject(settingsVC, kWAGRNativeSettingsHandlerMarker, handler, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-
-    id row = nil;
-    SEL factory = NSSelectorFromString(@"tableRowWithIdentifier:type:handler:");
-    if ([settingsVC respondsToSelector:factory]) {
-        for (NSNumber *n in @[@0,@1,@2,@3,@4,@5,@6,@7,@8,@9,@10,@11,@12]) {
-            @try {
-                row = ((id (*)(id, SEL, NSString *, NSInteger, id))objc_msgSend)(settingsVC, factory, identifier, n.integerValue, handler);
-            } @catch (__unused id ex) {
-                row = nil;
-            }
-            if (row) break;
+    NSMutableArray<UIBarButtonItem *> *items = item.rightBarButtonItems ? [item.rightBarButtonItems mutableCopy] : [NSMutableArray array];
+    for (UIBarButtonItem *existing in items) {
+        if ([existing.accessibilityIdentifier isEqualToString:@"WATweaksSettingsButton"]) {
+            objc_setAssociatedObject(settingsVC, kWAGRSettingsButtonInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            gWAGRSettingsRowsButtonInserted = YES;
+            return;
         }
     }
 
-    if (!row) {
-        Class rowClass = NSClassFromString(@"WATableRow");
-        if (rowClass) {
-            @try {
-                id alloc = [rowClass alloc];
-                if ([alloc respondsToSelector:NSSelectorFromString(@"initWithIdentifier:type:")]) {
-                    row = ((id (*)(id, SEL, NSString *, NSInteger))objc_msgSend)(alloc, NSSelectorFromString(@"initWithIdentifier:type:"), identifier, 0);
-                } else if ([alloc respondsToSelector:NSSelectorFromString(@"initWithIdentifier:")]) {
-                    row = ((id (*)(id, SEL, NSString *))objc_msgSend)(alloc, NSSelectorFromString(@"initWithIdentifier:"), identifier);
-                }
-            } @catch (__unused id ex) {
-                row = nil;
-            }
-        }
+    UIImage *image = nil;
+    if (@available(iOS 13.0, *)) {
+        image = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
+        if (!image) image = [UIImage systemImageNamed:@"curlybraces"];
+        if (!image) image = [UIImage systemImageNamed:@"gearshape"];
     }
 
-    if (!row) {
-        gWAGRSettingsRowsFactoryFailed = YES;
-        WAGRSetLastSettingsRowsError(@"could not create WATableRow via WASettingsViewController factory or WATableRow init");
-        return nil;
-    }
+    WAGRSettingsButtonTarget *target = [WAGRSettingsButtonTarget targetForSettingsVC:settingsVC];
+    UIBarButtonItem *button = nil;
+    if (image) button = [[UIBarButtonItem alloc] initWithImage:image style:UIBarButtonItemStylePlain target:target action:@selector(openWATweaks:)];
+    else button = [[UIBarButtonItem alloc] initWithTitle:@"WAT" style:UIBarButtonItemStylePlain target:target action:@selector(openWATweaks:)];
 
-    NSDictionary<NSString *, id> *stringValues = @{
-        @"setIdentifier:": identifier,
-        @"setAccessibilityIdentifier:": identifier,
-        @"setAccessibilityLabel:": title ?: identifier,
-        @"setTitle:": title ?: identifier,
-        @"setName:": title ?: identifier,
-        @"setText:": title ?: identifier,
-        @"setCellText:": title ?: identifier,
-        @"setDisplayName:": title ?: identifier,
-        @"setSubtitle:": subtitle ?: @"",
-        @"setDetailText:": subtitle ?: @"",
-        @"setCellDetailText:": subtitle ?: @""
-    };
-    for (NSString *selName in stringValues) WAGRCallVoid1(row, selName, stringValues[selName]);
+    button.accessibilityIdentifier = @"WATweaksSettingsButton";
+    button.accessibilityLabel = @"WATweaks";
 
-    WAGRCallVoid1(row, @"setHandler:", handler);
-    WAGRCallVoid1(row, @"setAccessoryHandler:", handler);
-    WAGRCallVoidInt(row, @"setAccessoryType:", UITableViewCellAccessoryDisclosureIndicator);
-    WAGRCallVoidInt(row, @"setCellAccessoryType:", UITableViewCellAccessoryDisclosureIndicator);
+    // Insert before WhatsApp's own QR/search items instead of replacing them.
+    [items insertObject:button atIndex:0];
+    item.rightBarButtonItems = items;
 
-    UIImage *icon = nil;
-    if (imageName.length) icon = [UIImage systemImageNamed:imageName];
-    if (!icon) icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
-    if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
-    if (icon) {
-        WAGRCallVoid1(row, @"setImage:", icon);
-        WAGRCallVoid1(row, @"setIcon:", icon);
-        WAGRCallVoid1(row, @"setCellImage:", icon);
-    }
-
-    return row;
-}
-
-static BOOL WAGRSetRowsOnSection(id section, NSArray *rows) {
-    if (!section || !rows) return NO;
-    if (WAGRResponds(section, @"setRows:")) {
-        WAGRCallVoid1(section, @"setRows:", rows);
-        return YES;
-    }
-    return NO;
-}
-
-static BOOL WAGRAddRowToSection(id section, id row, NSString *beforeNeedle) {
-    if (!section || !row) return NO;
-
-    NSArray *existing = WAGRRowsForSection(section);
-    if (existing.count > 0 && WAGRResponds(section, @"setRows:")) {
-        NSMutableArray *newRows = [existing mutableCopy];
-        NSUInteger idx = NSNotFound;
-
-        if (beforeNeedle.length) {
-            for (NSUInteger i = 0; i < newRows.count; i++) {
-                if (WAGRRowLooksLike(newRows[i], beforeNeedle)) { idx = i; break; }
-            }
-        }
-
-        if (idx == NSNotFound) idx = newRows.count;
-        [newRows insertObject:row atIndex:idx];
-        return WAGRSetRowsOnSection(section, newRows);
-    }
-
-    for (NSString *selName in @[@"addRow:", @"appendRow:", @"addTableRow:", @"addObject:"]) {
-        if (!WAGRResponds(section, selName)) continue;
-        WAGRCallVoid1(section, selName, row);
-        return YES;
-    }
-
-    WAGRSetLastSettingsRowsError([NSString stringWithFormat:@"section %@ has no known row mutator", NSStringFromClass([section class])]);
-    return NO;
-}
-
-static BOOL WAGRIsWATableSectionLike(id obj) {
-    if (!obj) return NO;
-    NSString *cls = NSStringFromClass([obj class]);
-    return [cls containsString:@"WATableSection"] || WAGRResponds(obj, @"addRow:") || WAGRResponds(obj, @"rows");
-}
-
-static void WAGRAddSectionCandidate(NSMutableArray *sections, id obj) {
-    if (!obj) return;
-
-    if ([obj isKindOfClass:NSArray.class]) {
-        for (id item in (NSArray *)obj) WAGRAddSectionCandidate(sections, item);
-        return;
-    }
-
-    if (WAGRIsWATableSectionLike(obj) && ![sections containsObject:obj]) {
-        [sections addObject:obj];
-    }
-}
-
-static id WAGRObjectIvarIfSafe(id obj, const char *ivarName) {
-    if (!obj || !ivarName) return nil;
-    Ivar iv = class_getInstanceVariable([obj class], ivarName);
-    if (!iv) return nil;
-
-    const char *type = ivar_getTypeEncoding(iv);
-    if (!type || type[0] != '@') return nil; // never object_getIvar primitive / Swift value ivars
-
-    id value = nil;
-    @try {
-        value = object_getIvar(obj, iv);
-    } @catch (__unused id ex) {
-        value = nil;
-    }
-    return value;
-}
-
-static NSMutableArray *WAGRCollectCandidateSections(id settingsVC, id preferredSection) {
-    NSMutableArray *sections = [NSMutableArray array];
-    WAGRAddSectionCandidate(sections, preferredSection);
-
-    for (NSString *ivarName in @[@"_sectionSettings", @"_subscriptionsSection", @"_bannersSection"]) {
-        WAGRAddSectionCandidate(sections, WAGRObjectIvarIfSafe(settingsVC, ivarName.UTF8String));
-    }
-
-    return sections;
-}
-
-static id WAGRBestSettingsSection(id settingsVC, id preferredSection) {
-    NSMutableArray *sections = WAGRCollectCandidateSections(settingsVC, preferredSection);
-    if (sections.count == 0) return nil;
-
-    for (id section in sections) {
-        NSMutableArray<NSString *> *rowDebug = [NSMutableArray array];
-        for (id row in WAGRRowsForSection(section)) [rowDebug addObject:WAGRRowDebugString(row)];
-        NSString *debug = [rowDebug componentsJoinedByString:@" "];
-
-        if ([debug containsString:@"settingsview_dataandstorageusagecell"] ||
-            [debug containsString:@"settingsview_helpcell"] ||
-            [debug containsString:@"settingsview_chatscell"] ||
-            [debug containsString:@"settingsview_notificationscell"]) {
-            return section;
-        }
-    }
-
-    return sections.firstObject;
-}
-
-static void WAGRReloadSettingsTable(id settingsVC) {
-    id table = WAGRCallObj0(settingsVC, @"tableView");
-    if ([table isKindOfClass:UITableView.class]) [(UITableView *)table reloadData];
+    objc_setAssociatedObject(settingsVC, kWAGRSettingsButtonInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    gWAGRSettingsRowsButtonInserted = YES;
+    WAGRSetLastSettingsRowsError(nil);
+    NSLog(@"[WATweaks][NativeSettingsRows] installed WATweaks settings bar button");
 }
 
 extern "C" void WAGRSettingsRowsNativeInjectIfPossible(id maybeSettingsVC) {
     if (!WAGRIsWASettingsVC(maybeSettingsVC)) return;
-
-    id settingsVC = maybeSettingsVC;
-    id section = WAGRBestSettingsSection(settingsVC, nil);
-    if (!section) {
-        WAGRSetLastSettingsRowsError(@"no WATableSection candidate found");
-        return;
-    }
-
-    gWAGRSettingsRowsInsertAttempts++;
-
-    if (![objc_getAssociatedObject(section, kWAGRNativeWATweaksRowMarker) boolValue] &&
-        !WAGRSectionAlreadyHasRow(section, @"settingsview_watweakscell")) {
-        id row = WAGRCreateNativeRow(settingsVC,
-                                     @"SettingsView_WATweaksCell",
-                                     @"WATweaks",
-                                     @"Runtime flags, hidden Settings rows and diagnostics",
-                                     @"chevron.left.forwardslash.chevron.right",
-                                     ^{ WAGRPresentWATweaksMenuFromSettings(settingsVC); });
-
-        if (row && WAGRAddRowToSection(section, row, @"settingsview_dataandstorageusagecell")) {
-            objc_setAssociatedObject(section, kWAGRNativeWATweaksRowMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            gWAGRSettingsRowsWATweaksInserted = YES;
-            gWAGRSettingsRowsFactoryFailed = NO;
-            WAGRSetLastSettingsRowsError(nil);
-            NSLog(@"[WATweaks][NativeSettingsRows] inserted SettingsView_WATweaksCell into %@", NSStringFromClass([section class]));
-        }
-    }
-
-    if (WAGRSettingsRowsShouldForcePayments() &&
-        ![objc_getAssociatedObject(section, kWAGRNativePaymentsRowMarker) boolValue] &&
-        !WAGRSectionAlreadyHasRow(section, @"settingsview_paymentscell")) {
-        id row = WAGRCreateNativeRow(settingsVC,
-                                     @"SettingsView_PaymentsCell",
-                                     @"Payments",
-                                     @"Payments, PIX/UPI and payment settings surfaces",
-                                     @"creditcard.fill",
-                                     ^{ WAGRPresentPaymentsFromSettings(settingsVC); });
-
-        if (row && WAGRAddRowToSection(section, row, @"settingsview_dataandstorageusagecell")) {
-            objc_setAssociatedObject(section, kWAGRNativePaymentsRowMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            gWAGRSettingsRowsPaymentsInserted = YES;
-            NSLog(@"[WATweaks][NativeSettingsRows] inserted SettingsView_PaymentsCell shim into %@", NSStringFromClass([section class]));
-        }
-    }
-
-    if (WAGRSettingsRowsShouldForceDeveloper() &&
-        ![objc_getAssociatedObject(section, kWAGRNativeDeveloperRowMarker) boolValue] &&
-        !WAGRSectionAlreadyHasRow(section, @"settingsview_developercell")) {
-        id row = WAGRCreateNativeRow(settingsVC,
-                                     @"SettingsView_DeveloperCell",
-                                     @"Developer",
-                                     @"WhatsApp native developer menu",
-                                     @"chevron.left.forwardslash.chevron.right",
-                                     ^{ WAGRPresentDeveloperMenuFromSettings(settingsVC); });
-
-        if (row && WAGRAddRowToSection(section, row, @"settingsview_dataandstorageusagecell")) {
-            objc_setAssociatedObject(section, kWAGRNativeDeveloperRowMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            gWAGRSettingsRowsDeveloperInserted = YES;
-            NSLog(@"[WATweaks][NativeSettingsRows] inserted SettingsView_DeveloperCell shim into %@", NSStringFromClass([section class]));
-        }
-    }
-
-    WAGRReloadSettingsTable(settingsVC);
-}
-
-static void WAGRForcePaymentsRowIfNeeded(id settingsVC) {
-    if (!settingsVC || !WAGRSettingsRowsShouldForcePayments()) return;
-    gWAGRSettingsRowsPaymentsForces++;
-    if ([settingsVC respondsToSelector:NSSelectorFromString(@"addPaymentsRowToSection:")]) {
-        id section = WAGRBestSettingsSection(settingsVC, nil);
-        if (section) ((void (*)(id, SEL, id))objc_msgSend)(settingsVC, NSSelectorFromString(@"addPaymentsRowToSection:"), section);
-    }
+    WAGRInstallSettingsBarButton(maybeSettingsVC);
 }
 
 static BOOL WAGROrigSubscriptionsRowPresent(id self) {
@@ -517,76 +232,30 @@ static BOOL WAGROrigSubscriptionsRowPresent(id self) {
 }
 
 static void WAGRForceSubscriptionsRowIfNeeded(id settingsVC) {
-    if (!settingsVC || !WAGRSettingsRowsShouldForceSubscriptions()) return;
+    if (!WAGRIsWASettingsVC(settingsVC) || !WAGRSettingsRowsShouldForceSubscriptions()) return;
     if ([objc_getAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker) boolValue]) return;
-
     objc_setAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     dispatch_async(dispatch_get_main_queue(), ^{
         objc_setAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         if (WAGROrigSubscriptionsRowPresent(settingsVC)) return;
-
         gWAGRSettingsRowsSubscriptionForces++;
-
         if ([settingsVC respondsToSelector:NSSelectorFromString(@"insertSubscriptionsRow")]) {
             ((void (*)(id, SEL))objc_msgSend)(settingsVC, NSSelectorFromString(@"insertSubscriptionsRow"));
-            NSLog(@"[WATweaks][NativeSettingsRows] forced insertSubscriptionsRow");
-            return;
         }
-
-        id section = WAGRObjectIvarIfSafe(settingsVC, "_subscriptionsSection");
-        if (section && [settingsVC respondsToSelector:NSSelectorFromString(@"addSubscriptionsRowToSection:")]) {
-            ((void (*)(id, SEL, id))objc_msgSend)(settingsVC, NSSelectorFromString(@"addSubscriptionsRowToSection:"), section);
-            NSLog(@"[WATweaks][NativeSettingsRows] forced addSubscriptionsRowToSection:");
-            return;
-        }
-
-        WAGRSetLastSettingsRowsError(@"could not force subscriptions row: no insert method/section available");
     });
 }
 
-static void WAGRRefreshSettingsRowsSoon(id settingsVC, id preferredSection) {
-    if (!WAGRIsWASettingsVC(settingsVC)) return;
-    WAGRSettingsRowsEnsureRuntimeOwners();
-    if (preferredSection) {
-        // During builder-time we know the exact section. Use it immediately.
-        NSMutableArray *sections = WAGRCollectCandidateSections(settingsVC, preferredSection);
-        if (sections.count) {
-            id best = WAGRBestSettingsSection(settingsVC, preferredSection);
-            if (best) {
-                // Reuse the public injection after associating the preferred section through the normal collector.
-                (void)best;
-            }
-        }
-    }
-    WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
-    WAGRForcePaymentsRowIfNeeded(settingsVC);
-    WAGRForceSubscriptionsRowIfNeeded(settingsVC);
+static void WAGRForcePaymentsIfNeeded(id settingsVC) {
+    if (!WAGRIsWASettingsVC(settingsVC) || !WAGRSettingsRowsShouldForcePayments()) return;
+    gWAGRSettingsRowsPaymentsForces++;
 }
 
-static void hookAddStorageAndDataRow(id self, SEL _cmd, id section, id settingTypeToRow) {
-    // Insert before the Storage & Data row so WATweaks lands in the desired area.
-    if (WAGRIsWASettingsVC(self)) {
-        id best = section ?: WAGRBestSettingsSection(self, nil);
-        if (best) {
-            gWAGRSettingsRowsInsertAttempts++;
-            if (![objc_getAssociatedObject(best, kWAGRNativeWATweaksRowMarker) boolValue] &&
-                !WAGRSectionAlreadyHasRow(best, @"settingsview_watweakscell")) {
-                id row = WAGRCreateNativeRow(self,
-                                             @"SettingsView_WATweaksCell",
-                                             @"WATweaks",
-                                             @"Runtime flags, hidden Settings rows and diagnostics",
-                                             @"chevron.left.forwardslash.chevron.right",
-                                             ^{ WAGRPresentWATweaksMenuFromSettings(self); });
-                if (row && WAGRAddRowToSection(best, row, @"settingsview_dataandstorageusagecell")) {
-                    objc_setAssociatedObject(best, kWAGRNativeWATweaksRowMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                    gWAGRSettingsRowsWATweaksInserted = YES;
-                }
-            }
-        }
-    }
-
-    if (origAddStorageAndDataRow) origAddStorageAndDataRow(self, _cmd, section, settingTypeToRow);
-    WAGRRefreshSettingsRowsSoon(self, section);
+static void WAGRRefreshSettingsRowsSoon(id settingsVC) {
+    if (!WAGRIsWASettingsVC(settingsVC)) return;
+    WAGRSettingsRowsEnsureRuntimeOwners();
+    WAGRInstallSettingsBarButton(settingsVC);
+    WAGRForceSubscriptionsRowIfNeeded(settingsVC);
+    WAGRForcePaymentsIfNeeded(settingsVC);
 }
 
 static void hookCheckSubscriptionsEligibility(id self, SEL _cmd) {
@@ -601,10 +270,7 @@ static BOOL hookIsSubscriptionsRowPresent(id self, SEL _cmd) {
 }
 
 static void hookRemoveSubscriptionsRow(id self, SEL _cmd) {
-    if (WAGRSettingsRowsShouldForceSubscriptions()) {
-        NSLog(@"[WATweaks][NativeSettingsRows] blocked removeSubscriptionsRow while subscriptions are forced");
-        return;
-    }
+    if (WAGRSettingsRowsShouldForceSubscriptions()) return;
     if (origRemoveSubscriptionsRow) origRemoveSubscriptionsRow(self, _cmd);
 }
 
@@ -616,29 +282,31 @@ static void hookAddSubscriptionsRowToSection(id self, SEL _cmd, id section) {
     if (origAddSubscriptionsRowToSection) origAddSubscriptionsRowToSection(self, _cmd, section);
 }
 
+static id hookCreatePaymentRowIfNeeded(id self, SEL _cmd) {
+    if (WAGRSettingsRowsShouldForcePayments()) {
+        gWAGRSettingsRowsPaymentsForces++;
+    }
+    return origCreatePaymentRowIfNeeded ? origCreatePaymentRowIfNeeded(self, _cmd) : nil;
+}
+
 static void hookAddPaymentsRowToSection(id self, SEL _cmd, id section) {
     if (origAddPaymentsRowToSection) origAddPaymentsRowToSection(self, _cmd, section);
 }
 
-static id hookCreatePaymentRowIfNeeded(id self, SEL _cmd, id arg) {
-    if (origCreatePaymentRowIfNeeded) return origCreatePaymentRowIfNeeded(self, _cmd, arg);
-    return nil;
-}
-
 static BOOL hookShowBRConsumerPaymentsHome(id self, SEL _cmd) {
-    if (origShowBRConsumerPaymentsHome) return origShowBRConsumerPaymentsHome(self, _cmd);
-    return NO;
+    if (WAGRSettingsRowsShouldForcePayments()) return YES;
+    return origShowBRConsumerPaymentsHome ? origShowBRConsumerPaymentsHome(self, _cmd) : NO;
 }
 
 static id hookGetSettingsViewModel(id self, SEL _cmd) {
     id result = origGetSettingsViewModel ? origGetSettingsViewModel(self, _cmd) : nil;
-    WAGRRefreshSettingsRowsSoon(self, nil);
+    WAGRRefreshSettingsRowsSoon(self);
     return result;
 }
 
 static id hookCreateSettingsEntryPointViewModel(id self, SEL _cmd) {
     id result = origCreateSettingsEntryPointViewModel ? origCreateSettingsEntryPointViewModel(self, _cmd) : nil;
-    WAGRRefreshSettingsRowsSoon(self, nil);
+    WAGRRefreshSettingsRowsSoon(self);
     return result;
 }
 
@@ -662,49 +330,39 @@ extern "C" void WAGRSettingsRowsNativeEnsureHooksInstalled(void) {
     }
 
     NSUInteger installed = 0;
-    if (WAGRHookInstance(cls, @"addStorageAndDataRowToWATableSection:settingTypeToRow:", (IMP)hookAddStorageAndDataRow, (IMP *)&origAddStorageAndDataRow)) installed++;
     if (WAGRHookInstance(cls, @"checkSubscriptionsEligibilityAndInsertRowIfNeeded", (IMP)hookCheckSubscriptionsEligibility, (IMP *)&origCheckSubscriptionsEligibility)) installed++;
     if (WAGRHookInstance(cls, @"isSubscriptionsRowPresentInTable", (IMP)hookIsSubscriptionsRowPresent, (IMP *)&origIsSubscriptionsRowPresent)) installed++;
     if (WAGRHookInstance(cls, @"removeSubscriptionsRow", (IMP)hookRemoveSubscriptionsRow, (IMP *)&origRemoveSubscriptionsRow)) installed++;
     if (WAGRHookInstance(cls, @"insertSubscriptionsRow", (IMP)hookInsertSubscriptionsRow, (IMP *)&origInsertSubscriptionsRow)) installed++;
     if (WAGRHookInstance(cls, @"addSubscriptionsRowToSection:", (IMP)hookAddSubscriptionsRowToSection, (IMP *)&origAddSubscriptionsRowToSection)) installed++;
+    if (WAGRHookInstance(cls, @"createPaymentRowIfNeeded", (IMP)hookCreatePaymentRowIfNeeded, (IMP *)&origCreatePaymentRowIfNeeded)) installed++;
     if (WAGRHookInstance(cls, @"addPaymentsRowToSection:", (IMP)hookAddPaymentsRowToSection, (IMP *)&origAddPaymentsRowToSection)) installed++;
-    if (WAGRHookInstance(cls, @"createPaymentRowIfNeeded:", (IMP)hookCreatePaymentRowIfNeeded, (IMP *)&origCreatePaymentRowIfNeeded)) installed++;
     if (WAGRHookInstance(cls, @"showBRConsumerPaymentsHome", (IMP)hookShowBRConsumerPaymentsHome, (IMP *)&origShowBRConsumerPaymentsHome)) installed++;
     if (WAGRHookInstance(cls, @"getSettingsViewModel", (IMP)hookGetSettingsViewModel, (IMP *)&origGetSettingsViewModel)) installed++;
     if (WAGRHookInstance(cls, @"createSettingsEntryPointViewModel", (IMP)hookCreateSettingsEntryPointViewModel, (IMP *)&origCreateSettingsEntryPointViewModel)) installed++;
 
     gWAGRSettingsRowsInstalledHookCount = installed;
     gWAGRSettingsRowsHooksInstalled = installed > 0;
-
-    if (!gWAGRSettingsRowsHooksInstalled) {
-        WAGRSetLastSettingsRowsError(@"WASettingsViewController found, but none of the expected selectors were hookable");
-    } else {
-        WAGRSetLastSettingsRowsError(nil);
-        NSLog(@"[WATweaks][NativeSettingsRows] installed %lu hooks on WASettingsViewController", (unsigned long)installed);
-    }
+    if (!gWAGRSettingsRowsHooksInstalled) WAGRSetLastSettingsRowsError(@"WASettingsViewController found, but none of the expected selectors were hookable");
+    else WAGRSetLastSettingsRowsError(nil);
 }
 
 extern "C" BOOL WAGRSettingsRowsNativeDidInstallWATweaksRow(void) {
-    return gWAGRSettingsRowsWATweaksInserted;
+    return gWAGRSettingsRowsButtonInserted;
 }
 
 extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void) {
     return [NSString stringWithFormat:
-            @"attempted=%@\nhooksInstalled=%@\ninstalledHookCount=%lu\nsettingsClass=%@\nwatweaksRowInserted=%@\ndeveloperRowInserted=%@\npaymentsRowInserted=%@\nfactoryFailed=%@\ninsertAttempts=%lu\nsubscriptionForceCount=%lu\npaymentsForceCount=%lu\nforceSubscriptions=%@\nforcePayments=%@\nforceDeveloper=%@\nlastError=%@",
+            @"attempted=%@\nhooksInstalled=%@\ninstalledHookCount=%lu\nsettingsClass=%@\nsettingsButtonInserted=%@\ninjectAttempts=%lu\nsubscriptionForceCount=%lu\npaymentsForceCount=%lu\nforceSubscriptions=%@\nforcePayments=%@\nlastError=%@",
             gWAGRSettingsRowsAttempted ? @"YES" : @"NO",
             gWAGRSettingsRowsHooksInstalled ? @"YES" : @"NO",
             (unsigned long)gWAGRSettingsRowsInstalledHookCount,
             NSClassFromString(@"WASettingsViewController") ? @"found" : @"missing",
-            gWAGRSettingsRowsWATweaksInserted ? @"YES" : @"NO",
-            gWAGRSettingsRowsDeveloperInserted ? @"YES" : @"NO",
-            gWAGRSettingsRowsPaymentsInserted ? @"YES" : @"NO",
-            gWAGRSettingsRowsFactoryFailed ? @"YES" : @"NO",
-            (unsigned long)gWAGRSettingsRowsInsertAttempts,
+            gWAGRSettingsRowsButtonInserted ? @"YES" : @"NO",
+            (unsigned long)gWAGRSettingsRowsInjectAttempts,
             (unsigned long)gWAGRSettingsRowsSubscriptionForces,
             (unsigned long)gWAGRSettingsRowsPaymentsForces,
             WAGRSettingsRowsShouldForceSubscriptions() ? @"YES" : @"NO",
             WAGRSettingsRowsShouldForcePayments() ? @"YES" : @"NO",
-            WAGRSettingsRowsShouldForceDeveloper() ? @"YES" : @"NO",
             gWAGRSettingsRowsLastError ?: @"none"];
 }

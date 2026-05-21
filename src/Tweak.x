@@ -10,8 +10,8 @@
 //     attachLP, isTrigger and WAGRPresent tokens in this file.
 //
 //   • The UITableView -didMoveToWindow swizzle, which is now only used to
-//     attach the long-press recognizer. Native Settings rows are handled by
-//     WAGRSettingsRowsNativeHooks.xm through WASettingsViewController.
+//     attach the long-press recognizer. The visible WATweaks entry is installed by
+//     WAGRSettingsRowsNativeHooks.xm as a safe settings bar button.
 //
 //   • Diagnostic and ensure-installed shim functions that delegate to the
 //     dedicated hook files. Tweak.x is the orchestrator; specific hooks
@@ -193,8 +193,7 @@ static void attachLP(UITableView *tv) {
 // ── The single hook surface ──────────────────────────────────────────────────
 // Every UITableView calls -didMoveToWindow when it lands on screen. We use
 // that moment only to attach the long-press recognizer, which remains the
-// fallback activation path if the native WASettingsViewController row hook
-// cannot insert the WATweaks WATableRow.
+// fallback activation path if the settings bar button cannot be installed.
 static void hookTableDidMoveToWindow(id self, SEL _cmd) {
     if (orig_tableDidMoveToWindow) orig_tableDidMoveToWindow(self, _cmd);
 
