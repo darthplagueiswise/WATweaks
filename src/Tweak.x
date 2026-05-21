@@ -64,8 +64,8 @@ static BOOL WAGRNativeDebugAllowed(void) {
 }
 
 // ── Modal presentation of the WATweaks menu ──────────────────────────────────
-// Used by the long-press path. The settings-row path uses its own internal
-// presenter in WAGRWATweaksSettingsRow.xm; both end up presenting the same
+// Used by the long-press path. The native settings-row path has its own
+// presenter in WAGRSettingsRowsNativeHooks.xm; both end up presenting the same
 // WAGRSurfaceListVC.
 static void WAGRPresent(UIViewController *from) {
     if (!from) return;
@@ -209,21 +209,22 @@ static void installLongPressTableHook(void) {
 // Tweak.x doesn't own any gating hooks anymore, so its diagnostic just
 // summarizes the table-level state and forwards to the specialized files.
 void WAGRDebugMenuEnsureHooksInstalled(void) {
-    // Convenience: ensure both the dev-menu gates and the WATweaks row hook
-    // are in place. Each ensure-call is idempotent so this is safe to call
-    // multiple times (e.g. when the menu is opened).
+    // Convenience: ensure both the dev-menu gates and the native settings row
+    // hooks are in place. Each ensure-call is idempotent so this is safe to
+    // call multiple times (e.g. when the menu is opened).
     installLongPressTableHook();
     WAGRNativeDevMenuEnsureHooksInstalled();
+    WAGRSettingsRowsNativeEnsureHooksInstalled();
 }
 
 NSString *WAGRDebugMenuDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[WATweaksRow]\n%@\n\n[Router]\n%@",
+        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[Router]\n%@",
         WAGRNativeDebugAllowed() ? @"ON" : @"OFF",
         gTableHooked ? @"YES" : @"NO",
         WAGRNativeDevMenuDiagnosticText() ?: @"n/a",
-        WAGRWATweaksRowDiagnosticText()   ?: @"n/a",
-        WAGRHookRouterDiagnostic()        ?: @"n/a"];
+        WAGRSettingsRowsNativeDiagnosticText() ?: @"n/a",
+        WAGRHookRouterDiagnostic() ?: @"n/a"];
 }
 
 // ── Startup ──────────────────────────────────────────────────────────────────
@@ -237,6 +238,7 @@ static void startup(void) {
         WAGRLGPrefsDidChange();
         installLongPressTableHook();
         WAGRNativeDevMenuEnsureHooksInstalled();
+        WAGRSettingsRowsNativeEnsureHooksInstalled();
 
         if (WAGRPref(@"wagr.startupHooksEnabled")) {
             WAGRReinstallPersistedHooks();
@@ -245,6 +247,7 @@ static void startup(void) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             WAGRNativeDevMenuEnsureHooksInstalled();
+            WAGRSettingsRowsNativeEnsureHooksInstalled();
             if (WAGRPref(@"wagr.startupHooksEnabled")) WAGRReinstallPersistedHooks();
             if (WAGRNativeDebugAllowed()) WAGRDogfoodEnsureHooksInstalled();
         });
