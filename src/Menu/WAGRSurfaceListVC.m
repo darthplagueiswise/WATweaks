@@ -12,6 +12,11 @@
 #import "../Runtime/WAGRSurface.h"
 
 extern void WAGRWAABEnsureHooksInstalled(void);
+// The native dev-menu launcher lives in src/Hooks/WAGRDebugMenuLauncher.xm.
+// It does the heavy lifting of locating a WAContextMain and instantiating
+// WADebugViewController via initWithUserContext:.
+extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
+extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
 static UIColor *WAGRBG(void)     { return UIColor.systemGroupedBackgroundColor; }
 static UIColor *WAGRCell(void)   { return UIColor.secondarySystemGroupedBackgroundColor; }
 static UIColor *WAGRText(void)   { return UIColor.labelColor; }
@@ -116,10 +121,19 @@ static NSUInteger WAGROverrideCountForSurfaceID(NSString *sid) {
 @end
 
 typedef NS_ENUM(NSInteger, WAGRRootSection) {
-    WAGRRootSectionAbout = 0,
+    // The native dev-menu launcher sits at the top so it is the very first
+    // thing the user sees when the WATweaks sheet opens. It is the headline
+    // action — most users only want this one button.
+    WAGRRootSectionDevMenu = 0,
+    WAGRRootSectionAbout,
     WAGRRootSectionBundles,
     WAGRRootSectionAdvanced,
     WAGRRootSectionSystem,
+};
+
+// One row inside the new top section.
+typedef NS_ENUM(NSInteger, WAGRDevMenuRow) {
+    WAGRDevMenuRowOpen = 0,
 };
 
 typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
@@ -180,10 +194,11 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     [self.tableView reloadData];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 4; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 5; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
+        case WAGRRootSectionDevMenu: return 1;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
         case WAGRRootSectionAdvanced: return 3;
@@ -201,6 +216,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 }
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
+        case WAGRRootSectionDevMenu: return @"Menu Developer Nativo";
         case WAGRRootSectionAbout: return nil;
         case WAGRRootSectionBundles: return @"Categorias";
         case WAGRRootSectionAdvanced: return @"Avançado";
@@ -217,6 +233,24 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     return nil;
 }
 
+// The headline action: a single, prominent cell that directly invokes the
+// native WADebugViewController bypassing all gating. The blue tint and the
+// `</>` SF Symbol match the visual contract of WhatsApp's own Developer row.
+- (UITableViewCell *)devMenuCell {
+    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    c.textLabel.text = @"Abrir Menu Developer Nativo";
+    c.textLabel.textColor = WAGRText();
+    c.detailTextLabel.text = @"Apresenta WADebugViewController diretamente";
+    c.detailTextLabel.textColor = WAGRSub();
+    UIImage *icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
+    if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
+    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    c.imageView.tintColor = UIColor.systemBlueColor;
+    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    return c;
+}
+
 - (UITableViewCell *)aboutCell {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
@@ -230,6 +264,34 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     return c;
 }
 
+// Maps a bundle's title fragment to a category-specific tint. The intent is
+// to make the menu scannable at a glance: blue for general-platform items
+// like LiquidGlass, purple for premium/business gates, green for status and
+// calls, orange for AI, red for privacy. Falls back to system gray for any
+// title the map does not recognize.
+static UIColor *WAGRTintForBundleTitle(NSString *title) {
+    NSString *t = title.lowercaseString ?: @"";
+    if ([t containsString:@"liquid"])       return UIColor.systemBlueColor;
+    if ([t containsString:@"aura"] || [t containsString:@"plus"])
+                                            return UIColor.systemPurpleColor;
+    if ([t containsString:@"status"])       return UIColor.systemGreenColor;
+    if ([t containsString:@"channel"])      return UIColor.systemTealColor;
+    if ([t containsString:@"call"])         return UIColor.systemGreenColor;
+    if ([t containsString:@"mensag"] || [t containsString:@"messag"])
+                                            return UIColor.systemBlueColor;
+    if ([t containsString:@"ai"] || [t containsString:@"meta"])
+                                            return UIColor.systemOrangeColor;
+    if ([t containsString:@"privacy"] || [t containsString:@"username"])
+                                            return UIColor.systemRedColor;
+    if ([t containsString:@"premium"] || [t containsString:@"business"])
+                                            return UIColor.systemYellowColor;
+    if ([t containsString:@"setting"] || [t containsString:@"row"])
+                                            return UIColor.systemIndigoColor;
+    if ([t containsString:@"geral"] || [t containsString:@"general"])
+                                            return UIColor.systemGrayColor;
+    return [UIColor colorWithRed:0.6 green:0.65 blue:0.75 alpha:1.0];
+}
+
 - (UITableViewCell *)bundleCellForRow:(NSInteger)row {
     WAGRSurfaceSpec *s = _filteredBundles[(NSUInteger)row];
     NSUInteger count = WAGROverrideCountForSurfaceID(s.surfaceID);
@@ -240,7 +302,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     c.detailTextLabel.text = count ? [NSString stringWithFormat:@"%lu overrides", (unsigned long)count] : (s.subtitle ?: @"");
     c.detailTextLabel.textColor = WAGRSub();
     c.imageView.image = [[UIImage systemImageNamed:s.icon ?: @"circle"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
+    c.imageView.tintColor = WAGRTintForBundleTitle(s.title);
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
@@ -280,6 +342,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     switch ((WAGRRootSection)ip.section) {
+        case WAGRRootSectionDevMenu: return [self devMenuCell];
         case WAGRRootSectionAbout: return [self aboutCell];
         case WAGRRootSectionBundles: return [self bundleCellForRow:ip.row];
         case WAGRRootSectionAdvanced: return [self advancedCellForRow:ip.row];
@@ -318,6 +381,24 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
+
+    if (ip.section == WAGRRootSectionDevMenu) {
+        // Dismiss the WATweaks sheet first, then launch the native menu from
+        // the underlying VC. We do this in sequence (dismiss → launch in the
+        // completion block) because UIKit only allows one modal at a time
+        // from a given presenter, and the native dev menu is itself going to
+        // be presented modally on top of WhatsApp's settings hierarchy.
+        UIViewController *presentedBy = self.presentingViewController;
+        [self dismissViewControllerAnimated:YES completion:^{
+            NSError *err = nil;
+            BOOL ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
+            if (!ok) {
+                WAGRAlert(@"Não foi possível abrir o menu nativo",
+                          err.localizedDescription ?: @"Erro desconhecido.");
+            }
+        }];
+        return;
+    }
 
     if (ip.section == WAGRRootSectionAbout) {
         WAGRAlert(@"WATweaks", @"Acesse este menu de duas formas: (1) long-press no item Ajuda, Developer ou WATweaks da tela de Configurações do WhatsApp, ou (2) toque na linha WATweaks que aparece abaixo do Developer em Configurações.");

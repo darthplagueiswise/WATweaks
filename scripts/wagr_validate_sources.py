@@ -95,4 +95,4 @@ if errors:
         print("ERRO:", e, file=sys.stderr)
     sys.exit(1)
 
-print("OK: WATweaks router Ryuk-style bundle validation passed")
+print("OK: WAGram router Ryuk-style bundle validation passed")
