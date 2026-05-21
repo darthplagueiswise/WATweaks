@@ -691,7 +691,7 @@ extern "C" BOOL WAGRSettingsRowsNativeDidInstallWATweaksRow(void) {
 
 extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void) {
     return [NSString stringWithFormat:
-            @"attempted=%@\nhooksInstalled=%@\ninstalledHookCount=%lu\nsettingsClass=%@\nwatweaksRowInserted=%@\ndeveloperRowInserted=%@\nfactoryFailed=%@\ninsertAttempts=%lu\nsubscriptionForceCount=%lu\nforceSubscriptions=%@\nforceDeveloper=%@\nlastError=%@",
+            @"attempted=%@\nhooksInstalled=%@\ninstalledHookCount=%lu\nsettingsClass=%@\nwatweaksRowInserted=%@\ndeveloperRowInserted=%@\npaymentsRowInserted=%@\nfactoryFailed=%@\ninsertAttempts=%lu\nsubscriptionForceCount=%lu\npaymentsForceCount=%lu\nforceSubscriptions=%@\nforcePayments=%@\nforceDeveloper=%@\nlastError=%@",
             gWAGRSettingsRowsAttempted ? @"YES" : @"NO",
             gWAGRSettingsRowsHooksInstalled ? @"YES" : @"NO",
             (unsigned long)gWAGRSettingsRowsInstalledHookCount,
