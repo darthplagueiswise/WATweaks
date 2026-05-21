@@ -106,30 +106,6 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
                         @[@"liquid", @"glass", @"wds"],
                         @[@"Liquid Glass"], YES, YES, YES, NO),
 
-        WAGRMakeSurface(@"bundle_payments", @"Payments / PIX / UPI",
-                        @"Payment settings, PIX/UPI and payment passkey gates",
-                        @"creditcard",
-                        @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WASettingsViewController"],
-                        @[@"Payment", @"Payments", @"WAPayments", @"BRPayment", @"Pix", @"UPI"],
-                        @[@"payment", @"payments", @"pix", @"upi", @"passkey", @"bank"],
-                        @[@"Payments", @"Settings Rows", @"Premium / Business"], YES, YES, YES, NO),
-
-        WAGRMakeSurface(@"bundle_devices", @"Linked / Primary / Companion",
-                        @"Linked devices, primary-device and companion gates",
-                        @"desktopcomputer.and.iphone",
-                        @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WAContextMain"],
-                        @[@"Linked", @"Companion", @"Primary", @"Device", @"AppStatePrimary"],
-                        @[@"linked", @"companion", @"primary", @"device", @"ipad", @"history_sync"],
-                        @[@"Linked / Primary / Companion", @"Settings Rows", @"Privacy / Username"], YES, YES, YES, NO),
-
-        WAGRMakeSurface(@"bundle_groups", @"Groups / Group AB",
-                        @"Group history, group status and group AB properties",
-                        @"person.3",
-                        @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WAGroupABProperties"],
-                        @[@"Group", @"WAGroup", @"GroupAB", @"SubGroup"],
-                        @[@"group", @"subgroup", @"history", @"jid"],
-                        @[@"Groups / Group AB", @"Status", @"Settings Rows"], YES, YES, YES, NO),
-
         WAGRMakeSurface(@"bundle_aura", @"WA Plus / Aura",
                         @"Aura settings row, benefits, themes, icons, ringtones",
                         @"star",
@@ -238,21 +214,7 @@ NSString *WAGRCategoryForSelector(NSString *name) {
         [s containsString:@"plus"]) return @"WA Plus / Aura";
 
     if ([s containsString:@"liquid"] || [s containsString:@"glass"] ||
-        [s containsString:@"wds"] || [s containsString:@"chatbar"] ||
-        [s containsString:@"topbar"] || [s containsString:@"bottombar"] ||
-        [s containsString:@"nativebar"] || [s containsString:@"sidebar"]) return @"Liquid Glass";
-
-    if ([s containsString:@"payment"] || [s containsString:@"payments"] ||
-        [s containsString:@"pix"] || [s containsString:@"upi"] ||
-        [s containsString:@"bank"] || [s containsString:@"metapay"]) return @"Payments";
-
-    if ([s containsString:@"linked"] || [s containsString:@"companion"] ||
-        [s containsString:@"primary"] || [s containsString:@"device"] ||
-        [s containsString:@"ipad"] || [s containsString:@"historysync"] ||
-        [s containsString:@"history_sync"]) return @"Linked / Primary / Companion";
-
-    if ([s containsString:@"group"] || [s containsString:@"subgroup"] ||
-        [s containsString:@"groupjid"] || [s containsString:@"group history"]) return @"Groups / Group AB";
+        [s containsString:@"wds"]) return @"Liquid Glass";
 
     if ([s containsString:@"ai_"] || [s hasPrefix:@"ai"] ||
         [s containsString:@"metaai"] || [s containsString:@"imagine"] ||

@@ -1,259 +1,164 @@
-// WAGRSecretMenusVC.m
+// WAGRSecretMenusVC.m  (rewritten)
 // ─────────────────────────────────────────────────────────────────────────────
-// Each row is one of WhatsApp's internal/debug controllers. The cell shows
-// the class name plus a green/red dot indicating whether the class is
-// loaded in the runtime right now (some only load lazily when an internal
-// feature flag is set, so the indicator helps the user know what they can
-// actually try).
+// Why this VC was reshaped
+// ────────────────────────
+// The previous version of this file tried to instantiate WhatsApp's hidden
+// Debug view controllers directly via `-initWithUserContext:` and similar.
+// Static analysis of the Swift Debug VCs (and the EXC_BREAKPOINT crash
+// report from a 26.19.10 build) showed those controllers expect a fully-
+// wired Swift environment around them — `WAIsLiquidGlassEnabled` and
+// `FBAnalyticsDeleteLegacyLogPathIfExists` get called inside their init
+// and assert when the surrounding state is missing. Several controllers
+// also crash on dismissal because their Swift teardown reads ivars
+// that were never populated.
 //
-// Tap behaviour: enumerate a small set of init signatures, try each in
-// order, present whichever returns a non-nil VC inside a navigation
-// controller. If none works we surface a UIAlert with the class name
-// and the last failure so the user can report or screenshot the result.
+// The right model for users is not "instantiate this controller" but
+// "make the app believe you are an internal/employee user". When that
+// belief lands, the native Settings → Developer / Subscriptions screens
+// expose their internal cells through WhatsApp's own navigation, which
+// guarantees every cell is wired correctly and nothing crashes.
+//
+// What this VC now does
+// ─────────────────────
+// 1) Master toggles for the two upstream concepts:
+//    • Internal/Employee mode → flips WAServerProperties +isInternalUser
+//      override key (kWAGREmployeeMaster) AND the granular dogfood gate
+//      (kWAGRDogfoodGateInternalUser). That single class method is the
+//      confirmed upstream gate for every is-internal check that goes
+//      through the ObjC bridge.
+//    • Aura simulation mode → flips kWAGRAuraSimulationMaster, which is
+//      the shared "is Aura on?" source of truth read by both WAAuraHooks
+//      and WAGRAccountEligibilityHooks. That is what unlocks the
+//      Subscriptions / WA Plus Settings row natively.
+// 2) Live diagnostic — one row per hook subsystem showing whether it is
+//    actually installed and whether its master is currently ON.
+// 3) Informational list of the ~32 debug VCs found in the binary, with a
+//    green/grey indicator for "loaded at this moment". No tap actions.
+// 4) A short "como usar" footer with the precise sequence.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import "WAGRSecretMenusVC.h"
 #import "../WAGramPrefix.h"
 #import <objc/runtime.h>
-#import <objc/message.h>
 
-// ── Roster of secret view controllers ─────────────────────────────────────
-// The roster is split into two groups so the user has some structure when
-// scanning the list: ObjC classes (plain string class names) and Swift
-// classes (mangled `_TtC...` symbols). Each tuple is (className,
-// human-friendly title, short description).
-typedef struct {
-    __unsafe_unretained NSString *className;
-    __unsafe_unretained NSString *title;
-    __unsafe_unretained NSString *desc;
-} WAGRSecretEntry;
+extern "C" NSString *WAGRDogfoodDiagnosticText(void);
+extern "C" NSString *WAGRAccountEligibilityDiagnostic(void);
+extern "C" NSString *WAGRAuraDiagnostic(void);
+extern "C" NSString *WAGRWAABDiagnosticText(void);
+extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void);
+extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void);
 
-static const WAGRSecretEntry kObjCRoster[] = {
-    {@"WADebugViewController",
-     @"WADebug (master)",
-     @"Top-level developer menu. Same one the Settings → Developer row opens."},
-    {@"WABizFolderDebugViewController",
-     @"BizFolder Debug",
-     @"Business folder/contact tooling, normally only visible in B12 builds."},
-    {@"WACallDebugInfoViewController",
-     @"Call Debug Info",
-     @"Live call inspector — bitrate, codec, RTC stats."},
-    {@"WADebugAccountSyncViewController",
-     @"Account Sync Debug",
-     @"Sync state inspector for multi-device account flows."},
-    {@"WADebugArClassManagerViewController",
-     @"AR Class Manager",
-     @"Augmented-reality class registry inspector."},
-    {@"WADebugArEffectGraphQLViewController",
-     @"AR Effect GraphQL",
-     @"AR effect descriptors fetched via GraphQL."},
-    {@"WADebugArEffectLocalAssetManagerViewController",
-     @"AR Effect Local Assets",
-     @"Local AR-effect asset cache browser."},
-    {@"WADebugArEffectMetadataManagerViewController",
-     @"AR Effect Metadata",
-     @"AR-effect metadata cache."},
-    {@"WADebugArEffectUICatalogueViewController",
-     @"AR Effect UI Catalogue",
-     @"Showroom of every AR effect UI variant."},
-    {@"WADebugCallToneSettingsViewController",
-     @"Call Tone Settings",
-     @"Internal call-tone picker not exposed in the user-visible Settings."},
-    {@"WADebugColorPickerViewController",
-     @"Color Picker",
-     @"Standalone color picker used by internal screens."},
-    {@"WADebugCreateTestDatabaseController",
-     @"Create Test Database",
-     @"Spins up an empty database with synthetic data for QA."},
-    {@"WADebugDateInputViewController",
-     @"Date Input",
-     @"Internal date-input field demo."},
-    {@"WADebugEntryPointAnimationViewController",
-     @"Entry Point Animation",
-     @"Plays the animated entry-point intros used by internal nudges."},
-    {@"WADebugFOANavigationShowcaseViewController",
-     @"FOA Navigation Showcase",
-     @"Family-of-apps navigation patterns showcase."},
-    {@"WADebugIPCStreamingViewController",
-     @"IPC Streaming",
-     @"Inter-process communication stream inspector."},
-    {@"WADebugIgluEffectPreferencesViewController",
-     @"Iglu Effect Preferences",
-     @"Iglu effect engine internal toggles."},
-    {@"WADebugInputViewController",
-     @"Input Debug",
-     @"Generic text-input experiment harness."},
-    {@"WADebugMLViewController",
-     @"ML Debug",
-     @"Machine-learning model loader / inspector."},
-    {@"WADebugPandoGraphQLViewController",
-     @"Pando GraphQL",
-     @"Pando GraphQL endpoint inspector."},
-    {@"WADebugSGStateViewController",
-     @"SG State",
-     @"Signal-graph state inspector."},
-    {@"WADebugShareItemsViewController",
-     @"Share Items Debug",
-     @"Inspect items in the share-extension pipeline."},
-    {@"WADebugWearableAudioViewController",
-     @"Wearable Audio",
-     @"Wearable audio device debug screen."},
-    {@"WAMBIMexDebugViewController",
-     @"MBI Mex Debug",
-     @"Multi-buffer infra / message-exchange inspector."},
-    {@"WAMexDebugViewController",
-     @"Mex Debug",
-     @"Lower-level message-exchange inspector."},
-    {@"WAStatusExternalShareTestingDebuggerViewController",
-     @"Status External Share Testing",
-     @"Status external-share QA harness."},
+typedef NS_ENUM(NSInteger, WAGRSecretSection) {
+    WAGRSecretSectionMasters = 0,
+    WAGRSecretSectionDiagnostic,
+    WAGRSecretSectionList,
+    WAGRSecretSectionHowTo,
+    WAGRSecretSectionCount,
 };
 
-static const WAGRSecretEntry kSwiftRoster[] = {
-    {@"_TtC16WADebugMenuYouth28DebugBrazilO13ViewController",
-     @"Brazil O13 (Youth)",
-     @"Brazil-specific O13 youth-compliance debug screen."},
-    {@"_TtC18WADebugMenuInterop31InteropGroupDebugViewController",
-     @"Interop Group Debug",
-     @"Cross-app interoperability group debug surface."},
-    {@"_TtC19WADebugMenuArEffect33DebugAREffectAssetsViewController",
-     @"AR Effect Assets (Swift)",
-     @"Swift-side AR-effect asset debugger."},
-    {@"_TtC19WADebugMenuArEffect34DebugArEffectLoadingViewController",
-     @"AR Effect Loading",
-     @"AR-effect loading-state inspector."},
-    {@"_TtC19WADebugMenuArEffect34DebugArEffectTouchUpViewController",
-     @"AR Effect Touch-Up",
-     @"AR-effect touch-up tooling."},
-    {@"_TtC19WADebugMenuArEffect37DebugArEffectEffectTrayViewController",
-     @"AR Effect Effect Tray",
-     @"AR-effect effect-tray inspector."},
-    {@"_TtC13WAGraphQLAuth41GraphQLAuthManagerDebugToolViewController",
-     @"GraphQL Auth Debug",
-     @"GraphQL auth-manager debug tool."},
-};
-
-#define OBJC_ROSTER_COUNT  (sizeof(kObjCRoster)/sizeof(kObjCRoster[0]))
-#define SWIFT_ROSTER_COUNT (sizeof(kSwiftRoster)/sizeof(kSwiftRoster[0]))
-
-// ── userContext discovery (mirrors WAGRDebugMenuLauncher's logic) ─────────
-// Several of the debug VCs require a WAContextMain singleton through
-// -initWithUserContext:. We walk the live view-controller graph to find
-// one. The duplicated logic is small enough to keep local; making it a
-// shared helper would mean refactoring an unrelated file.
-static id wagr_secretFindUserContext(UIViewController *vc, NSInteger depth) {
-    if (!vc || depth > 20) return nil;
-    SEL sel = NSSelectorFromString(@"wa_userContext");
-    if ([vc respondsToSelector:sel]) {
-        id ctx = ((id (*)(id, SEL))objc_msgSend)(vc, sel);
-        if (ctx && [NSStringFromClass([ctx class]) containsString:@"Context"]) return ctx;
-    }
-    Ivar iv = class_getInstanceVariable([vc class], "_userContext");
-    if (iv) {
-        id ctx = object_getIvar(vc, iv);
-        if (ctx) return ctx;
-    }
-    for (UIViewController *child in vc.childViewControllers) {
-        id c = wagr_secretFindUserContext(child, depth + 1);
-        if (c) return c;
-    }
-    if (vc.presentedViewController) {
-        return wagr_secretFindUserContext(vc.presentedViewController, depth + 1);
-    }
-    return nil;
+// ─── Master toggles ───────────────────────────────────────────────────────
+// Each master flips a set of underlying pref keys atomically. Defining
+// them as plain dictionaries keeps the row handler dumb and lets us add
+// or remove keys later without touching switch handler logic.
+static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
+    return @[
+        @{ @"title":    @"Modo Internal / Employee",
+           @"subtitle": @"WAServerProperties +isInternalUser → YES. Libera Settings → Developer e fluxos internos no próximo launch.",
+           @"icon":     @"person.crop.circle.badge.checkmark",
+           @"keys":     @[ kWAGREmployeeMaster,
+                           kWAGRDogfoodGateInternalUser,
+                           kWAGRDogfoodGateMetaEmployee,
+                           kWAGRDogfoodGateMetaEmployeeSnake,
+                           kWAGRDogfoodGateGraphQLEmpC1,
+                           kWAGRInternalMaster,
+                           kWAGRDebugMode ] },
+        @{ @"title":    @"Simulação Aura / WA Plus",
+           @"subtitle": @"WAAuraGating + WAAccountEligibility -isEligibleForSubscriptions → YES. Faz aparecer a row Subscriptions em Settings.",
+           @"icon":     @"sparkles",
+           @"keys":     @[ @"wagr_aura_simulation_enabled" ] },
+    ];
 }
 
-static id wagr_secretFindUserContextAnywhere(void) {
-    for (UIWindow *win in UIApplication.sharedApplication.windows) {
-        id c = wagr_secretFindUserContext(win.rootViewController, 0);
-        if (c) return c;
+static BOOL WAGRMasterIsOn(NSDictionary *toggle) {
+    for (NSString *k in (NSArray *)toggle[@"keys"]) {
+        if ([NSUserDefaults.standardUserDefaults boolForKey:k]) return YES;
     }
-    return nil;
+    return NO;
 }
 
-// ── Instantiation strategy ────────────────────────────────────────────────
-// Try every init signature in priority order until one yields a non-nil VC.
-// The order matters: the one most likely to populate the controller with
-// useful state comes first.
-static UIViewController *wagr_secretInstantiate(NSString *className, NSString **outErr) {
-    Class cls = NSClassFromString(className);
-    if (!cls) {
-        if (outErr) *outErr = [NSString stringWithFormat:
-            @"Class %@ is not loaded in the runtime.", className];
-        return nil;
+static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
+    NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
+    for (NSString *k in (NSArray *)toggle[@"keys"]) {
+        if (on) [ud setBool:YES forKey:k];
+        else    [ud removeObjectForKey:k];
     }
-
-    NSMutableArray<NSString *> *failures = [NSMutableArray array];
-    id ctx = wagr_secretFindUserContextAnywhere();
-
-    // Strategy A — initWithUserContext: (most internal Debug VCs use this)
-    SEL sUserCtx = NSSelectorFromString(@"initWithUserContext:");
-    if (ctx && [cls instancesRespondToSelector:sUserCtx]) {
-        id inst = [cls alloc];
-        if (inst) {
-            id (*fn)(id, SEL, id) = (id (*)(id, SEL, id))[inst methodForSelector:sUserCtx];
-            id result = fn(inst, sUserCtx, ctx);
-            if ([result isKindOfClass:UIViewController.class]) return (UIViewController *)result;
-            [failures addObject:@"initWithUserContext: returned nil"];
-        }
-    } else if (!ctx) {
-        [failures addObject:@"no live userContext for initWithUserContext:"];
-    }
-
-    // Strategy B — initAsModalWithUserContext:
-    SEL sModal = NSSelectorFromString(@"initAsModalWithUserContext:");
-    if (ctx && [cls instancesRespondToSelector:sModal]) {
-        id inst = [cls alloc];
-        if (inst) {
-            id (*fn)(id, SEL, id) = (id (*)(id, SEL, id))[inst methodForSelector:sModal];
-            id result = fn(inst, sModal, ctx);
-            if ([result isKindOfClass:UIViewController.class]) return (UIViewController *)result;
-            [failures addObject:@"initAsModalWithUserContext: returned nil"];
-        }
-    }
-
-    // Strategy C — initWithStyle: (WATableViewController subclasses)
-    SEL sStyle = NSSelectorFromString(@"initWithStyle:");
-    if ([cls instancesRespondToSelector:sStyle]) {
-        id inst = [cls alloc];
-        if (inst) {
-            id (*fn)(id, SEL, long) = (id (*)(id, SEL, long))[inst methodForSelector:sStyle];
-            id result = fn(inst, sStyle, (long)UITableViewStyleInsetGrouped);
-            if ([result isKindOfClass:UIViewController.class]) return (UIViewController *)result;
-            [failures addObject:@"initWithStyle: returned nil"];
-        }
-    }
-
-    // Strategy D — initWithNibName:bundle:
-    SEL sNib = NSSelectorFromString(@"initWithNibName:bundle:");
-    if ([cls instancesRespondToSelector:sNib]) {
-        id inst = [cls alloc];
-        if (inst) {
-            id (*fn)(id, SEL, id, id) = (id (*)(id, SEL, id, id))[inst methodForSelector:sNib];
-            id result = fn(inst, sNib, nil, nil);
-            if ([result isKindOfClass:UIViewController.class]) return (UIViewController *)result;
-            [failures addObject:@"initWithNibName:bundle: returned nil"];
-        }
-    }
-
-    // Strategy E — plain -init
-    @try {
-        id inst = [[cls alloc] init];
-        if ([inst isKindOfClass:UIViewController.class]) return (UIViewController *)inst;
-        [failures addObject:@"-init returned nil"];
-    } @catch (NSException *e) {
-        [failures addObject:[NSString stringWithFormat:@"-init raised %@", e.name]];
-    }
-
-    if (outErr) {
-        *outErr = [NSString stringWithFormat:
-            @"All init strategies failed for %@:\n  • %@",
-            className, [failures componentsJoinedByString:@"\n  • "]];
-    }
-    return nil;
+    [ud synchronize];
+    NSLog(@"[WATweaks][SecretPanel] %@ master toggle → %@",
+          toggle[@"title"], on ? @"ON" : @"OFF");
 }
 
-// ── VC ────────────────────────────────────────────────────────────────────
+// ─── Diagnostic rows ──────────────────────────────────────────────────────
+static NSArray<NSDictionary *> *WAGRDiagnosticRows(void) {
+    return @[
+        @{ @"name": @"Employee / isInternalUser hook", @"fn": @"dogfood" },
+        @{ @"name": @"WAAccountEligibility hook",       @"fn": @"elig" },
+        @{ @"name": @"Aura gating hook",                @"fn": @"aura" },
+        @{ @"name": @"WAABProperties observer",         @"fn": @"waab" },
+        @{ @"name": @"Native dev-menu hook",            @"fn": @"devmenu" },
+        @{ @"name": @"Settings rows native hook",       @"fn": @"settings" },
+    ];
+}
+
+static NSString *WAGRDiagnosticText(NSString *fn) {
+    if ([fn isEqualToString:@"dogfood"])  return WAGRDogfoodDiagnosticText();
+    if ([fn isEqualToString:@"elig"])     return WAGRAccountEligibilityDiagnostic();
+    if ([fn isEqualToString:@"aura"])     return WAGRAuraDiagnostic();
+    if ([fn isEqualToString:@"waab"])     return WAGRWAABDiagnosticText();
+    if ([fn isEqualToString:@"devmenu"])  return WAGRNativeDevMenuDiagnosticText();
+    if ([fn isEqualToString:@"settings"]) return WAGRSettingsRowsNativeDiagnosticText();
+    return @"(no diagnostic)";
+}
+
+// ─── Debug VC roster (informational only) ─────────────────────────────────
+static NSArray<NSString *> *WAGRSecretVCRoster(void) {
+    return @[
+        @"WADebugViewController",
+        @"WABizFolderDebugViewController",
+        @"WACallDebugInfoViewController",
+        @"WADebugAccountSyncViewController",
+        @"WADebugArClassManagerViewController",
+        @"WADebugArEffectGraphQLViewController",
+        @"WADebugArEffectLocalAssetManagerViewController",
+        @"WADebugArEffectMetadataManagerViewController",
+        @"WADebugArEffectUICatalogueViewController",
+        @"WADebugCallToneSettingsViewController",
+        @"WADebugColorPickerViewController",
+        @"WADebugCreateTestDatabaseController",
+        @"WADebugDateInputViewController",
+        @"WADebugEntryPointAnimationViewController",
+        @"WADebugFOANavigationShowcaseViewController",
+        @"WADebugIPCStreamingViewController",
+        @"WADebugIgluEffectPreferencesViewController",
+        @"WADebugInputViewController",
+        @"WADebugMLViewController",
+        @"WADebugPandoGraphQLViewController",
+        @"WADebugSGStateViewController",
+        @"WADebugShareItemsViewController",
+        @"WADebugWearableAudioViewController",
+        @"WAMBIMexDebugViewController",
+        @"WAMexDebugViewController",
+        @"WAStatusExternalShareTestingDebuggerViewController",
+        @"_TtC16WADebugMenuYouth28DebugBrazilO13ViewController",
+        @"_TtC18WADebugMenuInterop31InteropGroupDebugViewController",
+        @"_TtC19WADebugMenuArEffect33DebugAREffectAssetsViewController",
+        @"_TtC19WADebugMenuArEffect34DebugArEffectLoadingViewController",
+        @"_TtC19WADebugMenuArEffect34DebugArEffectTouchUpViewController",
+        @"_TtC19WADebugMenuArEffect37DebugArEffectEffectTrayViewController",
+        @"_TtC13WAGraphQLAuth41GraphQLAuthManagerDebugToolViewController",
+    ];
+}
+
+// ─── VC ───────────────────────────────────────────────────────────────────
 @implementation WAGRSecretMenusVC
 
 - (instancetype)init {
@@ -267,87 +172,140 @@ static UIViewController *wagr_secretInstantiate(NSString *className, NSString **
     self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? (NSInteger)OBJC_ROSTER_COUNT : (NSInteger)SWIFT_ROSTER_COUNT;
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
+    return WAGRSecretSectionCount;
 }
 
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return section == 0 ? @"ObjC debug controllers" : @"Swift debug controllers";
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
+    switch ((WAGRSecretSection)s) {
+        case WAGRSecretSectionMasters:    return (NSInteger)WAGRMasterToggles().count;
+        case WAGRSecretSectionDiagnostic: return (NSInteger)WAGRDiagnosticRows().count;
+        case WAGRSecretSectionList:       return (NSInteger)WAGRSecretVCRoster().count;
+        case WAGRSecretSectionHowTo:      return 1;
+        case WAGRSecretSectionCount:      return 0;
+    }
+    return 0;
 }
 
-- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (section == 1) {
-        return @"Verde = classe carregada no runtime · cinza = ainda não carregada.\n"
-                "Algumas só carregam quando o WhatsApp ativa o módulo correspondente "
-                "(ex.: AR effects só após abrir a câmera com efeitos).";
+- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
+    switch ((WAGRSecretSection)s) {
+        case WAGRSecretSectionMasters:    return @"ATIVAR MASTER";
+        case WAGRSecretSectionDiagnostic: return @"DIAGNÓSTICO";
+        case WAGRSecretSectionList:       return @"CONTROLLERS DEBUG NO BINÁRIO";
+        case WAGRSecretSectionHowTo:      return @"COMO USAR";
+        case WAGRSecretSectionCount:      return nil;
+    }
+    return nil;
+}
+
+- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
+    if (s == WAGRSecretSectionList) {
+        return @"Apenas informativo. Verde = classe carregada no runtime agora; cinza = ainda não carregada. Não abrimos por tap porque os Swift Debug VCs esperam ambiente do WhatsApp totalmente montado e dão SIGTRAP se forem instanciados por fora.";
+    }
+    if (s == WAGRSecretSectionMasters) {
+        return @"Ligue → restarte o WhatsApp → abra Settings → Developer NATIVAMENTE pelo app. As células internas funcionam porque o WhatsApp monta o Swift environment.";
     }
     return nil;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    WAGRSecretEntry e = ip.section == 0 ? kObjCRoster[ip.row] : kSwiftRoster[ip.row];
-
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
-                                                reuseIdentifier:nil];
+    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = e.title;
-    c.textLabel.textColor = UIColor.labelColor;
-    c.detailTextLabel.text = e.desc;
-    c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
-    c.detailTextLabel.numberOfLines = 0;
-    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
-    // Loaded-class indicator: a small circle in the imageView slot.
-    BOOL loaded = NSClassFromString(e.className) != nil;
-    UIImage *dot = [UIImage systemImageNamed:@"circle.fill"];
-    c.imageView.image = [dot imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = loaded
-        ? [UIColor colorWithRed:0.30 green:0.78 blue:0.45 alpha:1]
-        : UIColor.tertiaryLabelColor;
+    switch ((WAGRSecretSection)ip.section) {
+        case WAGRSecretSectionMasters: {
+            NSDictionary *t = WAGRMasterToggles()[ip.row];
+            c.textLabel.text = t[@"title"];
+            c.textLabel.textColor = UIColor.labelColor;
+            c.detailTextLabel.text = t[@"subtitle"];
+            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+            c.detailTextLabel.numberOfLines = 0;
+            UIImage *icon = [UIImage systemImageNamed:t[@"icon"]];
+            c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            c.imageView.tintColor = UIColor.systemOrangeColor;
 
+            UISwitch *sw = [[UISwitch alloc] init];
+            sw.on = WAGRMasterIsOn(t);
+            sw.tag = ip.row;
+            [sw addTarget:self action:@selector(toggleMaster:) forControlEvents:UIControlEventValueChanged];
+            c.accessoryView = sw;
+            c.selectionStyle = UITableViewCellSelectionStyleNone;
+            return c;
+        }
+        case WAGRSecretSectionDiagnostic: {
+            NSDictionary *d = WAGRDiagnosticRows()[ip.row];
+            c.textLabel.text = d[@"name"];
+            c.textLabel.textColor = UIColor.labelColor;
+            NSString *full = WAGRDiagnosticText(d[@"fn"]) ?: @"";
+            NSString *firstLine = [[full componentsSeparatedByString:@"\n"] firstObject] ?: @"";
+            c.detailTextLabel.text = firstLine;
+            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+            UIImage *icon = [UIImage systemImageNamed:@"stethoscope"];
+            c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            c.imageView.tintColor = UIColor.systemBlueColor;
+            c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+            return c;
+        }
+        case WAGRSecretSectionList: {
+            NSString *cls = WAGRSecretVCRoster()[ip.row];
+            c.textLabel.text = cls;
+            c.textLabel.font = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular];
+            c.textLabel.textColor = UIColor.labelColor;
+            c.textLabel.numberOfLines = 0;
+            BOOL loaded = NSClassFromString(cls) != nil;
+            UIImage *dot = [UIImage systemImageNamed:@"circle.fill"];
+            c.imageView.image = [dot imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            c.imageView.tintColor = loaded
+                ? [UIColor colorWithRed:0.30 green:0.78 blue:0.45 alpha:1]
+                : UIColor.tertiaryLabelColor;
+            c.selectionStyle = UITableViewCellSelectionStyleNone;
+            return c;
+        }
+        case WAGRSecretSectionHowTo: {
+            c.textLabel.text = @"Sequência recomendada";
+            c.textLabel.textColor = UIColor.labelColor;
+            c.detailTextLabel.text = @"1. Ligue \"Modo Internal\" e/ou \"Simulação Aura\" acima.\n"
+                                      "2. Force-quit e reabra o WhatsApp uma vez.\n"
+                                      "3. Abra Configurações no app. A row Developer aparece abaixo do bloco Meta; Subscriptions / WA Plus aparece com Aura ligado.\n"
+                                      "4. Toque NATIVAMENTE — não use o launcher modal do WATweaks para essas células.";
+            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+            c.detailTextLabel.numberOfLines = 0;
+            UIImage *icon = [UIImage systemImageNamed:@"list.number"];
+            c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            c.imageView.tintColor = UIColor.systemTealColor;
+            c.selectionStyle = UITableViewCellSelectionStyleNone;
+            return c;
+        }
+        case WAGRSecretSectionCount: break;
+    }
     return c;
 }
 
-- (CGFloat)tableView:(UITableView *)tv estimatedHeightForRowAtIndexPath:(NSIndexPath *)ip {
-    return 66;
-}
-
+- (CGFloat)tableView:(UITableView *)tv estimatedHeightForRowAtIndexPath:(NSIndexPath *)ip { return 66; }
 - (CGFloat)tableView:(UITableView *)tv heightForRowAtIndexPath:(NSIndexPath *)ip {
     return UITableViewAutomaticDimension;
 }
 
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)ip {
-    [tableView deselectRowAtIndexPath:ip animated:YES];
-    WAGRSecretEntry e = ip.section == 0 ? kObjCRoster[ip.row] : kSwiftRoster[ip.row];
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    [tv deselectRowAtIndexPath:ip animated:YES];
+    if (ip.section != WAGRSecretSectionDiagnostic) return;
 
-    NSString *err = nil;
-    UIViewController *target = wagr_secretInstantiate(e.className, &err);
-    if (!target) {
-        UIAlertController *alert = [UIAlertController
-            alertControllerWithTitle:e.title
-                             message:err ?: @"Falha desconhecida."
-                      preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK"
-                                                  style:UIAlertActionStyleDefault
-                                                handler:nil]];
-        [self presentViewController:alert animated:YES completion:nil];
-        return;
-    }
+    NSDictionary *d = WAGRDiagnosticRows()[ip.row];
+    NSString *full = WAGRDiagnosticText(d[@"fn"]) ?: @"(no diagnostic)";
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:d[@"name"]
+                         message:full
+                  preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+                                              style:UIAlertActionStyleDefault
+                                            handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
 
-    // Wrap in a nav controller with a Done button so the user can dismiss
-    // when presented modally. If the secret VC already has its own nav
-    // bar items, our Done button is added on top of them, never replacing.
-    UINavigationController *nav = [[UINavigationController alloc]
-        initWithRootViewController:target];
-    nav.modalPresentationStyle = UIModalPresentationFullScreen;
-    target.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-                             target:nav
-                             action:@selector(dismissViewControllerAnimated:completion:)];
-
-    [self presentViewController:nav animated:YES completion:nil];
+- (void)toggleMaster:(UISwitch *)sw {
+    NSDictionary *t = WAGRMasterToggles()[sw.tag];
+    WAGRMasterApply(t, sw.on);
+    [self.tableView reloadData];
 }
 
 @end

@@ -389,9 +389,9 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
 - (UITableViewCell *)secretMenusCell {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = @"Abrir Menus Secretos do App";
+    c.textLabel.text = @"Painel Internal / Aura";
     c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = @"25+ debug VCs ocultos: AR, Call, ML, GraphQL, etc.";
+    c.detailTextLabel.text = @"Masters de internal/employee + Aura, diagnóstico ao vivo, lista de Debug VCs";
     c.detailTextLabel.textColor = WAGRSub();
     UIImage *icon = [UIImage systemImageNamed:@"key.fill"];
     if (!icon) icon = [UIImage systemImageNamed:@"lock.open.fill"];
