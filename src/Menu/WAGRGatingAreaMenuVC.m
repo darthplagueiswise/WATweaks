@@ -142,7 +142,7 @@ static const void *kWAGREntryAssocKey = &kWAGREntryAssocKey;
               e.className, e.isClassMethod ? '+' : '-', e.selectorName, (!e.inverted) ? @"YES" : @"NO", key);
     } else {
         [ud removeObjectForKey:key];
-        NSLog(@"[WATweaks][Catalog] override OFF for %@ %c%@ (key=%@)",
+        NSLog(@"[WATweaks][Catalog] override OFF for %@ %c%@ (physical=%@ key=%@)",
               e.className, e.isClassMethod ? '+' : '-', e.selectorName, (!e.inverted) ? @"YES" : @"NO", key);
     }
     [ud synchronize];
