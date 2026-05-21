@@ -46,6 +46,13 @@ extern void       WAGRSettingsRowsNativeEnsureHooksInstalled(void);
 extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
 extern void       WAGRSettingsRowsNativeInjectIfPossible(id settingsVC);
 
+// WAAccountEligibility surface — the real gate the Settings VC consults
+// for the Subscriptions / WA Plus row, plus several other family-of-apps
+// surface eligibilities. Lives in SharedModules; loaded slightly after the
+// main image, so the bootstrap is delay-staggered like the WAAB observer.
+extern void       WAGRAccountEligibilityEnsureHooksInstalled(void);
+extern NSString  *WAGRAccountEligibilityDiagnostic(void);
+
 // ── Long-press setup ─────────────────────────────────────────────────────────
 // kLP is the associated-object key used to mark a UITableView as "long-press
 // already attached", so we never double-attach when -didMoveToWindow fires
@@ -256,6 +263,10 @@ static void startup(void) {
         WAGRLGPrefsDidChange();
         installLongPressTableHook();
         WAGRNativeDevMenuEnsureHooksInstalled();
+        // WAAccountEligibility hooks own the real Subscriptions/Aura row
+        // visibility gate. Install at startup AND on the deferred pass so
+        // SharedModules is guaranteed to be in-process by the second call.
+        WAGRAccountEligibilityEnsureHooksInstalled();
 
         if (WAGRPref(@"wagr.startupHooksEnabled")) {
             WAGRReinstallPersistedHooks();
@@ -264,6 +275,7 @@ static void startup(void) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             WAGRNativeDevMenuEnsureHooksInstalled();
+            WAGRAccountEligibilityEnsureHooksInstalled();
             if (WAGRPref(@"wagr.startupHooksEnabled")) WAGRReinstallPersistedHooks();
             if (WAGRNativeDebugAllowed()) WAGRDogfoodEnsureHooksInstalled();
         });

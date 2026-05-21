@@ -82,7 +82,10 @@ static NSArray<NSString *> *WAGRAuraNegativeFlags(void) {
     ];
 }
 
-static BOOL WAGRAuraSimulationEnabled(void) {
+// Exposed as extern "C" so WAGRAccountEligibilityHooks.xm can read the
+// same canonical Aura-simulation flag — keeping a single source of truth
+// for "is Aura simulation on?" instead of duplicating the key lookup.
+extern "C" BOOL WAGRAuraSimulationEnabled(void) {
     return [[NSUserDefaults standardUserDefaults] boolForKey:kWAGRAuraSimulationMaster];
 }
 

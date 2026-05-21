@@ -9,6 +9,7 @@
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRGatingCatalog.h"
 #import "WAGRGatingAreaMenuVC.h"
+#import "WAGRSecretMenusVC.h"
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
@@ -127,6 +128,10 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
     // thing the user sees when the WATweaks sheet opens. It is the headline
     // action — most users only want this one button.
     WAGRRootSectionDevMenu = 0,
+    // Curated list of ~25 hidden WhatsApp debug VCs that ship in the
+    // binary but are not exposed in normal UI. One tap = try every known
+    // init signature and present the controller modally.
+    WAGRRootSectionSecret,
     // The new curated, data-driven gating-area menus. Each row pushes a
     // WAGRGatingAreaMenuVC seeded with that area's catalog entries. This
     // is the primary path going forward — the older "Categorias" section
@@ -201,11 +206,12 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     [self.tableView reloadData];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 6; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 7; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
         case WAGRRootSectionDevMenu: return 1;
+        case WAGRRootSectionSecret: return 1;
         case WAGRRootSectionAreas: return (NSInteger)WAGRGatingAreaCount;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
@@ -225,6 +231,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
         case WAGRRootSectionDevMenu: return @"Menu Developer Nativo";
+        case WAGRRootSectionSecret: return @"Menus Secretos do App";
         case WAGRRootSectionAreas: return @"Áreas de Gating (Curadas)";
         case WAGRRootSectionAbout: return nil;
         case WAGRRootSectionBundles: return @"Categorias";
@@ -375,14 +382,34 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     return c;
 }
 
+// Single cell for the Secret menus entry. The "key" icon and the
+// orange tint signal that this is an "unlocks something usually hidden"
+// action — different visual contract from the blue dev-menu launcher
+// and the per-area cells so the user can tell them apart at a glance.
+- (UITableViewCell *)secretMenusCell {
+    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    c.textLabel.text = @"Abrir Menus Secretos do App";
+    c.textLabel.textColor = WAGRText();
+    c.detailTextLabel.text = @"25+ debug VCs ocultos: AR, Call, ML, GraphQL, etc.";
+    c.detailTextLabel.textColor = WAGRSub();
+    UIImage *icon = [UIImage systemImageNamed:@"key.fill"];
+    if (!icon) icon = [UIImage systemImageNamed:@"lock.open.fill"];
+    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    c.imageView.tintColor = UIColor.systemOrangeColor;
+    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    return c;
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     switch ((WAGRRootSection)ip.section) {
         case WAGRRootSectionDevMenu: return [self devMenuCell];
-        case WAGRRootSectionAreas: return [self areaCellForRow:ip.row];
-        case WAGRRootSectionAbout: return [self aboutCell];
+        case WAGRRootSectionSecret:  return [self secretMenusCell];
+        case WAGRRootSectionAreas:   return [self areaCellForRow:ip.row];
+        case WAGRRootSectionAbout:   return [self aboutCell];
         case WAGRRootSectionBundles: return [self bundleCellForRow:ip.row];
-        case WAGRRootSectionAdvanced: return [self advancedCellForRow:ip.row];
-        case WAGRRootSectionSystem: return [self systemCellForRow:ip.row];
+        case WAGRRootSectionAdvanced:return [self advancedCellForRow:ip.row];
+        case WAGRRootSectionSystem:  return [self systemCellForRow:ip.row];
     }
     return [UITableViewCell new];
 }
@@ -433,6 +460,15 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
                           err.localizedDescription ?: @"Erro desconhecido.");
             }
         }];
+        return;
+    }
+
+    if (ip.section == WAGRRootSectionSecret) {
+        // Push the dedicated VC. Stays inside the WATweaks navigation stack
+        // — the user can back out and pick a different one without leaving
+        // the WATweaks menu.
+        WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
+        [self.navigationController pushViewController:vc animated:YES];
         return;
     }
 
