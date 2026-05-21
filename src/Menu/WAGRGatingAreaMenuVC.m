@@ -137,13 +137,13 @@ static const void *kWAGREntryAssocKey = &kWAGREntryAssocKey;
         // router translates that to the right physical return value at
         // call time, using the catalog's inverted flag as a separate
         // signal. This keeps the persistence layer simple and consistent.
-        [ud setBool:YES forKey:key];
-        NSLog(@"[WATweaks][Catalog] override ON  for %@ %c%@ (key=%@)",
-              e.className, e.isClassMethod ? '+' : '-', e.selectorName, key);
+        [ud setBool:(!e.inverted) forKey:key];
+        NSLog(@"[WATweaks][Catalog] override ON  for %@ %c%@ (physical=%@ key=%@)",
+              e.className, e.isClassMethod ? '+' : '-', e.selectorName, (!e.inverted) ? @"YES" : @"NO", key);
     } else {
         [ud removeObjectForKey:key];
         NSLog(@"[WATweaks][Catalog] override OFF for %@ %c%@ (key=%@)",
-              e.className, e.isClassMethod ? '+' : '-', e.selectorName, key);
+              e.className, e.isClassMethod ? '+' : '-', e.selectorName, (!e.inverted) ? @"YES" : @"NO", key);
     }
     [ud synchronize];
 

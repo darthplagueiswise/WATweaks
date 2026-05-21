@@ -182,7 +182,7 @@ static UIViewController *wagr_top_vc_from(UIView *view) {
 static UIView *wagr_build_footer(CGFloat width) {
     const CGFloat sectionTop  = 35;
     const CGFloat rowHeight   = 60;
-    const CGFloat sideInset   = 16;
+    const CGFloat sideInset   = 38;
     const CGFloat bottomInset = 20;
     const CGFloat totalHeight = sectionTop + rowHeight + bottomInset;
 
