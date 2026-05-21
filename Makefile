@@ -44,10 +44,10 @@ include $(THEOS_MAKE_PATH)/tweak.mk
 
 # ── Stage: copy WAAB catalog + docs into deb ─────────────────────────────────
 after-stage::
-	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WAGram"
+	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks"
 	@for f in resources/*.json.gz; do \
-		[ -f "$$f" ] && gzip -dc "$$f" > "$(THEOS_STAGING_DIR)/Library/Application Support/WAGram/$$(basename "$$f" .gz)" 2>/dev/null || true; \
+		[ -f "$$f" ] && gzip -dc "$$f" > "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/$$(basename "$$f" .gz)" 2>/dev/null || true; \
 	done
-	@cp -f resources/*.json "$(THEOS_STAGING_DIR)/Library/Application Support/WAGram/" 2>/dev/null || true
-	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WAGram/docs"
-	@cp -f docs/*.md "$(THEOS_STAGING_DIR)/Library/Application Support/WAGram/docs/" 2>/dev/null || true
+	@cp -f resources/*.json "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/" 2>/dev/null || true
+	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/docs"
+	@cp -f docs/*.md "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/docs/" 2>/dev/null || true

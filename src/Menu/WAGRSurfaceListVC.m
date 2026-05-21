@@ -7,6 +7,8 @@
 #import <stdlib.h>
 #import "WAGRSurfaceListVC.h"
 #import "WAGRSurfaceBrowserVC.h"
+#import "WAGRGatingCatalog.h"
+#import "WAGRGatingAreaMenuVC.h"
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
@@ -125,6 +127,11 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
     // thing the user sees when the WATweaks sheet opens. It is the headline
     // action — most users only want this one button.
     WAGRRootSectionDevMenu = 0,
+    // The new curated, data-driven gating-area menus. Each row pushes a
+    // WAGRGatingAreaMenuVC seeded with that area's catalog entries. This
+    // is the primary path going forward — the older "Categorias" section
+    // (bundle scans) is kept below for backward compatibility.
+    WAGRRootSectionAreas,
     WAGRRootSectionAbout,
     WAGRRootSectionBundles,
     WAGRRootSectionAdvanced,
@@ -194,11 +201,12 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     [self.tableView reloadData];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 5; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 6; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
         case WAGRRootSectionDevMenu: return 1;
+        case WAGRRootSectionAreas: return (NSInteger)WAGRGatingAreaCount;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
         case WAGRRootSectionAdvanced: return 3;
@@ -217,6 +225,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
         case WAGRRootSectionDevMenu: return @"Menu Developer Nativo";
+        case WAGRRootSectionAreas: return @"Áreas de Gating (Curadas)";
         case WAGRRootSectionAbout: return nil;
         case WAGRRootSectionBundles: return @"Categorias";
         case WAGRRootSectionAdvanced: return @"Avançado";
@@ -247,6 +256,32 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
     c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.imageView.tintColor = UIColor.systemBlueColor;
+    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    return c;
+}
+
+// Cell for a single gating area. The icon and tint reflect the area's
+// semantic (drop for LiquidGlass, star for Aura, eye-slash for hidden rows,
+// etc.). The detail line shows the curated-entry count so the user knows
+// at a glance whether the area is populated yet.
+- (UITableViewCell *)areaCellForRow:(NSInteger)row {
+    WAGRGatingArea area = (WAGRGatingArea)row;
+    NSUInteger count = [WAGRGatingCatalog countForArea:area];
+
+    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    c.textLabel.text = WAGRGatingAreaTitle(area);
+    c.textLabel.textColor = WAGRText();
+
+    NSString *baseSub = WAGRGatingAreaSubtitle(area) ?: @"";
+    NSString *suffix = count == 0 ? @"  ·  vazio (catálogo pendente)"
+                                  : [NSString stringWithFormat:@"  ·  %lu gates", (unsigned long)count];
+    c.detailTextLabel.text = [baseSub stringByAppendingString:suffix];
+    c.detailTextLabel.textColor = count == 0 ? UIColor.tertiaryLabelColor : WAGRSub();
+
+    UIImage *icon = [UIImage systemImageNamed:WAGRGatingAreaIconName(area)];
+    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    c.imageView.tintColor = WAGRTintForBundleTitle(WAGRGatingAreaTitle(area));
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
@@ -343,6 +378,7 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     switch ((WAGRRootSection)ip.section) {
         case WAGRRootSectionDevMenu: return [self devMenuCell];
+        case WAGRRootSectionAreas: return [self areaCellForRow:ip.row];
         case WAGRRootSectionAbout: return [self aboutCell];
         case WAGRRootSectionBundles: return [self bundleCellForRow:ip.row];
         case WAGRRootSectionAdvanced: return [self advancedCellForRow:ip.row];
@@ -397,6 +433,13 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
                           err.localizedDescription ?: @"Erro desconhecido.");
             }
         }];
+        return;
+    }
+
+    if (ip.section == WAGRRootSectionAreas) {
+        WAGRGatingArea area = (WAGRGatingArea)ip.row;
+        WAGRGatingAreaMenuVC *vc = [[WAGRGatingAreaMenuVC alloc] initWithArea:area];
+        [self.navigationController pushViewController:vc animated:YES];
         return;
     }
 
