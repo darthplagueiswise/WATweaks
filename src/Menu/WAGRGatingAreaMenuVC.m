@@ -54,6 +54,26 @@ static void WAGRApplyWAABBundle(NSArray<NSString *> *flags, BOOL enabled, BOOL p
 static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorName) {
     NSString *s = selectorName.lowercaseString ?: @"";
 
+
+    if ([s containsString:@"liquid"] || [s containsString:@"glass"] || [s containsString:@"chatbar"] ||
+        [s containsString:@"topbar"] || [s containsString:@"bottombar"] || [s containsString:@"m0"] ||
+        [s containsString:@"m1"] || [s containsString:@"actiontile"] || [s containsString:@"unify"] ||
+        [s containsString:@"nativebar"] || [s containsString:@"sidebar"]) {
+        return @[
+            @"wa_lg_ios_liquid_glass_enabled", @"wa_lg_ios_liquid_glass_launched",
+            @"wa_lg_ios_liquid_glass_m1", @"wa_lg_ios_liquid_glass_m_1_5",
+            @"wa_lg_ios_liquid_glass_m_1_5_context_menu", @"wa_lg_ios_liquid_glass_chat_top_bar_m2_enabled",
+            @"wa_lg_ios_liquid_glass_enable_new_chatbar_ux", @"wa_lg_ios_liquid_glass_larger_composer",
+            @"wa_lg_ios_liquid_glass_reduce_transparency", @"wa_lg_ios_liquid_glass_workaround_attachment_tray",
+            @"wa_lg_ios_liquid_glass_workaround_hides_bottombar", @"wa_lg_ios_liquid_glass_workaround_topbar_appearance",
+            @"ios_liquid_glass_enabled", @"ios_liquid_glass_launched", @"ios_liquid_glass_m1",
+            @"ios_liquid_glass_m_1_5", @"ios_liquid_glass_m_1_5_context_menu",
+            @"ios_liquid_glass_chat_top_bar_m2_enabled", @"ios_liquid_glass_enable_new_chatbar_ux",
+            @"ios_liquid_glass_larger_composer", @"ios_liquid_glass_media_m0",
+            @"ios_liquid_glass_media_editor_enabled", @"ios_liquid_glass_calling_improvement_enabled",
+            @"ios_liquid_glass_workaround_attachment_tray"
+        ];
+    }
     if ([s containsString:@"aura"] || [s containsString:@"subscription"] || [s containsString:@"ringtones"] || [s containsString:@"ringtone"]) {
         return @[
             @"aura_enabled", @"aura_settings_row_enabled", @"aura_subscription_simulation_enabled",
@@ -108,6 +128,16 @@ static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorNa
             @"waffle_enabled_for_linked_users", @"waffle_enabled_for_unlinked_users",
             @"waffle_foa_to_wa_linking_enabled", @"waffle_v3_fx_settings_redesign_v1",
             @"waffle_v3_ios_use_client_values_to_reduce_settings_bloks_payload"
+        ];
+    }
+
+    if ([s containsString:@"group"] || [s containsString:@"history"] || [s containsString:@"subgroup"]) {
+        return @[
+            @"group_history_send_enabled", @"group_history_setting_ui_enabled",
+            @"group_status_enabled", @"group_status_setting_ui_enabled", @"enable_status_on_companion",
+            @"allow_lid_contacts_add_to_group", @"add_non_contacts_to_groups_enabled",
+            @"add_non_contact_to_group", @"allowNonAdminSubGroupCreation",
+            @"add_member_group_ranking_allow_non_contact", @"add_member_group_recommendation_recent_cut_off_hours"
         ];
     }
 
