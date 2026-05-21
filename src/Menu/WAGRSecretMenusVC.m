@@ -41,12 +41,12 @@
 #import "../WAGramPrefix.h"
 #import <objc/runtime.h>
 
-extern "C" NSString *WAGRDogfoodDiagnosticText(void);
-extern "C" NSString *WAGRAccountEligibilityDiagnostic(void);
-extern "C" NSString *WAGRAuraDiagnostic(void);
-extern "C" NSString *WAGRWAABDiagnosticText(void);
-extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void);
-extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void);
+extern NSString *WAGRDogfoodDiagnosticText(void);
+extern NSString *WAGRAccountEligibilityDiagnostic(void);
+extern NSString *WAGRAuraDiagnostic(void);
+extern NSString *WAGRWAABDiagnosticText(void);
+extern NSString *WAGRNativeDevMenuDiagnosticText(void);
+extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
 
 typedef NS_ENUM(NSInteger, WAGRSecretSection) {
     WAGRSecretSectionMasters = 0,
