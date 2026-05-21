@@ -22,10 +22,10 @@
 #import "../WAGramPrefix.h"
 #import "../Menu/WAGRSurfaceListVC.h"
 
-extern NSUInteger WAGRReinstallPersistedHooks(void);
-extern void WAGRWAABEnsureHooksInstalled(void);
-extern void WAGRAuraEnsureHooksInstalled(void);
-extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
+extern "C" NSUInteger WAGRReinstallPersistedHooks(void);
+extern "C" void WAGRWAABEnsureHooksInstalled(void);
+extern "C" void WAGRAuraEnsureHooksInstalled(void);
+extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void);
 
 static BOOL gWAGRSettingsRowsAttempted = NO;
 static BOOL gWAGRSettingsRowsHooksInstalled = NO;
