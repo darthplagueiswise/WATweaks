@@ -44,6 +44,7 @@ extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
 // WATableSection/WATableRow pipeline.
 extern void       WAGRSettingsRowsNativeEnsureHooksInstalled(void);
 extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
+extern void       WAGRSettingsRowsNativeInjectIfPossible(id settingsVC);
 
 // ── Long-press setup ─────────────────────────────────────────────────────────
 // kLP is the associated-object key used to mark a UITableView as "long-press
@@ -127,6 +128,18 @@ static UIViewController *vcForView(UIView *v) {
     return nil;
 }
 
+
+static UIViewController *WAGRSettingsVCForTable(UITableView *tv) {
+    UIViewController *vc = vcForView(tv);
+    if (!vc) return nil;
+    NSString *name = NSStringFromClass([vc class]);
+    if ([name isEqualToString:@"WASettingsViewController"] ||
+        [name containsString:@"WASettingsViewController"]) {
+        return vc;
+    }
+    return nil;
+}
+
 // ── Long-press target object ────────────────────────────────────────────────
 @interface WAGRLP : NSObject
 + (instancetype)shared;
@@ -190,6 +203,12 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
 
     if (tv.window) {
         attachLP(tv);
+
+        UIViewController *settingsVC = WAGRSettingsVCForTable(tv);
+        if (settingsVC) {
+            WAGRSettingsRowsNativeEnsureHooksInstalled();
+            WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
+        }
     }
 }
 
@@ -238,7 +257,6 @@ static void startup(void) {
         WAGRLGPrefsDidChange();
         installLongPressTableHook();
         WAGRNativeDevMenuEnsureHooksInstalled();
-        WAGRSettingsRowsNativeEnsureHooksInstalled();
 
         if (WAGRPref(@"wagr.startupHooksEnabled")) {
             WAGRReinstallPersistedHooks();
@@ -247,7 +265,6 @@ static void startup(void) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             WAGRNativeDevMenuEnsureHooksInstalled();
-            WAGRSettingsRowsNativeEnsureHooksInstalled();
             if (WAGRPref(@"wagr.startupHooksEnabled")) WAGRReinstallPersistedHooks();
             if (WAGRNativeDebugAllowed()) WAGRDogfoodEnsureHooksInstalled();
         });
