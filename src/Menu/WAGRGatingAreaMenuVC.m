@@ -38,6 +38,90 @@ extern void WAGRSettingsRowsNativeEnsureHooksInstalled(void);
 // to without keeping a parallel index<->entry map.
 static const void *kWAGREntryAssocKey = &kWAGREntryAssocKey;
 
+
+static NSString *WAGRWAABOverrideKeyForFlag(NSString *flag) {
+    return WAGROverrideKeyFor(@"WAABProperties", flag, NO);
+}
+
+static void WAGRApplyWAABBundle(NSArray<NSString *> *flags, BOOL enabled, BOOL physicalValue) {
+    for (NSString *flag in flags) {
+        NSString *key = WAGRWAABOverrideKeyForFlag(flag);
+        if (enabled) WAGRSetOverride(key, physicalValue);
+        else WAGRClearOverride(key);
+    }
+}
+
+static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorName) {
+    NSString *s = selectorName.lowercaseString ?: @"";
+
+    if ([s containsString:@"aura"] || [s containsString:@"subscription"] || [s containsString:@"ringtones"] || [s containsString:@"ringtone"]) {
+        return @[
+            @"aura_enabled", @"aura_settings_row_enabled", @"aura_subscription_simulation_enabled",
+            @"wa_subscriptions_entry_point_settings_enabled", @"wa_subscriptions_settings_green_dot_enabled",
+            @"premium_blue_enabled",
+            @"aura_ringtones_enabled", @"aura_ringtones_benefit_active", @"aura_ringtones_per_chat_enabled",
+            @"wa_plus_custom_ringtones", @"meta_subs_benefit_wa_ringtones_upsell",
+            @"aura_app_icon_enabled", @"aura_app_icon_benefit_active", @"aura_app_icon_multi_account_support",
+            @"aura_app_themes_enabled", @"aura_app_themes_benefit_active",
+            @"aura_stickers_enabled", @"aura_stickers_benefit_active",
+            @"aura_pinned_chats_enabled", @"aura_pinned_chats_benefit_active",
+            @"aura_enhanced_lists_enabled", @"aura_enhanced_lists_benefit_active",
+            @"isEligibleForSubscriptions", @"isRingtonesBenefitActive", @"isAISubscriptionEnabled", @"isSubscribedToAiBenefit"
+        ];
+    }
+
+    if ([s containsString:@"payment"] || [s containsString:@"payments"] || [s containsString:@"upi"] || [s containsString:@"pix"] || [s containsString:@"br_consumer"]) {
+        return @[
+            @"br_consumer_payments_home_enabled", @"br_consumer_paymentshome_enabled",
+            @"payments_home_revamp_m1_enabled", @"payments_home_revamp_landing_screen_enabled", @"payments_home_ui_updates_enabled",
+            @"payment_settings_add_bank_account_row", @"payment_settings_add_upi_number_row", @"payment_settings_add_bank_banner",
+            @"payment_settings_invite_others_row", @"payment_settings_remove_payment_info_row",
+            @"br_payments_pix_native_enabled", @"br_payments_pix_groups_enabled", @"br_p2p_add_pix_key_from_payment_settings",
+            @"br_payment_smb_connect_to_bank_enabled", @"br_payments_passkey_enable", @"enable_payment_passkey",
+            @"is_upi_global_enabled", @"payments_upi_global_enabled", @"payments_upi_bank_list_graphql_enabled", @"payments_upi_get_accounts_graphql"
+        ];
+    }
+
+    if ([s containsString:@"companion"] || [s containsString:@"primary"] || [s containsString:@"linked"] || [s containsString:@"device"] || [s containsString:@"webclient"]) {
+        return @[
+            @"ios_linked_devices_empty_states_ui_refresh_enabled", @"linked_devices_send_link_cta_ios", @"linked_devices_apple_watch",
+            @"md_linked_devices_badging_journey", @"companion_support_enabled", @"companion_contact_change_enabled",
+            @"companion_lid_contact_change_enabled", @"native_contacts_primary_allows_mutations_from_companions",
+            @"primary_lists_support", @"primary_favorites_sync_support", @"lists_sync_enabled", @"call_favorites_enabled_companions",
+            @"username_enabled_on_companion", @"enable_status_on_companion", @"device_capabilities_sync_enabled"
+        ];
+    }
+
+    if ([s containsString:@"foa"] || [s containsString:@"bookmark"] || [s containsString:@"threads"] || [s containsString:@"horizon"] || [s containsString:@"vibes"]) {
+        return @[
+            @"foa_bookmarks_enabled", @"foa_bookmarks_logging_enabled", @"foa_bookmark_sk_overlay_enabled",
+            @"foa_threads_bookmarks_enabled", @"foa_bridges_bookmark_meta_horizon", @"foa_bridges_bookmarks_design_update_enabled",
+            @"foa_bridges_account_switcher_ios_enabled", @"ai_rich_response_vibes_promotion_enabled", @"ai_rich_response_c50_promotion_enabled",
+            @"wa_bookmarks_hs_fb_cta", @"wa_bookmarks_hs_ig_cta", @"wa_bookmarks_hs_meta_ai_cta",
+            @"wa_bookmarks_hs_meta_horizon_cta", @"wa_bookmarks_hs_threads_cta", @"wa_bookmarks_hs_vibes_cta"
+        ];
+    }
+
+    if ([s containsString:@"waffle"]) {
+        return @[
+            @"waffle_mobile_companions_enabled", @"waffle_companions_enabled",
+            @"waffle_enabled_for_linked_users", @"waffle_enabled_for_unlinked_users",
+            @"waffle_foa_to_wa_linking_enabled", @"waffle_v3_fx_settings_redesign_v1",
+            @"waffle_v3_ios_use_client_values_to_reduce_settings_bloks_payload"
+        ];
+    }
+
+    return @[];
+}
+
+static void WAGRApplyRelatedSettingsRowChain(WAGRGatingEntry *entry, BOOL enabled, BOOL physicalValue) {
+    NSArray<NSString *> *related = WAGRRelatedWAABFlagsForSelector(entry.selectorName);
+    if (related.count == 0) return;
+    WAGRApplyWAABBundle(related, enabled, physicalValue);
+    NSLog(@"[WATweaks][Catalog] %@ related Settings-row chain for %@ (%lu flags)",
+          enabled ? @"enabled" : @"cleared", entry.selectorName, (unsigned long)related.count);
+}
+
 @interface WAGRGatingAreaMenuVC ()
 @property(nonatomic, assign) WAGRGatingArea area;
 @property(nonatomic, copy)   NSArray<WAGRGatingEntry *> *entries;
@@ -144,10 +228,12 @@ static const void *kWAGREntryAssocKey = &kWAGREntryAssocKey;
         // by boolForKey:defaultValue:. Without this mirror, Settings-row
         // toggles are visually ON but WhatsApp still reads the original gates.
         WAGRSetOverride(key, physicalValue);
+        WAGRApplyRelatedSettingsRowChain(e, YES, YES);
         NSLog(@"[WATweaks][Catalog] override ON  for %@ %c%@ (physical=%@ key=%@)",
               e.className, e.isClassMethod ? '+' : '-', e.selectorName, physicalValue ? @"YES" : @"NO", key);
     } else {
         WAGRClearOverride(key);
+        WAGRApplyRelatedSettingsRowChain(e, NO, physicalValue);
         NSLog(@"[WATweaks][Catalog] override OFF for %@ %c%@ (physical=%@ key=%@)",
               e.className, e.isClassMethod ? '+' : '-', e.selectorName, physicalValue ? @"YES" : @"NO", key);
     }

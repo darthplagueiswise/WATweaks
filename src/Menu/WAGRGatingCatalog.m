@@ -176,6 +176,10 @@ static NSArray<WAGRGatingEntry *> *entries_Aura(void) {
         WAAB(@"aura_ringtones_enabled", @"Ringtones gate", @"Enables the Aura ringtones feature family.", WAGRGatingAreaAura, NO),
         WAAB(@"aura_ringtones_benefit_active", @"Ringtones benefit", @"Marks ringtone benefit as active through WAAB.", WAGRGatingAreaAura, NO),
         WAAB(@"aura_ringtones_per_chat_enabled", @"Per-chat ringtones", @"Enables per-chat ringtone surfaces.", WAGRGatingAreaAura, NO),
+        WAAB(@"wa_plus_custom_ringtones", @"WA Plus custom ringtones", @"WA Plus custom ringtone entitlement/surface string observed in main binary.", WAGRGatingAreaAura, NO),
+        WAAB(@"meta_subs_benefit_wa_ringtones_upsell", @"Ringtones upsell", @"Meta Subscriptions WA ringtones upsell gate.", WAGRGatingAreaAura, NO),
+        WAAB(@"no_premium_ringtones_available", @"Disable no-ringtones empty state", @"Inverted: prevents the no-premium-ringtones state when ON.", WAGRGatingAreaAura, YES),
+        WAAB(@"inapp_notification_personalized_ringtone_fix_enabled", @"Personalized ringtone fix", @"Personalized ringtone notification fix gate.", WAGRGatingAreaAura, NO),
 
         WAAB(@"aura_stickers_enabled", @"Stickers gate", @"Enables Aura sticker surfaces.", WAGRGatingAreaAura, NO),
         WAAB(@"aura_stickers_benefit_active", @"Stickers benefit", @"Marks stickers benefit as active through WAAB.", WAGRGatingAreaAura, NO),
@@ -258,6 +262,42 @@ static NSArray<WAGRGatingEntry *> *entries_SettingsRows(void) {
         WAAB(@"wa_xfam_ios_switcher_multiaccount_enabled", @"XFAM multi-account switcher", @"XFAM switcher multi-account gate.", WAGRGatingAreaSettingsRows, NO),
         WAAB(@"foa_bridges_account_switcher_ios_enabled", @"FOA account switcher", @"FOA bridges account switcher gate.", WAGRGatingAreaSettingsRows, NO),
         WAAB(@"deletion_reason_multi_account_enabled", @"Multi-account deletion reason", @"Companion multi-account gate observed in Settings bundle.", WAGRGatingAreaSettingsRows, NO),
+
+        // Payments / PIX / UPI. Static strings near WASettingsViewController show
+        // SettingsView_PaymentsCell plus addPaymentsRowToSection:,
+        // createPaymentRowIfNeeded: and showBRConsumerPaymentsHome.
+        WAAB(@"br_consumer_payments_home_enabled", @"Payments row", @"SettingsView_PaymentsCell / Brazil consumer payments home.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"br_consumer_paymentshome_enabled", @"Payments home alt gate", @"Alternate spelling observed near payments home code paths.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payments_home_revamp_m1_enabled", @"Payments home revamp M1", @"Payments home revamp gate.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payments_home_revamp_landing_screen_enabled", @"Payments landing screen", @"Landing-screen gate for payments home revamp.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payments_home_ui_updates_enabled", @"Payments UI updates", @"WAPaymentsShared extension getter for Settings/home UI updates.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payment_settings_add_bank_account_row", @"Add bank account row", @"PaymentSettingsView_AddAccountCell / bank account row.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payment_settings_add_upi_number_row", @"Add UPI number row", @"PaymentSettingsView UPI number row.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payment_settings_add_bank_banner", @"Payment bank banner", @"Bank-add banner inside Payment Settings.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payment_settings_invite_others_row", @"Payments invite row", @"PaymentSettingsView_InviteOthers row.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"payment_settings_remove_payment_info_row", @"Remove payment info row", @"PaymentSettingsView_RemovePaymentsInfo row.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"br_payments_pix_native_enabled", @"PIX native payments", @"Brazil PIX native payments gate.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"br_payments_pix_groups_enabled", @"PIX groups", @"PIX payments in group surfaces.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"br_p2p_add_pix_key_from_payment_settings", @"Add PIX key from Settings", @"Allows adding PIX key from Payment Settings.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"br_payment_smb_connect_to_bank_enabled", @"SMB connect to bank", @"Business payment bank-linking Settings gate.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"enable_payment_passkey", @"Payment passkey", @"Passkey gate used by payment settings/auth paths.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"br_payments_passkey_enable", @"BR payments passkey", @"Brazil payments passkey gate.", WAGRGatingAreaSettingsRows, NO),
+
+        // Linked-device / primary-device support. These gates matter because
+        // several Settings rows are hidden differently on companion devices or
+        // require primary-device sync support before they render.
+        WAAB(@"ios_linked_devices_empty_states_ui_refresh_enabled", @"Linked devices UI refresh", @"Linked Devices empty-state UI refresh gate.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"linked_devices_send_link_cta_ios", @"Linked devices send-link CTA", @"Linked Devices send-link CTA gate.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"linked_devices_apple_watch", @"Linked Apple Watch", @"Linked-device Apple Watch gate.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"md_linked_devices_badging_journey", @"Linked devices badging", @"MD linked-devices badging journey.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"companion_support_enabled", @"Companion support", @"Generic companion-support gate used in Settings-related flows.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"companion_contact_change_enabled", @"Companion contact changes", @"Allows contact-change support on companion devices.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"companion_lid_contact_change_enabled", @"Companion LID contact changes", @"LID contact-change support on companions.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"native_contacts_primary_allows_mutations_from_companions", @"Primary allows companion mutations", @"Primary-device contacts gate that affects companion Settings behavior.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"primary_lists_support", @"Primary Lists support", @"Primary-device Lists sync support.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"primary_favorites_sync_support", @"Primary Favorites support", @"Primary-device Favorites sync support.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"username_enabled_on_companion", @"Username on companion", @"Username row support on companion devices.", WAGRGatingAreaSettingsRows, NO),
+        WAAB(@"enable_status_on_companion", @"Status on companion", @"Status feature support on companion devices.", WAGRGatingAreaSettingsRows, NO),
     ];
 }
 

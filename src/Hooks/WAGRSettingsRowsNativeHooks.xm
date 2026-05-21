@@ -29,14 +29,17 @@ static BOOL gWAGRSettingsRowsAttempted = NO;
 static BOOL gWAGRSettingsRowsHooksInstalled = NO;
 static BOOL gWAGRSettingsRowsWATweaksInserted = NO;
 static BOOL gWAGRSettingsRowsDeveloperInserted = NO;
+static BOOL gWAGRSettingsRowsPaymentsInserted = NO;
 static BOOL gWAGRSettingsRowsFactoryFailed = NO;
 static NSUInteger gWAGRSettingsRowsInstalledHookCount = 0;
 static NSUInteger gWAGRSettingsRowsInsertAttempts = 0;
 static NSUInteger gWAGRSettingsRowsSubscriptionForces = 0;
+static NSUInteger gWAGRSettingsRowsPaymentsForces = 0;
 static NSString *gWAGRSettingsRowsLastError = nil;
 
 static const void *kWAGRNativeWATweaksRowMarker = &kWAGRNativeWATweaksRowMarker;
 static const void *kWAGRNativeDeveloperRowMarker = &kWAGRNativeDeveloperRowMarker;
+static const void *kWAGRNativePaymentsRowMarker = &kWAGRNativePaymentsRowMarker;
 static const void *kWAGRNativeSettingsRefreshMarker = &kWAGRNativeSettingsRefreshMarker;
 static const void *kWAGRNativeSettingsHandlerMarker = &kWAGRNativeSettingsHandlerMarker;
 
@@ -46,6 +49,9 @@ static BOOL (*origIsSubscriptionsRowPresent)(id, SEL) = NULL;
 static void (*origRemoveSubscriptionsRow)(id, SEL) = NULL;
 static void (*origInsertSubscriptionsRow)(id, SEL) = NULL;
 static void (*origAddSubscriptionsRowToSection)(id, SEL, id) = NULL;
+static void (*origAddPaymentsRowToSection)(id, SEL, id) = NULL;
+static id (*origCreatePaymentRowIfNeeded)(id, SEL, id) = NULL;
+static BOOL (*origShowBRConsumerPaymentsHome)(id, SEL) = NULL;
 static id (*origGetSettingsViewModel)(id, SEL) = NULL;
 static id (*origCreateSettingsEntryPointViewModel)(id, SEL) = NULL;
 
@@ -114,6 +120,16 @@ static void WAGRPresentDeveloperMenuFromSettings(id settingsVC) {
     });
 }
 
+static void WAGRPresentPaymentsFromSettings(id settingsVC) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([settingsVC respondsToSelector:NSSelectorFromString(@"showBRConsumerPaymentsHome")]) {
+            ((void (*)(id, SEL))objc_msgSend)(settingsVC, NSSelectorFromString(@"showBRConsumerPaymentsHome"));
+            return;
+        }
+        WAGRPresentWATweaksMenuFromSettings(settingsVC);
+    });
+}
+
 static BOOL WAGRResponds(id obj, NSString *selectorName) {
     return obj && [obj respondsToSelector:NSSelectorFromString(selectorName)];
 }
@@ -171,6 +187,20 @@ static BOOL WAGRSettingsRowsShouldForceDeveloper(void) {
         @"dogfooder_diagnostics",
         @"ios_internal_hall_enabled",
         @"is_internal_tester"
+    ]);
+}
+
+static BOOL WAGRSettingsRowsShouldForcePayments(void) {
+    if (WAGRPref(@"wagr.settingsrows.force_payments")) return YES;
+    return WAGRWAABAnyOn(@[
+        @"br_consumer_payments_home_enabled",
+        @"br_consumer_paymentshome_enabled",
+        @"payments_home_revamp_m1_enabled",
+        @"payments_home_revamp_landing_screen_enabled",
+        @"payments_home_ui_updates_enabled",
+        @"payment_settings_add_bank_account_row",
+        @"payment_settings_add_upi_number_row",
+        @"br_payments_pix_native_enabled"
     ]);
 }
 
@@ -435,6 +465,23 @@ extern "C" void WAGRSettingsRowsNativeInjectIfPossible(id maybeSettingsVC) {
         }
     }
 
+    if (WAGRSettingsRowsShouldForcePayments() &&
+        ![objc_getAssociatedObject(section, kWAGRNativePaymentsRowMarker) boolValue] &&
+        !WAGRSectionAlreadyHasRow(section, @"settingsview_paymentscell")) {
+        id row = WAGRCreateNativeRow(settingsVC,
+                                     @"SettingsView_PaymentsCell",
+                                     @"Payments",
+                                     @"Payments, PIX/UPI and payment settings surfaces",
+                                     @"creditcard.fill",
+                                     ^{ WAGRPresentPaymentsFromSettings(settingsVC); });
+
+        if (row && WAGRAddRowToSection(section, row, @"settingsview_dataandstorageusagecell")) {
+            objc_setAssociatedObject(section, kWAGRNativePaymentsRowMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            gWAGRSettingsRowsPaymentsInserted = YES;
+            NSLog(@"[WATweaks][NativeSettingsRows] inserted SettingsView_PaymentsCell shim into %@", NSStringFromClass([section class]));
+        }
+    }
+
     if (WAGRSettingsRowsShouldForceDeveloper() &&
         ![objc_getAssociatedObject(section, kWAGRNativeDeveloperRowMarker) boolValue] &&
         !WAGRSectionAlreadyHasRow(section, @"settingsview_developercell")) {
@@ -453,6 +500,15 @@ extern "C" void WAGRSettingsRowsNativeInjectIfPossible(id maybeSettingsVC) {
     }
 
     WAGRReloadSettingsTable(settingsVC);
+}
+
+static void WAGRForcePaymentsRowIfNeeded(id settingsVC) {
+    if (!settingsVC || !WAGRSettingsRowsShouldForcePayments()) return;
+    gWAGRSettingsRowsPaymentsForces++;
+    if ([settingsVC respondsToSelector:NSSelectorFromString(@"addPaymentsRowToSection:")]) {
+        id section = WAGRBestSettingsSection(settingsVC, nil);
+        if (section) ((void (*)(id, SEL, id))objc_msgSend)(settingsVC, NSSelectorFromString(@"addPaymentsRowToSection:"), section);
+    }
 }
 
 static BOOL WAGROrigSubscriptionsRowPresent(id self) {
@@ -503,6 +559,7 @@ static void WAGRRefreshSettingsRowsSoon(id settingsVC, id preferredSection) {
         }
     }
     WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
+    WAGRForcePaymentsRowIfNeeded(settingsVC);
     WAGRForceSubscriptionsRowIfNeeded(settingsVC);
 }
 
@@ -559,6 +616,20 @@ static void hookAddSubscriptionsRowToSection(id self, SEL _cmd, id section) {
     if (origAddSubscriptionsRowToSection) origAddSubscriptionsRowToSection(self, _cmd, section);
 }
 
+static void hookAddPaymentsRowToSection(id self, SEL _cmd, id section) {
+    if (origAddPaymentsRowToSection) origAddPaymentsRowToSection(self, _cmd, section);
+}
+
+static id hookCreatePaymentRowIfNeeded(id self, SEL _cmd, id arg) {
+    if (origCreatePaymentRowIfNeeded) return origCreatePaymentRowIfNeeded(self, _cmd, arg);
+    return nil;
+}
+
+static BOOL hookShowBRConsumerPaymentsHome(id self, SEL _cmd) {
+    if (origShowBRConsumerPaymentsHome) return origShowBRConsumerPaymentsHome(self, _cmd);
+    return NO;
+}
+
 static id hookGetSettingsViewModel(id self, SEL _cmd) {
     id result = origGetSettingsViewModel ? origGetSettingsViewModel(self, _cmd) : nil;
     WAGRRefreshSettingsRowsSoon(self, nil);
@@ -597,6 +668,9 @@ extern "C" void WAGRSettingsRowsNativeEnsureHooksInstalled(void) {
     if (WAGRHookInstance(cls, @"removeSubscriptionsRow", (IMP)hookRemoveSubscriptionsRow, (IMP *)&origRemoveSubscriptionsRow)) installed++;
     if (WAGRHookInstance(cls, @"insertSubscriptionsRow", (IMP)hookInsertSubscriptionsRow, (IMP *)&origInsertSubscriptionsRow)) installed++;
     if (WAGRHookInstance(cls, @"addSubscriptionsRowToSection:", (IMP)hookAddSubscriptionsRowToSection, (IMP *)&origAddSubscriptionsRowToSection)) installed++;
+    if (WAGRHookInstance(cls, @"addPaymentsRowToSection:", (IMP)hookAddPaymentsRowToSection, (IMP *)&origAddPaymentsRowToSection)) installed++;
+    if (WAGRHookInstance(cls, @"createPaymentRowIfNeeded:", (IMP)hookCreatePaymentRowIfNeeded, (IMP *)&origCreatePaymentRowIfNeeded)) installed++;
+    if (WAGRHookInstance(cls, @"showBRConsumerPaymentsHome", (IMP)hookShowBRConsumerPaymentsHome, (IMP *)&origShowBRConsumerPaymentsHome)) installed++;
     if (WAGRHookInstance(cls, @"getSettingsViewModel", (IMP)hookGetSettingsViewModel, (IMP *)&origGetSettingsViewModel)) installed++;
     if (WAGRHookInstance(cls, @"createSettingsEntryPointViewModel", (IMP)hookCreateSettingsEntryPointViewModel, (IMP *)&origCreateSettingsEntryPointViewModel)) installed++;
 
@@ -624,10 +698,13 @@ extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void) {
             NSClassFromString(@"WASettingsViewController") ? @"found" : @"missing",
             gWAGRSettingsRowsWATweaksInserted ? @"YES" : @"NO",
             gWAGRSettingsRowsDeveloperInserted ? @"YES" : @"NO",
+            gWAGRSettingsRowsPaymentsInserted ? @"YES" : @"NO",
             gWAGRSettingsRowsFactoryFailed ? @"YES" : @"NO",
             (unsigned long)gWAGRSettingsRowsInsertAttempts,
             (unsigned long)gWAGRSettingsRowsSubscriptionForces,
+            (unsigned long)gWAGRSettingsRowsPaymentsForces,
             WAGRSettingsRowsShouldForceSubscriptions() ? @"YES" : @"NO",
+            WAGRSettingsRowsShouldForcePayments() ? @"YES" : @"NO",
             WAGRSettingsRowsShouldForceDeveloper() ? @"YES" : @"NO",
             gWAGRSettingsRowsLastError ?: @"none"];
 }
