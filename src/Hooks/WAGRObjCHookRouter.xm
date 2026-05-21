@@ -119,6 +119,11 @@ extern "C" BOOL WAGRInstallHookForEntry(WAGREntry *e) {
     Class target = e.isClassMethod ? object_getClass(cls) : cls;
     Method m = e.isClassMethod ? class_getClassMethod(cls, sel) : class_getInstanceMethod(cls, sel);
     if (!m) return NO;
+    // The shared generic hook can only safely call the original implementation
+    // for zero-argument BOOL getters (self + _cmd). Methods such as
+    // isGroupHistorySendEnabledForGroupJID: are intentionally not hooked here;
+    // they need a dedicated typed trampoline if we support them later.
+    if (method_getNumberOfArguments(m) != 2) return NO;
     char ret[8]={0}; method_getReturnType(m, ret, 8);
     if (ret[0]!='B' && ret[0]!='c') return NO;
     IMP orig = NULL;

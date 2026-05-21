@@ -171,3 +171,10 @@ for cross-referencing approaches:
    rows inside Settings without instantiating the dev menu.
 5. Granular per-section toggles for `WADebugViewController` (the 93 methods
    list above gives the menu structure).
+
+
+## WATweaks unified-gater pass
+
+- Liquid Glass menu is now WAAB-first with WDSLiquidGlass aliases written by the same toggle, avoiding duplicate WAAB/WDS switches.
+- Added Evolve / About Me category from WhatsApp main + SharedModules strings: evolve_about_m1*, contact card thought bubble, contact/profile UI refresh, profile badges, and profile-photo privacy gates.
+- Linked / Primary / Companion icon changed to a stable SF Symbol and root menu adds fallback icons.

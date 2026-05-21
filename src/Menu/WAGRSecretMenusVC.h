@@ -1,18 +1,15 @@
 // WAGRSecretMenusVC.h
 // ─────────────────────────────────────────────────────────────────────────────
-// Control panel for the "make WhatsApp believe we're internal/Aura" path.
+// Lists the ~25 WhatsApp debug view controllers that ship in the binary but
+// are not surfaced anywhere in the standard UI. Tapping a row tries to
+// instantiate the controller through every known init signature (plain
+// `-init`, `-initWithUserContext:`, `-initAsModalWithUserContext:`,
+// `-initWithStyle:`, `-initWithNibName:bundle:`) and presents whichever
+// init returns a non-nil instance.
 //
-// Sections:
-//   1. ATIVAR MASTER       — toggles that flip every related pref atomically.
-//   2. DIAGNÓSTICO         — live state of each hook subsystem.
-//   3. CONTROLLERS DEBUG   — informational list of the ~32 Debug VCs found
-//                            in the Mach-O. No tap actions; instantiating
-//                            them directly traps in Swift teardown.
-//   4. COMO USAR           — recommended sequence.
-//
-// The earlier version of this file directly instantiated WhatsApp's hidden
-// Debug VCs and crashed on dismissal. The new model: flip the upstream
-// gate and let WhatsApp render the same screens through its native path.
+// The class roster is data-only and was sourced from static analysis of
+// the WhatsApp 26.19.10 main binary (__objc_classlist walk filtered by
+// Debug/Internal/Pancake/Diagnostic substrings).
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import <UIKit/UIKit.h>
