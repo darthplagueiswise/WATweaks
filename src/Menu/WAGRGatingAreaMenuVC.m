@@ -149,7 +149,7 @@ static const void *kWAGREntryAssocKey = &kWAGREntryAssocKey;
     } else {
         WAGRClearOverride(key);
         NSLog(@"[WATweaks][Catalog] override OFF for %@ %c%@ (physical=%@ key=%@)",
-              e.className, e.isClassMethod ? '+' : '-', e.selectorName, key);
+              e.className, e.isClassMethod ? '+' : '-', e.selectorName, physicalValue ? @"YES" : @"NO", key);
     }
     [ud synchronize];
 
