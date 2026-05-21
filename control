@@ -1,0 +1,10 @@
+Package: com.darthplagueiswise.watweaks
+Name: WATweaks
+Version: 1.1.0
+Architecture: iphoneos-arm
+Description: WATweaks feature-flag research tweak for WhatsApp — native Developer menu row, Dogfood gates, Liquid Glass, WAABProperties, and Keychain observer.
+Homepage: https://github.com/darthplagueiswise/WATweaks
+Maintainer: Radan
+Author: Radan
+Section: Tweaks
+Depends: mobilesubstrate
