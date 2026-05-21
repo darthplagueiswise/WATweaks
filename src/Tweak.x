@@ -9,11 +9,9 @@
 //     script enforces the presence of UILongPressGestureRecognizer, WAGRLP,
 //     attachLP, isTrigger and WAGRPresent tokens in this file.
 //
-//   • The UITableView -didMoveToWindow swizzle, which is the single hook
-//     surface used to:
-//       (a) attach the long-press recognizer (existing behavior);
-//       (b) ask WAGRWATweaksSettingsRow.xm whether to attach the native
-//           "WATweaks" footer row to this table (new behavior).
+//   • The UITableView -didMoveToWindow swizzle, which is now only used to
+//     attach the long-press recognizer. Native Settings rows are handled by
+//     WAGRSettingsRowsNativeHooks.xm through WASettingsViewController.
 //
 //   • Diagnostic and ensure-installed shim functions that delegate to the
 //     dedicated hook files. Tweak.x is the orchestrator; specific hooks
@@ -42,9 +40,10 @@ extern NSString  *WAGRHookRouterDiagnostic(void);
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
 
-// "WATweaks" native settings row — the new entry below the Developer row.
-extern void       WAGRMaybeAttachWATweaksFooter(UITableView *tv);
-extern NSString  *WAGRWATweaksRowDiagnosticText(void);
+// Native WhatsApp Settings rows — implemented in WASettingsViewController's
+// WATableSection/WATableRow pipeline.
+extern void       WAGRSettingsRowsNativeEnsureHooksInstalled(void);
+extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
 
 // ── Long-press setup ─────────────────────────────────────────────────────────
 // kLP is the associated-object key used to mark a UITableView as "long-press
@@ -179,15 +178,10 @@ static void attachLP(UITableView *tv) {
 }
 
 // ── The single hook surface ──────────────────────────────────────────────────
-// Every UITableView calls -didMoveToWindow when it lands on screen (and when
-// it's removed). We use that one moment to:
-//   1) attach the long-press recognizer (so the WATweaks menu opens on long
-//      press of Help/Developer/WATweaks cells), and
-//   2) ask the settings-row helper whether to attach the native footer that
-//      shows the WATweaks entry below the Developer row.
-//
-// Both operations are idempotent (each guarded by its own associated-object
-// flag), so repeated -didMoveToWindow firings cost only a few pointer reads.
+// Every UITableView calls -didMoveToWindow when it lands on screen. We use
+// that moment only to attach the long-press recognizer, which remains the
+// fallback activation path if the native WASettingsViewController row hook
+// cannot insert the WATweaks WATableRow.
 static void hookTableDidMoveToWindow(id self, SEL _cmd) {
     if (orig_tableDidMoveToWindow) orig_tableDidMoveToWindow(self, _cmd);
 
@@ -196,7 +190,6 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
 
     if (tv.window) {
         attachLP(tv);
-        WAGRMaybeAttachWATweaksFooter(tv);
     }
 }
 

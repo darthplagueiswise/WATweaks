@@ -28,6 +28,10 @@
 // the hook live if the user toggled while the app is running. We rely on
 // a small re-install entry point exposed by WAGRObjCHookRouter.
 extern NSUInteger WAGRReinstallPersistedHooks(void);
+extern void WAGRWAABEnsureHooksInstalled(void);
+extern void WAGRAuraEnsureHooksInstalled(void);
+extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
+extern void WAGRSettingsRowsNativeEnsureHooksInstalled(void);
 
 // Associated-object key for stashing the entry pointer on each switch so
 // the switch's target/action can recover which catalog entry it corresponds
@@ -107,7 +111,7 @@ static const void *kWAGREntryAssocKey = &kWAGREntryAssocKey;
     // Build a switch that reflects the persisted override state.
     UISwitch *sw = [[UISwitch alloc] init];
     NSString *key = WAGROverrideKeyFor(e.className, e.selectorName, e.isClassMethod);
-    sw.on = [NSUserDefaults.standardUserDefaults objectForKey:key] != nil;
+    sw.on = WAGRHasOverride(key);
     objc_setAssociatedObject(sw, kWAGREntryAssocKey, e, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
     c.accessoryView = sw;
@@ -132,24 +136,30 @@ static const void *kWAGREntryAssocKey = &kWAGREntryAssocKey;
     NSString *key = WAGROverrideKeyFor(e.className, e.selectorName, e.isClassMethod);
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
 
+    BOOL physicalValue = !e.inverted;
     if (sw.on) {
-        // The persisted value is always YES regardless of inverted — the
-        // router translates that to the right physical return value at
-        // call time, using the catalog's inverted flag as a separate
-        // signal. This keeps the persistence layer simple and consistent.
-        [ud setBool:(!e.inverted) forKey:key];
+        // Use the shared override helper instead of writing NSUserDefaults
+        // directly. For WAABProperties entries this mirrors the value into
+        // wagr.waab.<flag>, which is the storage read by WAABPropsObserver and
+        // by boolForKey:defaultValue:. Without this mirror, Settings-row
+        // toggles are visually ON but WhatsApp still reads the original gates.
+        WAGRSetOverride(key, physicalValue);
         NSLog(@"[WATweaks][Catalog] override ON  for %@ %c%@ (physical=%@ key=%@)",
-              e.className, e.isClassMethod ? '+' : '-', e.selectorName, (!e.inverted) ? @"YES" : @"NO", key);
+              e.className, e.isClassMethod ? '+' : '-', e.selectorName, physicalValue ? @"YES" : @"NO", key);
     } else {
-        [ud removeObjectForKey:key];
+        WAGRClearOverride(key);
         NSLog(@"[WATweaks][Catalog] override OFF for %@ %c%@ (physical=%@ key=%@)",
-              e.className, e.isClassMethod ? '+' : '-', e.selectorName, (!e.inverted) ? @"YES" : @"NO", key);
+              e.className, e.isClassMethod ? '+' : '-', e.selectorName, key);
     }
     [ud synchronize];
 
-    // Live-install the override so the user does not have to restart the
-    // app to see the effect. The router's reinstall pass walks all keys
-    // and installs/uninstalls hooks accordingly.
+    // Live-install all relevant owners. WAAB covers flag-backed rows, Aura
+    // covers SharedModules Swift/ObjC gates, NativeDev covers the Developer
+    // row provider, and the generic router covers everything else.
+    WAGRWAABEnsureHooksInstalled();
+    WAGRAuraEnsureHooksInstalled();
+    WAGRNativeDevMenuEnsureHooksInstalled();
+    WAGRSettingsRowsNativeEnsureHooksInstalled();
     WAGRReinstallPersistedHooks();
 }
 

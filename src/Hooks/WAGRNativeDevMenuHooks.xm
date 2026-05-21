@@ -64,10 +64,24 @@ static BOOL gShortcutHooked = NO;
 // historical keys together so flipping any of them in the WAGram menu UI is
 // enough to unlock the native developer menu.
 static BOOL WAGRNativeDevAllowed(void) {
-    return WAGRPref(kWAGRDebugMenuNative)
+    if (WAGRPref(kWAGRDebugMenuNative)
         || WAGRPref(kWAGRInternalMaster)
         || WAGRPref(kWAGREmployeeMaster)
-        || WAGRPref(kWAGRDebugMode);
+        || WAGRPref(kWAGRDebugMode)) {
+        return YES;
+    }
+
+    // Also honor toggles written by the curated Settings Rows / Developer
+    // catalog. Without this bridge the direct "Open native Developer menu"
+    // path can work, while WhatsApp's own row still evaluates the provider as
+    // disabled because the native provider hook only checks master prefs.
+    NSString *allowedKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuAllowed");
+    NSString *shortcutKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuShortcutEnabled");
+    if ((WAGRHasOverride(allowedKey) && WAGROverrideBool(allowedKey)) ||
+        (WAGRHasOverride(shortcutKey) && WAGROverrideBool(shortcutKey))) {
+        return YES;
+    }
+    return NO;
 }
 
 // ── Trampolines ──────────────────────────────────────────────────────────────

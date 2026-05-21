@@ -184,6 +184,54 @@ static void WAGRHookAuraBoolSelectorOnClass(NSString *className, NSString *selec
     }
 }
 
+static BOOL WAGRAuraIsBoolNoArgMethod(Method m) {
+    if (!m) return NO;
+    if (method_getNumberOfArguments(m) != 2) return NO;
+    char ret[8] = {0};
+    method_getReturnType(m, ret, sizeof(ret));
+    return ret[0] == 'B' || ret[0] == 'c';
+}
+
+static void WAGRHookAllAuraBoolMethodsOnClass(NSString *className) {
+    if (!className.length) return;
+    Class cls = NSClassFromString(className);
+    if (!cls) return;
+
+    unsigned int count = 0;
+    Method *methods = class_copyMethodList(cls, &count);
+    if (!methods) return;
+
+    if (!gAuraGatingOrig) gAuraGatingOrig = [NSMutableDictionary dictionary];
+    for (unsigned int i = 0; i < count; i++) {
+        Method m = methods[i];
+        if (!WAGRAuraIsBoolNoArgMethod(m)) continue;
+
+        NSString *selectorName = NSStringFromSelector(method_getName(m));
+        if (!selectorName.length) continue;
+
+        // Keep this targeted to gate-like getters. FLEX shows WAAuraGating's
+        // meaningful properties as isEnabled/isUserEligible/isSettingsRowEnabled
+        // and benefit-style is*Active getters; the Swift provider subclasses may
+        // expose fewer ObjC methods, so enumeration catches version drift.
+        NSString *lower = selectorName.lowercaseString;
+        BOOL looksLikeGate = [lower hasPrefix:@"is"] || [lower hasPrefix:@"has"] ||
+                             [lower hasPrefix:@"should"] || [lower containsString:@"eligible"] ||
+                             [lower containsString:@"enabled"] || [lower containsString:@"active"];
+        if (!looksLikeGate) continue;
+
+        NSString *origKey = [NSString stringWithFormat:@"%@|%@", className, selectorName];
+        if (gAuraGatingOrig[origKey]) continue;
+
+        IMP orig = NULL;
+        MSHookMessageEx(cls, method_getName(m), (IMP)hook_auraGatingBool, &orig);
+        if (orig) {
+            gAuraGatingOrig[origKey] = [NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+            NSLog(@"[WATweaks][AuraGating] auto-hooked %@ -%@", className, selectorName);
+        }
+    }
+    free(methods);
+}
+
 static NSArray<NSString *> *WAGRAuraGatingClassCandidates(void) {
     return @[
         @"WAAuraGating",
@@ -226,6 +274,13 @@ static NSArray<NSString *> *WAGRAuraGatingSelectors(void) {
 
 extern "C" void WAGRAuraGatingSwiftHooksInstall(void) {
     for (NSString *cls in WAGRAuraGatingClassCandidates()) {
+        // First enumerate actual ObjC-visible BOOL properties/methods on the
+        // loaded class. This matches what FLEX shows for WAAuraGating and avoids
+        // depending only on hand-written selector guesses.
+        WAGRHookAllAuraBoolMethodsOnClass(cls);
+
+        // Then try known selector spellings for older/newer builds where a
+        // method is present but not picked up by the initial property list.
         for (NSString *sel in WAGRAuraGatingSelectors()) {
             WAGRHookAuraBoolSelectorOnClass(cls, sel);
         }
