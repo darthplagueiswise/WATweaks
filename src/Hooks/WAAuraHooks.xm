@@ -562,11 +562,6 @@ static void WAGRAuraDyldCallback(const struct mach_header *mh, intptr_t vmaddr_s
     dispatch_async(dispatch_get_main_queue(), ^{ WAGRAuraEnsureHooksInstalled(); });
 }
 
-static void WAGRAuraDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAuraEnsureHooksInstalled(); });
-}
-
 __attribute__((constructor))
 static void WAGRAuraCtor(void) {
     @autoreleasepool {

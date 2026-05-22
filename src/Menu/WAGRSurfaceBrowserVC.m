@@ -2,7 +2,6 @@
 #import "WAGRSurfaceBrowserVC.h"
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRSurface.h"
-#import "../Runtime/WAGRFLEXBridge.h"
 #import <objc/runtime.h>
 extern BOOL WAGRInstallHookForEntry(WAGREntry *e);
 static const void *kEntryKey = &kEntryKey;
@@ -87,22 +86,7 @@ static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
         [UIImage systemImageNamed:@"arrow.counterclockwise"]
         style:UIBarButtonItemStylePlain target:self action:@selector(resetAll)];
     reset.tintColor=RRED();
-    UIBarButtonItem *flex=[[UIBarButtonItem alloc]initWithTitle:@"FLEX"
-        style:UIBarButtonItemStylePlain target:self action:@selector(openFLEX)];
-    flex.tintColor=RACC();
-    self.navigationItem.rightBarButtonItems=@[scan,reset,flex];
-}
-- (void)openFLEX {
-    NSString *err = nil;
-    if (WAGRFLEXShowExplorer(&err)) return;
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"FLEX não carregado"
-                                                               message:[NSString stringWithFormat:@"%@\n\n%@", err ?: @"FLEXManager indisponível.", WAGRFLEXDiagnosticText()]
-                                                        preferredStyle:UIAlertControllerStyleAlert];
-    [a addAction:[UIAlertAction actionWithTitle:@"Copiar" style:UIAlertActionStyleDefault handler:^(__unused id _) {
-        UIPasteboard.generalPasteboard.string = WAGRFLEXDiagnosticText();
-    }]];
-    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:a animated:YES completion:nil];
+    self.navigationItem.rightBarButtonItems=@[scan,reset];
 }
 
 - (void)viewWillAppear:(BOOL)a {

@@ -65,50 +65,6 @@ jobs:
         env:
           THEOS: ${{ github.workspace }}/theos
 
-      - name: Prepare embedded FLEX
-        run: |
-          FLEX_DIR="modules/FLEXing/libflex/FLEX"
-          if [ ! -d "$FLEX_DIR/Classes" ]; then
-            rm -rf "$FLEX_DIR"
-            mkdir -p "$(dirname "$FLEX_DIR")"
-            git clone --depth=1 https://github.com/FLEXTool/FLEX.git "$FLEX_DIR"
-          fi
-
-      - name: Set dev package version
-        id: version
-        run: |
-          RAW_VERSION=$(awk '/Version:/ {print $2}' control)
-          BASE_VERSION=$(printf '%s\n' "$RAW_VERSION" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-          BRANCH_NAME="${GITHUB_REF_NAME////-}"
-          RUN_NUMBER="${GITHUB_RUN_NUMBER}"
-          BUILD_VERSION="${BASE_VERSION}.${RUN_NUMBER}"
-          BUILD_LABEL="${BRANCH_NAME}_${BASE_VERSION}_#${RUN_NUMBER}"
-          PACKAGE_NAME="WATweaks_${BUILD_LABEL}.deb"
-          sed -i '' "s/^Version:.*/Version: ${BUILD_VERSION}/" control
-          echo "BASE_VERSION=${BASE_VERSION}" >> "$GITHUB_ENV"
-          echo "BUILD_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
-          echo "BRANCH_NAME=${BRANCH_NAME}" >> "$GITHUB_ENV"
-          echo "RUN_NUMBER=${RUN_NUMBER}" >> "$GITHUB_ENV"
-          echo "BUILD_LABEL=${BUILD_LABEL}" >> "$GITHUB_ENV"
-          echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "$GITHUB_ENV"
-          echo "base_version=${BASE_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "build_version=${BUILD_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
-          echo "run_number=${RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "build_label=${BUILD_LABEL}" >> "$GITHUB_OUTPUT"
-          echo "package_name=${PACKAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Using package version ${BUILD_VERSION} (${BUILD_LABEL})"
-          grep '^Version:' control
-
-      - name: Build package
-        run: |
-          export THEOS="${{ github.workspace }}/theos"
-          chmod +x ./build.sh || true
-          bash ./build.sh
-          cd packages
-          DEB="$(ls -t *.deb | head -n1)"
-          [ -n "$DEB" ] && mv "$DEB" "$PACKAGE_NAME"
-          ls -la
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

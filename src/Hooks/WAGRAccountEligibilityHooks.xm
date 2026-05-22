@@ -185,11 +185,6 @@ static void WAGRAccountEligibilityDyldCallback(const struct mach_header *mh, int
     dispatch_async(dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
 }
 
-static void WAGRAccountEligibilityDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
-}
-
 __attribute__((constructor))
 static void WAGRAccountEligibilityCtor(void) {
     @autoreleasepool {

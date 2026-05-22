@@ -14,7 +14,6 @@
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
-#import "../Runtime/WAGRFLEXBridge.h"
 
 extern void WAGRWAABEnsureHooksInstalled(void);
 // The native dev-menu launcher lives in src/Hooks/WAGRDebugMenuLauncher.xm.
@@ -92,25 +91,8 @@ static NSUInteger WAGROverrideCountForSurfaceID(NSString *sid) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
-    UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithTitle:@"FLEX"
-                                                             style:UIBarButtonItemStylePlain
-                                                            target:self
-                                                            action:@selector(openFLEXExplorer)];
-    self.navigationItem.rightBarButtonItem = flex;
 }
 
-- (void)openFLEXExplorer {
-    NSString *err = nil;
-    if (WAGRFLEXShowExplorer(&err)) return;
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"FLEX não carregado"
-                                                               message:[NSString stringWithFormat:@"%@\n\n%@", err ?: @"FLEXManager indisponível.", WAGRFLEXDiagnosticText()]
-                                                        preferredStyle:UIAlertControllerStyleAlert];
-    [a addAction:[UIAlertAction actionWithTitle:@"Copiar" style:UIAlertActionStyleDefault handler:^(__unused id _) {
-        UIPasteboard.generalPasteboard.string = WAGRFLEXDiagnosticText();
-    }]];
-    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:a animated:YES completion:nil];
-}
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section { return (NSInteger)_surfaces.count; }
 - (void)tableView:(UITableView *)tv willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
     if ([view isKindOfClass:UITableViewHeaderFooterView.class]) {
