@@ -53,7 +53,7 @@ FLEX_IMPORTS := -I$(FLEX_ROOT)/Classes $(foreach d,$(FLEX_IMPORT_DIRS),-I$(d))
 $(TWEAK_NAME)_FILES += modules/FLEXing/libflex/libFLEX.x $(FLEX_SOURCES)
 $(TWEAK_NAME)_FRAMEWORKS += ImageIO
 $(TWEAK_NAME)_LIBRARIES += sqlite3 z
-$(TWEAK_NAME)_CFLAGS += $(FLEX_IMPORTS)
+$(TWEAK_NAME)_CFLAGS += $(FLEX_IMPORTS) -w -Wno-error -Wno-unused-but-set-variable -Wno-unused-variable
 $(TWEAK_NAME)_CCFLAGS += -std=gnu++11
 endif
 
