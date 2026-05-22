@@ -435,9 +435,34 @@ static NSArray<WAGRGatingEntry *> *entries_EvolveAbout(void) {
         WAAB(@"ios_evolution_contacts_list_item_migration_part_2", @"Contacts item migration 2", @"Second-stage contacts-list migration gate.", WAGRGatingAreaEvolveAbout, NO),
         WAAB(@"default_profile_pics_m1", @"Default profile pics M1", @"Profile-picture visual refresh used near About/Mood surfaces.", WAGRGatingAreaEvolveAbout, NO),
         WAAB(@"profile_header_blue_badge", @"Profile header blue badge", @"Profile-header badge gate used around new profile/about surfaces.", WAGRGatingAreaEvolveAbout, NO),
+
+        // Me tab / tab_me chain. These are part of the About/Me surface and must
+        // move together with Evolve About; otherwise the About bubble is enabled
+        // but the Me-tab entry points/header/profile surfaces stay gated off.
+        WAAB(@"me_tab_status_creation_enabled", @"Me tab status creation", @"Enables status/About creation from the Me tab.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"me_tab_self_status_viewing_enabled", @"Me tab self status", @"Allows viewing your own status/About surface from Me tab.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"me_tab_settings_header_enabled", @"Me tab Settings header", @"Enables the Me-tab/Settings header surface used by About.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"me_tab_settings_title_enabled", @"Me tab Settings title", @"Enables the Me-tab Settings title variant.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"me_tab_profile_picture_entrypoint_enabled", @"Me tab profile photo entry", @"Shows the Me-tab profile-picture entry point.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"me_tab_profile_picture_abprop_sync_enabled", @"Me tab profile photo sync", @"Syncs profile-picture gate state through AB properties.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"me_tab_remove_privacy_button_enabled", @"Me tab privacy button", @"Enables the privacy/remove button used by the Me-tab profile surface.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"wa_account_switcher_settings_me_tab", @"Me tab account switcher", @"Enables the account switcher entry point in Settings/Me tab.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"xfam_lg_switcher_m2_me_tab_enabled", @"Me tab xfam switcher", @"Enables the xfam/liquid-glass account switcher variant for Me tab.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_me_tab_new_user_checklist_enabled", @"Me tab checklist", @"Enables the new-user checklist in the Me tab.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_me_tab_share_updates_enabled", @"Me tab share updates", @"Enables share-updates affordances in the Me tab.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_me_tab_username_findability_enabled", @"Me tab username findability", @"Enables username findability affordances from the Me tab.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_me_tab_cover_photo_enabled", @"Me tab cover photo", @"Enables cover-photo support for the Me/About profile surface.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_me_tab_cover_photo_default_state_enabled", @"Cover photo default state", @"Default-state gate for Me-tab cover photo.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_me_tab_cover_photo_prefetch_enabled", @"Cover photo prefetch", @"Prefetches cover-photo data for the Me/About surface.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_me_tab_cover_photo_viewing_enabled", @"Cover photo viewing", @"Enables cover-photo viewing in the Me/About surface.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_liquid_glass_fix_me_tab_profile_render_throttle_enabled", @"Me tab render throttle fix", @"Liquid Glass profile-render throttle fix tied to the Me tab.", WAGRGatingAreaEvolveAbout, NO),
+
         WAAB(@"client_profile_photo_sync_m1_sender", @"Profile photo sync sender", @"Sender side of client profile-photo sync M1.", WAGRGatingAreaEvolveAbout, NO),
         WAAB(@"client_profile_photo_sync_m1_receiver", @"Profile photo sync receiver", @"Receiver side of client profile-photo sync M1.", WAGRGatingAreaEvolveAbout, NO),
         E(@"WASettingsViewController", @"isEvolveAboutM1Enabled", NO, @"Settings About M1 method", @"Native method seen in WhatsApp Settings model.", WAGRGatingAreaEvolveAbout, NO),
+        E(@"WAContextMain", @"isMeTabEnabled", NO, @"Runtime: Me tab enabled", @"WAContextMain/WAContext chain getter observed in the main exec; use with WAAB Me-tab flags.", WAGRGatingAreaEvolveAbout, NO),
+        E(@"WAContext", @"isMeTabEnabled", NO, @"Runtime: WAContext Me tab enabled", @"WAContext-level Me-tab getter if the build exposes it.", WAGRGatingAreaEvolveAbout, NO),
+        E(@"WASettingsViewController", @"isMeTabProfilePictureEntrypointEnabled", NO, @"Runtime: profile photo entry", @"Settings-side Me-tab profile-picture entry-point getter.", WAGRGatingAreaEvolveAbout, NO),
         E(@"WAContactInfoTableViewCell", @"isEvolveAboutReceiverAndNewSurfacesEnabled", NO, @"Contact cell receiver method", @"SharedModules contact-cell receiver/new-surface gate if present.", WAGRGatingAreaEvolveAbout, NO),
     ];
 }

@@ -146,12 +146,21 @@ static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorNa
     }
 
 
-    if ([s containsString:@"evolve"] || [s containsString:@"about"] || [s containsString:@"mood"] || [s containsString:@"profile"] || [s containsString:@"contactcard"]) {
+    if ([s containsString:@"evolve"] || [s containsString:@"about"] || [s containsString:@"mood"] || [s containsString:@"profile"] || [s containsString:@"contactcard"] || [s containsString:@"me_tab"] || [s containsString:@"tab_me"] || [s containsString:@"metab"]) {
         return @[
             @"evolve_about_m1_enabled", @"evolve_about_m1_receiver_enabled", @"evolve_about_m1_receiver_for_new_surfaces_enabled",
             @"evolve_about_migration_fix_enabled", @"evolve_about_m2_contact_card_thought_bubble_enabled", @"about_creation_sheet",
             @"about_emoji_badge_in_group_sender_name_enabled", @"ios_evolution_contacts_list_item_migration",
-            @"ios_evolution_contacts_list_item_migration_part_2", @"default_profile_pics_m1", @"profile_header_blue_badge"
+            @"ios_evolution_contacts_list_item_migration_part_2", @"default_profile_pics_m1", @"profile_header_blue_badge",
+            @"me_tab_status_creation_enabled", @"me_tab_self_status_viewing_enabled",
+            @"me_tab_settings_header_enabled", @"me_tab_settings_title_enabled",
+            @"me_tab_profile_picture_entrypoint_enabled", @"me_tab_profile_picture_abprop_sync_enabled",
+            @"me_tab_remove_privacy_button_enabled", @"wa_account_switcher_settings_me_tab",
+            @"xfam_lg_switcher_m2_me_tab_enabled", @"ios_me_tab_new_user_checklist_enabled",
+            @"ios_me_tab_share_updates_enabled", @"ios_me_tab_username_findability_enabled",
+            @"ios_me_tab_cover_photo_enabled", @"ios_me_tab_cover_photo_default_state_enabled",
+            @"ios_me_tab_cover_photo_prefetch_enabled", @"ios_me_tab_cover_photo_viewing_enabled",
+            @"ios_liquid_glass_fix_me_tab_profile_render_throttle_enabled"
         ];
     }
 
