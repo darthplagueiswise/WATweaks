@@ -32,6 +32,7 @@ extern void WAGRWAABEnsureHooksInstalled(void);
 extern void WAGRAuraEnsureHooksInstalled(void);
 extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern void WAGRSettingsRowsNativeEnsureHooksInstalled(void);
+extern void WAGRLGPrefsDidChange(void);
 
 // Associated-object key for stashing the entry pointer on each switch so
 // the switch's target/action can recover which catalog entry it corresponds
@@ -56,6 +57,33 @@ static void WAGRApplyObjCAlias(NSString *className, NSString *selectorName, BOOL
     NSString *key = WAGROverrideKeyFor(className, selectorName, isClassMethod);
     if (enabled) WAGRSetOverride(key, physicalValue);
     else WAGRClearOverride(key);
+}
+
+
+static BOOL WAGRSelectorIsFeatureRoot(NSString *selectorName) {
+    NSString *s = selectorName.lowercaseString ?: @"";
+    return [s isEqualToString:@"aura_enabled"] ||
+           [s isEqualToString:@"ios_liquid_glass_enabled"] ||
+           [s isEqualToString:@"br_consumer_payments_home_enabled"] ||
+           [s isEqualToString:@"br_consumer_paymentshome_enabled"] ||
+           [s isEqualToString:@"ios_contacts_surface_is_enabled"] ||
+           [s isEqualToString:@"evolve_about_m1_enabled"] ||
+           [s isEqualToString:@"companion_support_enabled"] ||
+           [s isEqualToString:@"sections_in_help_menu"];
+}
+
+static BOOL WAGRAnyWAABOverrideActive(NSArray<NSString *> *flags) {
+    for (NSString *flag in flags) {
+        if (WAGRHasOverride(WAGRWAABOverrideKeyForFlag(flag))) return YES;
+    }
+    return NO;
+}
+
+static void WAGRSetBoolPrefIfNeeded(NSString *key, BOOL enabled) {
+    if (!key.length) return;
+    if (enabled) [NSUserDefaults.standardUserDefaults setBool:YES forKey:key];
+    else [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+    [NSUserDefaults.standardUserDefaults synchronize];
 }
 
 static NSDictionary<NSString *, NSArray<NSString *> *> *WAGRLiquidGlassWDSAliasMap(void) {
@@ -201,14 +229,20 @@ static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorNa
 static void WAGRApplyRelatedSettingsRowChain(WAGRGatingEntry *entry, BOOL enabled, BOOL physicalValue) {
     NSArray<NSString *> *related = WAGRRelatedWAABFlagsForSelector(entry.selectorName);
     if (related.count == 0) return;
+
+    // Child OFF must not clear the whole feature bundle. That was the cause
+    // of switches changing state when the page scrolled/reloaded.
+    if (!enabled && !WAGRSelectorIsFeatureRoot(entry.selectorName)) {
+        NSLog(@"[WATweaks][Catalog] skipped broad clear for child %@ (%lu related flags)",
+              entry.selectorName, (unsigned long)related.count);
+        return;
+    }
+
     WAGRApplyWAABBundle(related, enabled, physicalValue);
     if ([related containsObject:@"ios_contactshub_hide_module2_on_lness_is_enabled"]) {
-        // This one is a negative/hide gate. For "enable About/Contacts Hub",
-        // the physical value must be NO; otherwise the recently-online module
-        // can stay hidden even when the rest of the chain is ON.
         NSString *hideKey = WAGRWAABOverrideKeyForFlag(@"ios_contactshub_hide_module2_on_lness_is_enabled");
         if (enabled) WAGRSetOverride(hideKey, NO);
-        else WAGRClearOverride(hideKey);
+        else if (WAGRSelectorIsFeatureRoot(entry.selectorName)) WAGRClearOverride(hideKey);
     }
     NSLog(@"[WATweaks][Catalog] %@ related Settings-row chain for %@ (%lu flags)",
           enabled ? @"enabled" : @"cleared", entry.selectorName, (unsigned long)related.count);
@@ -337,22 +371,26 @@ static void WAGRApplyRelatedSettingsRowChain(WAGRGatingEntry *entry, BOOL enable
     // covers SharedModules Swift/ObjC gates, NativeDev covers the Developer
     // row provider, and the generic router covers everything else.
     NSString *lowerSelector = e.selectorName.lowercaseString ?: @"";
-    if ([lowerSelector containsString:@"payment"] || [lowerSelector containsString:@"upi"] ||
-        [lowerSelector containsString:@"pix"] || [lowerSelector containsString:@"br_consumer"]) {
-        if (sw.on) [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"wagr.settingsrows.force_payments"];
-        else [NSUserDefaults.standardUserDefaults removeObjectForKey:@"wagr.settingsrows.force_payments"];
+    BOOL isPaymentsRelated = [lowerSelector containsString:@"payment"] || [lowerSelector containsString:@"upi"] ||
+                             [lowerSelector containsString:@"pix"] || [lowerSelector containsString:@"br_consumer"];
+    BOOL isAuraRelated = [lowerSelector containsString:@"aura"] || [lowerSelector containsString:@"subscription"] ||
+                         [lowerSelector containsString:@"ringtone"];
+    BOOL isLiquidGlassRelated = [lowerSelector containsString:@"liquid_glass"] || [lowerSelector containsString:@"liquidglass"];
+
+    if (isPaymentsRelated) {
+        BOOL keepOn = sw.on || WAGRAnyWAABOverrideActive(WAGRRelatedWAABFlagsForSelector(@"payment"));
+        WAGRSetBoolPrefIfNeeded(@"wagr.settingsrows.force_payments", keepOn);
     }
-    if ([lowerSelector containsString:@"aura"] || [lowerSelector containsString:@"subscription"] ||
-        [lowerSelector containsString:@"ringtone"]) {
-        if (sw.on) [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"wagr.settingsrows.force_subscriptions"];
-        else [NSUserDefaults.standardUserDefaults removeObjectForKey:@"wagr.settingsrows.force_subscriptions"];
+    if (isAuraRelated) {
+        BOOL keepOn = sw.on || WAGRAnyWAABOverrideActive(WAGRRelatedWAABFlagsForSelector(@"aura"));
+        WAGRSetBoolPrefIfNeeded(@"wagr.settingsrows.force_subscriptions", keepOn);
     }
-    [NSUserDefaults.standardUserDefaults synchronize];
 
     WAGRWAABEnsureHooksInstalled();
     WAGRAuraEnsureHooksInstalled();
     WAGRNativeDevMenuEnsureHooksInstalled();
     WAGRSettingsRowsNativeEnsureHooksInstalled();
+    if (isLiquidGlassRelated) WAGRLGPrefsDidChange();
     WAGRReinstallPersistedHooks();
 }
 

@@ -27,6 +27,7 @@ extern "C" NSUInteger WAGRReinstallPersistedHooks(void);
 extern "C" void WAGRWAABEnsureHooksInstalled(void);
 extern "C" void WAGRAuraEnsureHooksInstalled(void);
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void);
+extern "C" void WAGRAccountEligibilityEnsureHooksInstalled(void);
 
 static BOOL gWAGRSettingsRowsAttempted = NO;
 static BOOL gWAGRSettingsRowsHooksInstalled = NO;
