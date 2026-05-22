@@ -231,16 +231,38 @@ static BOOL WAGROrigSubscriptionsRowPresent(id self) {
     return NO;
 }
 
+// Associated-object marker: have we successfully forced an insert on THIS
+// settings VC instance yet? The marker is used by hookIsSubscriptionsRowPresent
+// so that we only claim "present" to WhatsApp AFTER we have actually inserted
+// the row — claiming "present" beforehand would sabotage WhatsApp's own
+// checkSubscriptionsEligibilityAndInsertRowIfNeeded → insertSubscriptionsRow
+// pipeline (because that pipeline early-returns if the row is "already present").
+static const void *kWAGRSubsRowInsertedMarker = &kWAGRSubsRowInsertedMarker;
+
+static BOOL WAGRSubsRowAlreadyForced(id settingsVC) {
+    return [objc_getAssociatedObject(settingsVC, kWAGRSubsRowInsertedMarker) boolValue];
+}
+
 static void WAGRForceSubscriptionsRowIfNeeded(id settingsVC) {
     if (!WAGRIsWASettingsVC(settingsVC) || !WAGRSettingsRowsShouldForceSubscriptions()) return;
+    if (WAGRSubsRowAlreadyForced(settingsVC)) return;
     if ([objc_getAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker) boolValue]) return;
     objc_setAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     dispatch_async(dispatch_get_main_queue(), ^{
         objc_setAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        if (WAGROrigSubscriptionsRowPresent(settingsVC)) return;
+        // PREVIOUSLY: we early-returned here when WAGROrigSubscriptionsRowPresent
+        // was YES. That was the bug: WhatsApp's `_subscriptionsRow` ivar can
+        // already be non-nil at startup (row object exists in memory but is
+        // not yet attached to the visible section), so the orig check returned
+        // YES and our force never ran — visible-on-screen count stayed at 0.
+        // We now call insertSubscriptionsRow unconditionally; the WhatsApp
+        // implementation itself is responsible for handling the "already
+        // attached" case idempotently. We then mark the VC as forced so the
+        // hookIsSubscriptionsRowPresent guard knows when to return YES.
         gWAGRSettingsRowsSubscriptionForces++;
         if ([settingsVC respondsToSelector:NSSelectorFromString(@"insertSubscriptionsRow")]) {
             ((void (*)(id, SEL))objc_msgSend)(settingsVC, NSSelectorFromString(@"insertSubscriptionsRow"));
+            objc_setAssociatedObject(settingsVC, kWAGRSubsRowInsertedMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         }
     });
 }
@@ -265,13 +287,22 @@ static void hookCheckSubscriptionsEligibility(id self, SEL _cmd) {
 
 static BOOL hookIsSubscriptionsRowPresent(id self, SEL _cmd) {
     BOOL original = origIsSubscriptionsRowPresent ? origIsSubscriptionsRowPresent(self, _cmd) : NO;
-
-    // This method answers "is the Subscriptions row present?". When the
-    // Aura/WA Plus chain is forced, the externally visible answer should be
-    // YES. Insertion is handled separately by WAGRForceSubscriptionsRowIfNeeded
-    // using the original IMP, so returning YES here no longer blocks our own
-    // insertion path.
-    if (WAGRSettingsRowsShouldForceSubscriptions()) return YES;
+    // PREVIOUSLY: this returned YES whenever forceSubscriptions was on,
+    // unconditionally. That was wrong: WhatsApp's own
+    // checkSubscriptionsEligibilityAndInsertRowIfNeeded uses this method as
+    // the "already-inserted, skip" guard. Returning YES *before* the row was
+    // actually inserted meant WA skipped its own insert path entirely.
+    //
+    // The correct behavior:
+    //   * If we have already forced an insert on this VC, claim YES so any
+    //     subsequent re-evaluation by WA (e.g. removeSubscriptionsRow check)
+    //     keeps the row alive.
+    //   * Otherwise return whatever WhatsApp's own method returned. WA's
+    //     insert logic then runs normally, and our force runs on top as
+    //     a belt-and-suspenders guarantee.
+    if (WAGRSettingsRowsShouldForceSubscriptions() && WAGRSubsRowAlreadyForced(self)) {
+        return YES;
+    }
     return original;
 }
 

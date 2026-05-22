@@ -182,6 +182,17 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
+        // PRIORITY INSTALL: synchronous on constructor entry. This runs
+        // before any UI code, before viewDidLoad of any settings VC, and
+        // before most WhatsApp code paths that consult +isInternalUser.
+        // SharedModules is already loaded by dyld at this point (our
+        // dylib links it as a dependency target), so WAServerProperties
+        // is available now in the runtime. If for some reason it is not,
+        // the staggered retries below pick up the slack.
+        installEmployeeHooks();
+
+        // Safety-net retries: cover cold-launch corner cases where
+        // SharedModules takes longer to fully register class symbols.
         double delays[] = { 0.2, 1.0, 3.0, 6.0 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),

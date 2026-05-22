@@ -179,10 +179,13 @@ extern "C" NSString *WAGRAccountEligibilityDiagnostic(void) {
 __attribute__((constructor))
 static void WAGRAccountEligibilityCtor(void) {
     @autoreleasepool {
+        // Priority install: the eligibility gates need to be in place
+        // before the very first SettingsVC tries to query them.
+        WAGRAccountEligibilityEnsureHooksInstalled();
         // SharedModules is loaded shortly after main launch on most builds,
-        // but the same staggered-retry pattern we use everywhere else is
-        // appropriate here. Class lookup is cheap and the install is
-        // idempotent.
+        // but the staggered-retry pattern is a safety net for cold launches
+        // where class registration runs slightly later. The install is
+        // idempotent so repeated invocations cost only the class-lookup pass.
         double delays[] = { 0.5, 1.5, 3.5, 6.0 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
