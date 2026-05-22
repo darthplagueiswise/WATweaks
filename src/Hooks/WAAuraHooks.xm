@@ -21,6 +21,7 @@
 #import "../WAGramPrefix.h"
 
 extern "C" void WAGRWAABEnsureHooksInstalled(void);
+extern "C" void WAGRAuraEnsureHooksInstalled(void);
 
 static NSString * const kWAGRAuraSimulationMaster = @"wagr_aura_simulation_enabled";
 static BOOL gAuraHooksInstalled = NO;
