@@ -39,6 +39,7 @@
 
 #import "WAGRSecretMenusVC.h"
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRSurface.h"
 #import <objc/runtime.h>
 
 extern NSString *WAGRDogfoodDiagnosticText(void);
@@ -47,11 +48,56 @@ extern NSString *WAGRAuraDiagnostic(void);
 extern NSString *WAGRWAABDiagnosticText(void);
 extern NSString *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
+extern void WAGRWAABEnsureHooksInstalled(void);
+extern void WAGRDogfoodEnsureHooksInstalled(void);
+extern void WAGRAuraEnsureHooksInstalled(void);
+extern void WAGRAuraActivateAllFlags(void);
+extern void WAGRAuraDeactivateAllFlags(void);
+extern void WAGRAccountEligibilityEnsureHooksInstalled(void);
+extern BOOL WAGRInstallHookForEntry(WAGREntry *e);
 
 
-static NSString *WAGRSecretMeTabDiagnosticText(void) {
-    NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
-    NSArray<NSString *> *flags = @[
+
+static NSArray<NSDictionary *> *WAGRSecretRuntimeOverrides(NSArray<NSDictionary *> *items) {
+    return items ?: @[];
+}
+
+static NSString *WAGRSecretRuntimeKey(NSDictionary *item) {
+    return WAGROverrideKey(@"secret",
+                           item[@"class"] ?: @"",
+                           [item[@"classMethod"] boolValue],
+                           item[@"selector"] ?: @"");
+}
+
+static void WAGRSecretApplyRuntimeOverride(NSDictionary *item, BOOL on) {
+    NSString *className = item[@"class"];
+    NSString *selector = item[@"selector"];
+    if (!className.length || !selector.length) return;
+
+    BOOL isClassMethod = [item[@"classMethod"] boolValue];
+    NSString *key = WAGRSecretRuntimeKey(item);
+
+    if (on) {
+        WAGRSetOverride(key, YES);
+
+        WAGREntry *e = [WAGREntry new];
+        e.surfaceID = @"secret";
+        e.className = className;
+        e.isClassMethod = isClassMethod;
+        e.isProperty = NO;
+        e.selectorName = selector;
+        e.displayName = selector;
+        e.returnType = @"BOOL";
+        e.category = @"Secret";
+        e.overrideKey = key;
+        WAGRInstallHookForEntry(e);
+    } else {
+        WAGRClearOverride(key);
+    }
+}
+
+static NSArray<NSString *> *WAGRSecretMeTabWAABFlags(void) {
+    return @[
         @"me_tab_status_creation_enabled",
         @"me_tab_self_status_viewing_enabled",
         @"me_tab_settings_header_enabled",
@@ -64,15 +110,62 @@ static NSString *WAGRSecretMeTabDiagnosticText(void) {
         @"ios_me_tab_share_updates_enabled",
         @"ios_me_tab_username_findability_enabled",
         @"ios_contacts_surface_is_enabled",
-        @"ios_contactshub_presence_status"
+        @"ios_contactshub_presence_status",
+        @"shouldShowRecentlyOnlineSuggestedContacts",
+        @"recently_online_contacts_enabled",
+        @"contacts_hub_enabled",
+        @"contacts_hub_recently_online_enabled",
+        @"evolve_about_m1_enabled"
     ];
+}
 
-    NSMutableArray<NSString *> *lines = [NSMutableArray arrayWithCapacity:flags.count];
-    for (NSString *flag in flags) {
-        NSString *key = [@"wagr.waab." stringByAppendingString:flag];
-        id value = [ud objectForKey:key];
-        [lines addObject:[NSString stringWithFormat:@"%@=%@", flag, value ?: @"unset"]];
+static NSArray<NSDictionary *> *WAGRSecretMeTabRuntimeOverrides(void) {
+    NSMutableArray *out = [NSMutableArray array];
+    NSArray<NSString *> *classes = @[@"WAContext", @"WAContextMain", @"WAABProperties", @"FOAWAABPropertiesImpl"];
+    NSArray<NSString *> *selectors = @[
+        @"isMeTabEnabled",
+        @"isEvolveAboutM1Enabled",
+        @"isMeTabProfilePictureEntrypointEnabled",
+        @"shouldShowRecentlyOnlineSuggestedContacts",
+        @"isWaffleSwitchingEnabled",
+        @"isContactsSurfaceEnabled",
+        @"isContactsHubEnabled",
+        @"isRecentlyOnlineContactsEnabled",
+        @"isUsernameExperienceEnabled",
+        @"shouldShowUsernameRowOnCompanion"
+    ];
+    for (NSString *cls in classes) {
+        for (NSString *sel in selectors) {
+            [out addObject:@{@"class": cls, @"selector": sel, @"classMethod": @NO}];
+        }
     }
+    return out;
+}
+
+static NSArray<NSDictionary *> *WAGRSecretInternalRuntimeOverrides(void) {
+    return @[
+        @{@"class": @"WAServerProperties", @"selector": @"isInternalUser", @"classMethod": @YES},
+        @{@"class": @"WAContextMain", @"selector": @"isInternalUser", @"classMethod": @NO},
+        @{@"class": @"WAContext", @"selector": @"isInternalUser", @"classMethod": @NO}
+    ];
+}
+
+static NSString *WAGRSecretMeTabDiagnosticText(void) {
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    for (NSString *flag in WAGRSecretMeTabWAABFlags()) {
+        NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(flag)];
+        [lines addObject:[NSString stringWithFormat:@"%@=%@", flag, stored ?: @"unset"]];
+    }
+
+    NSUInteger runtimeOn = 0;
+    NSUInteger runtimeTotal = 0;
+    for (NSDictionary *item in WAGRSecretMeTabRuntimeOverrides()) {
+        runtimeTotal++;
+        NSString *key = WAGRSecretRuntimeKey(item);
+        if (WAGRHasOverride(key) && WAGROverrideBool(key)) runtimeOn++;
+    }
+    [lines addObject:[NSString stringWithFormat:@"runtimeOverrides=%lu/%lu",
+                      (unsigned long)runtimeOn, (unsigned long)runtimeTotal]];
     return [lines componentsJoinedByString:@"\n"];
 }
 
@@ -91,47 +184,82 @@ typedef NS_ENUM(NSInteger, WAGRSecretSection) {
 static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
     return @[
         @{ @"title":    @"Modo Internal / Employee",
-           @"subtitle": @"WAServerProperties +isInternalUser → YES. Libera Settings → Developer e fluxos internos no próximo launch.",
+           @"subtitle": @"Liga prefs legadas + runtime override real de WAServerProperties/WAContext isInternalUser.",
            @"icon":     @"person.crop.circle.badge.checkmark",
-           @"keys":     @[ kWAGREmployeeMaster,
-                           kWAGRDogfoodGateInternalUser,
-                           kWAGRDogfoodGateMetaEmployee,
-                           kWAGRDogfoodGateMetaEmployeeSnake,
-                           kWAGRDogfoodGateGraphQLEmpC1,
-                           kWAGRInternalMaster,
-                           kWAGRDebugMode ] },
+           @"masterKeys": @[ kWAGREmployeeMaster,
+                             kWAGRDogfoodGateInternalUser,
+                             kWAGRDogfoodGateMetaEmployee,
+                             kWAGRDogfoodGateMetaEmployeeSnake,
+                             kWAGRDogfoodGateGraphQLEmpC1,
+                             kWAGRInternalMaster,
+                             kWAGRDebugMode ],
+           @"runtimeOn": WAGRSecretInternalRuntimeOverrides() },
+
         @{ @"title":    @"Simulação Aura / WA Plus",
-           @"subtitle": @"WAAuraGating + WAAccountEligibility -isEligibleForSubscriptions → YES. Faz aparecer a row Subscriptions em Settings.",
+           @"subtitle": @"Usa WAGRAuraActivateAllFlags/WAGRAuraDeactivateAllFlags + hooks runtime Aura/Eligibility.",
            @"icon":     @"sparkles",
-           @"keys":     @[ @"wagr_aura_simulation_enabled" ] },
-        // Modo Me-Tab: liga TODOS os gates do Contacts Hub + About Evolve +
-        // Waffle de uma vez. As gates são instance methods ObjC normais
-        // (não Swift puro), então MSHookMessageEx funciona limpinho.
+           @"masterKeys": @[ @"wagr_aura_simulation_enabled" ],
+           @"action":   @"aura" },
+
         @{ @"title":    @"Modo Me-Tab / Contacts Hub / About Evolve",
-           @"subtitle": @"Liga isMeTabEnabled, isEvolveAboutM1Enabled, isMeTabProfilePictureEntrypointEnabled, shouldShowRecentlyOnlineSuggestedContacts e isWaffleSwitchingEnabled.",
+           @"subtitle": @"Liga WAAB flags tab_me/about/contacts e stubs runtime em WAContext/WAContextMain/WAABProperties.",
            @"icon":     @"person.2.crop.square.stack.fill",
-           @"keys":     @[ @"wagr_metab_master_enabled" ] },
+           @"masterKeys": @[ @"wagr_metab_master_enabled" ],
+           @"waabOn":   WAGRSecretMeTabWAABFlags(),
+           @"runtimeOn": WAGRSecretMeTabRuntimeOverrides() },
     ];
 }
-
 static BOOL WAGRMasterIsOn(NSDictionary *toggle) {
-    for (NSString *k in (NSArray *)toggle[@"keys"]) {
+    for (NSString *k in (NSArray *)toggle[@"masterKeys"]) {
         if ([NSUserDefaults.standardUserDefaults boolForKey:k]) return YES;
+    }
+    for (NSString *flag in (NSArray *)toggle[@"waabOn"]) {
+        if (WAGRIsOn(flag)) return YES;
+    }
+    for (NSString *flag in (NSArray *)toggle[@"waabOff"]) {
+        if (WAGRIsOff(flag)) return YES;
+    }
+    for (NSDictionary *item in WAGRSecretRuntimeOverrides(toggle[@"runtimeOn"])) {
+        NSString *key = WAGRSecretRuntimeKey(item);
+        if (WAGRHasOverride(key) && WAGROverrideBool(key)) return YES;
     }
     return NO;
 }
 
 static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
-    for (NSString *k in (NSArray *)toggle[@"keys"]) {
+
+    for (NSString *k in (NSArray *)toggle[@"masterKeys"]) {
         if (on) [ud setBool:YES forKey:k];
         else    [ud removeObjectForKey:k];
     }
+
+    NSString *action = toggle[@"action"];
+    if ([action isEqualToString:@"aura"]) {
+        if (on) WAGRAuraActivateAllFlags();
+        else    WAGRAuraDeactivateAllFlags();
+    }
+
+    for (NSString *flag in (NSArray *)toggle[@"waabOn"]) {
+        WAGRSet(flag, on ? @"on" : nil);
+    }
+    for (NSString *flag in (NSArray *)toggle[@"waabOff"]) {
+        WAGRSet(flag, on ? @"off" : nil);
+    }
+    for (NSDictionary *item in WAGRSecretRuntimeOverrides(toggle[@"runtimeOn"])) {
+        WAGRSecretApplyRuntimeOverride(item, on);
+    }
+
     [ud synchronize];
+
+    WAGRWAABEnsureHooksInstalled();
+    WAGRDogfoodEnsureHooksInstalled();
+    WAGRAuraEnsureHooksInstalled();
+    WAGRAccountEligibilityEnsureHooksInstalled();
+
     NSLog(@"[WATweaks][SecretPanel] %@ master toggle → %@",
           toggle[@"title"], on ? @"ON" : @"OFF");
 }
-
 // ─── Diagnostic rows ──────────────────────────────────────────────────────
 static NSArray<NSDictionary *> *WAGRDiagnosticRows(void) {
     return @[

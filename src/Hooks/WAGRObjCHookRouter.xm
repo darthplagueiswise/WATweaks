@@ -188,7 +188,7 @@ extern "C" NSString *WAGRHookRouterDiagnostic(void) {
     WAGRHookEnsureStorage();
     NSUInteger overrides=0;
     for(NSString*k in [[NSUserDefaults standardUserDefaults]dictionaryRepresentation])
-        if([k hasPrefix:@"wagr.override."])overrides++;
+        if([k hasPrefix:@"wagr.override"])overrides++;
     return [NSString stringWithFormat:@"installed hooks = %lu\nactive overrides = %lu",
         (unsigned long)gInstalled.count, (unsigned long)overrides];
 }

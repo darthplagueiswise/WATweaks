@@ -50,7 +50,7 @@ static BOOL WAGRWAABGenericBoolHook(id self, SEL _cmd) {
     NSString *udKey  = WAGRKey(flag);
     NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:udKey];
     if (!stored.length) {
-        id b = [[NSUserDefaults standardUserDefaults] objectForKey:[NSString stringWithFormat:@"wagr.override|waab|WAABProperties|inst|%@", flag]];
+        id b = [[NSUserDefaults standardUserDefaults] objectForKey:WAGROverrideKey(kWAGRSurfaceWAAB, @"WAABProperties", NO, flag)];
         if (b) stored = [b boolValue] ? @"on" : @"off";
     }
 
@@ -85,7 +85,7 @@ static BOOL WAGRBoolForKeyHook(id self, SEL _cmd, NSString *key, BOOL defaultVal
 
     NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(key)];
     if (!stored.length) {
-        id b = [[NSUserDefaults standardUserDefaults] objectForKey:[NSString stringWithFormat:@"wagr.override|waab|WAABProperties|inst|%@", key]];
+        id b = [[NSUserDefaults standardUserDefaults] objectForKey:WAGROverrideKey(kWAGRSurfaceWAAB, @"WAABProperties", NO, key)];
         if (b) stored = [b boolValue] ? @"on" : @"off";
     }
     if ([stored isEqualToString:@"on"]) {
