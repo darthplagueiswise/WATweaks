@@ -8,9 +8,9 @@
 //        _TtC12WAAuraGating20GatedBenefitProvider
 //        _TtC12WAAuraGating25GatedSubscriptionProvider
 //        WAAuraGating / WAAuraGating.AuraGating bridged ObjC surfaces
-//   3. Settings rows must be inserted through WhatsApp's own Settings flow.
-//      We therefore hook the native “check/insert subscriptions row” path and
-//      never instantiate Swift Aura view controllers with plain init().
+//   3. Settings rows are owned exclusively by WAGRSettingsRowsNativeHooks.xm.
+//      This file must not hook WASettingsViewController. Keeping one owner
+//      avoids chained trampolines and contradictory row-present answers.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import <Foundation/Foundation.h>
@@ -95,45 +95,10 @@ static void WAGRSetWAABOverride(NSString *flag, NSString *value) {
     else [[NSUserDefaults standardUserDefaults] removeObjectForKey:WAGRKey(flag)];
 }
 
-// ── Settings row insertion hooks ─────────────────────────────────────────────
-static void (*orig_checkSubs)(id, SEL) = NULL;
-static BOOL (*orig_isSubsRowPresent)(id, SEL) = NULL;
-
-static void hook_checkSubs(id self, SEL _cmd) {
-    if (orig_checkSubs) orig_checkSubs(self, _cmd);
-
-    if (!WAGRIsOn(@"aura_settings_row_enabled")) return;
-
-    SEL insertSel = NSSelectorFromString(@"insertSubscriptionsRow");
-    if ([self respondsToSelector:insertSel]) {
-        ((void (*)(id, SEL))objc_msgSend)(self, insertSel);
-        NSLog(@"[WATweaks][Aura] direct insertSubscriptionsRow on %@", NSStringFromClass([self class]));
-    }
-}
-
-static BOOL hook_isSubsRowPresent(id self, SEL _cmd) {
-    if (!WAGRIsOn(@"aura_settings_row_enabled")) {
-        return orig_isSubsRowPresent ? orig_isSubsRowPresent(self, _cmd) : NO;
-    }
-    // Force native code to believe it still needs to insert the row.
-    return NO;
-}
-
-static void WAGRInstallOnFirstClass(const char *selName, IMP hook, IMP *orig) {
-    if (!selName || !hook || !orig || *orig) return;
-    SEL sel = sel_registerName(selName);
-    unsigned int n = 0;
-    Class *all = objc_copyClassList(&n);
-    if (!all) return;
-    for (unsigned int i = 0; i < n; i++) {
-        Method m = class_getInstanceMethod(all[i], sel);
-        if (!m) continue;
-        MSHookMessageEx(all[i], sel, hook, orig);
-        NSLog(@"[WATweaks][Aura] hooked -%s on %@", selName, NSStringFromClass(all[i]));
-        break;
-    }
-    free(all);
-}
+// ── Ownership note ───────────────────────────────────────────────────────────
+// WASettingsViewController / Subscriptions row hooks live in
+// WAGRSettingsRowsNativeHooks.xm. Aura only owns WAAB + WAAuraGating runtime
+// gates. Do not re-add objc_copyClassList selector fishing here.
 
 // ── WAAuraGating Swift/ObjC bridge hooks ─────────────────────────────────────
 typedef BOOL (*WAGRAuraBoolIMP)(id, SEL);
@@ -141,10 +106,20 @@ static NSMutableDictionary<NSString *, NSValue *> *gAuraGatingOrig = nil;
 
 static BOOL WAGRAuraSelectorIsNegative(NSString *sel) {
     NSString *lower = sel.lowercaseString ?: @"";
-    return [lower containsString:@"kill"] ||
+
+    // Explicit negative runtime getters. A switch ON in our UI should make
+    // these return NO so the feature is unblocked.
+    if ([lower containsString:@"killswitch_disabled"] ||
+        [lower containsString:@"kill_switch_disabled"]) {
+        return NO; // these are positive gates: TRUE means the kill switch is disabled
+    }
+
+    return [lower containsString:@"killswitch"] ||
+           [lower containsString:@"kill_switch"] ||
+           [lower containsString:@"killswitchactive"] ||
+           [lower containsString:@"kill"] ||
            [lower containsString:@"block"] ||
-           [lower containsString:@"disabled"] ||
-           [lower containsString:@"hide"];
+           [lower containsString:@"disabled"];
 }
 
 static BOOL hook_auraGatingBool(id self, SEL _cmd) {
@@ -293,10 +268,7 @@ extern "C" void WAGRAuraGatingSwiftHooksInstall(void) {
 extern "C" void WAGRAuraEnsureHooksInstalled(void) {
     if (!gAuraHooksInstalled) {
         gAuraHooksInstalled = YES;
-        WAGRInstallOnFirstClass("checkSubscriptionsEligibilityAndInsertRowIfNeeded",
-                                (IMP)hook_checkSubs, (IMP *)&orig_checkSubs);
-        WAGRInstallOnFirstClass("isSubscriptionsRowPresentInTable",
-                                (IMP)hook_isSubsRowPresent, (IMP *)&orig_isSubsRowPresent);
+        NSLog(@"[WATweaks][Aura] Aura runtime owner installed (WASettingsViewController hooks are owned by WAGRSettingsRowsNativeHooks)");
     }
     WAGRAuraGatingSwiftHooksInstall();
     [[NSUserDefaults standardUserDefaults] synchronize];
@@ -366,12 +338,10 @@ extern "C" NSString *WAGRAuraDiagnostic(void) {
     NSMutableArray *loaded = [NSMutableArray array];
     for (NSString *cls in WAGRAuraGatingClassCandidates()) if (NSClassFromString(cls)) [loaded addObject:cls];
     return [NSString stringWithFormat:
-            @"simulation=%@\npositive WAAB overrides=%lu/%lu\nnegative gates OFF=%lu/%lu\nsettings row hook=%@\nrow-present hook=%@\nSwift Aura classes loaded=%@\nSwift Aura bool hooks=%lu\nNative opener=%@\nOpen path: WhatsApp Settings > Subscriptions / WA Plus",
+            @"simulation=%@\npositive WAAB overrides=%lu/%lu\nnegative gates OFF=%lu/%lu\nsettings row owner=NativeSettingsRows\nrow-present policy=YES when forced\nSwift Aura classes loaded=%@\nSwift Aura bool hooks=%lu\nNative opener=%@\nOpen path: WhatsApp Settings > Subscriptions / WA Plus",
             WAGRAuraSimulationEnabled() ? @"ON" : @"OFF",
             (unsigned long)positiveOn, (unsigned long)WAGRAuraPositiveFlags().count,
             (unsigned long)negativeOff, (unsigned long)WAGRAuraNegativeFlags().count,
-            orig_checkSubs ? @"YES" : @"NO",
-            orig_isSubsRowPresent ? @"YES" : @"NO",
             loaded.count ? [loaded componentsJoinedByString:@", "] : @"none",
             (unsigned long)gAuraGatingOrig.count,
             WAGROpenSubscriptionsNative() ? @"found" : @"missing"];

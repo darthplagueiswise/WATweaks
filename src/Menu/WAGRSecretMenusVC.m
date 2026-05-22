@@ -47,6 +47,12 @@ extern NSString *WAGRAuraDiagnostic(void);
 extern NSString *WAGRWAABDiagnosticText(void);
 extern NSString *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
+extern void WAGRAuraActivateAllFlags(void);
+extern void WAGRAuraDeactivateAllFlags(void);
+extern void WAGRAuraEnsureHooksInstalled(void);
+extern void WAGRAccountEligibilityEnsureHooksInstalled(void);
+extern void WAGRSettingsRowsNativeEnsureHooksInstalled(void);
+extern void WAGRWAABEnsureHooksInstalled(void);
 
 typedef NS_ENUM(NSInteger, WAGRSecretSection) {
     WAGRSecretSectionMasters = 0,
@@ -87,8 +93,25 @@ static BOOL WAGRMasterIsOn(NSDictionary *toggle) {
 }
 
 static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
+    NSArray *keys = (NSArray *)toggle[@"keys"];
+    BOOL isAuraMaster = [keys containsObject:@"wagr_aura_simulation_enabled"];
+
+    if (isAuraMaster) {
+        if (on) WAGRAuraActivateAllFlags();
+        else WAGRAuraDeactivateAllFlags();
+
+        WAGRWAABEnsureHooksInstalled();
+        WAGRAuraEnsureHooksInstalled();
+        WAGRAccountEligibilityEnsureHooksInstalled();
+        WAGRSettingsRowsNativeEnsureHooksInstalled();
+
+        NSLog(@"[WATweaks][SecretPanel] %@ master toggle → %@ (Aura full chain)",
+              toggle[@"title"], on ? @"ON" : @"OFF");
+        return;
+    }
+
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
-    for (NSString *k in (NSArray *)toggle[@"keys"]) {
+    for (NSString *k in keys) {
         if (on) [ud setBool:YES forKey:k];
         else    [ud removeObjectForKey:k];
     }

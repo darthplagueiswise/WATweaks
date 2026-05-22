@@ -265,6 +265,12 @@ static void hookCheckSubscriptionsEligibility(id self, SEL _cmd) {
 
 static BOOL hookIsSubscriptionsRowPresent(id self, SEL _cmd) {
     BOOL original = origIsSubscriptionsRowPresent ? origIsSubscriptionsRowPresent(self, _cmd) : NO;
+
+    // This method answers "is the Subscriptions row present?". When the
+    // Aura/WA Plus chain is forced, the externally visible answer should be
+    // YES. Insertion is handled separately by WAGRForceSubscriptionsRowIfNeeded
+    // using the original IMP, so returning YES here no longer blocks our own
+    // insertion path.
     if (WAGRSettingsRowsShouldForceSubscriptions()) return YES;
     return original;
 }

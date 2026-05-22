@@ -145,6 +145,18 @@ static WAGRGatingEntry *WAAB(NSString *flag, NSString *title, NSString *desc,
     return E(@"WAABProperties", flag, NO, title, desc, area, inverted);
 }
 
+static BOOL WAGRAuraRuntimeSelectorIsNegative(NSString *selectorName) {
+    NSString *lower = selectorName.lowercaseString ?: @"";
+    if ([lower containsString:@"killswitch_disabled"] ||
+        [lower containsString:@"kill_switch_disabled"]) return NO;
+    return [lower containsString:@"killswitch"] ||
+           [lower containsString:@"kill_switch"] ||
+           [lower containsString:@"killswitchactive"] ||
+           [lower containsString:@"kill"] ||
+           [lower containsString:@"block"] ||
+           [lower containsString:@"disabled"];
+}
+
 static NSArray<WAGRGatingEntry *> *entries_Aura(void) {
     NSMutableArray<WAGRGatingEntry *> *a = [NSMutableArray array];
 
@@ -222,7 +234,7 @@ static NSArray<WAGRGatingEntry *> *entries_Aura(void) {
                                     @"isExtendedPinnedChatBenefitActive", @"isUserSubscribed"];
     for (NSString *cls in swiftClasses) {
         for (NSString *sel in selectors) {
-            BOOL inv = [sel.lowercaseString containsString:@"kill"] || [sel.lowercaseString containsString:@"block"];
+            BOOL inv = WAGRAuraRuntimeSelectorIsNegative(sel);
             [a addObject:E(cls, sel, NO, [NSString stringWithFormat:@"%@ -%@", cls, sel],
                           @"SharedModules WAAuraGating runtime accessor observed through FLEX.",
                           WAGRGatingAreaAura, inv)];
