@@ -47,7 +47,34 @@ extern NSString *WAGRAuraDiagnostic(void);
 extern NSString *WAGRWAABDiagnosticText(void);
 extern NSString *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
-extern NSString *WAGRMeTabDiagnostic(void);
+
+
+static NSString *WAGRSecretMeTabDiagnosticText(void) {
+    NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
+    NSArray<NSString *> *flags = @[
+        @"me_tab_status_creation_enabled",
+        @"me_tab_self_status_viewing_enabled",
+        @"me_tab_settings_header_enabled",
+        @"me_tab_settings_title_enabled",
+        @"me_tab_profile_picture_entrypoint_enabled",
+        @"me_tab_profile_picture_abprop_sync_enabled",
+        @"wa_account_switcher_settings_me_tab",
+        @"xfam_lg_switcher_m2_me_tab_enabled",
+        @"ios_me_tab_new_user_checklist_enabled",
+        @"ios_me_tab_share_updates_enabled",
+        @"ios_me_tab_username_findability_enabled",
+        @"ios_contacts_surface_is_enabled",
+        @"ios_contactshub_presence_status"
+    ];
+
+    NSMutableArray<NSString *> *lines = [NSMutableArray arrayWithCapacity:flags.count];
+    for (NSString *flag in flags) {
+        NSString *key = [@"wagr.waab." stringByAppendingString:flag];
+        id value = [ud objectForKey:key];
+        [lines addObject:[NSString stringWithFormat:@"%@=%@", flag, value ?: @"unset"]];
+    }
+    return [lines componentsJoinedByString:@"\n"];
+}
 
 typedef NS_ENUM(NSInteger, WAGRSecretSection) {
     WAGRSecretSectionMasters = 0,
@@ -122,7 +149,7 @@ static NSString *WAGRDiagnosticText(NSString *fn) {
     if ([fn isEqualToString:@"dogfood"])  return WAGRDogfoodDiagnosticText();
     if ([fn isEqualToString:@"elig"])     return WAGRAccountEligibilityDiagnostic();
     if ([fn isEqualToString:@"aura"])     return WAGRAuraDiagnostic();
-    if ([fn isEqualToString:@"metab"])    return WAGRMeTabDiagnostic();
+    if ([fn isEqualToString:@"metab"])    return WAGRSecretMeTabDiagnosticText();
     if ([fn isEqualToString:@"waab"])     return WAGRWAABDiagnosticText();
     if ([fn isEqualToString:@"devmenu"])  return WAGRNativeDevMenuDiagnosticText();
     if ([fn isEqualToString:@"settings"]) return WAGRSettingsRowsNativeDiagnosticText();
