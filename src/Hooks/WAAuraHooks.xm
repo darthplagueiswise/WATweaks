@@ -25,6 +25,214 @@ extern "C" void WAGRWAABEnsureHooksInstalled(void);
 static NSString * const kWAGRAuraSimulationMaster = @"wagr_aura_simulation_enabled";
 static BOOL gAuraHooksInstalled = NO;
 
+static NSMutableDictionary<NSString *, NSValue *> *gAuraAppearanceOrig = nil;
+static NSMutableSet<NSString *> *gAuraAppearanceHooked = nil;
+static id gWAGRAuraLastUserContext = nil;
+static NSUInteger gWAGRAuraAppearanceFactoryHookCount = 0;
+static NSUInteger gWAGRAuraControllerContextFixCount = 0;
+
+typedef id (*WAGRAuraIDCtxIMP)(id, SEL, id);
+typedef void (*WAGRAuraVoidIMP)(id, SEL);
+
+static NSString *WAGRAuraHookKey(NSString *className, NSString *selectorName, BOOL classMethod) {
+    return [NSString stringWithFormat:@"%@|%@|%@", className ?: @"", classMethod ? @"class" : @"inst", selectorName ?: @""];
+}
+
+static id WAGRAuraCurrentUserContext(void) {
+    if (gWAGRAuraLastUserContext) return gWAGRAuraLastUserContext;
+
+    NSArray<NSString *> *classNames = @[ @"WAServerProperties", @"WAContextMain", @"WAContext" ];
+    NSArray<NSString *> *selectors = @[ @"userContext", @"sharedUserContext", @"currentUserContext", @"mainContext", @"sharedContext", @"defaultContext" ];
+
+    for (NSString *className in classNames) {
+        Class cls = NSClassFromString(className);
+        if (!cls) continue;
+        for (NSString *selectorName in selectors) {
+            SEL sel = NSSelectorFromString(selectorName);
+            if (![cls respondsToSelector:sel]) continue;
+            id ctx = nil;
+            @try { ctx = ((id (*)(id, SEL))objc_msgSend)((id)cls, sel); }
+            @catch (__unused NSException *ex) { ctx = nil; }
+            if (ctx) {
+                gWAGRAuraLastUserContext = ctx;
+                return ctx;
+            }
+        }
+    }
+    return nil;
+}
+
+static id WAGRAuraContextFromController(id controller) {
+    id cursor = controller;
+    for (NSUInteger i = 0; cursor && i < 8; i++) {
+        @try {
+            id ctx = [cursor valueForKey:@"userContext"];
+            if (ctx) {
+                gWAGRAuraLastUserContext = ctx;
+                return ctx;
+            }
+        } @catch (__unused NSException *ex) {}
+        @try { cursor = [cursor valueForKey:@"parentViewController"]; }
+        @catch (__unused NSException *ex) { cursor = nil; }
+    }
+    return WAGRAuraCurrentUserContext();
+}
+
+static void WAGRAuraInjectUserContextIntoController(id controller, id context) {
+    if (!controller || !context) return;
+    @try {
+        id current = nil;
+        @try { current = [controller valueForKey:@"userContext"]; } @catch (__unused NSException *ex) {}
+        if (!current) {
+            [controller setValue:context forKey:@"userContext"];
+            gWAGRAuraControllerContextFixCount++;
+            NSLog(@"[WATweaks][AuraVC] injected userContext into %@", NSStringFromClass([controller class]));
+        }
+    } @catch (__unused NSException *ex) {}
+}
+
+static id hook_WAGRAuraInitWithContext(id self, SEL _cmd, id context) {
+    NSString *key = WAGRAuraHookKey(NSStringFromClass([self class]), NSStringFromSelector(_cmd), NO);
+    WAGRAuraIDCtxIMP orig = NULL;
+    NSValue *v = gAuraAppearanceOrig[key];
+    if (v) orig = reinterpret_cast<WAGRAuraIDCtxIMP>([v pointerValue]);
+
+    if (context) gWAGRAuraLastUserContext = context;
+    id result = orig ? orig(self, _cmd, context) : self;
+    if (context) WAGRAuraInjectUserContextIntoController(result, context);
+    return result;
+}
+
+static id hook_WAGRAuraMakeControllerWithContext(id cls, SEL _cmd, id context) {
+    NSString *key = WAGRAuraHookKey(NSStringFromClass((Class)cls), NSStringFromSelector(_cmd), YES);
+    WAGRAuraIDCtxIMP orig = NULL;
+    NSValue *v = gAuraAppearanceOrig[key];
+    if (v) orig = reinterpret_cast<WAGRAuraIDCtxIMP>([v pointerValue]);
+
+    id ctx = context ?: WAGRAuraCurrentUserContext();
+    if (ctx) gWAGRAuraLastUserContext = ctx;
+
+    id vc = orig ? orig(cls, _cmd, ctx ?: context) : nil;
+    WAGRAuraInjectUserContextIntoController(vc, ctx);
+    NSLog(@"[WATweaks][AuraVC] factory %@ returned %@ ctx=%@",
+          NSStringFromSelector(_cmd), NSStringFromClass([vc class]), ctx ? @"YES" : @"NO");
+    return vc;
+}
+
+static void hook_WAGRAuraControllerViewDidLoad(id self, SEL _cmd) {
+    id ctx = WAGRAuraContextFromController(self);
+    WAGRAuraInjectUserContextIntoController(self, ctx);
+
+    NSString *key = WAGRAuraHookKey(NSStringFromClass([self class]), NSStringFromSelector(_cmd), NO);
+    WAGRAuraVoidIMP orig = NULL;
+    NSValue *v = gAuraAppearanceOrig[key];
+    if (v) orig = reinterpret_cast<WAGRAuraVoidIMP>([v pointerValue]);
+    if (orig) orig(self, _cmd);
+
+    WAGRAuraInjectUserContextIntoController(self, ctx);
+}
+
+static BOOL WAGRAuraHookMessage(NSString *className, NSString *selectorName, BOOL classMethod, IMP replacement) {
+    if (!className.length || !selectorName.length || !replacement) return NO;
+    Class cls = NSClassFromString(className);
+    if (!cls) return NO;
+
+    Class hookClass = classMethod ? object_getClass(cls) : cls;
+    if (!hookClass) return NO;
+
+    SEL sel = NSSelectorFromString(selectorName);
+    Method m = classMethod ? class_getClassMethod(cls, sel) : class_getInstanceMethod(cls, sel);
+    if (!m) return NO;
+
+    if (!gAuraAppearanceOrig) gAuraAppearanceOrig = [NSMutableDictionary dictionary];
+    if (!gAuraAppearanceHooked) gAuraAppearanceHooked = [NSMutableSet set];
+
+    NSString *key = WAGRAuraHookKey(className, selectorName, classMethod);
+    if ([gAuraAppearanceHooked containsObject:key]) return YES;
+
+    IMP orig = NULL;
+    MSHookMessageEx(hookClass, sel, replacement, &orig);
+    if (orig) {
+        gAuraAppearanceOrig[key] = [NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+        [gAuraAppearanceHooked addObject:key];
+        gWAGRAuraAppearanceFactoryHookCount++;
+        NSLog(@"[WATweaks][AuraVC] hooked %@ %@%@", className, classMethod ? @"+" : @"-", selectorName);
+        return YES;
+    }
+    return NO;
+}
+
+static void WAGRAuraAppearanceControllerHooksInstall(void) {
+    WAGRAuraHookMessage(@"WAAppearanceSettingsViewController", @"initWithContext:", NO, (IMP)hook_WAGRAuraInitWithContext);
+    WAGRAuraHookMessage(@"WAAppearanceSettingsViewController", @"makeAppIconViewControllerWithContext:", YES, (IMP)hook_WAGRAuraMakeControllerWithContext);
+    WAGRAuraHookMessage(@"WAAppearanceSettingsViewController", @"makeAppThemeViewControllerWithContext:", YES, (IMP)hook_WAGRAuraMakeControllerWithContext);
+
+    NSArray<NSString *> *controllers = @[
+        @"WAAura.AppIconsViewController",
+        @"WAAura.AppThemesViewController",
+        @"WAAura.RingtonesViewController",
+        @"WAAura.AppThemeViewController",
+        @"WAAura.AppIconViewController"
+    ];
+    for (NSString *className in controllers) {
+        WAGRAuraHookMessage(className, @"viewDidLoad", NO, (IMP)hook_WAGRAuraControllerViewDidLoad);
+        WAGRAuraHookMessage(className, @"initWithContext:", NO, (IMP)hook_WAGRAuraInitWithContext);
+    }
+}
+
+static UIViewController *WAGRAuraTopViewControllerFrom(UIViewController *from) {
+    UIViewController *top = from;
+    if (!top) {
+        UIWindow *key = nil;
+        for (UIWindow *w in UIApplication.sharedApplication.windows) {
+            if (w.isKeyWindow) { key = w; break; }
+        }
+        top = key.rootViewController;
+    }
+    while (top.presentedViewController) top = top.presentedViewController;
+    if ([top isKindOfClass:UINavigationController.class]) {
+        top = ((UINavigationController *)top).topViewController;
+    } else if ([top isKindOfClass:UITabBarController.class]) {
+        top = ((UITabBarController *)top).selectedViewController;
+        if ([top isKindOfClass:UINavigationController.class]) top = ((UINavigationController *)top).topViewController;
+    }
+    return top;
+}
+
+static BOOL WAGRPushAuraFactoryController(UIViewController *from, NSString *factorySelector) {
+    WAGRAuraEnsureHooksInstalled();
+
+    Class settings = NSClassFromString(@"WAAppearanceSettingsViewController");
+    SEL sel = NSSelectorFromString(factorySelector);
+    if (!settings || ![settings respondsToSelector:sel]) {
+        NSLog(@"[WATweaks][AuraVC] factory %@ missing on WAAppearanceSettingsViewController", factorySelector);
+        return NO;
+    }
+
+    UIViewController *top = WAGRAuraTopViewControllerFrom(from);
+    id ctx = WAGRAuraContextFromController(top);
+    if (!ctx) ctx = WAGRAuraCurrentUserContext();
+
+    id vc = ((id (*)(id, SEL, id))objc_msgSend)((id)settings, sel, ctx);
+    if (![vc isKindOfClass:UIViewController.class]) {
+        NSLog(@"[WATweaks][AuraVC] factory %@ did not return UIViewController", factorySelector);
+        return NO;
+    }
+
+    WAGRAuraInjectUserContextIntoController(vc, ctx);
+
+    UINavigationController *nav = top.navigationController;
+    if (nav) {
+        [nav pushViewController:(UIViewController *)vc animated:YES];
+    } else {
+        UINavigationController *wrap = [[UINavigationController alloc] initWithRootViewController:(UIViewController *)vc];
+        wrap.modalPresentationStyle = UIModalPresentationFormSheet;
+        [top presentViewController:wrap animated:YES completion:nil];
+    }
+    return YES;
+}
+
+
 // ── WAAB flags that actually surface Aura / Settings rows ────────────────────
 static NSArray<NSString *> *WAGRAuraPositiveFlags(void) {
     return @[
@@ -271,6 +479,7 @@ extern "C" void WAGRAuraEnsureHooksInstalled(void) {
         NSLog(@"[WATweaks][Aura] Aura runtime owner installed (WASettingsViewController hooks are owned by WAGRSettingsRowsNativeHooks)");
     }
     WAGRAuraGatingSwiftHooksInstall();
+    WAGRAuraAppearanceControllerHooksInstall();
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
@@ -312,20 +521,16 @@ extern "C" BOOL WAGROpenSubscriptionsNative(void) {
 }
 
 extern "C" BOOL WAGRPushAuraThemesVC(UIViewController *from) {
-    (void)from;
-    NSLog(@"[WATweaks][Aura] Theme VC direct init disabled; open via Settings > Subscriptions / WA Plus.");
-    return NO;
+    return WAGRPushAuraFactoryController(from, @"makeAppThemeViewControllerWithContext:");
 }
 
 extern "C" BOOL WAGRPushAuraIconsVC(UIViewController *from) {
-    (void)from;
-    NSLog(@"[WATweaks][Aura] Icons VC direct init disabled; open via Settings > Subscriptions / WA Plus.");
-    return NO;
+    return WAGRPushAuraFactoryController(from, @"makeAppIconViewControllerWithContext:");
 }
 
 extern "C" BOOL WAGRPushAuraRingtonesVC(UIViewController *from) {
     (void)from;
-    NSLog(@"[WATweaks][Aura] Ringtones VC direct init disabled; open via Settings > Subscriptions / WA Plus.");
+    NSLog(@"[WATweaks][Aura] Ringtones VC direct init disabled; no native WAAppearanceSettings factory confirmed yet.");
     return NO;
 }
 
@@ -338,19 +543,22 @@ extern "C" NSString *WAGRAuraDiagnostic(void) {
     NSMutableArray *loaded = [NSMutableArray array];
     for (NSString *cls in WAGRAuraGatingClassCandidates()) if (NSClassFromString(cls)) [loaded addObject:cls];
     return [NSString stringWithFormat:
-            @"simulation=%@\npositive WAAB overrides=%lu/%lu\nnegative gates OFF=%lu/%lu\nsettings row owner=NativeSettingsRows\nrow-present policy=YES when forced\nSwift Aura classes loaded=%@\nSwift Aura bool hooks=%lu\nNative opener=%@\nOpen path: WhatsApp Settings > Subscriptions / WA Plus",
+            @"simulation=%@\npositive WAAB overrides=%lu/%lu\nnegative gates OFF=%lu/%lu\nsettings row owner=NativeSettingsRows\nrow-present policy=YES when forced\nSwift Aura classes loaded=%@\nSwift Aura bool hooks=%lu\nAura factory/context hooks=%lu\ncontroller context fixes=%lu\nlastUserContext=%@\nNative opener=%@\nOpen path: Settings > Appearance > App icons / App themes, or Settings > Subscriptions / WA Plus",
             WAGRAuraSimulationEnabled() ? @"ON" : @"OFF",
             (unsigned long)positiveOn, (unsigned long)WAGRAuraPositiveFlags().count,
             (unsigned long)negativeOff, (unsigned long)WAGRAuraNegativeFlags().count,
             loaded.count ? [loaded componentsJoinedByString:@", "] : @"none",
             (unsigned long)gAuraGatingOrig.count,
+            (unsigned long)gWAGRAuraAppearanceFactoryHookCount,
+            (unsigned long)gWAGRAuraControllerContextFixCount,
+            gWAGRAuraLastUserContext ? NSStringFromClass([gWAGRAuraLastUserContext class]) : @"none",
             WAGROpenSubscriptionsNative() ? @"found" : @"missing"];
 }
 
 __attribute__((constructor))
 static void WAGRAuraCtor(void) {
     @autoreleasepool {
-        double delays[] = { 0.8, 2.0, 4.0, 7.0 };
+        double delays[] = { 0.2, 0.8, 2.0 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{ WAGRAuraEnsureHooksInstalled(); });
