@@ -42,11 +42,18 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
                         @[@"WAABProperties", @"ABProperties"],
                         @[], @[], YES, YES, YES, YES),
 
-        WAGRMakeSurface(kWAGRSurfaceContext, @"WAContextMain",
-                        @"Context services, feature keepers, properties",
+        WAGRMakeSurface(kWAGRSurfaceContext, @"WAContext gates",
+                        @"Curated WAContext gate namespace, before WAContextMain expansion",
+                        @"switch.2",
+                        @[@"WAContext"],
+                        @[],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(@"contextmain_graph", @"WAContextMain object graph",
+                        @"Large dependency graph/services behind WAContext; debug browser only",
                         @"cube.transparent",
-                        @[@"WAContextMain", @"WAContext"],
-                        @[@"WAContextMain", @"WAContext"],
+                        @[@"WAContextMain"],
+                        @[],
                         @[], @[], YES, YES, YES, YES),
 
         WAGRMakeSurface(kWAGRSurfaceGateKeep, @"Feature Gate Keepers",
@@ -275,6 +282,32 @@ static BOOL WAGRCategoryAllowed(WAGRSurfaceSpec *spec, NSString *cat) {
     return NO;
 }
 
+
+static BOOL WAGRIsSystemNoiseSelector(NSString *selector, Class cls) {
+    if (!selector.length) return YES;
+    static NSSet<NSString *> *noise = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        noise = [NSSet setWithArray:@[
+            @"accessibilityPerformEscape", @"canBecomeFirstResponder",
+            @"prefersStatusBarHidden", @"shouldAutorotate",
+            @"isViewLoaded", @"isBeingPresented", @"isBeingDismissed",
+            @"isMovingFromParentViewController", @"isMovingToParentViewController",
+            @"isEditing", @"isModalInPresentation", @"hidesBottomBarWhenPushed",
+            @"wantsFullScreenLayout", @"automaticallyAdjustsScrollViewInsets",
+            @"isProxy", @"respondsToSelector:", @"conformsToProtocol:",
+        ]];
+    });
+    if ([noise containsObject:selector]) return YES;
+    Class owner = cls;
+    while (owner) {
+        NSString *name = NSStringFromClass(owner);
+        if ([name hasPrefix:@"UI"] || [name hasPrefix:@"NS"] || [name hasPrefix:@"_UI"]) return YES;
+        owner = class_getSuperclass(owner);
+    }
+    return NO;
+}
+
 static void WAGRAddEntry(NSMutableArray *out,
                          NSMutableSet *seen,
                          WAGRSurfaceSpec *spec,
@@ -284,6 +317,7 @@ static void WAGRAddEntry(NSMutableArray *out,
                          BOOL property,
                          NSString *returnType) {
     if (!selector.length || [selector containsString:@":"]) return;
+    if (WAGRIsSystemNoiseSelector(selector, cls)) return;
     NSString *cname = NSStringFromClass(cls);
     NSString *display = WAGRCleanDisplayName(selector);
     NSString *cat = WAGRCategoryForSelector([NSString stringWithFormat:@"%@ %@ %@", cname, selector, display]);

@@ -52,6 +52,8 @@ extern void       WAGRSettingsRowsNativeInjectIfPossible(id settingsVC);
 // main image, so the bootstrap is delay-staggered like the WAAB observer.
 extern void       WAGRAccountEligibilityEnsureHooksInstalled(void);
 extern NSString  *WAGRAccountEligibilityDiagnostic(void);
+extern void       WAGRContextMenuPipelineProbeEnsureInstalled(void);
+extern NSString  *WAGRContextMenuPipelineProbeDiagnosticText(void);
 
 // ── Long-press setup ─────────────────────────────────────────────────────────
 // kLP is the associated-object key used to mark a UITableView as "long-press
@@ -213,6 +215,7 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
         UIViewController *settingsVC = WAGRSettingsVCForTable(tv);
         if (settingsVC) {
             WAGRSettingsRowsNativeEnsureHooksInstalled();
+    WAGRContextMenuPipelineProbeEnsureInstalled();
             WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
         }
     }
@@ -240,6 +243,7 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
     installLongPressTableHook();
     WAGRNativeDevMenuEnsureHooksInstalled();
     WAGRSettingsRowsNativeEnsureHooksInstalled();
+    WAGRContextMenuPipelineProbeEnsureInstalled();
 }
 
 NSString *WAGRDebugMenuDiagnosticText(void) {
@@ -249,6 +253,7 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
         gTableHooked ? @"YES" : @"NO",
         WAGRNativeDevMenuDiagnosticText() ?: @"n/a",
         WAGRSettingsRowsNativeDiagnosticText() ?: @"n/a",
+        WAGRContextMenuPipelineProbeDiagnosticText() ?: @"n/a",
         WAGRHookRouterDiagnostic() ?: @"n/a"];
 }
 

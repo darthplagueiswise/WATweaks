@@ -47,6 +47,8 @@ extern NSString *WAGRAuraDiagnostic(void);
 extern NSString *WAGRWAABDiagnosticText(void);
 extern NSString *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
+extern NSString *WAGRContextMenuPipelineProbeDiagnosticText(void);
+extern void WAGRContextMenuPipelineProbeEnsureInstalled(void);
 extern void WAGRAuraActivateAllFlags(void);
 extern void WAGRAuraDeactivateAllFlags(void);
 extern void WAGRAuraEnsureHooksInstalled(void);
@@ -129,6 +131,7 @@ static NSArray<NSDictionary *> *WAGRDiagnosticRows(void) {
         @{ @"name": @"WAABProperties observer",         @"fn": @"waab" },
         @{ @"name": @"Native dev-menu hook",            @"fn": @"devmenu" },
         @{ @"name": @"Settings rows native hook",       @"fn": @"settings" },
+        @{ @"name": @"Context-menu pipeline probe",    @"fn": @"ctxmenu" },
     ];
 }
 
@@ -139,6 +142,7 @@ static NSString *WAGRDiagnosticText(NSString *fn) {
     if ([fn isEqualToString:@"waab"])     return WAGRWAABDiagnosticText();
     if ([fn isEqualToString:@"devmenu"])  return WAGRNativeDevMenuDiagnosticText();
     if ([fn isEqualToString:@"settings"]) return WAGRSettingsRowsNativeDiagnosticText();
+    if ([fn isEqualToString:@"ctxmenu"]) { WAGRContextMenuPipelineProbeEnsureInstalled(); return WAGRContextMenuPipelineProbeDiagnosticText(); }
     return @"(no diagnostic)";
 }
 
