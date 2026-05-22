@@ -14,7 +14,8 @@ static BOOL WAGRLGSelectorIsNegative(SEL sel) {
 
 static BOOL WAGRLGHookedBool(id self, SEL _cmd) {
     if (WAGRPref(kWAGRLiquidGlassMaster)) return !WAGRLGSelectorIsNegative(_cmd);
-    IMP imp = [gWAGRLGOrigIMPs[NSStringFromSelector(_cmd)] pointerValue];
+    NSValue *origValue = gWAGRLGOrigIMPs[NSStringFromSelector(_cmd)];
+    IMP imp = origValue ? reinterpret_cast<IMP>([origValue pointerValue]) : NULL;
     if (imp) return ((BOOL (*)(id, SEL))imp)(self, _cmd);
     return NO;
 }
