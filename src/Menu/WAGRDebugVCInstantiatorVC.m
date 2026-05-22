@@ -15,6 +15,14 @@
 
 extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
 extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
+extern void WAGRDebugVCStabilityEnsureInstalled(void);
+extern void WAGRDebugVCStabilitySetActive(BOOL active);
+extern NSString *WAGRDebugVCStabilityDiagnosticText(void);
+extern void WAGRDogfoodEnsureHooksInstalled(void);
+extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
+extern void WAGRAuraEnsureHooksInstalled(void);
+extern void WAGRAccountEligibilityEnsureHooksInstalled(void);
+extern void WAGRWAABEnsureHooksInstalled(void);
 
 static UIColor *WAGRDbgBG(void) { return UIColor.systemGroupedBackgroundColor; }
 static UIColor *WAGRDbgCell(void) { return UIColor.secondarySystemGroupedBackgroundColor; }
@@ -93,12 +101,160 @@ static NSString *WAGRDebugVCReport(NSString *className) {
     Class cls = NSClassFromString(className);
     NSArray<NSString *> *inits = WAGRDebugVCInitSelectorsForClass(cls);
     return [NSString stringWithFormat:
-            @"class=%@\nloaded=%@\ninheritance=%@\ninitSelectors=%@\n\nLauncher diagnostic:\n%@\n\nSafe policy:\nDirect instantiation is blocked because these Swift/hidden controllers can trap during init/dealloc when WAContext/UserContext/FOA state is missing.",
+            @"class=%@\nloaded=%@\ninheritance=%@\ninitSelectors=%@\n\nLauncher diagnostic:\n%@\n\nStability diagnostic:\n%@\n\nExperimental open policy:\nOpening is allowed from this lab, but the presented navigation controller is retained intentionally to avoid Swift teardown traps on dismissal.",
             className ?: @"n/a",
             cls ? @"YES" : @"NO",
             WAGRDebugVCInheritance(cls),
             inits.count ? [inits componentsJoinedByString:@", "] : @"none",
-            WAGRDebugMenuLauncherDiagnosticText() ?: @"n/a"];
+            WAGRDebugMenuLauncherDiagnosticText() ?: @"n/a",
+            WAGRDebugVCStabilityDiagnosticText() ?: @"n/a"];
+}
+
+
+static NSMutableArray *WAGRDebugVCLeakedControllers(void) {
+    static NSMutableArray *items = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        items = [NSMutableArray array];
+    });
+    return items;
+}
+
+static void WAGRDebugVCPrimeHooks(void) {
+    WAGRDebugVCStabilityEnsureInstalled();
+    WAGRDogfoodEnsureHooksInstalled();
+    WAGRNativeDevMenuEnsureHooksInstalled();
+    WAGRAuraEnsureHooksInstalled();
+    WAGRAccountEligibilityEnsureHooksInstalled();
+    WAGRWAABEnsureHooksInstalled();
+}
+
+static id WAGRDebugVCProbeWAUserContext(id obj) {
+    if (!obj) return nil;
+    SEL sel = NSSelectorFromString(@"wa_userContext");
+    if (![obj respondsToSelector:sel]) return nil;
+    id (*fn)(id, SEL) = (id (*)(id, SEL))[obj methodForSelector:sel];
+    id uc = fn(obj, sel);
+    if (!uc) return nil;
+    NSString *cls = NSStringFromClass([uc class]);
+    return [cls containsString:@"Context"] ? uc : nil;
+}
+
+static id WAGRDebugVCUserContextIvar(id obj) {
+    if (!obj) return nil;
+    Ivar iv = class_getInstanceVariable([obj class], "_userContext");
+    if (!iv) return nil;
+    const char *type = ivar_getTypeEncoding(iv);
+    if (!type || type[0] != '@') return nil;
+    return object_getIvar(obj, iv);
+}
+
+static id WAGRDebugVCProbeUserContext(id obj) {
+    return WAGRDebugVCProbeWAUserContext(obj) ?: WAGRDebugVCUserContextIvar(obj);
+}
+
+static id WAGRDebugVCFindUserContextInTree(UIViewController *vc, NSInteger depth) {
+    if (!vc || depth > 20) return nil;
+    id uc = WAGRDebugVCProbeUserContext(vc);
+    if (uc) return uc;
+    for (UIViewController *child in vc.childViewControllers) {
+        uc = WAGRDebugVCFindUserContextInTree(child, depth + 1);
+        if (uc) return uc;
+    }
+    if (vc.presentedViewController) {
+        uc = WAGRDebugVCFindUserContextInTree(vc.presentedViewController, depth + 1);
+        if (uc) return uc;
+    }
+    return nil;
+}
+
+static id WAGRDebugVCFindUserContextAnywhere(void) {
+    Class server = NSClassFromString(@"WAServerProperties");
+    SEL userContextSel = NSSelectorFromString(@"userContext");
+    if (server && [server respondsToSelector:userContextSel]) {
+        id (*fn)(id, SEL) = (id (*)(id, SEL))objc_msgSend;
+        id ctx = fn((id)server, userContextSel);
+        if (ctx) return ctx;
+    }
+
+    for (UIWindow *win in UIApplication.sharedApplication.windows) {
+        id uc = WAGRDebugVCFindUserContextInTree(win.rootViewController, 0);
+        if (uc) return uc;
+    }
+
+    return WAGRDebugVCProbeUserContext((id)UIApplication.sharedApplication.delegate);
+}
+
+static UIViewController *WAGRDebugVCInstantiateExperimental(NSString *className, NSError **outError) {
+    Class cls = NSClassFromString(className);
+    if (!cls) {
+        if (outError) *outError = [NSError errorWithDomain:@"WATweaks.DebugVC" code:1 userInfo:@{NSLocalizedDescriptionKey: @"class not loaded"}];
+        return nil;
+    }
+
+    if (![cls isSubclassOfClass:UIViewController.class]) {
+        if (outError) *outError = [NSError errorWithDomain:@"WATweaks.DebugVC" code:2 userInfo:@{NSLocalizedDescriptionKey: @"class is not a UIViewController subclass"}];
+        return nil;
+    }
+
+    WAGRDebugVCPrimeHooks();
+    id userContext = WAGRDebugVCFindUserContextAnywhere();
+    id instance = nil;
+    NSString *used = nil;
+
+    WAGRDebugVCStabilitySetActive(YES);
+    @try {
+        id allocObj = [cls alloc];
+
+        for (NSString *selName in @[@"initWithUserContext:", @"initAsModalWithUserContext:", @"initWithContext:"]) {
+            if (!userContext) break;
+            SEL sel = NSSelectorFromString(selName);
+            if (![allocObj respondsToSelector:sel]) continue;
+            id (*fn)(id, SEL, id) = (id (*)(id, SEL, id))[allocObj methodForSelector:sel];
+            instance = fn(allocObj, sel, userContext);
+            used = selName;
+            break;
+        }
+
+        if (!instance && [cls isSubclassOfClass:UITableViewController.class]) {
+            SEL sel = NSSelectorFromString(@"initWithStyle:");
+            id allocObj = [cls alloc];
+            if ([allocObj respondsToSelector:sel]) {
+                id (*fn)(id, SEL, UITableViewStyle) = (id (*)(id, SEL, UITableViewStyle))[allocObj methodForSelector:sel];
+                instance = fn(allocObj, sel, UITableViewStyleInsetGrouped);
+                used = @"initWithStyle:";
+            }
+        }
+
+        if (!instance) {
+            SEL sel = NSSelectorFromString(@"init");
+            id allocObj = [cls alloc];
+            if ([allocObj respondsToSelector:sel]) {
+                id (*fn)(id, SEL) = (id (*)(id, SEL))[allocObj methodForSelector:sel];
+                instance = fn(allocObj, sel);
+                used = @"init";
+            }
+        }
+    } @catch (NSException *ex) {
+        WAGRDebugVCStabilitySetActive(NO);
+        if (outError) {
+            *outError = [NSError errorWithDomain:@"WATweaks.DebugVC" code:3 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Objective-C exception during init: %@", ex]}];
+        }
+        return nil;
+    }
+    WAGRDebugVCStabilitySetActive(NO);
+
+    if (![instance isKindOfClass:UIViewController.class]) {
+        if (outError) {
+            *outError = [NSError errorWithDomain:@"WATweaks.DebugVC" code:4 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"no supported initializer worked; userContext=%@", userContext ? NSStringFromClass([userContext class]) : @"nil"]}];
+        }
+        return nil;
+    }
+
+    UIViewController *vc = (UIViewController *)instance;
+    vc.title = vc.title ?: className.lastPathComponent;
+    objc_setAssociatedObject(vc, "WAGRDebugVCInitSelector", used ?: @"unknown", OBJC_ASSOCIATION_COPY_NONATOMIC);
+    return vc;
 }
 
 @interface WAGRDebugVCInstantiatorVC ()
@@ -133,7 +289,7 @@ static NSString *WAGRDebugVCReport(NSString *className) {
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0) return @"Uses the native launcher/reveal path. It does not directly instantiate Swift Debug VCs.";
-    return @"Tap a class to copy diagnostics. Direct open is intentionally blocked to avoid Swift runtime traps on close/dismiss.";
+    return @"Tap a class to open experimentally or copy diagnostics. Opened controllers are retained after dismiss to avoid Swift teardown traps.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
@@ -161,7 +317,7 @@ static NSString *WAGRDebugVCReport(NSString *className) {
         : @"not loaded";
     c.imageView.image = [[UIImage systemImageNamed:@"circle.fill"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.imageView.tintColor = cls ? UIColor.systemGreenColor : UIColor.tertiaryLabelColor;
-    c.accessoryType = UITableViewCellAccessoryDetailButton;
+    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
 
@@ -187,8 +343,11 @@ static NSString *WAGRDebugVCReport(NSString *className) {
 - (void)showClassActions:(NSString *)className {
     NSString *report = WAGRDebugVCReport(className);
     UIAlertController *a = [UIAlertController alertControllerWithTitle:className
-                                                               message:@"Direct instantiation is blocked. Use diagnostics or copy the class name."
+                                                               message:@"Experimental opening is available. The controller is intentionally retained after dismiss to avoid Swift teardown traps."
                                                         preferredStyle:UIAlertControllerStyleActionSheet];
+    [a addAction:[UIAlertAction actionWithTitle:@"Open experimental (retained)" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
+        [self openExperimentalDebugVC:className];
+    }]];
     [a addAction:[UIAlertAction actionWithTitle:@"Show diagnostics" style:UIAlertActionStyleDefault handler:^(__unused id _) {
         [self showText:className body:report];
     }]];
@@ -210,7 +369,8 @@ static NSString *WAGRDebugVCReport(NSString *className) {
 }
 
 - (void)showLauncherDiagnostic {
-    [self showText:@"Debug launcher" body:WAGRDebugMenuLauncherDiagnosticText() ?: @"n/a"];
+    [self showText:@"Debug launcher" body:WAGRDebugMenuLauncherDiagnosticText() ?: @"n/a",
+            WAGRDebugVCStabilityDiagnosticText() ?: @"n/a"];
 }
 
 - (void)showText:(NSString *)title body:(NSString *)body {
