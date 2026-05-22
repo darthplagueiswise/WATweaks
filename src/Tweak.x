@@ -28,6 +28,7 @@
 #import <objc/runtime.h>
 #import <substrate.h>
 #import "Menu/WAGRSurfaceListVC.h"
+#import "Menu/WAGRSecretMenusVC.h"
 #import "WAGramPrefix.h"
 
 // ── External entry points provided by dedicated hook files ──────────────────
@@ -244,6 +245,20 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
     WAGRNativeDevMenuEnsureHooksInstalled();
     WAGRSettingsRowsNativeEnsureHooksInstalled();
     WAGRContextMenuPipelineProbeEnsureInstalled();
+}
+
+
+static void WAGRPresentSecretMenusFrom(UIViewController *host) {
+    if (!host) return;
+    WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.prefersGrabberVisible = YES;
+        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
+    }
+    [host presentViewController:nav animated:YES completion:nil];
 }
 
 NSString *WAGRDebugMenuDiagnosticText(void) {

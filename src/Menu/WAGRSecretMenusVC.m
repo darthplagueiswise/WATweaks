@@ -47,14 +47,7 @@ extern NSString *WAGRAuraDiagnostic(void);
 extern NSString *WAGRWAABDiagnosticText(void);
 extern NSString *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
-extern NSString *WAGRContextMenuPipelineProbeDiagnosticText(void);
-extern void WAGRContextMenuPipelineProbeEnsureInstalled(void);
-extern void WAGRAuraActivateAllFlags(void);
-extern void WAGRAuraDeactivateAllFlags(void);
-extern void WAGRAuraEnsureHooksInstalled(void);
-extern void WAGRAccountEligibilityEnsureHooksInstalled(void);
-extern void WAGRSettingsRowsNativeEnsureHooksInstalled(void);
-extern void WAGRWAABEnsureHooksInstalled(void);
+extern NSString *WAGRMeTabDiagnostic(void);
 
 typedef NS_ENUM(NSInteger, WAGRSecretSection) {
     WAGRSecretSectionMasters = 0,
@@ -84,6 +77,13 @@ static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
            @"subtitle": @"WAAuraGating + WAAccountEligibility -isEligibleForSubscriptions → YES. Faz aparecer a row Subscriptions em Settings.",
            @"icon":     @"sparkles",
            @"keys":     @[ @"wagr_aura_simulation_enabled" ] },
+        // Modo Me-Tab: liga TODOS os gates do Contacts Hub + About Evolve +
+        // Waffle de uma vez. As gates são instance methods ObjC normais
+        // (não Swift puro), então MSHookMessageEx funciona limpinho.
+        @{ @"title":    @"Modo Me-Tab / Contacts Hub / About Evolve",
+           @"subtitle": @"Liga isMeTabEnabled, isEvolveAboutM1Enabled, isMeTabProfilePictureEntrypointEnabled, shouldShowRecentlyOnlineSuggestedContacts e isWaffleSwitchingEnabled.",
+           @"icon":     @"person.2.crop.square.stack.fill",
+           @"keys":     @[ @"wagr_metab_master_enabled" ] },
     ];
 }
 
@@ -95,25 +95,8 @@ static BOOL WAGRMasterIsOn(NSDictionary *toggle) {
 }
 
 static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
-    NSArray *keys = (NSArray *)toggle[@"keys"];
-    BOOL isAuraMaster = [keys containsObject:@"wagr_aura_simulation_enabled"];
-
-    if (isAuraMaster) {
-        if (on) WAGRAuraActivateAllFlags();
-        else WAGRAuraDeactivateAllFlags();
-
-        WAGRWAABEnsureHooksInstalled();
-        WAGRAuraEnsureHooksInstalled();
-        WAGRAccountEligibilityEnsureHooksInstalled();
-        WAGRSettingsRowsNativeEnsureHooksInstalled();
-
-        NSLog(@"[WATweaks][SecretPanel] %@ master toggle → %@ (Aura full chain)",
-              toggle[@"title"], on ? @"ON" : @"OFF");
-        return;
-    }
-
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
-    for (NSString *k in keys) {
+    for (NSString *k in (NSArray *)toggle[@"keys"]) {
         if (on) [ud setBool:YES forKey:k];
         else    [ud removeObjectForKey:k];
     }
@@ -128,10 +111,10 @@ static NSArray<NSDictionary *> *WAGRDiagnosticRows(void) {
         @{ @"name": @"Employee / isInternalUser hook", @"fn": @"dogfood" },
         @{ @"name": @"WAAccountEligibility hook",       @"fn": @"elig" },
         @{ @"name": @"Aura gating hook",                @"fn": @"aura" },
+        @{ @"name": @"Me-Tab / Contacts Hub hook",      @"fn": @"metab" },
         @{ @"name": @"WAABProperties observer",         @"fn": @"waab" },
         @{ @"name": @"Native dev-menu hook",            @"fn": @"devmenu" },
         @{ @"name": @"Settings rows native hook",       @"fn": @"settings" },
-        @{ @"name": @"Context-menu pipeline probe",    @"fn": @"ctxmenu" },
     ];
 }
 
@@ -139,10 +122,10 @@ static NSString *WAGRDiagnosticText(NSString *fn) {
     if ([fn isEqualToString:@"dogfood"])  return WAGRDogfoodDiagnosticText();
     if ([fn isEqualToString:@"elig"])     return WAGRAccountEligibilityDiagnostic();
     if ([fn isEqualToString:@"aura"])     return WAGRAuraDiagnostic();
+    if ([fn isEqualToString:@"metab"])    return WAGRMeTabDiagnostic();
     if ([fn isEqualToString:@"waab"])     return WAGRWAABDiagnosticText();
     if ([fn isEqualToString:@"devmenu"])  return WAGRNativeDevMenuDiagnosticText();
     if ([fn isEqualToString:@"settings"]) return WAGRSettingsRowsNativeDiagnosticText();
-    if ([fn isEqualToString:@"ctxmenu"]) { WAGRContextMenuPipelineProbeEnsureInstalled(); return WAGRContextMenuPipelineProbeDiagnosticText(); }
     return @"(no diagnostic)";
 }
 
