@@ -51,78 +51,9 @@ static void WAGRApplyWAABBundle(NSArray<NSString *> *flags, BOOL enabled, BOOL p
     }
 }
 
-
-static void WAGRApplyObjCBoolOverride(NSString *className, NSString *selectorName, BOOL isClassMethod, BOOL enabled, BOOL physicalValue) {
-    NSString *key = WAGROverrideKeyFor(className, selectorName, isClassMethod);
-    if (enabled) WAGRSetOverride(key, physicalValue);
-    else WAGRClearOverride(key);
-}
-
-static NSArray<NSString *> *WAGRWDSSelectorsForLiquidSelector(NSString *selectorName) {
-    NSString *s = selectorName.lowercaseString ?: @"";
-    NSMutableArray<NSString *> *sels = [NSMutableArray array];
-
-    if ([s containsString:@"liquid_glass_enabled"] || [s isEqualToString:@"ios_liquid_glass_launched"] || [s isEqualToString:@"wa_lg_ios_liquid_glass_enabled"]) {
-        [sels addObjectsFromArray:@[@"hasLiquidGlassLaunched", @"isM0Enabled"]];
-    }
-    if ([s containsString:@"m1"] && ![s containsString:@"m_1_5"] && ![s containsString:@"m1_5"]) [sels addObject:@"isM1Enabled"];
-    if ([s containsString:@"m_1_5"] || [s containsString:@"m1_5"]) [sels addObject:@"isM1_5Enabled"];
-    if ([s containsString:@"context_menu"]) [sels addObject:@"isM1_5ContextMenuEnabled"];
-    if ([s containsString:@"new_chatbar"]) [sels addObject:@"isNewChatbarUXEnabled"];
-    if ([s containsString:@"chatbar_lower_bottom_padding"]) [sels addObject:@"isChatbarLowerBottomPaddingEnabled"];
-    if ([s containsString:@"chat_top_bar"]) [sels addObject:@"isChatTopBarM2Enabled"];
-    if ([s containsString:@"text_layout"]) [sels addObject:@"isTextLayoutM2Enabled"];
-    if ([s containsString:@"action_tile"]) [sels addObject:@"isActionTileM2Enabled"];
-    if ([s containsString:@"unify_ui"]) [sels addObject:@"isUnifyUIRefreshEnabled"];
-    if ([s containsString:@"unify_navigation"]) [sels addObject:@"isUnifyNavigationBarEnabled"];
-    if ([s containsString:@"native_swipe"]) [sels addObject:@"shouldUseNativeSwipeActions"];
-    if ([s containsString:@"native_sidebar"] || [s containsString:@"unify_native_sidebar"]) [sels addObject:@"isNativeSidebarEnabled"];
-    if ([s containsString:@"hides_bottombar"]) [sels addObject:@"isHidingBottomBarWorkaroundEnabled"];
-    if ([s containsString:@"topbar_appearance"]) [sels addObject:@"isTopBarAppearanceWorkaroundEnabled"];
-    if ([s containsString:@"fixes_for_older"]) [sels addObject:@"isFixesForOlderOSEnabled"];
-    if ([s containsString:@"fix_tabbar_badge"]) [sels addObject:@"isFixTabbarBadgeOffthreadEnabled"];
-    if ([s containsString:@"transition_safety"]) [sels addObject:@"isContextMenuTransitionSafetyFixEnabled"];
-    if ([s containsString:@"on_disappear"]) [sels addObject:@"isFixContextMenuOnDisappearEnabled"];
-    if ([s containsString:@"updates_table_dynamic_color"]) [sels addObject:@"isFixUpdatesTableDynamicColorEnabled"];
-
-    return sels;
-}
-
-static void WAGRApplyRelatedObjCChain(WAGRGatingEntry *entry, BOOL enabled) {
-    if (entry.area != WAGRGatingAreaLiquidGlass) return;
-    NSArray<NSString *> *selectors = WAGRWDSSelectorsForLiquidSelector(entry.selectorName);
-    for (NSString *sel in selectors) {
-        WAGRApplyObjCBoolOverride(@"WDSLiquidGlass", sel, YES, enabled, YES);
-    }
-    if (selectors.count) {
-        NSLog(@"[WATweaks][Catalog] %@ WDSLiquidGlass alias chain for %@ (%lu selectors)",
-              enabled ? @"enabled" : @"cleared", entry.selectorName, (unsigned long)selectors.count);
-    }
-}
-
 static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorName) {
     NSString *s = selectorName.lowercaseString ?: @"";
 
-
-    if ([s containsString:@"liquid"] || [s containsString:@"glass"] || [s containsString:@"chatbar"] ||
-        [s containsString:@"topbar"] || [s containsString:@"bottombar"] || [s containsString:@"m0"] ||
-        [s containsString:@"m1"] || [s containsString:@"actiontile"] || [s containsString:@"unify"] ||
-        [s containsString:@"nativebar"] || [s containsString:@"sidebar"]) {
-        return @[
-            @"wa_lg_ios_liquid_glass_enabled", @"wa_lg_ios_liquid_glass_launched",
-            @"wa_lg_ios_liquid_glass_m1", @"wa_lg_ios_liquid_glass_m_1_5",
-            @"wa_lg_ios_liquid_glass_m_1_5_context_menu", @"wa_lg_ios_liquid_glass_chat_top_bar_m2_enabled",
-            @"wa_lg_ios_liquid_glass_enable_new_chatbar_ux", @"wa_lg_ios_liquid_glass_larger_composer",
-            @"wa_lg_ios_liquid_glass_reduce_transparency", @"wa_lg_ios_liquid_glass_workaround_attachment_tray",
-            @"wa_lg_ios_liquid_glass_workaround_hides_bottombar", @"wa_lg_ios_liquid_glass_workaround_topbar_appearance",
-            @"ios_liquid_glass_enabled", @"ios_liquid_glass_launched", @"ios_liquid_glass_m1",
-            @"ios_liquid_glass_m_1_5", @"ios_liquid_glass_m_1_5_context_menu",
-            @"ios_liquid_glass_chat_top_bar_m2_enabled", @"ios_liquid_glass_enable_new_chatbar_ux",
-            @"ios_liquid_glass_larger_composer", @"ios_liquid_glass_media_m0",
-            @"ios_liquid_glass_media_editor_enabled", @"ios_liquid_glass_calling_improvement_enabled",
-            @"ios_liquid_glass_workaround_attachment_tray"
-        ];
-    }
     if ([s containsString:@"aura"] || [s containsString:@"subscription"] || [s containsString:@"ringtones"] || [s containsString:@"ringtone"]) {
         return @[
             @"aura_enabled", @"aura_settings_row_enabled", @"aura_subscription_simulation_enabled",
@@ -177,33 +108,6 @@ static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorNa
             @"waffle_enabled_for_linked_users", @"waffle_enabled_for_unlinked_users",
             @"waffle_foa_to_wa_linking_enabled", @"waffle_v3_fx_settings_redesign_v1",
             @"waffle_v3_ios_use_client_values_to_reduce_settings_bloks_payload"
-        ];
-    }
-
-    if ([s containsString:@"group"] || [s containsString:@"history"] || [s containsString:@"subgroup"]) {
-        return @[
-            @"group_history_send_enabled", @"group_history_setting_ui_enabled",
-            @"group_status_enabled", @"group_status_setting_ui_enabled", @"enable_status_on_companion",
-            @"allow_lid_contacts_add_to_group", @"add_non_contacts_to_groups_enabled",
-            @"add_non_contact_to_group", @"allowNonAdminSubGroupCreation",
-            @"add_member_group_ranking_allow_non_contact", @"add_member_group_recommendation_recent_cut_off_hours"
-        ];
-    }
-
-
-    if ([s containsString:@"evolve"] || [s containsString:@"about"] || [s containsString:@"contact_"] || [s containsString:@"profile_"] || [s containsString:@"bubble"]) {
-        return @[
-            @"evolve_about_m1_enabled", @"evolve_about_m1_receiver_enabled",
-            @"evolve_about_m1_receiver_for_new_surfaces_enabled", @"evolve_about_m2_contact_card_thought_bubble_enabled",
-            @"evolve_about_migration_fix_enabled", @"about_creation_sheet",
-            @"about_emoji_badge_in_group_sender_name_enabled", @"privacy_settings_about_lid_migration_enable",
-            @"add_status_tile_center_profile_photo_enabled", @"contact_phone_number_cell_refactor_enabled",
-            @"contact_username_cell_refactor_enabled", @"contact_sync_toggle_cell_refactor_enabled",
-            @"contacts_sync_toggle_refactor_v2", @"contact_ui_refresh_phone_number_enabled",
-            @"ios_evolution_contacts_list_item_migration", @"ios_evolution_contacts_list_item_migration_part_2",
-            @"ios_borderless_media_bubbles_enabled", @"ios_wds_label_in_chat_date_bubble_enabled",
-            @"profile_header_blue_badge", @"classic_profile_screen_notable_badge", @"blue_profile_locked_ui_enabled",
-            @"default_profile_pics_m1", @"client_profile_photo_sync_m1_enabled_no_expo"
         ];
     }
 
@@ -325,13 +229,11 @@ static void WAGRApplyRelatedSettingsRowChain(WAGRGatingEntry *entry, BOOL enable
         // toggles are visually ON but WhatsApp still reads the original gates.
         WAGRSetOverride(key, physicalValue);
         WAGRApplyRelatedSettingsRowChain(e, YES, YES);
-        WAGRApplyRelatedObjCChain(e, YES);
         NSLog(@"[WATweaks][Catalog] override ON  for %@ %c%@ (physical=%@ key=%@)",
               e.className, e.isClassMethod ? '+' : '-', e.selectorName, physicalValue ? @"YES" : @"NO", key);
     } else {
         WAGRClearOverride(key);
         WAGRApplyRelatedSettingsRowChain(e, NO, physicalValue);
-        WAGRApplyRelatedObjCChain(e, NO);
         NSLog(@"[WATweaks][Catalog] override OFF for %@ %c%@ (physical=%@ key=%@)",
               e.className, e.isClassMethod ? '+' : '-', e.selectorName, physicalValue ? @"YES" : @"NO", key);
     }

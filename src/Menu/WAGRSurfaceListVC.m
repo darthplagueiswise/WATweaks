@@ -279,17 +279,14 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
     c.textLabel.text = WAGRGatingAreaTitle(area);
     c.textLabel.textColor = WAGRText();
-    c.textLabel.numberOfLines = 1;
 
     NSString *baseSub = WAGRGatingAreaSubtitle(area) ?: @"";
     NSString *suffix = count == 0 ? @"  ·  vazio (catálogo pendente)"
                                   : [NSString stringWithFormat:@"  ·  %lu gates", (unsigned long)count];
     c.detailTextLabel.text = [baseSub stringByAppendingString:suffix];
     c.detailTextLabel.textColor = count == 0 ? UIColor.tertiaryLabelColor : WAGRSub();
-    c.detailTextLabel.numberOfLines = 2;
 
     UIImage *icon = [UIImage systemImageNamed:WAGRGatingAreaIconName(area)];
-    if (!icon) icon = [UIImage systemImageNamed:@"circle.fill"];
     c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.imageView.tintColor = WAGRTintForBundleTitle(WAGRGatingAreaTitle(area));
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -320,11 +317,6 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     if ([t containsString:@"aura"] || [t containsString:@"plus"])
                                             return UIColor.systemPurpleColor;
     if ([t containsString:@"status"])       return UIColor.systemGreenColor;
-    if ([t containsString:@"linked"] || [t containsString:@"primary"] || [t containsString:@"companion"] || [t containsString:@"device"])
-                                            return UIColor.systemCyanColor;
-    if ([t containsString:@"group"])        return UIColor.systemIndigoColor;
-    if ([t containsString:@"evolve"] || [t containsString:@"about"])
-                                            return UIColor.systemPinkColor;
     if ([t containsString:@"channel"])      return UIColor.systemTealColor;
     if ([t containsString:@"call"])         return UIColor.systemGreenColor;
     if ([t containsString:@"mensag"] || [t containsString:@"messag"])
@@ -397,9 +389,9 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
 - (UITableViewCell *)secretMenusCell {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = @"Abrir Menus Secretos do App";
+    c.textLabel.text = @"Painel Internal / Aura";
     c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = @"25+ debug VCs ocultos: AR, Call, ML, GraphQL, etc.";
+    c.detailTextLabel.text = @"Masters de internal/employee + Aura, diagnóstico ao vivo, lista de Debug VCs";
     c.detailTextLabel.textColor = WAGRSub();
     UIImage *icon = [UIImage systemImageNamed:@"key.fill"];
     if (!icon) icon = [UIImage systemImageNamed:@"lock.open.fill"];
