@@ -284,7 +284,13 @@ static BOOL WAGRCategoryAllowed(WAGRSurfaceSpec *spec, NSString *cat) {
 
 
 static BOOL WAGRIsSystemNoiseSelector(NSString *selector, Class cls) {
+    (void)cls;
     if (!selector.length) return YES;
+
+    // Important: do NOT reject a method only because the target class inherits
+    // from NSObject. Every WhatsApp ObjC class eventually does, and the previous
+    // implementation filtered the entire WAABProperties / WAContext scan to
+    // zero rows. Only filter known generic UIKit/Foundation selectors by name.
     static NSSet<NSString *> *noise = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
@@ -296,16 +302,10 @@ static BOOL WAGRIsSystemNoiseSelector(NSString *selector, Class cls) {
             @"isEditing", @"isModalInPresentation", @"hidesBottomBarWhenPushed",
             @"wantsFullScreenLayout", @"automaticallyAdjustsScrollViewInsets",
             @"isProxy", @"respondsToSelector:", @"conformsToProtocol:",
+            @"isKindOfClass:", @"isMemberOfClass:", @"isEqual:",
         ]];
     });
-    if ([noise containsObject:selector]) return YES;
-    Class owner = cls;
-    while (owner) {
-        NSString *name = NSStringFromClass(owner);
-        if ([name hasPrefix:@"UI"] || [name hasPrefix:@"NS"] || [name hasPrefix:@"_UI"]) return YES;
-        owner = class_getSuperclass(owner);
-    }
-    return NO;
+    return [noise containsObject:selector];
 }
 
 static void WAGRAddEntry(NSMutableArray *out,
