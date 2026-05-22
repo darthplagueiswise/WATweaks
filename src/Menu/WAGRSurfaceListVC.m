@@ -287,6 +287,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     c.detailTextLabel.textColor = count == 0 ? UIColor.tertiaryLabelColor : WAGRSub();
 
     UIImage *icon = [UIImage systemImageNamed:WAGRGatingAreaIconName(area)];
+    if (!icon) icon = [UIImage systemImageNamed:@"circle.grid.2x2.fill"];
     c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.imageView.tintColor = WAGRTintForBundleTitle(WAGRGatingAreaTitle(area));
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -313,6 +314,14 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 // title the map does not recognize.
 static UIColor *WAGRTintForBundleTitle(NSString *title) {
     NSString *t = title.lowercaseString ?: @"";
+    if ([t containsString:@"contact"])      return UIColor.systemCyanColor;
+    if ([t containsString:@"evolve"] || [t containsString:@"about"])
+                                            return UIColor.systemPinkColor;
+    if ([t containsString:@"linked"] || [t containsString:@"primary"] || [t containsString:@"companion"])
+                                            return UIColor.systemTealColor;
+    if ([t containsString:@"group"])        return UIColor.systemIndigoColor;
+    if ([t containsString:@"payment"] || [t containsString:@"pix"] || [t containsString:@"upi"])
+                                            return UIColor.systemGrayColor;
     if ([t containsString:@"liquid"])       return UIColor.systemBlueColor;
     if ([t containsString:@"aura"] || [t containsString:@"plus"])
                                             return UIColor.systemPurpleColor;

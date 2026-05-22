@@ -29,6 +29,11 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NS_ENUM(NSInteger, WAGRGatingArea) {
     WAGRGatingAreaAura = 0,           // WAAura / subscription / premium gates
     WAGRGatingAreaLiquidGlass,        // LiquidGlass / WDS visual experiments
+    WAGRGatingAreaEvolveAbout,        // Evolve/About Me, contact card, profile bubble gates
+    WAGRGatingAreaContactsHub,        // Contacts hub, favorites, recently-online/presence gates
+    WAGRGatingAreaPayments,           // Payments / PIX / UPI / Meta Pay gates
+    WAGRGatingAreaLinkedDevices,      // Linked-device / primary / companion gates
+    WAGRGatingAreaGroups,             // Group AB properties / group history gates
     WAGRGatingAreaHiddenRows,         // is*Hidden / shouldHide* across UI
     WAGRGatingAreaChat,               // Chat-screen specific gates
     WAGRGatingAreaCall,               // Call/voice/video gates

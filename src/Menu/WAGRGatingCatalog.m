@@ -55,6 +55,11 @@ NSString *WAGRGatingAreaTitle(WAGRGatingArea area) {
     switch (area) {
         case WAGRGatingAreaAura:         return @"WA Aura / Subscription";
         case WAGRGatingAreaLiquidGlass:  return @"Liquid Glass";
+        case WAGRGatingAreaEvolveAbout:  return @"Evolve / About Me";
+        case WAGRGatingAreaContactsHub:  return @"Contacts Hub / Online";
+        case WAGRGatingAreaPayments:     return @"Payments / PIX / UPI";
+        case WAGRGatingAreaLinkedDevices:return @"Linked / Primary / Companion";
+        case WAGRGatingAreaGroups:       return @"Groups / Group AB";
         case WAGRGatingAreaHiddenRows:   return @"Hidden UI Rows";
         case WAGRGatingAreaChat:         return @"Chat Screen";
         case WAGRGatingAreaCall:         return @"Calls";
@@ -71,6 +76,11 @@ NSString *WAGRGatingAreaIconName(WAGRGatingArea area) {
     switch (area) {
         case WAGRGatingAreaAura:         return @"star.circle.fill";
         case WAGRGatingAreaLiquidGlass:  return @"drop.fill";
+        case WAGRGatingAreaEvolveAbout:  return @"quote.bubble.fill";
+        case WAGRGatingAreaContactsHub:  return @"person.2.circle.fill";
+        case WAGRGatingAreaPayments:     return @"creditcard.fill";
+        case WAGRGatingAreaLinkedDevices:return @"link.circle.fill";
+        case WAGRGatingAreaGroups:       return @"person.3.fill";
         case WAGRGatingAreaHiddenRows:   return @"eye.slash.fill";
         case WAGRGatingAreaChat:         return @"bubble.left.and.bubble.right.fill";
         case WAGRGatingAreaCall:         return @"phone.fill";
@@ -88,7 +98,17 @@ NSString *WAGRGatingAreaSubtitle(WAGRGatingArea area) {
         case WAGRGatingAreaAura:
             return @"App themes, app icons, ringtones, subscription benefits";
         case WAGRGatingAreaLiquidGlass:
-            return @"M0/M1/M2 visual experiments, chat bar UX, composer";
+            return @"WAAB-first Liquid Glass toggles with WDSLiquidGlass aliases";
+        case WAGRGatingAreaEvolveAbout:
+            return @"About Me bubbles, contact cards, profile mood, receiver surfaces";
+        case WAGRGatingAreaContactsHub:
+            return @"Contacts hub, favorites carousel, recently-online and presence gates";
+        case WAGRGatingAreaPayments:
+            return @"Payments, PIX, UPI, passkey and Meta Pay Settings gates";
+        case WAGRGatingAreaLinkedDevices:
+            return @"Linked-device, companion, primary-device and iPad-as-primary gates";
+        case WAGRGatingAreaGroups:
+            return @"Group history, group status and group AB properties";
         case WAGRGatingAreaHiddenRows:
             return @"Reveals UI elements WhatsApp hides by feature flag";
         case WAGRGatingAreaChat:
@@ -149,12 +169,11 @@ static BOOL WAGRAuraRuntimeSelectorIsNegative(NSString *selectorName) {
     NSString *lower = selectorName.lowercaseString ?: @"";
     if ([lower containsString:@"killswitch_disabled"] ||
         [lower containsString:@"kill_switch_disabled"]) return NO;
+    if ([lower hasSuffix:@"disabled"] || [lower containsString:@"disabledfor"]) return YES;
     return [lower containsString:@"killswitch"] ||
            [lower containsString:@"kill_switch"] ||
            [lower containsString:@"killswitchactive"] ||
-           [lower containsString:@"kill"] ||
-           [lower containsString:@"block"] ||
-           [lower containsString:@"disabled"];
+           [lower containsString:@"block"];
 }
 
 static NSArray<WAGRGatingEntry *> *entries_Aura(void) {
@@ -393,19 +412,131 @@ static NSArray<WAGRGatingEntry *> *entries_Chat(void) {
     ];
 }
 
-static NSArray<WAGRGatingEntry *> *entries_LiquidGlass(void) {
+
+static NSArray<WAGRGatingEntry *> *entries_EvolveAbout(void) {
     return @[
-        WAAB(@"ios_liquid_glass_enabled", @"Liquid Glass enabled", @"Main Liquid Glass gate.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_launched", @"Liquid Glass launched", @"Launch gate for Liquid Glass surfaces.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_m1", @"Liquid Glass M1", @"M1 experiment gate.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_m_1_5", @"Liquid Glass M1.5", @"M1.5 experiment gate.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_m_2_action_tile", @"M2 action tile", @"M2 action tile gate.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_m_2_chips", @"M2 chips", @"M2 chips gate.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_chat_top_bar_m2_enabled", @"Chat top bar M2", @"Liquid Glass chat top bar M2 gate.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_enable_new_chatbar_ux", @"New chatbar UX", @"New chatbar UX gate.", WAGRGatingAreaLiquidGlass, NO),
-        WAAB(@"ios_liquid_glass_larger_composer", @"Larger composer", @"Liquid Glass larger composer gate.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"evolve_about_m1_enabled", @"Evolve About M1", @"Main About Me / mood bubble creation and display gate.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"evolve_about_m1_receiver_enabled", @"Receiver surface", @"Receiver-side Evolve/About text-status surface.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"evolve_about_m1_receiver_for_new_surfaces_enabled", @"Receiver new surfaces", @"Receiver-side About surface for newer UI surfaces.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"evolve_about_migration_fix_enabled", @"Migration fix", @"Migration/fallback fix for Evolve About data.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"evolve_about_m2_contact_card_thought_bubble_enabled", @"Contact-card thought bubble", @"M2 thought bubble on contact card/profile surfaces.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"about_creation_sheet", @"About creation sheet", @"Enables the creation sheet for About/Mood updates.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"about_emoji_badge_in_group_sender_name_enabled", @"Emoji badge in group sender", @"Shows About emoji badge near group sender names.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_evolution_contacts_list_item_migration", @"Contacts item migration", @"Evolution contacts-list item migration gate.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"ios_evolution_contacts_list_item_migration_part_2", @"Contacts item migration 2", @"Second-stage contacts-list migration gate.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"default_profile_pics_m1", @"Default profile pics M1", @"Profile-picture visual refresh used near About/Mood surfaces.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"profile_header_blue_badge", @"Profile header blue badge", @"Profile-header badge gate used around new profile/about surfaces.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"client_profile_photo_sync_m1_sender", @"Profile photo sync sender", @"Sender side of client profile-photo sync M1.", WAGRGatingAreaEvolveAbout, NO),
+        WAAB(@"client_profile_photo_sync_m1_receiver", @"Profile photo sync receiver", @"Receiver side of client profile-photo sync M1.", WAGRGatingAreaEvolveAbout, NO),
+        E(@"WASettingsViewController", @"isEvolveAboutM1Enabled", NO, @"Settings About M1 method", @"Native method seen in WhatsApp Settings model.", WAGRGatingAreaEvolveAbout, NO),
+        E(@"WAContactInfoTableViewCell", @"isEvolveAboutReceiverAndNewSurfacesEnabled", NO, @"Contact cell receiver method", @"SharedModules contact-cell receiver/new-surface gate if present.", WAGRGatingAreaEvolveAbout, NO),
     ];
 }
+
+static NSArray<WAGRGatingEntry *> *entries_ContactsHub(void) {
+    return @[
+        WAAB(@"ios_contacts_surface_is_enabled", @"Contacts surface", @"Enables the Contacts section under the profile header in Settings.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contactshub_presence_status", @"Contacts Hub presence", @"Presence/online-status support for WAContactsHub.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contactshub_hide_module2_on_lness_is_enabled", @"Keep recently-online module visible", @"Inverted: switch ON returns NO for the hide-module gate.", WAGRGatingAreaContactsHub, YES),
+        WAAB(@"new_chat_suggestions_recently_online_improvements_enabled", @"Recently-online improvements", @"Recently-online ranking/suggestion improvements.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"new_chat_suggestions_new_to_wa_and_recently_online_split_sections_enabled", @"Split new/recently online", @"Splits New to WhatsApp and Recently Online suggestion sections.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contact_suggestion_on_chat_picker_enabled", @"Contact suggestions picker", @"Contact suggestions in the new chat picker.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contact_suggestions_eligibility_expansion_enabled", @"Eligibility expansion", @"Expands contact-suggestion eligibility.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contact_suggestions_m1_variant_enabled", @"Suggestions M1", @"M1 variant for contact suggestions.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contact_suggestions_rai_inventory_expansion_enabled", @"RAI inventory expansion", @"Expands inventory used by contact suggestions.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contact_suggestion_ml_model_enabled", @"ML model", @"ML model for contact suggestions.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contact_suggestion_qpl_enabled", @"QPL logging", @"QPL logging for contact suggestions.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_contact_suggestion_presence_prefetch_enabled", @"Presence prefetch", @"Prefetches presence for contact suggestions / recently online.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"new_chat_picker_suggestions_priority_jids_enabled", @"Priority JIDs", @"Allows priority JIDs in new chat suggestions.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"new_chat_picker_suggestions_exclude_jids_enabled", @"Exclude JIDs", @"Allows exclude JIDs in new chat suggestions.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"chat_list_contact_suggestions_enabled", @"Chat list suggestions", @"Contact suggestions on the chat list.", WAGRGatingAreaContactsHub, NO),
+        WAAB(@"ios_show_contact_suggestions_when_contacts_synced", @"Show when contacts synced", @"Shows contact suggestions when contacts are already synced.", WAGRGatingAreaContactsHub, NO),
+        E(@"_TtC13WAContactsHub25ContactsHubViewController", @"hasFavorites", NO, @"Runtime: has favorites", @"WAContactsHub runtime property if exposed through ObjC.", WAGRGatingAreaContactsHub, NO),
+        E(@"_TtC13WAContactsHub28AllContactsSectionDataSource", @"sectionActive", NO, @"Runtime: all contacts active", @"AllContacts section activity gate if exposed through ObjC.", WAGRGatingAreaContactsHub, NO),
+        E(@"_TtC13WAContactsHub32FavoriteContactsPresenceProvider", @"isFiltering", NO, @"Runtime: presence filtering", @"Presence/favorite provider runtime bool if exposed.", WAGRGatingAreaContactsHub, NO),
+    ];
+}
+
+static NSArray<WAGRGatingEntry *> *entries_Payments(void) {
+    return @[
+        WAAB(@"br_consumer_payments_home_enabled", @"Payments home", @"Main Brazil consumer payments home Settings gate.", WAGRGatingAreaPayments, NO),
+        WAAB(@"br_consumer_paymentshome_enabled", @"Payments home alt", @"Alternate spelling observed near payments home code paths.", WAGRGatingAreaPayments, NO),
+        WAAB(@"payments_home_revamp_m1_enabled", @"Payments home revamp M1", @"Payments home revamp gate.", WAGRGatingAreaPayments, NO),
+        WAAB(@"payments_home_revamp_landing_screen_enabled", @"Payments landing screen", @"Landing-screen gate for payments home revamp.", WAGRGatingAreaPayments, NO),
+        WAAB(@"payments_home_ui_updates_enabled", @"Payments UI updates", @"Settings/home UI updates.", WAGRGatingAreaPayments, NO),
+        WAAB(@"payment_settings_add_bank_account_row", @"Add bank account row", @"Payment Settings bank-account row.", WAGRGatingAreaPayments, NO),
+        WAAB(@"payment_settings_add_upi_number_row", @"Add UPI number row", @"Payment Settings UPI number row.", WAGRGatingAreaPayments, NO),
+        WAAB(@"br_payments_pix_native_enabled", @"PIX native", @"Brazil PIX native payments gate.", WAGRGatingAreaPayments, NO),
+        WAAB(@"br_payments_pix_groups_enabled", @"PIX groups", @"PIX payments in group surfaces.", WAGRGatingAreaPayments, NO),
+        WAAB(@"enable_payment_passkey", @"Payment passkey", @"Payment passkey gate.", WAGRGatingAreaPayments, NO),
+        E(@"WASettingsViewController", @"showBRConsumerPaymentsHome", NO, @"Settings payment home", @"Native WASettingsViewController payment-home method.", WAGRGatingAreaPayments, NO),
+    ];
+}
+
+static NSArray<WAGRGatingEntry *> *entries_LinkedDevices(void) {
+    return @[
+        WAAB(@"ios_linked_devices_empty_states_ui_refresh_enabled", @"Linked devices UI refresh", @"Linked Devices empty-state UI refresh gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"md_linked_devices_ui_refresh_enabled", @"MD linked UI refresh", @"Multi-device linked devices UI refresh gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"linked_devices_send_link_cta_ios", @"Send-link CTA", @"Linked Devices send-link CTA gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"linked_devices_apple_watch", @"Apple Watch", @"Linked-device Apple Watch gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"md_linked_devices_badging_journey", @"Badging journey", @"MD linked-devices badging journey gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"companion_support_enabled", @"Companion support", @"Generic companion support gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"companion_contact_change_enabled", @"Companion contact change", @"Contact-change support on companion devices.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"companion_lid_contact_change_enabled", @"Companion LID contact change", @"LID contact-change support on companions.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"native_contacts_primary_allows_mutations_from_companions", @"Primary allows companion mutations", @"Primary-device contacts gate for companion mutation flows.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"primary_lists_support", @"Primary Lists support", @"Primary-device Lists sync support.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"primary_favorites_sync_support", @"Primary Favorites support", @"Primary-device Favorites sync support.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"device_capabilities_sync_enabled", @"Device capabilities sync", @"Device capability sync gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"username_enabled_on_companion", @"Username on companion", @"Username row support on companion devices.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"enable_status_on_companion", @"Status on companion", @"Status feature support on companion devices.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"ipad_as_primary_enabled", @"iPad as primary", @"iPad-as-primary experiment gate.", WAGRGatingAreaLinkedDevices, NO),
+        WAAB(@"wa_ipad_as_primary_killswitch_disabled", @"iPad primary killswitch disabled", @"Positive disabled-killswitch gate; switch ON writes physical YES.", WAGRGatingAreaLinkedDevices, NO),
+    ];
+}
+
+static NSArray<WAGRGatingEntry *> *entries_Groups(void) {
+    return @[
+        WAAB(@"group_history_send_enabled", @"Group history send", @"Group history-send AB gate.", WAGRGatingAreaGroups, NO),
+        WAAB(@"group_history_setting_ui_enabled", @"Group history UI", @"Group history Settings UI AB gate.", WAGRGatingAreaGroups, NO),
+        WAAB(@"group_status_enabled", @"Group status", @"Group Status feature gate.", WAGRGatingAreaGroups, NO),
+        WAAB(@"group_status_setting_ui_enabled", @"Group status UI", @"Group Status settings UI gate.", WAGRGatingAreaGroups, NO),
+        WAAB(@"allow_lid_contacts_add_to_group", @"LID contacts add to group", @"LID contacts add-to-group gate.", WAGRGatingAreaGroups, NO),
+        WAAB(@"add_non_contacts_to_groups_enabled", @"Add non-contacts to groups", @"Non-contact group add gate.", WAGRGatingAreaGroups, NO),
+        WAAB(@"allowNonAdminSubGroupCreation", @"Non-admin subgroup creation", @"Subgroup creation gate observed in main strings.", WAGRGatingAreaGroups, NO),
+    ];
+}
+
+static NSArray<WAGRGatingEntry *> *entries_LiquidGlass(void) {
+    return @[
+        WAAB(@"ios_liquid_glass_enabled", @"Liquid Glass master", @"Main WAAB gate. Also aliases core WDSLiquidGlass runtime selectors.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_launched", @"Liquid Glass launched", @"Launch-state gate. Also aliases WDSLiquidGlass +hasLiquidGlassLaunched.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_media_m0", @"Media M0", @"WAAB + WDSLiquidGlass +isM0Enabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_media_editor_enabled", @"Media editor", @"Liquid Glass media editor gate.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_calling_improvement_enabled", @"Calling improvement", @"Liquid Glass calling improvement gate.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_workaround_attachment_tray", @"Attachment tray workaround", @"Attachment tray workaround gate.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_m1", @"M1", @"WAAB + WDSLiquidGlass +isM1Enabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_m_1_5", @"M1.5", @"WAAB + WDSLiquidGlass +isM1_5Enabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_m_1_5_context_menu", @"M1.5 context menu", @"WAAB + WDSLiquidGlass +isM1_5ContextMenuEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_enable_new_chatbar_ux", @"New chatbar UX", @"WAAB + WDSLiquidGlass +isNewChatbarUXEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_chat_top_bar_m2_enabled", @"Chat top bar M2", @"WAAB + WDSLiquidGlass +isChatTopBarM2Enabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_text_layout_m2_enabled", @"Text layout M2", @"WAAB + WDSLiquidGlass +isTextLayoutM2Enabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_m_2_action_tile", @"Action tile M2", @"WAAB + WDSLiquidGlass +isActionTileM2Enabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_unify_ui_refresh_enabled", @"Unify UI refresh", @"WAAB + WDSLiquidGlass +isUnifyUIRefreshEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_unify_navigation_bar_enabled", @"Unify navigation bar", @"WAAB + WDSLiquidGlass +isUnifyNavigationBarEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        WAAB(@"ios_liquid_glass_native_sidebar_enabled", @"Native sidebar", @"WAAB + WDSLiquidGlass +isNativeSidebarEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isChatbarLowerBottomPaddingEnabled", YES, @"Runtime: chatbar lower padding", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"shouldUseNativeSwipeActions", YES, @"Runtime: native swipe actions", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isHidingBottomBarWorkaroundEnabled", YES, @"Runtime: bottom bar workaround", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isTopBarAppearanceWorkaroundEnabled", YES, @"Runtime: top bar workaround", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixesForOlderOSEnabled", YES, @"Runtime: older OS fixes", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixTabbarBadgeOffthreadEnabled", YES, @"Runtime: tab badge fix", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isContextMenuTransitionSafetyFixEnabled", YES, @"Runtime: context menu safety", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixContextMenuOnDisappearEnabled", YES, @"Runtime: context disappear fix", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixUpdatesTableDynamicColorEnabled", YES, @"Runtime: dynamic table color fix", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isCustomToolbarDisabledForLiquidGlass", YES, @"Runtime: keep custom toolbar", @"Inverted: switch ON returns NO for the disabled gate.", WAGRGatingAreaLiquidGlass, YES),
+    ];
+}
+
 
 // ── WAGRGatingCatalog accessor ──────────────────────────────────────────────
 @implementation WAGRGatingCatalog
@@ -415,6 +546,11 @@ static NSArray<WAGRGatingEntry *> *entries_LiquidGlass(void) {
     switch (area) {
         case WAGRGatingAreaAura:         raw = entries_Aura();         break;
         case WAGRGatingAreaLiquidGlass:  raw = entries_LiquidGlass();  break;
+        case WAGRGatingAreaEvolveAbout:  raw = entries_EvolveAbout();  break;
+        case WAGRGatingAreaContactsHub:  raw = entries_ContactsHub();  break;
+        case WAGRGatingAreaPayments:     raw = entries_Payments();     break;
+        case WAGRGatingAreaLinkedDevices:raw = entries_LinkedDevices();break;
+        case WAGRGatingAreaGroups:       raw = entries_Groups();       break;
         case WAGRGatingAreaHiddenRows:   raw = entries_HiddenRows();   break;
         case WAGRGatingAreaChat:         raw = entries_Chat();         break;
         case WAGRGatingAreaCall:         raw = entries_Call();         break;
