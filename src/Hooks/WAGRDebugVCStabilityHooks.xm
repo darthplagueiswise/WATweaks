@@ -1,97 +1,43 @@
 // WAGRDebugVCStabilityHooks.xm
 // ─────────────────────────────────────────────────────────────────────────────
-// Targeted guard rails for experimental hidden Debug VC instantiation.
+// Diagnostic guard rail for experimental hidden Debug VC instantiation.
 //
-// The decoded crash path was:
-//   hidden Swift Debug VC init/dismiss
-//     -> WAIsLiquidGlassEnabled
-//     -> FBAnalyticsDeleteLegacyLogPathIfExists
-//     -> Swift runtime trap / assertion
+// IMPORTANT:
+// Do not patch WAIsLiquidGlassEnabled or FBAnalyticsDeleteLegacyLogPathIfExists
+// in sideloaded builds.
 //
-// This file does not make direct instantiation "safe" in the general sense;
-// Swift traps are process-fatal. It only removes two known unstable edges while
-// a Debug VC is being experimentally opened through WAGRDebugVCInstantiatorVC.
+// The crash report from 2026-05-22 shows:
+//   EXC_BAD_ACCESS / SIGKILL
+//   termination namespace: CODESIGNING
+//   indicator: Invalid Page
+//   pc: SharedModules:WAIsLiquidGlassEnabled
+//
+// That means the previous C-function hook modified an executable page in
+// SharedModules.__TEXT and iOS killed the process for invalid code signing.
+// This file must remain ObjC-only / diagnostic-only. Debug VC stability has to
+// be solved through upstream gates and native presentation paths, not by
+// modifying C functions in SharedModules at launch.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import <Foundation/Foundation.h>
-#import <dlfcn.h>
-#import <substrate.h>
 #import "../WAGramPrefix.h"
 
-static BOOL gWAGRDebugVCStabilityInstalled = NO;
 static BOOL gWAGRDebugVCActive = NO;
-static BOOL gWAGRHookedWAIsLiquidGlassEnabled = NO;
-static BOOL gWAGRHookedFBAnalyticsDeleteLegacyLogPath = NO;
-
-static BOOL (*orig_WAIsLiquidGlassEnabled)(void) = NULL;
-static void (*orig_FBAnalyticsDeleteLegacyLogPathIfExists)(void) = NULL;
-
-static BOOL hook_WAIsLiquidGlassEnabled(void) {
-    if (gWAGRDebugVCActive) {
-        // During raw hidden Debug VC construction, prefer the non-LiquidGlass
-        // path. The LG path has been observed to reach FBAnalytics cleanup and
-        // trip Swift assertions when the native debug environment is missing.
-        return NO;
-    }
-    if (orig_WAIsLiquidGlassEnabled) return orig_WAIsLiquidGlassEnabled();
-    return NO;
-}
-
-static void hook_FBAnalyticsDeleteLegacyLogPathIfExists(void) {
-    if (gWAGRDebugVCActive) {
-        return;
-    }
-    if (orig_FBAnalyticsDeleteLegacyLogPathIfExists) {
-        orig_FBAnalyticsDeleteLegacyLogPathIfExists();
-    }
-}
-
-static void WAGRHookFunctionByName(const char *name, void *replacement, void **origOut, BOOL *flagOut) {
-    if (!name || !replacement || !origOut || !flagOut || *flagOut) return;
-    void *sym = dlsym(RTLD_DEFAULT, name);
-    if (!sym) return;
-    MSHookFunction(sym, replacement, origOut);
-    *flagOut = (*origOut != NULL);
-}
 
 extern "C" void WAGRDebugVCStabilitySetActive(BOOL active) {
     gWAGRDebugVCActive = active;
 }
 
 extern "C" void WAGRDebugVCStabilityEnsureInstalled(void) {
-    if (gWAGRDebugVCStabilityInstalled &&
-        gWAGRHookedWAIsLiquidGlassEnabled &&
-        gWAGRHookedFBAnalyticsDeleteLegacyLogPath) {
-        return;
-    }
-
-    WAGRHookFunctionByName("WAIsLiquidGlassEnabled",
-                           (void *)&hook_WAIsLiquidGlassEnabled,
-                           (void **)&orig_WAIsLiquidGlassEnabled,
-                           &gWAGRHookedWAIsLiquidGlassEnabled);
-
-    WAGRHookFunctionByName("FBAnalyticsDeleteLegacyLogPathIfExists",
-                           (void *)&hook_FBAnalyticsDeleteLegacyLogPathIfExists,
-                           (void **)&orig_FBAnalyticsDeleteLegacyLogPathIfExists,
-                           &gWAGRHookedFBAnalyticsDeleteLegacyLogPath);
-
-    gWAGRDebugVCStabilityInstalled = YES;
+    // Intentionally no-op.
+    //
+    // Keep the symbol so WAGRDebugVCInstantiatorVC can call it, but do not
+    // modify WAIsLiquidGlassEnabled / FBAnalyticsDeleteLegacyLogPathIfExists.
+    // Doing so caused CODESIGNING Invalid Page on launch.
 }
 
 extern "C" NSString *WAGRDebugVCStabilityDiagnosticText(void) {
     return [NSString stringWithFormat:
-            @"installed=%@\nactive=%@\nWAIsLiquidGlassEnabled=%@\nFBAnalyticsDeleteLegacyLogPathIfExists=%@",
-            gWAGRDebugVCStabilityInstalled ? @"YES" : @"NO",
-            gWAGRDebugVCActive ? @"YES" : @"NO",
-            gWAGRHookedWAIsLiquidGlassEnabled ? @"HOOKED" : @"missing/not exported",
-            gWAGRHookedFBAnalyticsDeleteLegacyLogPath ? @"HOOKED" : @"missing/not exported"];
-}
-
-__attribute__((constructor))
-static void WAGRDebugVCStabilityCtor(void) {
-    @autoreleasepool {
-        WAGRDebugVCStabilityEnsureInstalled();
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{ WAGRDebugVCStabilityEnsureInstalled(); });
-    }
+            @"installed=NO\nactive=%@\nWAIsLiquidGlassEnabled=not modified (codesign-safe)\nFBAnalyticsDeleteLegacyLogPathIfExists=not modified (codesign-safe)\npolicy=disabled C-function modification after CODESIGNING Invalid Page crash",
+            gWAGRDebugVCActive ? @"YES" : @"NO"];
 }
