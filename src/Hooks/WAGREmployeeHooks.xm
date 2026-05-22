@@ -50,6 +50,13 @@ static BoolIMP orig_isMetaEmployeeSnake  = NULL;
 static BoolIMP orig_isInternalUser       = NULL;
 static BoolIMP orig_graphQLEmpC1         = NULL;
 
+typedef id   (*ObjIMP)(id, SEL);
+typedef void (*VoidObjIMP)(id, SEL, id);
+static ObjIMP     orig_WAServer_userContext      = NULL;
+static VoidObjIMP orig_WAServer_setUserContext   = NULL;
+static VoidObjIMP orig_WAServer_configureContext = NULL;
+static NSString  *gWAServerLastUserContextClass  = nil;
+
 static BOOL    gEmpInstalled = NO;
 static NSUInteger gEmpHookedCount = 0;
 
@@ -60,6 +67,28 @@ static NSUInteger gEmpHookedCount = 0;
 // flip just one selector instead of the whole bundle.
 static BOOL WAGRDogfoodForce(NSString *granularKey) {
     return WAGRPref(kWAGREmployeeMaster) || WAGRPref(granularKey);
+}
+
+
+static void WAGRRememberWAServerUserContext(id ctx) {
+    if (!ctx) return;
+    gWAServerLastUserContextClass = NSStringFromClass([ctx class]);
+}
+
+static id h_WAServer_userContext(id s, SEL c) {
+    id ctx = orig_WAServer_userContext ? orig_WAServer_userContext(s, c) : nil;
+    WAGRRememberWAServerUserContext(ctx);
+    return ctx;
+}
+
+static void h_WAServer_setUserContext(id s, SEL c, id ctx) {
+    WAGRRememberWAServerUserContext(ctx);
+    if (orig_WAServer_setUserContext) orig_WAServer_setUserContext(s, c, ctx);
+}
+
+static void h_WAServer_configureContext(id s, SEL c, id ctx) {
+    WAGRRememberWAServerUserContext(ctx);
+    if (orig_WAServer_configureContext) orig_WAServer_configureContext(s, c, ctx);
 }
 
 // ── Trampolines ──────────────────────────────────────────────────────────────
@@ -113,11 +142,40 @@ static void hookSelectorOnClass(Class cls, const char *selCStr,
     }
 }
 
+
+static void hookClassObjectSelector(Class cls, const char *selCStr,
+                                    IMP replacement, IMP *origSlot) {
+    if (!cls || !selCStr || !replacement || !origSlot || *origSlot) return;
+    SEL sel = sel_registerName(selCStr);
+    Method mth = class_getClassMethod(cls, sel);
+    if (!mth) return;
+    Class meta = object_getClass(cls);
+    MSHookMessageEx(meta, sel, replacement, origSlot);
+}
+
+static void installWAServerContextHooks(Class serverProps) {
+    if (!serverProps) return;
+    hookClassObjectSelector(serverProps, "userContext",
+                            (IMP)h_WAServer_userContext, (IMP *)&orig_WAServer_userContext);
+    hookClassObjectSelector(serverProps, "setUserContext:",
+                            (IMP)h_WAServer_setUserContext, (IMP *)&orig_WAServer_setUserContext);
+    hookClassObjectSelector(serverProps, "configureUserContext:",
+                            (IMP)h_WAServer_configureContext, (IMP *)&orig_WAServer_configureContext);
+
+    if (orig_WAServer_userContext) {
+        @try { WAGRRememberWAServerUserContext(((id (*)(id, SEL))objc_msgSend)(serverProps, sel_registerName("userContext"))); }
+        @catch (__unused id ex) {}
+    }
+}
+
 // ── Deterministic installer ──────────────────────────────────────────────────
 // Replaces the previous broad-scan approach with a small, audited candidate
 // list. Each name here is justified in the file header.
 static void installEmployeeHooks(void) {
     if (gEmpInstalled) return;
+
+    Class serverProps = NSClassFromString(@"WAServerProperties");
+    if (serverProps) installWAServerContextHooks(serverProps);
 
     // Single source of truth for which classes own the gates we care about.
     // Adding a new candidate is a one-line edit if a future WhatsApp build
@@ -166,10 +224,15 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
 
 extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"master=%@\nhookedTotal=%lu\ninternalUser=%@\nmetaEmployee=%@\nsnakeVariant=%@\ngraphQLEmpC1=%@",
+        @"master=%@\nhookedTotal=%lu\nserverProperties=%@\ninternalUser=%@\nuserContextGetter=%@\nsetUserContext=%@\nconfigureUserContext=%@\nlastUserContext=%@\nmetaEmployee=%@\nsnakeVariant=%@\ngraphQLEmpC1=%@",
         WAGRPref(kWAGREmployeeMaster) ? @"ON" : @"OFF",
         (unsigned long)gEmpHookedCount,
+        NSClassFromString(@"WAServerProperties") ? @"YES" : @"NO",
         orig_isInternalUser      ? @"YES" : @"NO",
+        orig_WAServer_userContext ? @"YES" : @"NO",
+        orig_WAServer_setUserContext ? @"YES" : @"NO",
+        orig_WAServer_configureContext ? @"YES" : @"NO",
+        gWAServerLastUserContextClass ?: @"none",
         orig_isMetaEmployee      ? @"YES" : @"NO",
         orig_isMetaEmployeeSnake ? @"YES" : @"NO",
         orig_graphQLEmpC1        ? @"YES" : @"NO"];
