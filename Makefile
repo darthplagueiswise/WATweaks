@@ -36,6 +36,28 @@ $(TWEAK_NAME)_CFLAGS = \
 	-Wno-incompatible-pointer-types \
 	-Imodules/fishhook
 
+# ── Optional embedded FLEX integration ───────────────────────────────────────
+# build.sh / GitHub Actions clone FLEXTool/FLEX into this path when absent.
+# If the source tree is present, compile FLEX into WATweaks.dylib; otherwise the
+# runtime bridge degrades gracefully and reports that FLEX is unavailable.
+FLEX_ROOT := modules/FLEXing/libflex/FLEX
+ifneq ($(wildcard $(FLEX_ROOT)/Classes),)
+FLEX_SOURCES  := $(shell find $(FLEX_ROOT)/Classes -name '*.c')
+FLEX_SOURCES  += $(shell find $(FLEX_ROOT)/Classes -name '*.m')
+FLEX_SOURCES  += $(shell find $(FLEX_ROOT)/Classes -name '*.mm')
+FLEX_IMPORT_DIRS  := $(shell /bin/ls -d $(FLEX_ROOT)/Classes/*/ 2>/dev/null)
+FLEX_IMPORT_DIRS  += $(shell /bin/ls -d $(FLEX_ROOT)/Classes/*/*/ 2>/dev/null)
+FLEX_IMPORT_DIRS  += $(shell /bin/ls -d $(FLEX_ROOT)/Classes/*/*/*/ 2>/dev/null)
+FLEX_IMPORT_DIRS  += $(shell /bin/ls -d $(FLEX_ROOT)/Classes/*/*/*/*/ 2>/dev/null)
+FLEX_IMPORTS := -I$(FLEX_ROOT)/Classes $(foreach d,$(FLEX_IMPORT_DIRS),-I$(d))
+$(TWEAK_NAME)_FILES += modules/FLEXing/libflex/libFLEX.x $(FLEX_SOURCES)
+$(TWEAK_NAME)_FRAMEWORKS += ImageIO
+$(TWEAK_NAME)_LIBRARIES += sqlite3 z
+$(TWEAK_NAME)_CFLAGS += $(FLEX_IMPORTS)
+$(TWEAK_NAME)_CCFLAGS += -std=gnu++11
+endif
+
+
 $(TWEAK_NAME)_LOGOSFLAGS = --c warnings=none
 
 CCFLAGS += -std=c++11

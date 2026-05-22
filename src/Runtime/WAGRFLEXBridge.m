@@ -2,8 +2,17 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <dlfcn.h>
 
 static id WAGRFLEXSharedManager(void) {
+    // First use the FLEXing/libFLEX shim when FLEX is compiled into WATweaks.
+    id (*getManager)(void) = (id (*)(void))dlsym(RTLD_DEFAULT, "FLXGetManager");
+    if (getManager) {
+        id manager = getManager();
+        if (manager) return manager;
+    }
+
+    // Fallback for external/injected FLEX builds.
     Class cls = NSClassFromString(@"FLEXManager");
     if (!cls || ![cls respondsToSelector:@selector(sharedManager)]) return nil;
     return ((id (*)(id, SEL))objc_msgSend)((id)cls, @selector(sharedManager));
@@ -20,7 +29,8 @@ BOOL WAGRFLEXShowExplorer(NSString **errorText) {
         return NO;
     }
 
-    SEL show = NSSelectorFromString(@"showExplorer");
+    SEL (*revealSEL)(void) = (SEL (*)(void))dlsym(RTLD_DEFAULT, "FLXRevealSEL");
+    SEL show = revealSEL ? revealSEL() : NSSelectorFromString(@"showExplorer");
     SEL toggle = NSSelectorFromString(@"toggleExplorer");
     if ([manager respondsToSelector:show]) {
         ((void (*)(id, SEL))objc_msgSend)(manager, show);

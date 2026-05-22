@@ -65,6 +65,15 @@ jobs:
         env:
           THEOS: ${{ github.workspace }}/theos
 
+      - name: Prepare embedded FLEX
+        run: |
+          FLEX_DIR="modules/FLEXing/libflex/FLEX"
+          if [ ! -d "$FLEX_DIR/Classes" ]; then
+            rm -rf "$FLEX_DIR"
+            mkdir -p "$(dirname "$FLEX_DIR")"
+            git clone --depth=1 https://github.com/FLEXTool/FLEX.git "$FLEX_DIR"
+          fi
+
       - name: Set dev package version
         id: version
         run: |

@@ -259,6 +259,7 @@ static UIViewController *WAGRDebugVCInstantiateExperimental(NSString *className,
 
 @interface WAGRDebugVCInstantiatorVC ()
 @property(nonatomic, strong) NSArray<NSString *> *classes;
+- (void)openExperimentalDebugVC:(NSString *)className;
 @end
 
 @implementation WAGRDebugVCInstantiatorVC
@@ -340,6 +341,95 @@ static UIViewController *WAGRDebugVCInstantiateExperimental(NSString *className,
     [self showClassActions:self.classes[(NSUInteger)ip.row]];
 }
 
+
+- (id)wagrCurrentUserContext {
+    NSArray<NSString *> *classes = @[@"WAServerProperties", @"WAContextMain", @"WAContext"];
+    NSArray<NSString *> *selectors = @[@"userContext", @"sharedUserContext", @"currentUserContext"];
+    for (NSString *className in classes) {
+        Class cls = NSClassFromString(className);
+        if (!cls) continue;
+        for (NSString *selName in selectors) {
+            SEL sel = NSSelectorFromString(selName);
+            if ([cls respondsToSelector:sel]) {
+                id ctx = ((id (*)(id, SEL))objc_msgSend)((id)cls, sel);
+                if (ctx) return ctx;
+            }
+        }
+    }
+    return nil;
+}
+
+- (void)openExperimentalDebugVC:(NSString *)className {
+    if (!className.length) return;
+
+    WAGRDogfoodEnsureHooksInstalled();
+    WAGRNativeDevMenuEnsureHooksInstalled();
+    WAGRAuraEnsureHooksInstalled();
+    WAGRAccountEligibilityEnsureHooksInstalled();
+    WAGRWAABEnsureHooksInstalled();
+    WAGRDebugVCStabilityEnsureInstalled();
+
+    Class cls = NSClassFromString(className);
+    if (!cls) {
+        [self showText:@"Debug VC not loaded" body:className];
+        return;
+    }
+
+    if ([className isEqualToString:@"WADebugViewController"]) {
+        NSError *err = nil;
+        BOOL ok = WAGRLaunchNativeDeveloperMenu(self, &err);
+        if (!ok) [self showText:@"Native launcher failed" body:err.localizedDescription ?: @"unknown"];
+        return;
+    }
+
+    WAGRDebugVCStabilitySetActive(YES);
+
+    UIViewController *vc = nil;
+    @try {
+        id alloc = ((id (*)(id, SEL))objc_msgSend)((id)cls, @selector(alloc));
+        id userContext = [self wagrCurrentUserContext];
+
+        if (userContext && [alloc respondsToSelector:NSSelectorFromString(@"initWithUserContext:")]) {
+            vc = ((id (*)(id, SEL, id))objc_msgSend)(alloc, NSSelectorFromString(@"initWithUserContext:"), userContext);
+        } else if ([alloc respondsToSelector:@selector(init)]) {
+            vc = ((id (*)(id, SEL))objc_msgSend)(alloc, @selector(init));
+        }
+    } @catch (NSException *ex) {
+        WAGRDebugVCStabilitySetActive(NO);
+        [self showText:@"Objective-C exception" body:ex.reason ?: ex.description];
+        return;
+    }
+
+    if (![vc isKindOfClass:UIViewController.class]) {
+        WAGRDebugVCStabilitySetActive(NO);
+        [self showText:@"Debug VC open failed"
+                  body:[NSString stringWithFormat:@"%@ did not produce a UIViewController. %@", className, WAGRDebugVCStabilityDiagnosticText() ?: @""]];
+        return;
+    }
+
+    // Deliberately retain the presented nav/controller for lab stability. Some
+    // Swift debug VCs trap on dealloc when opened outside the native graph.
+    static NSMutableArray<UIViewController *> *retainedControllers = nil;
+    if (!retainedControllers) retainedControllers = [NSMutableArray array];
+
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.prefersGrabberVisible = YES;
+        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
+    }
+    [retainedControllers addObject:nav];
+
+    __weak typeof(self) weakSelf = self;
+    [self presentViewController:nav animated:YES completion:^{
+        (void)weakSelf;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            WAGRDebugVCStabilitySetActive(NO);
+        });
+    }];
+}
+
 - (void)showClassActions:(NSString *)className {
     NSString *report = WAGRDebugVCReport(className);
     UIAlertController *a = [UIAlertController alertControllerWithTitle:className
@@ -369,8 +459,10 @@ static UIViewController *WAGRDebugVCInstantiateExperimental(NSString *className,
 }
 
 - (void)showLauncherDiagnostic {
-    [self showText:@"Debug launcher" body:WAGRDebugMenuLauncherDiagnosticText() ?: @"n/a",
-            WAGRDebugVCStabilityDiagnosticText() ?: @"n/a"];
+    NSString *body = [NSString stringWithFormat:@"%@\n\n[Stability]\n%@",
+                      WAGRDebugMenuLauncherDiagnosticText() ?: @"n/a",
+                      WAGRDebugVCStabilityDiagnosticText() ?: @"n/a"];
+    [self showText:@"Debug launcher" body:body];
 }
 
 - (void)showText:(NSString *)title body:(NSString *)body {
