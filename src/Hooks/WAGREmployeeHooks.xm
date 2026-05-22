@@ -239,13 +239,12 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 }
 
 // ── Constructor ──────────────────────────────────────────────────────────────
-// Retry policy identical to the dev-menu file: 0.2 / 1.0 / 3.0 / 6.0 s. The
-// extra 6 s slot covers the case where SharedModules takes longer to fully
-// register WAServerProperties on cold launches.
+// Constructor policy: install immediately, then short bounded retries.
+// No long 6s/7s tail; later UI actions can call WAGRDogfoodEnsureHooksInstalled().
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
-        double delays[] = { 0.2, 1.0, 3.0, 6.0 };
+        double delays[] = { 0.35, 1.0, 2.0 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{ installEmployeeHooks(); });

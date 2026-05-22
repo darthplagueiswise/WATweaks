@@ -249,54 +249,13 @@ static BOOL wagr_strategy2_revealInSettings(NSError **outError) {
 // ── Strategy 3: instantiate fresh (legacy) ──────────────────────────────────
 // Same logic the previous version used. Kept as last resort.
 static BOOL wagr_strategy3_instantiateFresh(UIViewController *fromVC, NSError **outError) {
-    Class debugCls = NSClassFromString(@"WADebugViewController");
-    if (!debugCls) {
-        if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:31
-                                                 userInfo:@{NSLocalizedDescriptionKey:
-                                                                @"strategy3: WADebugViewController not in runtime"}];
-        return NO;
+    (void)fromVC;
+    if (outError) {
+        *outError = [NSError errorWithDomain:@"WATweaks" code:39
+                                    userInfo:@{NSLocalizedDescriptionKey:
+                                                   @"strategy3 disabled: raw WADebugViewController alloc/init can trigger Swift runtime traps on close. Use provider/settings reveal path or Debug VC Lab diagnostics."}];
     }
-    id userContext = wagr_findUserContextAnywhere();
-    if (!userContext) {
-        if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:32
-                                                 userInfo:@{NSLocalizedDescriptionKey:
-                                                                @"strategy3: no userContext"}];
-        return NO;
-    }
-
-    SEL initSel = NSSelectorFromString(@"initWithUserContext:");
-    id alloc = [debugCls alloc];
-    if (![alloc respondsToSelector:initSel]) {
-        initSel = NSSelectorFromString(@"initAsModalWithUserContext:");
-        if (![alloc respondsToSelector:initSel]) {
-            if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:33
-                                                     userInfo:@{NSLocalizedDescriptionKey:
-                                                                    @"strategy3: no recognized init"}];
-            return NO;
-        }
-    }
-    id (*fn)(id, SEL, id) = (id (*)(id, SEL, id))[alloc methodForSelector:initSel];
-    UIViewController *vc = (UIViewController *)fn(alloc, initSel, userContext);
-    if (!vc) {
-        if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:34
-                                                 userInfo:@{NSLocalizedDescriptionKey:
-                                                                @"strategy3: init returned nil"}];
-        return NO;
-    }
-
-    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
-    nav.modalPresentationStyle = UIModalPresentationFullScreen;
-    UIBarButtonItem *done = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:nav
-                             action:@selector(dismissViewControllerAnimated:completion:)];
-    vc.navigationItem.leftBarButtonItem = done;
-
-    UIViewController *presenter = fromVC;
-    while (presenter.presentedViewController) presenter = presenter.presentedViewController;
-    [presenter presentViewController:nav animated:YES completion:nil];
-
-    NSLog(@"[WATweaks][Launcher] strategy3: presented fresh instance (may have inert cells)");
-    return YES;
+    return NO;
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────

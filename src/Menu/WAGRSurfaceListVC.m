@@ -10,6 +10,7 @@
 #import "WAGRGatingCatalog.h"
 #import "WAGRGatingAreaMenuVC.h"
 #import "WAGRSecretMenusVC.h"
+#import "WAGRDebugVCInstantiatorVC.h"
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
@@ -128,9 +129,8 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
     // thing the user sees when the WATweaks sheet opens. It is the headline
     // action — most users only want this one button.
     WAGRRootSectionDevMenu = 0,
-    // Curated list of ~25 hidden WhatsApp debug VCs that ship in the
-    // binary but are not exposed in normal UI. One tap = try every known
-    // init signature and present the controller modally.
+    // Secret tools section: Internal/Aura control panel + safe Debug VC Lab.
+    // The lab lists hidden Debug VCs but does not raw-instantiate them.
     WAGRRootSectionSecret,
     // The new curated, data-driven gating-area menus. Each row pushes a
     // WAGRGatingAreaMenuVC seeded with that area's catalog entries. This
@@ -144,6 +144,13 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
 };
 
 // One row inside the new top section.
+
+typedef NS_ENUM(NSInteger, WAGRSecretRow) {
+    WAGRSecretRowInternalAura = 0,
+    WAGRSecretRowDebugVCLab,
+    WAGRSecretRowCount,
+};
+
 typedef NS_ENUM(NSInteger, WAGRDevMenuRow) {
     WAGRDevMenuRowOpen = 0,
 };
@@ -211,7 +218,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
         case WAGRRootSectionDevMenu: return 1;
-        case WAGRRootSectionSecret: return 1;
+        case WAGRRootSectionSecret: return WAGRSecretRowCount;
         case WAGRRootSectionAreas: return (NSInteger)WAGRGatingAreaCount;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
@@ -395,17 +402,26 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
 // orange tint signal that this is an "unlocks something usually hidden"
 // action — different visual contract from the blue dev-menu launcher
 // and the per-area cells so the user can tell them apart at a glance.
-- (UITableViewCell *)secretMenusCell {
+- (UITableViewCell *)secretMenusCellForRow:(NSInteger)row {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = @"Painel Internal / Aura";
+    if (row == WAGRSecretRowDebugVCLab) {
+        c.textLabel.text = @"Debug VC Lab";
+        c.detailTextLabel.text = @"Lista/probe dos Debug VCs; bloqueia alloc/init cru que causa Swift trap";
+        UIImage *icon = [UIImage systemImageNamed:@"stethoscope"];
+        if (!icon) icon = [UIImage systemImageNamed:@"ladybug.fill"];
+        c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        c.imageView.tintColor = UIColor.systemRedColor;
+    } else {
+        c.textLabel.text = @"Painel Internal / Aura";
+        c.detailTextLabel.text = @"Masters de internal/employee + Aura, diagnóstico ao vivo, lista de Debug VCs";
+        UIImage *icon = [UIImage systemImageNamed:@"key.fill"];
+        if (!icon) icon = [UIImage systemImageNamed:@"lock.open.fill"];
+        c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        c.imageView.tintColor = UIColor.systemOrangeColor;
+    }
     c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = @"Masters de internal/employee + Aura, diagnóstico ao vivo, lista de Debug VCs";
     c.detailTextLabel.textColor = WAGRSub();
-    UIImage *icon = [UIImage systemImageNamed:@"key.fill"];
-    if (!icon) icon = [UIImage systemImageNamed:@"lock.open.fill"];
-    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = UIColor.systemOrangeColor;
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
@@ -413,7 +429,7 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     switch ((WAGRRootSection)ip.section) {
         case WAGRRootSectionDevMenu: return [self devMenuCell];
-        case WAGRRootSectionSecret:  return [self secretMenusCell];
+        case WAGRRootSectionSecret:  return [self secretMenusCellForRow:ip.row];
         case WAGRRootSectionAreas:   return [self areaCellForRow:ip.row];
         case WAGRRootSectionAbout:   return [self aboutCell];
         case WAGRRootSectionBundles: return [self bundleCellForRow:ip.row];
@@ -473,11 +489,13 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     }
 
     if (ip.section == WAGRRootSectionSecret) {
-        // Push the dedicated VC. Stays inside the WATweaks navigation stack
-        // — the user can back out and pick a different one without leaving
-        // the WATweaks menu.
-        WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
-        [self.navigationController pushViewController:vc animated:YES];
+        if (ip.row == WAGRSecretRowDebugVCLab) {
+            WAGRDebugVCInstantiatorVC *vc = [[WAGRDebugVCInstantiatorVC alloc] init];
+            [self.navigationController pushViewController:vc animated:YES];
+        } else {
+            WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
+            [self.navigationController pushViewController:vc animated:YES];
+        }
         return;
     }
 
