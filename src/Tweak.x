@@ -248,7 +248,7 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
 
 NSString *WAGRDebugMenuDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[Router]\n%@",
+        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[ContextMenuPipeline]\n%@\n\n[Router]\n%@",
         WAGRNativeDebugAllowed() ? @"ON" : @"OFF",
         gTableHooked ? @"YES" : @"NO",
         WAGRNativeDevMenuDiagnosticText() ?: @"n/a",
