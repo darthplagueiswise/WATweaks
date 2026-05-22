@@ -248,6 +248,9 @@ static void WAGRForceSubscriptionsRowIfNeeded(id settingsVC) {
 static void WAGRForcePaymentsIfNeeded(id settingsVC) {
     if (!WAGRIsWASettingsVC(settingsVC) || !WAGRSettingsRowsShouldForcePayments()) return;
     gWAGRSettingsRowsPaymentsForces++;
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"wagr.settingsrows.force_payments"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    WAGRAccountEligibilityEnsureHooksInstalled();
 }
 
 static void WAGRRefreshSettingsRowsSoon(id settingsVC) {

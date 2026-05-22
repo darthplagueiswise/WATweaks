@@ -18,6 +18,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
 
 extern "C" void WAGRWAABEnsureHooksInstalled(void);
@@ -556,10 +557,17 @@ extern "C" NSString *WAGRAuraDiagnostic(void) {
             WAGROpenSubscriptionsNative() ? @"found" : @"missing"];
 }
 
+static void WAGRAuraDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAuraEnsureHooksInstalled(); });
+}
+
 __attribute__((constructor))
 static void WAGRAuraCtor(void) {
     @autoreleasepool {
-        double delays[] = { 0.2, 0.8, 2.0 };
+        WAGRAuraEnsureHooksInstalled();
+        _dyld_register_func_for_add_image(WAGRAuraDyldCallback);
+        double delays[] = { 0.25, 0.75, 1.5 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{ WAGRAuraEnsureHooksInstalled(); });

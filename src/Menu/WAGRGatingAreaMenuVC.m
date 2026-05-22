@@ -336,6 +336,19 @@ static void WAGRApplyRelatedSettingsRowChain(WAGRGatingEntry *entry, BOOL enable
     // Live-install all relevant owners. WAAB covers flag-backed rows, Aura
     // covers SharedModules Swift/ObjC gates, NativeDev covers the Developer
     // row provider, and the generic router covers everything else.
+    NSString *lowerSelector = e.selectorName.lowercaseString ?: @"";
+    if ([lowerSelector containsString:@"payment"] || [lowerSelector containsString:@"upi"] ||
+        [lowerSelector containsString:@"pix"] || [lowerSelector containsString:@"br_consumer"]) {
+        if (sw.on) [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"wagr.settingsrows.force_payments"];
+        else [NSUserDefaults.standardUserDefaults removeObjectForKey:@"wagr.settingsrows.force_payments"];
+    }
+    if ([lowerSelector containsString:@"aura"] || [lowerSelector containsString:@"subscription"] ||
+        [lowerSelector containsString:@"ringtone"]) {
+        if (sw.on) [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"wagr.settingsrows.force_subscriptions"];
+        else [NSUserDefaults.standardUserDefaults removeObjectForKey:@"wagr.settingsrows.force_subscriptions"];
+    }
+    [NSUserDefaults.standardUserDefaults synchronize];
+
     WAGRWAABEnsureHooksInstalled();
     WAGRAuraEnsureHooksInstalled();
     WAGRNativeDevMenuEnsureHooksInstalled();

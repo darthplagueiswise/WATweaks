@@ -2,6 +2,7 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
 
 static BOOL gWAGRLGHookInstallAttempted = NO;
@@ -63,29 +64,33 @@ static NSArray<NSString *> *WAGRLGWDSSelectors(void) {
              @"isNativeSidebarEnabled"];
 }
 
-static void WAGRLGHookClass(void){
-    if(!WAGRPref(kWAGRLiquidGlassMaster))return;
-    Class cls=NSClassFromString(@"WDSLiquidGlass");if(!cls)return;
-    Class meta=object_getClass(cls);if(!meta)return;
+static NSUInteger WAGRLGHookClass(void){
+    if(!WAGRPref(kWAGRLiquidGlassMaster))return 0;
+    Class cls=NSClassFromString(@"WDSLiquidGlass");if(!cls)return 0;
+    Class meta=object_getClass(cls);if(!meta)return 0;
     if(!gWAGRLGOrigIMPs)gWAGRLGOrigIMPs=[NSMutableDictionary dictionary];
+    NSUInteger installed=0;
     for(NSString *name in WAGRLGWDSSelectors()){
         if(gWAGRLGOrigIMPs[name])continue;
         SEL sel=NSSelectorFromString(name);
         Method m=class_getClassMethod(cls,sel);if(!m)continue;
         IMP orig=NULL;
         MSHookMessageEx(meta,sel,(IMP)WAGRLGHookedBool,&orig);
-        if(orig)gWAGRLGOrigIMPs[name]=[NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+        if(orig){
+            gWAGRLGOrigIMPs[name]=[NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+            installed++;
+            NSLog(@"[WATweaks][LiquidGlass] hooked WDSLiquidGlass +%@", name);
+        }
     }
+    if(gWAGRLGOrigIMPs.count>0)gWAGRLGHookInstallAttempted=YES;
+    return installed;
 }
 
 static void WAGRLGInstallOnlyIfEnabled(void){
     if(!WAGRPref(kWAGRLiquidGlassMaster))return;
     WAGRLGApplyNative();
-    if(!gWAGRLGHookInstallAttempted){
-        gWAGRLGHookInstallAttempted=YES;
-        WAGRLGHookClass();
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{WAGRLGHookClass();});
-    }
+    // Always retry. WAGRLGHookClass is idempotent and gWAGRLGOrigIMPs prevents double-hooking.
+    WAGRLGHookClass();
 }
 
 extern "C" void WAGRLGPrefsDidChange(void){WAGRLGInstallOnlyIfEnabled(); if(!WAGRPref(kWAGRLiquidGlassMaster))WAGRLGApplyNative();}
@@ -96,4 +101,17 @@ extern "C" NSString *WAGRLGDiagnosticText(void){
         NSClassFromString(@"WAABProperties")?@"found":@"missing",
         gWAGRLGHookInstallAttempted?@"YES":@"NO",
         (unsigned long)gWAGRLGOrigIMPs.count];
+}
+
+static void WAGRLGDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRLGPrefsDidChange(); });
+}
+
+__attribute__((constructor))
+static void WAGRLGConstructor(void) {
+    @autoreleasepool {
+        WAGRLGPrefsDidChange();
+        _dyld_register_func_for_add_image(WAGRLGDyldCallback);
+    }
 }

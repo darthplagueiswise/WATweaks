@@ -35,6 +35,8 @@
 extern NSUInteger WAGRReinstallPersistedHooks(void);
 extern void       WAGRDogfoodEnsureHooksInstalled(void);
 extern void       WAGRLGPrefsDidChange(void);
+extern void       WAGRWAABEnsureHooksInstalled(void);
+extern void       WAGRAuraEnsureHooksInstalled(void);
 extern NSString  *WAGRHookRouterDiagnostic(void);
 
 // Native developer menu surface — moved out of Tweak.x into a dedicated file.
@@ -282,20 +284,28 @@ static void startup(void) {
     @autoreleasepool {
         WAGRLGPrefsDidChange();
         installLongPressTableHook();
+
+        // Install idempotent runtime owners early. They return original behavior
+        // until prefs/overrides are ON, but missing them during Settings build
+        // causes Aura/LiquidGlass/Payments toggles to appear stale or no-op.
+        WAGRWAABEnsureHooksInstalled();
+        WAGRAuraEnsureHooksInstalled();
         WAGRNativeDevMenuEnsureHooksInstalled();
-        // WAAccountEligibility hooks own the real Subscriptions/Aura row
-        // visibility gate. Install at startup AND on the deferred pass so
-        // SharedModules is guaranteed to be in-process by the second call.
+        WAGRSettingsRowsNativeEnsureHooksInstalled();
         WAGRAccountEligibilityEnsureHooksInstalled();
 
         if (WAGRPref(@"wagr.startupHooksEnabled")) {
             WAGRReinstallPersistedHooks();
         }
 
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
+            WAGRWAABEnsureHooksInstalled();
+            WAGRAuraEnsureHooksInstalled();
             WAGRNativeDevMenuEnsureHooksInstalled();
+            WAGRSettingsRowsNativeEnsureHooksInstalled();
             WAGRAccountEligibilityEnsureHooksInstalled();
+            WAGRLGPrefsDidChange();
             if (WAGRPref(@"wagr.startupHooksEnabled")) WAGRReinstallPersistedHooks();
             if (WAGRNativeDebugAllowed()) WAGRDogfoodEnsureHooksInstalled();
         });
