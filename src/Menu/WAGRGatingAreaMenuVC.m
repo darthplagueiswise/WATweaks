@@ -146,7 +146,7 @@ static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorNa
     }
 
 
-    if ([s containsString:@"evolve"] || [s containsString:@"about"] || [s containsString:@"mood"] || [s containsString:@"profile"] || [s containsString:@"contactcard"] || [s containsString:@"me_tab"] || [s containsString:@"tab_me"] || [s containsString:@"metab"]) {
+    if ([s containsString:@"evolve"] || [s containsString:@"about"] || [s containsString:@"mood"] || [s containsString:@"profile"] || [s containsString:@"contactcard"] || [s containsString:@"me_tab"] || [s containsString:@"tab_me"] || [s containsString:@"metab"] || [s containsString:@"contactshub"] || [s containsString:@"contacts_hub"] || [s containsString:@"recently_online"]) {
         return @[
             @"evolve_about_m1_enabled", @"evolve_about_m1_receiver_enabled", @"evolve_about_m1_receiver_for_new_surfaces_enabled",
             @"evolve_about_migration_fix_enabled", @"evolve_about_m2_contact_card_thought_bubble_enabled", @"about_creation_sheet",
@@ -160,7 +160,14 @@ static NSArray<NSString *> *WAGRRelatedWAABFlagsForSelector(NSString *selectorNa
             @"ios_me_tab_share_updates_enabled", @"ios_me_tab_username_findability_enabled",
             @"ios_me_tab_cover_photo_enabled", @"ios_me_tab_cover_photo_default_state_enabled",
             @"ios_me_tab_cover_photo_prefetch_enabled", @"ios_me_tab_cover_photo_viewing_enabled",
-            @"ios_liquid_glass_fix_me_tab_profile_render_throttle_enabled"
+            @"ios_liquid_glass_fix_me_tab_profile_render_throttle_enabled",
+            @"ios_contacts_surface_is_enabled", @"ios_contactshub_presence_status",
+            @"ios_contactshub_hide_module2_on_lness_is_enabled",
+            @"new_chat_suggestions_recently_online_improvements_enabled",
+            @"new_chat_suggestions_new_to_wa_and_recently_online_split_sections_enabled",
+            @"ios_contact_suggestion_presence_prefetch_enabled",
+            @"ios_contact_suggestions_m1_variant_enabled", @"chat_list_contact_suggestions_enabled",
+            @"ios_show_contact_suggestions_when_contacts_synced"
         ];
     }
 
@@ -195,6 +202,14 @@ static void WAGRApplyRelatedSettingsRowChain(WAGRGatingEntry *entry, BOOL enable
     NSArray<NSString *> *related = WAGRRelatedWAABFlagsForSelector(entry.selectorName);
     if (related.count == 0) return;
     WAGRApplyWAABBundle(related, enabled, physicalValue);
+    if ([related containsObject:@"ios_contactshub_hide_module2_on_lness_is_enabled"]) {
+        // This one is a negative/hide gate. For "enable About/Contacts Hub",
+        // the physical value must be NO; otherwise the recently-online module
+        // can stay hidden even when the rest of the chain is ON.
+        NSString *hideKey = WAGRWAABOverrideKeyForFlag(@"ios_contactshub_hide_module2_on_lness_is_enabled");
+        if (enabled) WAGRSetOverride(hideKey, NO);
+        else WAGRClearOverride(hideKey);
+    }
     NSLog(@"[WATweaks][Catalog] %@ related Settings-row chain for %@ (%lu flags)",
           enabled ? @"enabled" : @"cleared", entry.selectorName, (unsigned long)related.count);
 }
