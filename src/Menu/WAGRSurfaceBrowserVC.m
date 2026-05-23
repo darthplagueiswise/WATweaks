@@ -4,6 +4,7 @@
 #import "../Runtime/WAGRSurface.h"
 #import <objc/runtime.h>
 extern BOOL WAGRInstallHookForEntry(WAGREntry *e);
+extern void WAGRWAABEnsureHooksInstalled(void);
 static const void *kEntryKey = &kEntryKey;
 
 // ── Dark Ryuk-style palette ──────────────────────────────────────────────────
@@ -52,6 +53,8 @@ static NSString *WAGRPrefixSectionForName(NSString *name) {
 }
 
 static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
+    if (e.waabFlag && e.category.length) return e.category;
+    if (spec.inventoryBacked && e.category.length) return e.category;
     if ([spec.surfaceID isEqualToString:@"bundle_general"]) return WAGRPrefixSectionForName(WAGRFeatureName(e));
     return e.className.length ? e.className : @"Other";
 }
@@ -75,7 +78,7 @@ static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
     _search=[[UISearchController alloc]initWithSearchResultsController:nil];
     _search.searchResultsUpdater=self;
     _search.obscuresBackgroundDuringPresentation=NO;
-    _search.searchBar.placeholder=@"Buscar feature / classe";
+    _search.searchBar.placeholder=self.spec.inventoryBacked ? @"Buscar inventário / flag / classe" : @"Buscar feature / classe";
     _search.searchBar.tintColor=RACC();
     self.navigationItem.searchController=_search;
     self.navigationItem.hidesSearchBarWhenScrolling=NO;
@@ -122,7 +125,7 @@ static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
 - (void)applyFilter:(NSString*)q {
     NSArray<WAGREntry*>*base=q.length
         ?[_all filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(WAGREntry*e,NSDictionary*_){
-            NSString*hay=[NSString stringWithFormat:@"%@ %@ %@",e.className,WAGRFeatureName(e),e.category].lowercaseString;
+            NSString*hay=[NSString stringWithFormat:@"%@ %@ %@ %@ %@",e.className,WAGRFeatureName(e),e.selectorName ?: @"",e.category,e.inventorySource ?: @""].lowercaseString;
             return [hay containsString:q.lowercaseString];
         }]]
         :_all;
@@ -175,6 +178,11 @@ static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
     return v;
 }
 - (CGFloat)tableView:(UITableView*)tv heightForHeaderInSection:(NSInteger)s{return 36;}
+- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
+    if (!self.spec.inventoryBacked) return nil;
+    if (section != self.sectionKeys.count - 1) return nil;
+    return @"Inventário estático + validação runtime. Flags WAAB usam o fallback boolForKey/stringForKey; métodos ObjC só são hookados quando o seletor BOOL sem argumento existe no processo.";
+}
 - (WAGREntry*)entryAt:(NSIndexPath*)ip {
     NSArray*rows=_byClass[_sectionKeys[(NSUInteger)ip.section]];
     return(ip.row<(NSInteger)rows.count)?rows[(NSUInteger)ip.row]:nil;
@@ -201,9 +209,12 @@ static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
     c.textLabel.lineBreakMode=NSLineBreakByCharWrapping;
     c.textLabel.adjustsFontSizeToFitWidth=NO;
 
-    NSString*pfx=e.isProperty?@"@prop":(e.isClassMethod?@"+":@"-");
-    NSString *state = hasOv ? (effVal ? @"override 1" : @"override 0") : @"sys";
-    c.detailTextLabel.text=[NSString stringWithFormat:@"%@ · %@", pfx, state];
+    NSString*pfx=e.waabFlag?@"WAAB":(e.isProperty?@"@prop":(e.isClassMethod?@"+":@"-"));
+    BOOL known = NO;
+    BOOL observed = WAGRObservedValue(e.overrideKey, &known);
+    NSString *state = hasOv ? (effVal ? @"override 1" : @"override 0") : (known ? (observed ? @"sys 1" : @"sys 0") : @"sys ?");
+    NSString *src = e.inventoryBacked ? (e.inventoryFile.length ? e.inventoryFile : @"inventory") : @"runtime";
+    c.detailTextLabel.text=[NSString stringWithFormat:@"%@ · %@ · %@", pfx, state, src];
     c.detailTextLabel.textColor=hasOv?(effVal?RACC():RRED()):RSUB();
     c.detailTextLabel.font=[UIFont systemFontOfSize:11 weight:UIFontWeightRegular];
     c.detailTextLabel.numberOfLines=1;
@@ -216,12 +227,21 @@ static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
     sw.on=effVal; sw.tag=ip.section*100000+ip.row;
     return c;
 }
+- (void)activateEntry:(WAGREntry *)e value:(BOOL)value {
+    if (!e) return;
+    WAGRSetOverride(e.overrideKey, value);
+    if (e.waabFlag) {
+        WAGRWAABEnsureHooksInstalled();
+        return;
+    }
+    WAGRInstallHookForEntry(e);
+}
+
 - (void)toggled:(UISwitch*)sw {
     NSInteger s=sw.tag/100000, r=sw.tag%100000;
     WAGREntry*e=[self entryAt:[NSIndexPath indexPathForRow:r inSection:s]]; if(!e)return;
     if(sw.isOn){
-        WAGRSetOverride(e.overrideKey,YES);
-        WAGRInstallHookForEntry(e);
+        [self activateEntry:e value:YES];
     } else {
         WAGRClearOverride(e.overrideKey);
     }
@@ -232,12 +252,12 @@ static NSString *WAGRSectionForEntry(WAGRSurfaceSpec *spec, WAGREntry *e) {
     WAGREntry*e=[self entryAt:ip]; if(!e)return;
     UIAlertController*a=[UIAlertController alertControllerWithTitle:
         [NSString stringWithFormat:@"%@",WAGRFeatureName(e)]
-        message:e.className preferredStyle:UIAlertControllerStyleActionSheet];
+        message:[NSString stringWithFormat:@"%@\n%@", e.className ?: @"", e.inventorySource ?: e.inventoryFile ?: @""] preferredStyle:UIAlertControllerStyleActionSheet];
     [a addAction:[UIAlertAction actionWithTitle:@"Force TRUE (1)" style:UIAlertActionStyleDefault handler:^(id _){
-        WAGRSetOverride(e.overrideKey,YES); WAGRInstallHookForEntry(e);
+        [self activateEntry:e value:YES];
         [self applyFilter:self->_search.searchBar.text];}]];
     [a addAction:[UIAlertAction actionWithTitle:@"Force FALSE (0)" style:UIAlertActionStyleDefault handler:^(id _){
-        WAGRSetOverride(e.overrideKey,NO); WAGRInstallHookForEntry(e);
+        [self activateEntry:e value:NO];
         [self applyFilter:self->_search.searchBar.text];}]];
     [a addAction:[UIAlertAction actionWithTitle:@"Clear / System" style:UIAlertActionStyleDefault handler:^(id _){
         WAGRClearOverride(e.overrideKey);

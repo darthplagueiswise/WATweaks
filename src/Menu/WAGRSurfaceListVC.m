@@ -14,6 +14,7 @@
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
+#import "../Runtime/WAGRRuntimeInventory.h"
 
 extern void WAGRWAABEnsureHooksInstalled(void);
 // The native dev-menu launcher lives in src/Hooks/WAGRDebugMenuLauncher.xm.
@@ -138,10 +139,12 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
     // is the primary path going forward — the older "Categorias" section
     // (bundle scans) is kept below for backward compatibility.
     WAGRRootSectionAreas,
+    WAGRRootSectionInventory,
     WAGRRootSectionAbout,
     WAGRRootSectionBundles,
     WAGRRootSectionAdvanced,
     WAGRRootSectionSystem,
+    WAGRRootSectionCount,
 };
 
 // One row inside the new top section.
@@ -176,6 +179,8 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 @interface WAGRSurfaceListVC () <UISearchResultsUpdating>
 @property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *bundles;
 @property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *filteredBundles;
+@property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *inventorySurfaces;
+@property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *filteredInventorySurfaces;
 @property(nonatomic, strong) UISearchController *search;
 @end
 
@@ -186,6 +191,8 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     self.title = @"WATweaks";
     _bundles = [WAGRSurfaceSpec featureBundles];
     _filteredBundles = _bundles;
+    _inventorySurfaces = [WAGRRuntimeInventory inventorySurfaces];
+    _filteredInventorySurfaces = _inventorySurfaces;
     return self;
 }
 
@@ -210,26 +217,31 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     NSString *q = sc.searchBar.text.lowercaseString ?: @"";
     if (!q.length) {
         _filteredBundles = _bundles;
+        _filteredInventorySurfaces = _inventorySurfaces;
     } else {
-        _filteredBundles = [_bundles filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(WAGRSurfaceSpec *s, NSDictionary *_) {
-            NSString *hay = [NSString stringWithFormat:@"%@ %@", s.title ?: @"", s.subtitle ?: @""].lowercaseString;
+        NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(WAGRSurfaceSpec *s, NSDictionary *_) {
+            NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@", s.title ?: @"", s.subtitle ?: @"", s.inventoryFile ?: @"", s.inventoryFamily ?: @""].lowercaseString;
             return [hay containsString:q];
-        }]];
+        }];
+        _filteredBundles = [_bundles filteredArrayUsingPredicate:predicate];
+        _filteredInventorySurfaces = [_inventorySurfaces filteredArrayUsingPredicate:predicate];
     }
     [self.tableView reloadData];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 7; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return WAGRRootSectionCount; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
         case WAGRRootSectionDevMenu: return 1;
         case WAGRRootSectionSecret: return WAGRSecretRowCount;
         case WAGRRootSectionAreas: return (NSInteger)WAGRGatingAreaCount;
+        case WAGRRootSectionInventory: return (NSInteger)_filteredInventorySurfaces.count;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
         case WAGRRootSectionAdvanced: return WAGRAdvancedRowCount;
         case WAGRRootSectionSystem: return 3;
+        case WAGRRootSectionCount: return 0;
     }
     return 0;
 }
@@ -246,15 +258,19 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         case WAGRRootSectionDevMenu: return @"Menu Developer Nativo";
         case WAGRRootSectionSecret: return @"Menus Secretos do App";
         case WAGRRootSectionAreas: return @"Áreas de Gating (Curadas)";
+        case WAGRRootSectionInventory: return @"Runtime Browser por Inventário";
         case WAGRRootSectionAbout: return nil;
         case WAGRRootSectionBundles: return @"Categorias";
         case WAGRRootSectionAdvanced: return @"Avançado";
         case WAGRRootSectionSystem: return @"Sistema";
+        case WAGRRootSectionCount: return nil;
     }
     return nil;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
+    if (section == WAGRRootSectionInventory)
+        return @"Lê resources/runtime/*.json, valida classes/métodos em runtime e mistura com flags WAAB do inventário. WAContextMain fica dentro de WAContext.";
     if (section == WAGRRootSectionBundles)
         return @"Os bundles usam scan direcionado por tokens/classes e exibem apenas features compactas.";
     if (section == WAGRRootSectionAdvanced)
@@ -371,6 +387,26 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     return c;
 }
 
+- (UITableViewCell *)inventoryCellForRow:(NSInteger)row {
+    WAGRSurfaceSpec *s = _filteredInventorySurfaces[(NSUInteger)row];
+    NSUInteger count = WAGROverrideCountForSurfaceID(s.surfaceID);
+    NSString *detail = s.subtitle ?: @"";
+    if (count) detail = [NSString stringWithFormat:@"%lu overrides · %@", (unsigned long)count, detail];
+    if (s.inventoryFile.length) detail = [NSString stringWithFormat:@"%@%@%@", detail ?: @"", detail.length ? @" · " : @"", s.inventoryFile];
+
+    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    c.textLabel.text = s.title;
+    c.textLabel.textColor = WAGRText();
+    c.detailTextLabel.text = detail;
+    c.detailTextLabel.textColor = WAGRSub();
+    c.detailTextLabel.numberOfLines = 2;
+    c.imageView.image = [[UIImage systemImageNamed:s.icon ?: @"doc.text.magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    c.imageView.tintColor = WAGRTintForBundleTitle(s.title);
+    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    return c;
+}
+
 static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
     NSString *wanted = nil;
     switch ((WAGRAdvancedRow)row) {
@@ -471,19 +507,22 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
         case WAGRRootSectionDevMenu: return [self devMenuCell];
         case WAGRRootSectionSecret:  return [self secretMenusCellForRow:ip.row];
         case WAGRRootSectionAreas:   return [self areaCellForRow:ip.row];
+        case WAGRRootSectionInventory:return [self inventoryCellForRow:ip.row];
         case WAGRRootSectionAbout:   return [self aboutCell];
         case WAGRRootSectionBundles: return [self bundleCellForRow:ip.row];
         case WAGRRootSectionAdvanced:return [self advancedCellForRow:ip.row];
         case WAGRRootSectionSystem:  return [self systemCellForRow:ip.row];
+        case WAGRRootSectionCount:   break;
     }
     return [UITableViewCell new];
 }
 
 - (void)showDiagnostics {
-    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\nKeychain=%@",
+    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@\n\nKeychain=%@",
                      WAGRHookRouterDiagnostic() ?: @"Router n/a",
                      WAGRLGDiagnosticText() ?: @"LiquidGlass n/a",
                      WAGRDogfoodDiagnosticText() ?: @"Dogfood n/a",
+                     [WAGRRuntimeInventory diagnosticText] ?: @"Runtime inventory n/a",
                      WAKeychainAccessGroupDiagnostic() ?: @"n/a"];
     WAGRAlert(@"Diagnóstico", msg);
 }
@@ -542,6 +581,13 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
     if (ip.section == WAGRRootSectionAreas) {
         WAGRGatingArea area = (WAGRGatingArea)ip.row;
         WAGRGatingAreaMenuVC *vc = [[WAGRGatingAreaMenuVC alloc] initWithArea:area];
+        [self.navigationController pushViewController:vc animated:YES];
+        return;
+    }
+
+    if (ip.section == WAGRRootSectionInventory) {
+        WAGRSurfaceSpec *spec = _filteredInventorySurfaces[(NSUInteger)ip.row];
+        WAGRSurfaceBrowserVC *vc = [[WAGRSurfaceBrowserVC alloc] initWithSpec:spec];
         [self.navigationController pushViewController:vc animated:YES];
         return;
     }

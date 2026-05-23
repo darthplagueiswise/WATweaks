@@ -13,6 +13,11 @@
 @property (nonatomic, copy)   NSString *category;
 @property (nonatomic, copy)   NSString *returnType;
 @property (nonatomic, copy)   NSString *overrideKey;
+@property (nonatomic, assign) BOOL      inventoryBacked;
+@property (nonatomic, assign) BOOL      waabFlag;
+@property (nonatomic, copy)   NSString *inventoryFile;
+@property (nonatomic, copy)   NSString *inventorySource;
+@property (nonatomic, copy)   NSString *inventoryConfidence;
 @end
 
 // Surface spec — defines what to scan. A surface can be a raw technical class
@@ -30,6 +35,10 @@
 @property (nonatomic, assign) BOOL scanClassMethods;
 @property (nonatomic, assign) BOOL scanProperties;
 @property (nonatomic, assign) BOOL advancedOnly;
+@property (nonatomic, assign) BOOL inventoryBacked;
+@property (nonatomic, copy) NSString *inventoryFile;
+@property (nonatomic, copy) NSString *inventoryFamily;
+@property (nonatomic, strong) NSArray<NSString *> *inventoryMenuSections;
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces;
 + (NSArray<WAGRSurfaceSpec *> *)featureBundles;
 @end

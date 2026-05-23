@@ -1,4 +1,5 @@
 #import "WAGRSurface.h"
+#import "WAGRRuntimeInventory.h"
 #import <objc/runtime.h>
 
 @implementation WAGREntry @end
@@ -34,7 +35,7 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
 @implementation WAGRSurfaceSpec
 
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces {
-    return @[
+    NSMutableArray<WAGRSurfaceSpec *> *surfaces = [NSMutableArray arrayWithArray:@[
         WAGRMakeSurface(kWAGRSurfaceWAAB, @"WAABProperties",
                         @"AB props / feature flags; WAABProperties + FOAWAABPropertiesImpl",
                         @"switch.2",
@@ -95,7 +96,9 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
                           @"WASettingsViewController"],
                         @[@"Employee", @"Dogfood", @"Internal", @"DebugMenu", @"Developer"],
                         @[], @[], YES, YES, YES, YES),
-    ];
+    ]];
+    [surfaces addObjectsFromArray:[WAGRRuntimeInventory inventorySurfaces]];
+    return surfaces;
 }
 
 + (NSArray<WAGRSurfaceSpec *> *)featureBundles {
@@ -414,6 +417,14 @@ static void WAGRAddEntry(NSMutableArray *out,
             }
             free(ms);
         }
+    }
+
+    for (WAGREntry *e in [WAGRRuntimeInventory inventoryEntriesForSurface:spec]) {
+        if (!e.className.length || !e.selectorName.length) continue;
+        NSString *uid = [NSString stringWithFormat:@"%@.%d.%@", e.className, e.isClassMethod, e.selectorName];
+        if ([seen containsObject:uid]) continue;
+        [seen addObject:uid];
+        [out addObject:e];
     }
 
     return [out sortedArrayUsingComparator:^NSComparisonResult(WAGREntry *a, WAGREntry *b) {
