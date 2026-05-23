@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "generated_from": [
+    {
+      "file": "SharedModules(11)",
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8",
+      "size": 67488256
+    },
+    {
+      "file": "WhatsApp(7)",
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed",
+      "size": 138781904
+    }
+  ],
+  "groups": [
+    {
+      "id": "WAABProperties",
+      "file": "WAABProperties.json",
+      "classes_total": 273,
+      "selectors_total": 6807
+    },
+    {
+      "id": "WAContext",
+      "file": "WAContext.json",
+      "classes_total": 388,
+      "selectors_total": 4282
+    },
+    {
+      "id": "WAServerProperties",
+      "file": "WAServerProperties.json",
+      "classes_total": 13,
+      "selectors_total": 2237
+    },
+    {
+      "id": "WAMobileConfig",
+      "file": "WAMobileConfig.json",
+      "classes_total": 32,
+      "selectors_total": 275
+    },
+    {
+      "id": "WAAura",
+      "file": "WAAura.json",
+      "classes_total": 498,
+      "selectors_total": 2120
+    },
+    {
+      "id": "FOA",
+      "file": "FOA.json",
+      "classes_total": 2344,
+      "selectors_total": 484
+    },
+    {
+      "id": "WABiz",
+      "file": "WABiz.json",
+      "classes_total": 3138,
+      "selectors_total": 2052
+    },
+    {
+      "id": "ContactsAboutPresence",
+      "file": "ContactsAboutPresence.json",
+      "classes_total": 352,
+      "selectors_total": 858
+    }
+  ],
+  "relationships": [
+    {
+      "from": "WAServerProperties",
+      "to": "WAContext/WAContextMain",
+      "confidence": "high",
+      "reason": "WAServerProperties exposes userContext/setUserContext/configureUserContext and isInternalUser; WAContextMain exists only in main executable."
+    },
+    {
+      "from": "WAContext",
+      "to": "WAContextMain",
+      "confidence": "high",
+      "reason": "SharedModules has WAContext/container classes; main executable has WAContextMain concrete graph with many managers/services."
+    },
+    {
+      "from": "WAABProperties",
+      "to": "FOAWAABPropertiesImpl",
+      "confidence": "high",
+      "reason": "FOAWAABPropertiesImpl exposes boolForKey/stringForKey/integer accessors and wraps AB properties."
+    },
+    {
+      "from": "WAAuraGating",
+      "to": "WAAura/WAAuraFoundation controllers",
+      "confidence": "high",
+      "reason": "SharedModules exposes AuraGating/GatedBenefit/GatedSubscription; main executable exposes AppThemesViewController/AppIconsViewController/AuraProviding."
+    },
+    {
+      "from": "FOA",
+      "to": "WAFoaAppUtilities",
+      "confidence": "high",
+      "reason": "WAFoaAppUtilities exposes installed-state class properties for Facebook/Instagram/Threads/MetaAI."
+    },
+    {
+      "from": "WABiz",
+      "to": "WAABProperties",
+      "confidence": "high",
+      "reason": "WABiz.BizManager contains an abProperties ivar; many WABiz surfaces are server/AB gated."
+    },
+    {
+      "from": "Contacts/About",
+      "to": "WAInfoTopHeaderView.OnlinePresenceDotView",
+      "confidence": "medium",
+      "reason": "OnlinePresenceDotView is UI only; actual gates are likely WAAB/WAContextMain services."
+    }
+  ],
+  "backup_import_policy": {
+    "export_scope": "NSUserDefaults keys owned by WATweaks only: wagr*, WAGR*, wa_*, selected WA legacy keys already used by the tweak",
+    "import_policy": "mirror: apply all JSON preferences and remove existing WATweaks keys absent from the imported JSON",
+    "reason": "runtime inventory maps feature groups; backup stores user choices, not raw binary state"
+  }
+}

@@ -11,6 +11,8 @@
 #import "WAGRGatingAreaMenuVC.h"
 #import "WAGRSecretMenusVC.h"
 #import "WAGRDebugVCInstantiatorVC.h"
+#import "WAGRSettingsBackup.h"
+#import "../Runtime/WAGRRuntimeInventory.h"
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
@@ -161,6 +163,10 @@ typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
     WAGRAdvancedRowWAContext,
     WAGRAdvancedRowWAContextMain,
     WAGRAdvancedRowWAAuraGating,
+    WAGRAdvancedRowWAServerProperties,
+    WAGRAdvancedRowWAMobileConfig,
+    WAGRAdvancedRowFOA,
+    WAGRAdvancedRowBiz,
     WAGRAdvancedRowRawRuntime,
     WAGRAdvancedRowInstallPersisted,
     WAGRAdvancedRowDiagnostics,
@@ -168,7 +174,9 @@ typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
 };
 
 typedef NS_ENUM(NSInteger, WAGRSystemRow) {
-    WAGRSystemRowRestart = 0,
+    WAGRSystemRowExportBackup = 0,
+    WAGRSystemRowImportBackup,
+    WAGRSystemRowRestart,
     WAGRSystemRowResetOverrides,
     WAGRSystemRowResetWAGramPrefs,
 };
@@ -229,7 +237,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
         case WAGRRootSectionAdvanced: return WAGRAdvancedRowCount;
-        case WAGRRootSectionSystem: return 3;
+        case WAGRRootSectionSystem: return 5;
     }
     return 0;
 }
@@ -335,6 +343,10 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     if ([t containsString:@"group"])        return UIColor.systemIndigoColor;
     if ([t containsString:@"payment"] || [t containsString:@"pix"] || [t containsString:@"upi"])
                                             return UIColor.systemGrayColor;
+    if ([t containsString:@"foa"] || [t containsString:@"facebook"] || [t containsString:@"instagram"] || [t containsString:@"threads"])
+                                            return UIColor.systemTealColor;
+    if ([t containsString:@"biz"] || [t containsString:@"business"] || [t containsString:@"smb"] || [t containsString:@"catalog"])
+                                            return UIColor.systemYellowColor;
     if ([t containsString:@"liquid"])       return UIColor.systemBlueColor;
     if ([t containsString:@"aura"] || [t containsString:@"plus"])
                                             return UIColor.systemPurpleColor;
@@ -378,6 +390,10 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
         case WAGRAdvancedRowWAContext: wanted = kWAGRSurfaceContext; break;
         case WAGRAdvancedRowWAContextMain: wanted = @"contextmain_graph"; break;
         case WAGRAdvancedRowWAAuraGating: wanted = kWAGRSurfaceAura; break;
+        case WAGRAdvancedRowWAServerProperties: wanted = kWAGRSurfaceServer; break;
+        case WAGRAdvancedRowWAMobileConfig: wanted = kWAGRSurfaceMobileConfig; break;
+        case WAGRAdvancedRowFOA: wanted = kWAGRSurfaceFOA; break;
+        case WAGRAdvancedRowBiz: wanted = kWAGRSurfaceBiz; break;
         default: return nil;
     }
     for (WAGRSurfaceSpec *spec in [WAGRSurfaceSpec allSurfaces]) {
@@ -392,6 +408,10 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
         @"Runtime WAContext",
         @"Runtime WAContextMain",
         @"Runtime WAAuraGating",
+        @"Runtime WAServerProperties",
+        @"Runtime WAMobileConfig",
+        @"Runtime FOA / Meta Apps",
+        @"Runtime WABiz / Business",
         @"Runtime Browser Avançado",
         @"Instalar hooks salvos",
         @"Diagnóstico"
@@ -401,12 +421,16 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
         @"Gates do WAContext antes da expansão para WAContextMain.",
         @"Object graph/gates grandes do WAContextMain.",
         @"Providers Swift Aura/GatedBenefit/GatedSubscription.",
+        @"Gate central de internal/server/userContext.",
+        @"Fetch/cache/GraphQL/gating bridge por trás do WAAB.",
+        @"Facebook, Instagram, Threads, Meta AI e FOA bridges.",
+        @"BizManager, BizProfile, SMB, merchant e catalog.",
         @"Lista todas as surfaces técnicas disponíveis.",
         @"Reinstala overrides persistidos via MSHookMessageEx.",
-        @"Router, LiquidGlass, Dogfood, SettingsRows, Keychain."
+        @"Router, inventory, backup, LiquidGlass, Dogfood, SettingsRows, Keychain."
     };
     NSString *icons[] = {
-        @"switch.2", @"point.3.connected.trianglepath.dotted", @"cube.transparent", @"star", @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass"
+        @"switch.2", @"point.3.connected.trianglepath.dotted", @"cube.transparent", @"star", @"server.rack", @"network", @"apps.iphone", @"briefcase", @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass"
     };
 
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
@@ -423,9 +447,9 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
 }
 
 - (UITableViewCell *)systemCellForRow:(NSInteger)row {
-    NSString *titles[] = { @"Reiniciar WhatsApp", @"Reset overrides", @"Reset WATweaks prefs" };
-    NSString *subs[] = { @"Fecha o app", @"Remove wagr.override.* e wagr.observed.*", @"Remove preferências wagr*/wa* do tweak" };
-    NSString *icons[] = { @"power", @"arrow.counterclockwise", @"trash" };
+    NSString *titles[] = { @"Exportar backup JSON", @"Importar backup JSON", @"Reiniciar WhatsApp", @"Reset overrides", @"Reset WATweaks prefs" };
+    NSString *subs[] = { @"Exporta preferências e overrides do WATweaks", @"Importa como espelho: ausentes no JSON são removidos", @"Fecha o app", @"Remove wagr.override.* e wagr.observed.*", @"Remove preferências wagr*/wa* do tweak" };
+    NSString *icons[] = { @"square.and.arrow.up", @"square.and.arrow.down", @"power", @"arrow.counterclockwise", @"trash" };
 
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
@@ -480,10 +504,12 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
 }
 
 - (void)showDiagnostics {
-    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\nKeychain=%@",
+    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@\n\n%@\n\nKeychain=%@",
                      WAGRHookRouterDiagnostic() ?: @"Router n/a",
                      WAGRLGDiagnosticText() ?: @"LiquidGlass n/a",
                      WAGRDogfoodDiagnosticText() ?: @"Dogfood n/a",
+                     WAGRRuntimeInventoryDiagnosticText() ?: @"Inventory n/a",
+                     WAGRSettingsBackupDiagnosticText() ?: @"Backup n/a",
                      WAKeychainAccessGroupDiagnostic() ?: @"n/a"];
     WAGRAlert(@"Diagnóstico", msg);
 }
@@ -575,7 +601,11 @@ static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
     }
 
     if (ip.section == WAGRRootSectionSystem) {
-        if (ip.row == WAGRSystemRowRestart) {
+        if (ip.row == WAGRSystemRowExportBackup) {
+            [WAGRSettingsBackup presentExport];
+        } else if (ip.row == WAGRSystemRowImportBackup) {
+            [WAGRSettingsBackup presentImport];
+        } else if (ip.row == WAGRSystemRowRestart) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ exit(0); });
         } else if (ip.row == WAGRSystemRowResetOverrides) {
             [self resetKeysMatching:^BOOL(NSString *key) {

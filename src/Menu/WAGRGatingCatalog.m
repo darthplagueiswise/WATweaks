@@ -67,6 +67,8 @@ NSString *WAGRGatingAreaTitle(WAGRGatingArea area) {
         case WAGRGatingAreaDeveloper:    return @"Developer / Dogfood";
         case WAGRGatingAreaAI:           return @"AI / Meta AI";
         case WAGRGatingAreaPrivacy:      return @"Privacy / Username";
+        case WAGRGatingAreaFOA:          return @"FOA / Meta Apps";
+        case WAGRGatingAreaBiz:          return @"WABiz / Business";
         case WAGRGatingAreaCount:        return @"";
     }
     return @"";
@@ -88,6 +90,8 @@ NSString *WAGRGatingAreaIconName(WAGRGatingArea area) {
         case WAGRGatingAreaDeveloper:    return @"chevron.left.forwardslash.chevron.right";
         case WAGRGatingAreaAI:           return @"sparkles";
         case WAGRGatingAreaPrivacy:      return @"lock.shield.fill";
+        case WAGRGatingAreaFOA:          return @"apps.iphone";
+        case WAGRGatingAreaBiz:          return @"briefcase.fill";
         case WAGRGatingAreaCount:        return @"";
     }
     return @"";
@@ -123,6 +127,10 @@ NSString *WAGRGatingAreaSubtitle(WAGRGatingArea area) {
             return @"Meta AI, incognito mode, AI subscription gates";
         case WAGRGatingAreaPrivacy:
             return @"Username row, passkey, privacy comparison screen";
+        case WAGRGatingAreaFOA:
+            return @"Facebook, Instagram, Threads, Meta AI app utility gates";
+        case WAGRGatingAreaBiz:
+            return @"BizManager, BizProfile, catalog, commerce and merchant gates";
         case WAGRGatingAreaCount:
             return @"";
     }
@@ -544,6 +552,34 @@ static NSArray<WAGRGatingEntry *> *entries_LiquidGlass(void) {
 }
 
 
+
+static NSArray<WAGRGatingEntry *> *entries_FOA(void) {
+    return @[
+        E(@"WAFoaAppUtilities", @"isFacebookAppInstalled", YES, @"Facebook installed", @"FOA utility class property confirmed in SharedModules; useful for Meta cross-app bookmarks/routes.", WAGRGatingAreaFOA, NO),
+        E(@"WAFoaAppUtilities", @"isInstagramAppInstalled", YES, @"Instagram installed", @"FOA utility class property confirmed in SharedModules; useful for Instagram bookmark/bridge rows.", WAGRGatingAreaFOA, NO),
+        E(@"WAFoaAppUtilities", @"isThreadsAppInstalled", YES, @"Threads installed", @"FOA utility class property confirmed in SharedModules; useful for Threads bookmark/bridge rows.", WAGRGatingAreaFOA, NO),
+        E(@"WAFoaAppUtilities", @"isMetaAIAppInstalled", YES, @"Meta AI app installed", @"FOA utility class property confirmed in SharedModules; useful for Meta AI App bookmark/bridge rows.", WAGRGatingAreaFOA, NO),
+        WAAB(@"foa_threads_bookmarks_enabled", @"Threads bookmark", @"Settings/FOA bookmark gate for Threads.", WAGRGatingAreaFOA, NO),
+        WAAB(@"foa_bridges_bookmark_meta_horizon", @"Meta Horizon bookmark", @"Settings/FOA bookmark gate for Meta Horizon.", WAGRGatingAreaFOA, NO),
+        WAAB(@"foa_bookmark_sk_overlay_enabled", @"FOA SK overlay", @"Enables StoreKit overlay behavior for FOA bookmarks.", WAGRGatingAreaFOA, NO),
+        WAAB(@"foa_bookmarks_logging_enabled", @"FOA bookmarks logging", @"Logging gate for FOA bookmarks.", WAGRGatingAreaFOA, NO),
+        WAAB(@"foa_bridges_bookmarks_design_update_enabled", @"FOA design update", @"Updated FOA bookmark/bridge design gate.", WAGRGatingAreaFOA, NO),
+    ];
+}
+
+static NSArray<WAGRGatingEntry *> *entries_Biz(void) {
+    return @[
+        WAAB(@"biz_profile_enabled", @"Business profile", @"Business profile feature flag candidate validated by WABizProfile classes in SharedModules.", WAGRGatingAreaBiz, NO),
+        WAAB(@"biz_search_enabled", @"Business search", @"Business search feature flag candidate grouped with WABizSearchServerConfigs.", WAGRGatingAreaBiz, NO),
+        WAAB(@"biz_catalog_enabled", @"Catalog", @"Catalog/business commerce feature flag candidate grouped with WABiz catalog classes.", WAGRGatingAreaBiz, NO),
+        WAAB(@"biz_roles_enabled", @"Business roles", @"Business-role feature flag candidate grouped with WABizRole/WABizRoleContext.", WAGRGatingAreaBiz, NO),
+        WAAB(@"smb_profile_enabled", @"SMB profile", @"SMB/business profile gate candidate.", WAGRGatingAreaBiz, NO),
+        WAAB(@"smb_catalog_enabled", @"SMB catalog", @"SMB catalog/commerce gate candidate.", WAGRGatingAreaBiz, NO),
+        WAAB(@"commerce_manager_enabled", @"Commerce manager", @"Commerce manager URL/entry-point gate candidate.", WAGRGatingAreaBiz, NO),
+        WAAB(@"ctwa_merchant_enabled", @"CTWA merchant", @"Click-to-WhatsApp merchant/business gate candidate; WABiz.BizManager exposes isCTWAMerchant: at runtime but that selector takes an argument and is intentionally not hooked directly.", WAGRGatingAreaBiz, NO),
+    ];
+}
+
 // ── WAGRGatingCatalog accessor ──────────────────────────────────────────────
 @implementation WAGRGatingCatalog
 
@@ -564,6 +600,8 @@ static NSArray<WAGRGatingEntry *> *entries_LiquidGlass(void) {
         case WAGRGatingAreaDeveloper:    raw = entries_Developer();    break;
         case WAGRGatingAreaAI:           raw = entries_AI();           break;
         case WAGRGatingAreaPrivacy:      raw = entries_Privacy();      break;
+        case WAGRGatingAreaFOA:          raw = entries_FOA();          break;
+        case WAGRGatingAreaBiz:          raw = entries_Biz();          break;
         case WAGRGatingAreaCount:        raw = @[];                    break;
     }
 

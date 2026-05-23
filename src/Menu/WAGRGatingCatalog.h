@@ -41,6 +41,8 @@ typedef NS_ENUM(NSInteger, WAGRGatingArea) {
     WAGRGatingAreaDeveloper,          // Internal/developer/dogfood gates
     WAGRGatingAreaAI,                 // Meta AI / AI subscription gates
     WAGRGatingAreaPrivacy,            // Privacy / username / passkey gates
+    WAGRGatingAreaFOA,                // Family-of-apps / Meta app utility gates
+    WAGRGatingAreaBiz,                // WABiz / business / catalog / merchant gates
     WAGRGatingAreaCount,
 };
 

@@ -1,0 +1,2460 @@
+{
+  "target": "WAMobileConfig",
+  "schema_version": 1,
+  "generated_from": [
+    {
+      "file": "SharedModules(11)",
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8"
+    },
+    {
+      "file": "WhatsApp(7)",
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed"
+    }
+  ],
+  "validation": "static strings + Swift demangle + known ObjC runtime naming; runtime scanner still validates method signatures before hook install",
+  "class_filters": [
+    "WAMobileConfig",
+    "MobileConfig",
+    "WAMCShadow",
+    "WAFoundation20WAMobileConfigGating"
+  ],
+  "classes_total": 32,
+  "selectors_total": 275,
+  "classes": [
+    {
+      "name": "WAMCShadowTestingExposureKeyData",
+      "raw": "WAMCShadowTestingExposureKeyData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMCShadowTestingLogger",
+      "raw": "WAMCShadowTestingLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfig",
+      "raw": "WAMobileConfig",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigConsistencyLoggingInput",
+      "raw": "WAMobileConfigConsistencyLoggingInput",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigFetchInput",
+      "raw": "WAMobileConfigFetchInput",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigGating",
+      "raw": "WAMobileConfigGating",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigGraphQLBridge",
+      "raw": "WAMobileConfigGraphQLBridge",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigGraphQLFetcher",
+      "raw": "WAMobileConfigGraphQLFetcher",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigImpl",
+      "raw": "WAMobileConfigImpl",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigInitParams",
+      "raw": "WAMobileConfigInitParams",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigLastFetchStore",
+      "raw": "WAMobileConfigLastFetchStore",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigNetworking",
+      "raw": "WAMobileConfigNetworking",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigPluginsBridge",
+      "raw": "WAMobileConfigPluginsBridge",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigShadowTesting",
+      "raw": "WAMobileConfigShadowTesting",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigSilentPushComparison",
+      "raw": "WAMobileConfigSilentPushComparison",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigWWWGraphQLFetcher",
+      "raw": "WAMobileConfigWWWGraphQLFetcher",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigWamHelper",
+      "raw": "WAMobileConfigWamHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXWA2MobileConfigConsistencyLoggingInput",
+      "raw": "WAXWA2MobileConfigConsistencyLoggingInput",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXWA2MobileConfigFetchInput",
+      "raw": "WAXWA2MobileConfigFetchInput",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "FBMobileConfigStartupConfigs",
+      "raw": "_OBJC_CLASS_$_FBMobileConfigStartupConfigs",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "FBMobileConfigStartupConfigsDeprecated",
+      "raw": "_OBJC_CLASS_$_FBMobileConfigStartupConfigsDeprecated",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventMobileConfigDebugEvent",
+      "raw": "_OBJC_CLASS_$_WamEventMobileConfigDebugEvent",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC12WAFoundation20WAMobileConfigGating",
+      "raw": "_TtC12WAFoundation20WAMobileConfigGating",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC24WAMobileConfigNetworking27WAMobileConfigPluginsBridge",
+      "raw": "_TtC24WAMobileConfigNetworking27WAMobileConfigPluginsBridge",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC27WAMobileConfigShadowTesting23WAMCShadowTestingLogger",
+      "raw": "_TtC27WAMobileConfigShadowTesting23WAMCShadowTestingLogger",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigABPropsOverridesSync",
+      "raw": "WAMobileConfigABPropsOverridesSync",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigSessionlessTask",
+      "raw": "WAMobileConfigSessionlessTask",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMobileConfigTask",
+      "raw": "WAMobileConfigTask",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "FBMobileConfigStartupConfigs",
+      "raw": "_OBJC_CLASS_$_FBMobileConfigStartupConfigs",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "FBMobileConfigStartupConfigsDeprecated",
+      "raw": "_OBJC_CLASS_$_FBMobileConfigStartupConfigsDeprecated",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventMobileConfigDebugEvent",
+      "raw": "_OBJC_CLASS_$_WamEventMobileConfigDebugEvent",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC27WAMobileConfigShadowTesting23WAMCShadowTestingLogger",
+      "raw": "_OBJC_CLASS_$__TtC27WAMobileConfigShadowTesting23WAMCShadowTestingLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    }
+  ],
+  "selectors": [
+    {
+      "name": "allowEmergencyPushFetch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "allowlist_fetched",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "business_hours_config",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "business_hours_configArray",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "business_profileServer_configs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "businessSearchConfigIssueMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "businessSearchConfigMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "cancel14didTapCallbackAC13ConfigurationVyypSgcSg_tFZ",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "canPrefetch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "canPrefetchMedia",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "canUseCellularToPrefetch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "canUseCellularToPrefetchMedia",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enable_client_linked_group_call_notification_push_config",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "enable_msgr_in_unpause_fetch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "has_mentioned_fetched",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasAvocadoConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasBotRenderingConfigMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasBufferFetchErrorCount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasClientNotSupportedConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasCompanionCanonicalUserNonceFetchRequest",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasCompanionCanonicalUserNonceFetchRequestResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasCompanionMetaNonceFetchRequestResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasConfigId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasConfigMeasurement",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasConfigOverrides",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasFetchTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasForceFetchGetContext",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasFullHistorySyncOnDemandConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasGetContextHasBeenFetched",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasHistorySyncConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasImageToVideoTranscodingConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasLastFetchTime",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasLastFetchTimeMillis",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasLastFetchTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasLastNetworkFetchTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasPhotoLibraryFetchingBeenTimeOut",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasPrefetchCompleted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasTeeModelConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasTranscodeConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasValidConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasWaffleNonceFetchRequestResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasWeblinkRenderConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "InitDecoderConfigInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "is_access_library_logger_fetch_event_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_ai_fetch_media_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_ai_image_fetch_failure_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_fetch_error_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_fetch_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_fetch_origin_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_cover_photo_fetch_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_fetch_entrypoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_fetch_mechanism_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_fetch_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_fetch_state_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_iphone_background_fetch_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_link_metadata_fetch_image_url_type_fetched_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_prekeys_fetch_context_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_prekeys_fetch_reason_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_selected_layout_config_id_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isAISubscriptionMeteringAndFetchingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isBatchCollectionFetchEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isBizBotProfilePrefetchingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isChatPushConfigMigratedToCQL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isContactDataPrefetchEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetching",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingFrames",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFileStreamingConfigured",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isMobileConfigRollout",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "mobileconfig",
+        "config"
+      ]
+    },
+    {
+      "name": "isPrefetchingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isRunningValidateAndFetch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isThumbnailPrefetch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isUserNoticePrefetchEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "kFBMobileConfigSkipRequestDataEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "mobileconfig",
+        "config"
+      ]
+    },
+    {
+      "name": "listConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "listConfiguration",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "metadata_fetch_end",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "metadata_fetch_start",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "metadataFetcher",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "payment_config_id",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "paymentConfigName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "paymentConfiguration",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "payments_upi_get_p2m_config_graphql_enabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "paymentTransactionFetchRequest",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldCoalesceTempPairedVideoFetches",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldContinueFetchingRecents",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldPlayAfterFetchingInitialFrame",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldUpdateViewWhenUpdatingConfig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldUseAsyncOptimizationForFetchFrequently",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldUseLiquidGlassConfiguration",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "smb_graphql_to_fetch_qp_frequency_mins",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smb_graphql_to_fetch_qp_surface_ids",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smbBusinessProfileConfigs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "smbPremiumBroadcastDidFetchEligibility",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "tosClientStateFetchEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "WAMobileConfigGating",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "mobileconfig",
+        "config"
+      ]
+    },
+    {
+      "name": "cancelAssetFetchingWithIdentifier:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "canSkipFetchingParentForMessageAssociationType:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "FBMobileConfigStorageManager::persistConfigsInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "mobileconfig",
+        "config"
+      ]
+    },
+    {
+      "name": "FBMobileConfigTieredRatelimiter::checkTierEligibility",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "mobileconfig",
+        "config"
+      ]
+    },
+    {
+      "name": "FBMobileConfigTieredRatelimiter::updateTierEligibility",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "mobileconfig",
+        "config"
+      ]
+    },
+    {
+      "name": "hasConfigType:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterCreationEnabledWithConfiguration:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterDirectoryEnabledWithConfiguration:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterEnabledWithConfiguration:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterShownInUpdatesTabWithConfiguration:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "presentEditMenuWithConfiguration:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldCancelHeaderFetchTaskWithoutHTMLForResponse:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldNotFetchChatWithSession:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldOnlyPrefetchMessage:",
+      "source": "SharedModules(11)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "allowedLevelOfLinearUnderfetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "allowFetching",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "business_search_linked_account_fetch_image",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "businessInfoFetcher",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "businessPaymentConfigName",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "canceledKeyFetchRequest",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "cancelFeedbackFetcher",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "cancelFetchesForLanguageSwitching",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "cancelFetchOfferTimer",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "canFetchConfiguration",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config",
+        "fetch"
+      ]
+    },
+    {
+      "name": "canFetchMessagesAsynchronously",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "canPrefetchMedia",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "canUseCellularToPrefetchMedia",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "configureSessionInternal",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "configureViewTheme",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "disableFetchingUnavailableAudioTrack",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enable_bot_call_async_audio_session_configuration",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "enable_client_linked_group_call_notification_push_config",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "enable_partial_fetch_size_threshold",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enable_partial_segment_initial_fetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enable_prefetch_buffer_live_seeking",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enable_separate_audio_config",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "enable_skimming_mode_initial_fetch_tuning_for_wifi",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableAIQSmartFetchOnWifiOnly",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableBypassingLowQualityPrefetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableDashPrefetchUseBestQuality",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableDNSPrefetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableGroupCallPrefetchPrekey",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableImagineIntentsQuotaFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableImagineVideoQuotaFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableLogMultiplePrefetchCachedRepresentations",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableRoundingInDashFetcher",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enableVideoQuotaFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "fetchingOfferEligibility",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "fetchOnboardingEligibility",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "has_avatar_config",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasAggressivePrefetchBytes",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasAvocadoConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasDeviceConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasFetchedAnyCollection",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasForceFetchGetContext",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasLastFetchTimestamp",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasLastNetworkFetchTimestamp",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasPhotoLibraryFetchingBeenTimeOut",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "hasWeblinkRenderConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hideArEffectMetadataFetchingFailedBannerIfNecessary",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_bloks_prefetch_enabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_parallel_fetch_native_auth_enabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_unified_fetcher",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "is_uplink_prefetch_enabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isAISubscriptionMeteringAndFetchingEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isAlreadyFetched",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isASmartFetchURL",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isBloksPrefetchEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isChatPushConfigMigratedToCQL",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isConfigured",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isContactDataPrefetchEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isDisableAdFetchAfterTosAcceptedEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFeedbackFetchingEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetched",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchInFlight",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetching",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingActiveOrderData",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingAvatarInProgress",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingBillDetails",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingEditor",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingEvents",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingImages",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingModels",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingPersonalization",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingPreviewImages",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchingSuggestionsForBackdrop",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchInProgress",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFetchInProgressLock",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isFirstFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isMacConfigEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isMobileConfigRollout",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "mobileconfig",
+        "config"
+      ]
+    },
+    {
+      "name": "isPrefetched",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isPrefetchingCachedValues",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isRefetchingEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isSmartFetchURL",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isSocialContextFetchComplete",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isUserNoticePrefetchEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "isViewUpdatedWithConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "lastConfiguredIsDisabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "listCellConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "listConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "listConfiguration",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "listItemToCellConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "metaAIAppHeaderUpsellConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "metaAIUnifiedDataFetcher",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "metaConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "metadataFetcher",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "payment_config",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "payment_config_fbid",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "payment_config_id",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "payment_configuration",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "payment_screen_yearly_price_not_fetched",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "paymentBackgroundsFetchAll",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "paymentBackgroundsFetchBackgroundsPack",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "paymentConfigFbid",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "paymentConfiguration",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "paymentConfigurationId",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "paymentFetcher",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "paymentPrefetchBottomSheet",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "payments_error_map_fetch_days",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "payments_order_details_refactor_fetching_without_seven_day_limit",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "payments_p2m_upi_merchant_configuration_enabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "payments_p2m_upi_server_driven_hybrid_options_config",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "payments_upi_account_recovery_transaction_fetch_page_size",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "paymentTransactionFetchRequest",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "paymentUPIConfiguration",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "should_fetch_biller_details",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "should_partial_fetch_bypass_single_segment_video",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "should_prefetch_upsells_eligibility",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "should_send_server_bwe_configuration",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldAllowFetching",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldConfigureAudioConfigEncodingOnSetup",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldConfigureDeviceAgentStorage",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldEnableAIQSmartFetchOnWifiOnly",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetchAgeExperienceOnLoad",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetchFavouriteStickerImmediatly",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetchForPrePN",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetchPreRegistrationGroupInvites",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldPerformFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldPurgeCacheOnNextFirstPageFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldRequestDebugConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldShowLoadingViewForMediaPickerFetchingState",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldSignalNextFetchInterval",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldUseQualityParamWhenOverfetchImpossible",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldUseQualityParamWhenOverfetchPossible",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "showConfig",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "showConsentFlowAfterFetch",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smb_catalog_graphql_fetch_order",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smb_qp_emergency_force_fetch_nonce",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smb_subscription_config",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "smbBusinessProfileRefetchDate",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smbBusinessToolsCatalogCounterFetchDate",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smbi_ads4ads_m2_recommendation_fetch_hours_ttl",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smbi_ads4ads_m2_recommendation_fetch_url",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smbi_ctwa_get_context_fetch_disabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "smbi_fetch_token_show_email_otp_on_account_recovery",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "TB,N,R,VisRefetchingEnabled",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "cancelAssetFetchingWithIdentifier:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "cancelPrefetchForChatJID:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "cancelScheduledPASLConfigFetchTaskWithManager:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config",
+        "fetch"
+      ]
+    },
+    {
+      "name": "cancelStalePrefetchedDownloads:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "enablePaymentsSyncWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "hasConfigType:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterCreationEnabledWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterDirectoryEnabledWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterEnabledWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "isNewsletterShownInUpdatesTabWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "presentEditMenuWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "presentStorageManagementGalleryForFetchType:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldBePresentedWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldDisableSmartFetchForUrl:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetchFlowMetadataFor:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetchForTrack:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldFetchItemThumbnail:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldOnlyPrefetchMessage:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "fetch"
+      ]
+    },
+    {
+      "name": "shouldPresentUserNotificationWithConfiguration:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldShowUpgradeWithLoggerConfig:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "shouldUseFallbackConfigurationForMarkerID:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    },
+    {
+      "name": "showButtonsWithConfig:",
+      "source": "WhatsApp(7)",
+      "hookable_guess": "not safe for generic BOOL router; has arguments",
+      "tags": [
+        "config"
+      ]
+    }
+  ]
+}

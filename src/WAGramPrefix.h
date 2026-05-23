@@ -74,6 +74,10 @@ static NSString * const kWAGRSurfaceGateKeep = @"gatekeep";
 static NSString * const kWAGRSurfaceAura     = @"aura";
 static NSString * const kWAGRSurfaceSettings = @"settings";
 static NSString * const kWAGRSurfaceEmployee = @"employee";
+static NSString * const kWAGRSurfaceServer = @"serverproperties";
+static NSString * const kWAGRSurfaceMobileConfig = @"mobileconfig";
+static NSString * const kWAGRSurfaceFOA = @"foa";
+static NSString * const kWAGRSurfaceBiz = @"biz";
 #endif
 
 // ── Runtime override helpers ─────────────────────────────────────────────────

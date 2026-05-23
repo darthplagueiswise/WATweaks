@@ -95,6 +95,37 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
                           @"WASettingsViewController"],
                         @[@"Employee", @"Dogfood", @"Internal", @"DebugMenu", @"Developer"],
                         @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceServer, @"WAServerProperties",
+                        @"Master account/server gates, including isInternalUser and UPI/list/group limits",
+                        @"server.rack",
+                        @[@"WAServerProperties"],
+                        @[@"WAServerProperties", @"ServerProperties"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceMobileConfig, @"WAMobileConfig",
+                        @"Fetch/cache/GraphQL/gating bridge behind WAAB flags",
+                        @"network",
+                        @[@"WAMobileConfigGating", @"_TtC12WAFoundation20WAMobileConfigGating"],
+                        @[@"WAMobileConfig", @"MobileConfig", @"WAMCShadow", @"WAMobileConfigGating"],
+                        @[@"config", @"mobile", @"enabled", @"true", @"false"],
+                        @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceFOA, @"FOA / Meta App Utilities",
+                        @"Family-of-apps utilities: Facebook, Instagram, Threads, Meta AI and bridges",
+                        @"apps.iphone",
+                        @[@"WAFoaAppUtilities", @"FOAWAABPropertiesImpl"],
+                        @[@"FOA", @"WAFoa", @"Foa", @"CrossFamily", @"MetaAI", @"Instagram", @"Threads", @"Facebook"],
+                        @[@"foa", @"facebook", @"instagram", @"threads", @"metaai", @"installed", @"bookmark"],
+                        @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceBiz, @"WABiz / Business",
+                        @"Business/BizManager/BizProfile/BizRole surfaces and AB-backed business features",
+                        @"briefcase",
+                        @[@"WABizProfileServerConfigs", @"WABizSearchServerConfigs", @"WABizProfileSettings"],
+                        @[@"WABiz", @"BizManager", @"BizProfile", @"BizRole", @"Business", @"SMB", @"Catalog", @"Commerce", @"Merchant"],
+                        @[@"biz", @"business", @"smb", @"merchant", @"commerce", @"catalog", @"profile", @"eligible"],
+                        @[], YES, YES, YES, YES),
     ];
 }
 
@@ -177,13 +208,21 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
                         @[@"privacy", @"username", @"passkey", @"defense", @"block", @"contact"],
                         @[@"Privacy / Username"], YES, YES, YES, NO),
 
-        WAGRMakeSurface(@"bundle_business", @"Premium & Business",
-                        @"Business, SMB, commerce and premium gates",
+        WAGRMakeSurface(@"bundle_business", @"WABiz / Business",
+                        @"BizManager, BizProfile, commerce, SMB and premium business gates",
                         @"briefcase",
-                        @[@"WAABProperties", @"WAContextMain"],
-                        @[@"Business", @"SMB", @"Commerce", @"Premium"],
-                        @[@"business", @"smb", @"commerce", @"premium", @"paid"],
+                        @[@"WAABProperties", @"WAContextMain", @"WABizProfileServerConfigs", @"WABizSearchServerConfigs"],
+                        @[@"WABiz", @"BizManager", @"BizProfile", @"BizRole", @"Business", @"SMB", @"Commerce", @"Premium"],
+                        @[@"biz", @"business", @"smb", @"commerce", @"premium", @"paid", @"merchant", @"catalog"],
                         @[@"Premium / Business"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_foa", @"FOA / Meta Apps",
+                        @"Facebook, Instagram, Threads, Meta AI app utilities and FOA bookmarks",
+                        @"apps.iphone",
+                        @[@"WAFoaAppUtilities", @"FOAWAABPropertiesImpl", @"WAContextMain"],
+                        @[@"FOA", @"WAFoa", @"FOABookmarks", @"CrossFamily", @"MetaAI", @"Instagram", @"Threads", @"Facebook"],
+                        @[@"foa", @"facebook", @"instagram", @"threads", @"metaai", @"bookmark", @"bridge"],
+                        @[@"FOA / Meta App Utilities", @"Settings Rows", @"AI / Meta AI"], YES, YES, YES, NO),
 
         WAGRMakeSurface(@"bundle_settings", @"Settings Rows",
                         @"Settings rows and hidden native developer entries",
@@ -244,7 +283,13 @@ NSString *WAGRCategoryForSelector(NSString *name) {
         [s containsString:@"passkey"] || [s containsString:@"defense"] ||
         [s containsString:@"block"] || [s containsString:@"contact"]) return @"Privacy / Username";
 
-    if ([s containsString:@"business"] || [s containsString:@"smb"] ||
+    if ([s containsString:@"foa"] || [s containsString:@"facebook"] ||
+        [s containsString:@"instagram"] || [s containsString:@"threads"] ||
+        [s containsString:@"metaai"] || [s containsString:@"bookmark"]) return @"FOA / Meta App Utilities";
+
+    if ([s containsString:@"business"] || [s containsString:@"wabiz"] ||
+        [s containsString:@"biz"] || [s containsString:@"smb"] ||
+        [s containsString:@"merchant"] || [s containsString:@"catalog"] ||
         [s containsString:@"commerce"] || [s containsString:@"paid"]) return @"Premium / Business";
 
     if ([s containsString:@"call"] || [s containsString:@"voip"] ||
