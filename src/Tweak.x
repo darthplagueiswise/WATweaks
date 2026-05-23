@@ -288,7 +288,7 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
         UIViewController *settingsVC = WAGRSettingsVCForTable(tv);
         if (settingsVC) {
             WAGRSettingsRowsNativeEnsureHooksInstalled();
-    WAGRContextMenuPipelineProbeEnsureInstalled();
+            WAGRContextMenuPipelineProbeEnsureInstalled();
             WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
         }
     }
@@ -352,7 +352,7 @@ static void WAGRPresentSecretMenusFrom(UIViewController *host) {
 
 NSString *WAGRDebugMenuDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[ContextMenuPipeline]\n%@\n\n[Router]\n%@",
+        @"nativeDebug=%@\ntableHook=%@\nwindowHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[ContextMenuPipeline]\n%@\n\n[Router]\n%@",
         WAGRNativeDebugAllowed() ? @"ON" : @"OFF",
         gTableHooked ? @"YES" : @"NO",
         gWindowHooked ? @"YES" : @"NO",
