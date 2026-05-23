@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "generator": "scripts/generate_runtime_inventory.py",
+  "tools": {
+    "lief": "0.17.6-08dc3b7f",
+    "capstone": "imported"
+  },
+  "binaries": {
+    "SharedModules": {
+      "path_basename": "SharedModules(11)",
+      "size": 67488256,
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 113584,
+      "unique_strings": 210262,
+      "text_probe": [
+        "0x0: stp x22, x21, [sp, #-0x30]!",
+        "0x4: stp x20, x19, [sp, #0x10]",
+        "0x8: stp x29, x30, [sp, #0x20]",
+        "0xc: add x29, sp, #0x20",
+        "0x10: mov x19, x1",
+        "0x14: adrp x8, #0x3ca1000",
+        "0x18: ldr x8, [x8, #0xcb8]",
+        "0x1c: cbnz x8, #0x34"
+      ]
+    },
+    "WhatsApp": {
+      "path_basename": "WhatsApp(7)",
+      "size": 138781904,
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 144168,
+      "unique_strings": 322850,
+      "text_probe": [
+        "0x0: sub sp, sp, #0x40",
+        "0x4: stp x20, x19, [sp, #0x20]",
+        "0x8: stp x29, x30, [sp, #0x30]",
+        "0xc: add x29, sp, #0x30",
+        "0x10: str xzr, [sp, #0x18]",
+        "0x14: adrp x0, #0x7d7e000",
+        "0x18: add x0, x0, #0x1f0",
+        "0x1c: ldr x8, [x0]"
+      ]
+    }
+  },
+  "note": "Inventory-only. Use this as a grouping/mapping layer before backup/export. Do not assume a selector is safely hookable until runtime method ownership and type encoding are validated in-process.",
+  "family": "WAServerProperties",
+  "grouping": "Master gate and bridge into WAContext/WAContextMain.",
+  "runtime_tree": [
+    "WAServerProperties",
+    "userContext",
+    "WAContext",
+    "WAContextMain"
+  ],
+  "classes": [
+    {
+      "class": "WAServerProperties",
+      "source": "SharedModules",
+      "role": "central server/internal/dogfood gate surface",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [
+        {
+          "selector": "userContext",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "setUserContext:",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "configureUserContext:",
+          "present_in": [
+            "SharedModules"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isInternalUser",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "paymentsUPIOverdraftAccountEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "listMessageReceptionDisabled",
+          "present_in": [
+            "SharedModules"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "frequentlyForwardedGroupSettingEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        }
+      ],
+      "controllers": [],
+      "dependencies": [
+        "WAContext",
+        "WAContextMain",
+        "WAABProperties"
+      ]
+    }
+  ],
+  "boolGetters": [
+    {
+      "selector": "isInternalUser",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "paymentsUPIOverdraftAccountEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "listMessageReceptionDisabled",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "frequentlyForwardedGroupSettingEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    }
+  ],
+  "dependencies": [
+    "WAContext",
+    "WAContextMain",
+    "WAABProperties"
+  ]
+}

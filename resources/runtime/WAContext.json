@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "generator": "scripts/generate_runtime_inventory.py",
+  "tools": {
+    "lief": "0.17.6-08dc3b7f",
+    "capstone": "imported"
+  },
+  "binaries": {
+    "SharedModules": {
+      "path_basename": "SharedModules(11)",
+      "size": 67488256,
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 113584,
+      "unique_strings": 210262,
+      "text_probe": [
+        "0x0: stp x22, x21, [sp, #-0x30]!",
+        "0x4: stp x20, x19, [sp, #0x10]",
+        "0x8: stp x29, x30, [sp, #0x20]",
+        "0xc: add x29, sp, #0x20",
+        "0x10: mov x19, x1",
+        "0x14: adrp x8, #0x3ca1000",
+        "0x18: ldr x8, [x8, #0xcb8]",
+        "0x1c: cbnz x8, #0x34"
+      ]
+    },
+    "WhatsApp": {
+      "path_basename": "WhatsApp(7)",
+      "size": 138781904,
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 144168,
+      "unique_strings": 322850,
+      "text_probe": [
+        "0x0: sub sp, sp, #0x40",
+        "0x4: stp x20, x19, [sp, #0x20]",
+        "0x8: stp x29, x30, [sp, #0x30]",
+        "0xc: add x29, sp, #0x30",
+        "0x10: str xzr, [sp, #0x18]",
+        "0x14: adrp x0, #0x7d7e000",
+        "0x18: add x0, x0, #0x1f0",
+        "0x1c: ldr x8, [x0]"
+      ]
+    }
+  },
+  "note": "Inventory-only. Use this as a grouping/mapping layer before backup/export. Do not assume a selector is safely hookable until runtime method ownership and type encoding are validated in-process.",
+  "family": "WAContext",
+  "grouping": "WAContext and WAContextMain belong to one menu family; WAContextMain should be nested under ContextMain Runtime, not shown as a separate top-level menu.",
+  "menu_sections": [
+    "Context Core",
+    "Context Services",
+    "Context Managers",
+    "Context Experiments",
+    "ContextMain Runtime"
+  ],
+  "classes": [
+    {
+      "class": "WAContext",
+      "source": "SharedModules",
+      "role": "base context bridge",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [
+        {
+          "selector": "accountUUID",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "notificationConfiguration",
+          "present_in": [
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "safeMode",
+          "present_in": [],
+          "confirmed": false
+        },
+        {
+          "selector": "fullyPrepared",
+          "present_in": [],
+          "confirmed": false
+        }
+      ],
+      "controllers": [],
+      "dependencies": [
+        "WAServerProperties",
+        "WAContextMain"
+      ]
+    },
+    {
+      "class": "WAContextObjectProvider",
+      "source": "SharedModules",
+      "role": "object provider",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WAContextDependencyInversion",
+      "source": "SharedModules",
+      "role": "dependency inversion container",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WAContextDependencyInversionNoop",
+      "source": "SharedModules",
+      "role": "no-op dependency container",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WAContextDependencyInversionShared",
+      "source": "SharedModules",
+      "role": "shared dependency container",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WAContextMain",
+      "source": "WhatsApp",
+      "role": "main runtime context with app managers/services",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [
+        "WAContextMainObjectProvider",
+        "WAContextMainFactory"
+      ],
+      "dependencies": [
+        "WAABProperties",
+        "WABizManagerMain",
+        "notificationLogger",
+        "privacyPolicyManager",
+        "paymentBannerManager"
+      ]
+    }
+  ],
+  "main_runtime_hints": [
+    "@\"<DeviceAgentStorageHelper>\"24@0:8@\"WAContextMain\"16",
+    "@\"<NSObject><WAChatPresenting>\"40@0:8@\"_TtC8WAMOCore10WAMOStatus\"16@\"WAContextMain\"24@\"NSNumber\"32",
+    "@\"<WABloksIDVHandler>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WABloksKitCTWAActionsHandler>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WABloksKitCTWALWIActionsHandler>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WABloksMV4BOnboardingPrivacyAckStoring>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WABloksPrivacyConsentHandler>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WABloksProfileEditHandling>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WACatalogManager>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WACoexistenceHandler>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WACommandChatBarHelper>\"32@0:8@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatSearchProtocol><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAFeatureOptionProtocol><WAScrollingToMessageProtocol><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><_TtP8Payments44WAChatMessagesViewControllerPaymentsProtocol_><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatViewCAWCControlling><WAChatViewCTWAControlling><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewNavBarControlling><WAConversationHeaderViewDelegate>\"16@\"WAContextMain\"24",
+    "@\"<WAGroupParticipantsControlling>\"32@0:8@\"WAGroupJID\"16@\"WAContextMain\"24",
+    "@\"<WAGroupSettingsPresenting>\"52@0:8@\"WAMutableChatSession\"16@\"<WAGroupParticipantsControlling>\"24B32@\"WAContextMain\"36q44",
+    "@\"<WAOrdersHubNavigator>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WASMBDeviceAgentManagerHelper>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WASMBLabelsStorageHelper>\"24@0:8@\"WAContextMain\"16",
+    "@\"<WASMBMVFeatureUsageStoring>\"32@0:8@\"WAContextMain\"16@\"WAPersistentKeyValueStore\"24",
+    "@\"<WASearchResultsControlling>\"32@0:8Q16@\"WAContextMain\"24",
+    "@\"<WASearchResultsControlling>\"48@0:8Q16@\"WAContextMain\"24@\"<WAQuickPerformanceLoggerMarkerProtocol>\"32@40",
+    "@\"<WAStatusMessageCalloutViewPresenting>\"112@0:8@\"<WAStatusModel>\"16{CGPoint=dd}24@\"UIView\"40{UIEdgeInsets=dddd}48@\"<WAStatusMessageCalloutDelegate>\"80@\"WAContextMain\"88Q96@?<v@?>104",
+    "@\"<WAStatusModel>\"24@0:8@\"WAContextMain\"16",
+    "@\"<_TtP14WAPaymentsMain18OrdersHubPresenter_>\"48@0:8@\"UINavigationController\"16@\"WAContextMain\"24@\"NSString\"32@\"NSString\"40",
+    "@\"<_TtP25WAInAppPurchaseFoundation22WAIAPStoreKit2Handling_>\"24@0:8@\"WAContextMain\"16",
+    "@\"<_TtP8Payments32PaymentFactoryDependencyProvider_>\"24@0:8@\"WAContextMain\"16",
+    "@\"<_TtP9WABanners14BannerProtocol_>\"24@0:8@\"WAContextMain\"16",
+    "@\"<_TtP9WABanners18SMBBannersProvider_>\"24@0:8@\"WAContextMain\"16",
+    "@\"NSArray\"24@0:8@\"WAContextMain\"16",
+    "@\"NSArray\"32@0:8@\"NSString\"16@\"WAContextMain\"24",
+    "@\"NSArray\"32@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24",
+    "@\"NSAttributedString\"100@0:8@\"WAMutableChatSession\"16@\"WAMessage\"24@\"WAContextMain\"32B40B44B48@\"NSArray\"52@\"NSSet\"60@\"WAUserJID\"68B76B80^@84^@92",
+    "@\"NSAttributedString\"44@0:8@\"WAMutableChatSession\"16@\"WAMessage\"24@\"WAContextMain\"32B40",
+    "@\"NSNumber\"24@0:8@\"WAContextMain\"16",
+    "@\"NSString\"32@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24",
+    "@\"NSString\"32@0:8q16@\"WAContextMain\"24",
+    "@\"NSString\"40@0:8@\"WAPBChatListAddOn\"16@\"WAMessage\"24@\"WAContextMain\"32",
+    "@\"UITableViewCell\"24@0:8@\"WAContextMain\"16",
+    "@\"UITableViewCell<_TtP8WAOrders23DataSharingViewProtocol_>\"32@0:8@\"WAContextMain\"16q24",
+    "@\"UIView<WAChatBarRepresentable><WAChatBarAIMultiModal><WADraggableInputViewProtocol><WAChatBarAuxBannerProviding>\"72@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16Q48Q56@\"WAContextMain\"64",
+    "@\"UIView<WAChatBarRepresentable><WAChatBarAIMultiModal><WADraggableInputViewProtocol><WAChatBarAuxBannerProviding>\"80@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16Q48Q56@\"WAContextMain\"64@\"WAChatJID\"72",
+    "@\"UIView<WAChatBarRepresentable><WADraggableInputViewProtocol>\"72@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16Q48Q56@\"WAContextMain\"64",
+    "@\"UIView<WAChatBarRepresentable><WADraggableInputViewProtocol>\"80@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16Q48Q56@\"WAContextMain\"64@\"WAChatJID\"72",
+    "@\"UIViewController\"24@0:8@\"WAContextMain\"16",
+    "@\"UIViewController\"32@0:8@\"_TtC7Catalog16WACatalogSession\"16@\"WAContextMain\"24",
+    "@\"UIViewController\"36@0:8@\"WAMutableChatSession\"16i24@\"WAContextMain\"28",
+    "@\"UIViewController\"40@0:8@\"NSString\"16@\"<WASMBEditDeviceNameViewControllerDelegate>\"24@\"WAContextMain\"32",
+    "@\"UIViewController\"40@0:8@\"WAContextMain\"16@\"<WADeviceListDevice>\"24@\"<WADeviceListMDDeviceControllerProtocol>\"32",
+    "@\"UIViewController\"40@0:8@\"WAContextMain\"16@\"NSString\"24@\"<WADeviceListMDDeviceControllerProtocol>\"32",
+    "@\"UIViewController\"40@0:8@\"WAContextMain\"16@\"UIViewController\"24^@32",
+    "@\"UIViewController\"40@0:8@\"WAProductDescriptor\"16@\"_TtC7Catalog16WACatalogSession\"24@\"WAContextMain\"32",
+    "@\"UIViewController\"44@0:8@\"WAContextMain\"16@\"UIViewController\"24B32^@36",
+    "@\"UIViewController\"48@0:8@\"<WAStatusModel>\"16d24q32@\"WAContextMain\"40",
+    "@\"UIViewController\"48@0:8@\"NSArray\"16@\"WAContextMain\"24q32@?<v@?>40",
+    "@\"UIViewController\"48@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24q32@?<v@?>40",
+    "@\"UIViewController\"88@0:8@\"NSData\"16@\"NSString\"24@\"WAGroupJID\"32@\"<WAAccountProviding>\"40@\"WAMutableChatSession\"48@\"WAGroupChatService\"56@\"WAProfilePictureManager\"64@\"WAABProperties\"72@\"WAContextMain\"80",
+    "@\"WAAlertViewPresenter\"32@0:8@\"WAContextMain\"16@?<v@?>24",
+    "@\"WAChatSelectorViewController\"100@0:8Q16@\"WAGroupJID\"24q32q40B48B52B56@\"NSString\"60@\"NSString\"68@\"NSSet\"76@\"NSString\"84@\"WAContextMain\"92",
+    "@\"WAChatSelectorViewController\"108@0:8Q16@\"WAGroupJID\"24q32q40B48B52B56@\"NSString\"60@\"NSString\"68@\"NSSet\"76@\"NSString\"84@92@\"WAContextMain\"100",
+    "@\"WAChatSelectorViewController\"72@0:8Q16@\"WAGroupJID\"24q32q40@\"NSString\"48@\"NSString\"56@\"WAContextMain\"64",
+    "@\"WAChatSelectorViewController\"80@0:8Q16@\"WAGroupJID\"24q32q40@\"NSString\"48@\"NSString\"56@\"WAIntegratorServerInformation\"64@\"WAContextMain\"72",
+    "@\"WAChatSessionCellLabelState\"32@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24",
+    "@\"WAContext<WAContextMainProtocol>\"",
+    "@\"WAContextMain\"",
+    "@\"WAContextMain\"16@0:8",
+    "@\"WAMessageInfoMessageStatusTableViewDataSource\"32@0:8@\"WAMessage\"16@\"WAContextMain\"24",
+    "@\"WAMessageInfoMessageStatusTableViewDataSource<UITableViewDataSource><UITableViewDelegate>\"40@0:8@\"WAMessage\"16@\"WAContextMain\"24@\"<WADetailsTableSizeObserver>\"32",
+    "@\"WATOSViewController\"24@0:8@\"WAContextMain\"16",
+    "@\"WAViewController\"32@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><WAChatMessagesViewControllerPaymentsProtocol><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatSearchProtocol><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewCTWAControlling><WAChatViewCAWCControlling><WAChatViewNavBarControlling><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAConversationHeaderViewDelegate><WAFeatureOptionProtocol><WAScrollingToMessageProtocol>\"44@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24i32@\"<WACompanionDeviceIdentification>\"36",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><WAChatMessagesViewControllerPaymentsProtocol><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatSearchProtocol><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewCTWAControlling><WAChatViewCAWCControlling><WAChatViewNavBarControlling><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAConversationHeaderViewDelegate><WAFeatureOptionProtocol><WAScrollingToMessageProtocol>\"52@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24i32@\"<WACompanionDeviceIdentification>\"36B44B48",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><_TtP8Payments44WAChatMessagesViewControllerPaymentsProtocol_><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatSearchProtocol><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewCTWAControlling><WAChatViewCAWCControlling><WAChatViewNavBarControlling><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAConversationHeaderViewDelegate><WAFeatureOptionProtocol><WAScrollingToMessageProtocol>\"44@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24i32@\"<WACompanionDeviceIdentification>\"36",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><_TtP8Payments44WAChatMessagesViewControllerPaymentsProtocol_><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatSearchProtocol><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewCTWAControlling><WAChatViewCAWCControlling><WAChatViewNavBarControlling><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAConversationHeaderViewDelegate><WAFeatureOptionProtocol><WAScrollingToMessageProtocol>\"52@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24i32@\"<WACompanionDeviceIdentification>\"36B44B48",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatSearchProtocol><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAFeatureOptionProtocol><WAScrollingToMessageProtocol><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><_TtP8Payments44WAChatMessagesViewControllerPaymentsProtocol_><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatViewCAWCControlling><WAChatViewCTWAControlling><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewNavBarControlling><WAConversationHeaderViewDelegate>\"40@0:8@\"WAMutableChatSession\"16@\"<WACompanionDeviceIdentification>\"24@\"WAContextMain\"32",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatSearchProtocol><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAFeatureOptionProtocol><WAScrollingToMessageProtocol><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><_TtP8Payments44WAChatMessagesViewControllerPaymentsProtocol_><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatViewCAWCControlling><WAChatViewCTWAControlling><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewNavBarControlling><WAConversationHeaderViewDelegate>\"44@0:8@\"WAMutableChatSession\"16i24@\"<WACompanionDeviceIdentification>\"28@\"WAContextMain\"36",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatSearchProtocol><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAFeatureOptionProtocol><WAScrollingToMessageProtocol><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><_TtP8Payments44WAChatMessagesViewControllerPaymentsProtocol_><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatViewCAWCControlling><WAChatViewCTWAControlling><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewNavBarControlling><WAConversationHeaderViewDelegate>\"48@0:8@\"WAMutableChatSession\"16@\"<WACompanionDeviceIdentification>\"24B32B36@\"WAContextMain\"40",
+    "@\"WAViewController<WAAIVoiceIntegration><WAChatBarChatViewControllerHelper><WAChatBarComposerPrefilling><WAChatSearchProtocol><WAChatViewActiveState><WAChatViewLogging><WAChatViewPresenting><WAFeatureOptionProtocol><WAScrollingToMessageProtocol><WAChatMessagesViewControllerAdminRevokesProtocol><WAChatMessagesViewControllerCallingProtocol><WAChatMessagesViewControllerFlowsProtocol><WAChatMessagesViewControllerMainMethodsProtocol><WAChatMessagesViewControllerMainPropertiesProtocol><_TtP8Payments44WAChatMessagesViewControllerPaymentsProtocol_><WAChatMessagesViewControllerScrollingProtocol><WAChatMessagesViewControllerStickerProtocol><WAChatMessagesViewControllerTableViewProtocol><WAChatViewCAWCControlling><WAChatViewCTWAControlling><WAChatViewChatBarControlling><WAChatViewControlling><WAChatViewNavBarControlling><WAConversationHeaderViewDelegate>\"52@0:8@\"WAMutableChatSession\"16@\"<WACompanionDeviceIdentification>\"24B32B36B40@\"WAContextMain\"44",
+    "@\"WDSMenuConfiguration\"56@0:8@\"<WAStatusModel>\"16@\"UIView\"24@\"<WAStatusMessageCalloutDelegate>\"32@\"WAContextMain\"40Q48",
+    "@24@0:8@\"WAContextMain\"16",
+    "@32@0:8Q16@\"WAContextMain\"24",
+    "@40@0:8@\"<WASinglePersonPickerDelegate>\"16#24@\"WAContextMain\"32",
+    "B24@0:8@\"WAContextMain\"16",
+    "B32@0:8@\"NSString\"16@\"WAContextMain\"24",
+    "B32@0:8@\"WAContextMain\"16@\"WAChatJID\"24",
+    "B32@0:8@\"WAContextMain\"16@\"WAMutableChatSession\"24",
+    "B32@0:8@\"WAContextMain<WAMessageKeptStateOutgoingUpdateContext>\"16Q24",
+    "B32@0:8@\"WAMutableChatSession\"16@\"WAContextMain\"24",
+    "B32@0:8q16@\"WAContextMain\"24",
+    "B40@0:8@\"<WAStatusModel>\"16@\"WAContextMain\"24q32",
+    "B48@0:8@\"WAMutableChatSession\"16@\"WAMessage\"24@\"WAContextMain\"32^@40",
+    "B56@0:8@\"<WAStatusModel>\"16q24q32@\"NSArray\"40@\"WAContextMain\"48",
+    "B64@0:8@\"<WAStatusModel>\"16d24q32@\"UIViewController\"40@\"WAContextMain\"48@?<v@?>56",
+    "Missing `syncManager` in the user context.",
+    "Q32@0:8@\"WAChatJID\"16@\"WAContextMain\"24",
+    "T@\"<WAChatManagerProtocol>\",&,N,V_chatManager",
+    "T@\"<WAStatusExpirationManaging>\",&,N,V_statusExpirationManager",
+    "T@\"<WASyncManagerProtocol>\",N,W,VsyncManager",
+    "T@\"NSObject<WAChatManagerProtocol><WAChatManagerLegacyProtocol><WAChatManagerXMPPConnectionProtocol><WAChatManagerPairingProtocol>\",&,N,V_chatManager",
+    "T@\"WAChatManager\",R,N,V_chatManager",
+    "T@\"WAContactsManager\",&,N,V_contactsManager",
+    "T@\"WAContactsManager\",R,N,V_contactsManager",
+    "T@\"WAContextMain\",&,N,V_userContext",
+    "T@\"WAContextMain\",N,&,VuserContext",
+    "T@\"WAContextMain\",N,R",
+    "T@\"WAContextMain\",N,R,VuserContext",
+    "T@\"WAContextMain\",N,W",
+    "T@\"WAContextMain\",N,W,VuserContextMain",
+    "T@\"WAContextMain\",R,N",
+    "T@\"WAContextMain\",R,N,V_userContext",
+    "T@\"WAContextMain\",R,N,V_userContextMain",
+    "T@\"WAContextMain\",R,W,D,N",
+    "T@\"WAContextMain\",R,W,N,V_userContext",
+    "T@\"WAContextMain\",W,N,V_context",
+    "T@\"WAContextMain\",W,N,V_userContext",
+    "T@\"WAHistorySyncService\",&,N,V_historySyncService",
+    "T@\"WANotificationLoggerMain\",&,N,V_notificationLogger",
+    "T@\"WAPaymentBannerManager\",&,N,V_paymentBannerManager",
+    "T@\"WAPrivacyPolicyManager\",&,N,V_privacyPolicyManager",
+    "T@\"WARegistrationManager\",&,N,V_registrationManager",
+    "T@\"WASyncManager\",&,N,V_syncManager",
+    "T@\"WASyncManager\",R,N,V_syncManager",
+    "WAContextMain"
+  ]
+}

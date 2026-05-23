@@ -1,0 +1,806 @@
+{
+  "schema_version": 1,
+  "generator": "scripts/generate_runtime_inventory.py",
+  "tools": {
+    "lief": "0.17.6-08dc3b7f",
+    "capstone": "imported"
+  },
+  "binaries": {
+    "SharedModules": {
+      "path_basename": "SharedModules(11)",
+      "size": 67488256,
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 113584,
+      "unique_strings": 210262,
+      "text_probe": [
+        "0x0: stp x22, x21, [sp, #-0x30]!",
+        "0x4: stp x20, x19, [sp, #0x10]",
+        "0x8: stp x29, x30, [sp, #0x20]",
+        "0xc: add x29, sp, #0x20",
+        "0x10: mov x19, x1",
+        "0x14: adrp x8, #0x3ca1000",
+        "0x18: ldr x8, [x8, #0xcb8]",
+        "0x1c: cbnz x8, #0x34"
+      ]
+    },
+    "WhatsApp": {
+      "path_basename": "WhatsApp(7)",
+      "size": 138781904,
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 144168,
+      "unique_strings": 322850,
+      "text_probe": [
+        "0x0: sub sp, sp, #0x40",
+        "0x4: stp x20, x19, [sp, #0x20]",
+        "0x8: stp x29, x30, [sp, #0x30]",
+        "0xc: add x29, sp, #0x30",
+        "0x10: str xzr, [sp, #0x18]",
+        "0x14: adrp x0, #0x7d7e000",
+        "0x18: add x0, x0, #0x1f0",
+        "0x1c: ldr x8, [x0]"
+      ]
+    }
+  },
+  "note": "Inventory-only. Use this as a grouping/mapping layer before backup/export. Do not assume a selector is safely hookable until runtime method ownership and type encoding are validated in-process.",
+  "family": "WAAura",
+  "grouping": "Split into gating, foundation/preferences, provider layer, and executable controllers.",
+  "classes": [
+    {
+      "class": "WAAuraGating",
+      "source": "SharedModules",
+      "role": "module namespace",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": [
+        "WAAuraFoundation",
+        "AuraPreferences",
+        "AuraProviding"
+      ]
+    },
+    {
+      "class": "WAAuraGating.AuraGating",
+      "source": "SharedModules",
+      "role": "benefit/subscription eligibility getter surface",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [
+        {
+          "selector": "isUserEligible",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isUserEligibleFor:",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isBenefitActive",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isAppThemesEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isAppIconsEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isRingtonesEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isStickersEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isEnhancedListsEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isExtendedPinnedChatEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isAppIconMultiAccountSupportEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isAppThemeNewChatPreviewFlowEnabled",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        }
+      ],
+      "controllers": [],
+      "dependencies": [
+        "WAAuraGating.GatedBenefitProvider",
+        "WAAuraGating.GatedSubscriptionProvider"
+      ]
+    },
+    {
+      "class": "WAAuraGating.GatedBenefitProvider",
+      "source": "SharedModules",
+      "role": "benefit provider",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": [
+        "WAAuraGating.AuraGating"
+      ]
+    },
+    {
+      "class": "WAAuraGating.GatedSubscriptionProvider",
+      "source": "SharedModules",
+      "role": "subscription provider",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": [
+        "WAAuraGating.AuraGating"
+      ]
+    },
+    {
+      "class": "WAAuraFoundation",
+      "source": "SharedModules",
+      "role": "theme foundation namespace",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": [
+        "WAAuraFoundation.AppThemeManager"
+      ]
+    },
+    {
+      "class": "WAAuraFoundation.AppThemeManager",
+      "source": "SharedModules",
+      "role": "theme manager",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WAAura.AppThemesViewController",
+      "source": "WhatsApp",
+      "role": "native app theme picker/controller",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [
+        {
+          "selector": "presentationControllerDidDismiss:",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "wallpaperPreviewController:didSelectChatTheme:",
+          "present_in": [
+            "WhatsApp"
+          ],
+          "confirmed": true
+        }
+      ],
+      "controllers": [],
+      "dependencies": [
+        "AuraPreferences",
+        "AuraUIComponentProvider"
+      ]
+    },
+    {
+      "class": "WAAura.AppIconsViewController",
+      "source": "WhatsApp",
+      "role": "native app icon picker/controller",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": [
+        "AuraPreferences",
+        "AuraUIComponentProvider"
+      ]
+    },
+    {
+      "class": "AuraButtonFactory",
+      "source": "WhatsApp",
+      "role": "Aura UI button factory",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "AuraSheetPresenter",
+      "source": "WhatsApp",
+      "role": "Aura sheet presentation",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "AuraUIComponentProvider",
+      "source": "WhatsApp",
+      "role": "Aura UI component provider",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "AuraPreferences",
+      "source": "WhatsApp",
+      "role": "Aura preferences layer",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "AuraProviding",
+      "source": "WhatsApp",
+      "role": "provider protocol/surface",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "AuraProvidingAccessor",
+      "source": "WhatsApp",
+      "role": "provider accessor",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    }
+  ],
+  "boolGetters": [
+    {
+      "selector": "isUserEligible",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isUserEligibleFor:",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isBenefitActive",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isAppThemesEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isAppIconsEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isRingtonesEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isStickersEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isEnhancedListsEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isExtendedPinnedChatEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isAppIconMultiAccountSupportEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "isAppThemeNewChatPreviewFlowEnabled",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    }
+  ],
+  "waab_flags": [
+    {
+      "key": "smbi_premium_broadcast_cta_enabled",
+      "title": "smbi premium broadcast cta enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4c76cd20b848",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_deeplink_handling_enabled",
+      "title": "smbi premium broadcast deeplink handling enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4d28fb5c345b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_enabled",
+      "title": "smbi premium broadcast enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4aeec2fdfb3d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_mock_campaign_id_enabled",
+      "title": "smbi premium broadcast mock campaign id enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c63168e4badc",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_nse_send_enabled",
+      "title": "smbi premium broadcast nse send enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.fcd2a539183c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_subscription_content_models_enabled",
+      "title": "smbi subscription content models enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.18209c6007f5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wa_smba_server_feature_subscription_origination_enabled",
+      "title": "wa smba server feature subscription origination enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5c99282ea06a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_biz_ai_has_active_subscription",
+      "title": "whatsapp biz ai has active subscription",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.35618705a9d1",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "channels_sticker_quick_forward_ios_enabled",
+      "title": "channels sticker quick forward ios enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.f3bd9ab0391e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_location_sticker_ui_refresh_enabled",
+      "title": "ios location sticker ui refresh enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.e228beff88b9",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_media_details_animatable_icon_animation_cleanup_enabled",
+      "title": "ios media details animatable icon animation cleanup enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.3c5841bec706",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "status_biz_product_catalog_sticker_enabled",
+      "title": "status biz product catalog sticker enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "business"
+      ],
+      "override_key": "waab.override.6110ba540bcb",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "status_quick_replies_v2_disable_stickers_tab_only_animations",
+      "title": "status quick replies v2 disable stickers tab only animations",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.fb22acec1c10",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "status_quick_replies_v2_sticker_animations_enabled",
+      "title": "status quick replies v2 sticker animations enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.e5c1ede2976f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "status_quick_replies_v2_stickers_tab_background_fetch_enabled",
+      "title": "status quick replies v2 stickers tab background fetch enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.ce6661716a6c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "status_quick_replies_v2_stickers_tab_enabled",
+      "title": "status quick replies v2 stickers tab enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.e1d63a3257bd",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "sticker_store_filter_layout_enabled",
+      "title": "sticker store filter layout enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.ddf77913e402",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "sticker_store_text_and_ui_change_enabled",
+      "title": "sticker store text and ui change enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.9c4939839267",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wa_status_music_sticker_layout_copy_enabled",
+      "title": "wa status music sticker layout copy enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.cc6711cd8c62",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_enable_system_messages",
+      "title": "smbi premium broadcast enable system messages",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.1335f58965ae",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_threads_in_chat_home_enabled",
+      "title": "smbi premium broadcast threads in chat home enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.90ed48dac82f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "status_composer_photo_sticker_nudge_enabled",
+      "title": "status composer photo sticker nudge enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "media",
+        "status_stories",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.bba68b1c0c8f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ai_tab_glyph_icon_enabled",
+      "title": "ai tab glyph icon enabled",
+      "value_type": "bool",
+      "groups": [
+        "ui_ux"
+      ],
+      "override_key": "waab.override.bb27a4a73b0f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "themes_nux_banner_enabled",
+      "title": "themes nux banner enabled",
+      "value_type": "bool",
+      "groups": [
+        "ui_ux"
+      ],
+      "override_key": "waab.override.cea48c473218",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "themes_nux_banner_enabled_no_exposure",
+      "title": "themes nux banner enabled no exposure",
+      "value_type": "bool",
+      "groups": [
+        "ui_ux"
+      ],
+      "override_key": "waab.override.af6c201a0e14",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "themes_nux_banner_enabled_pre",
+      "title": "themes nux banner enabled pre",
+      "value_type": "bool",
+      "groups": [
+        "ui_ux"
+      ],
+      "override_key": "waab.override.1b9bb8de98ac",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    }
+  ],
+  "controllers": [
+    "WAAppearanceSettingsViewController",
+    "WAAura.AppThemesViewController",
+    "WAAura.AppIconsViewController"
+  ],
+  "controller_selectors": [
+    {
+      "selector": "makeAppIconViewControllerWithContext:",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "makeAppThemeViewControllerWithContext:",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "setupAutoplaySettingsSectionIn:userContext:entryPoint:",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true
+    },
+    {
+      "selector": "setupChatThemeSectionIn:userContext:entryPoint:",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true
+    }
+  ]
+}

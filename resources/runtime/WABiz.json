@@ -1,0 +1,3396 @@
+{
+  "schema_version": 1,
+  "generator": "scripts/generate_runtime_inventory.py",
+  "tools": {
+    "lief": "0.17.6-08dc3b7f",
+    "capstone": "imported"
+  },
+  "binaries": {
+    "SharedModules": {
+      "path_basename": "SharedModules(11)",
+      "size": 67488256,
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 113584,
+      "unique_strings": 210262,
+      "text_probe": [
+        "0x0: stp x22, x21, [sp, #-0x30]!",
+        "0x4: stp x20, x19, [sp, #0x10]",
+        "0x8: stp x29, x30, [sp, #0x20]",
+        "0xc: add x29, sp, #0x20",
+        "0x10: mov x19, x1",
+        "0x14: adrp x8, #0x3ca1000",
+        "0x18: ldr x8, [x8, #0xcb8]",
+        "0x1c: cbnz x8, #0x34"
+      ]
+    },
+    "WhatsApp": {
+      "path_basename": "WhatsApp(7)",
+      "size": 138781904,
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed",
+      "arch": "CPU_TYPE.ARM64",
+      "objc_method_names": 144168,
+      "unique_strings": 322850,
+      "text_probe": [
+        "0x0: sub sp, sp, #0x40",
+        "0x4: stp x20, x19, [sp, #0x20]",
+        "0x8: stp x29, x30, [sp, #0x30]",
+        "0xc: add x29, sp, #0x30",
+        "0x10: str xzr, [sp, #0x18]",
+        "0x14: adrp x0, #0x7d7e000",
+        "0x18: add x0, x0, #0x1f0",
+        "0x1c: ldr x8, [x0]"
+      ]
+    }
+  },
+  "note": "Inventory-only. Use this as a grouping/mapping layer before backup/export. Do not assume a selector is safely hookable until runtime method ownership and type encoding are validated in-process.",
+  "family": "WABiz",
+  "grouping": "Business stack has its own tree and also consumes WAABProperties internally.",
+  "menu_sections": [
+    "Biz Core",
+    "Biz Profiles",
+    "Biz Roles",
+    "Biz Entry Points",
+    "Biz Storage",
+    "Biz Caches",
+    "Biz ABProperties"
+  ],
+  "classes": [
+    {
+      "class": "WABiz.BizManager",
+      "source": "SharedModules/Swift",
+      "role": "business manager surface observed by runtime browser",
+      "present_in": [],
+      "confirmed": false,
+      "properties": [],
+      "boolGetters": [
+        {
+          "selector": "entryPointInfoForJID:",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "isCTWAMerchant:",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        },
+        {
+          "selector": "conversionInfoFor:",
+          "present_in": [
+            "SharedModules",
+            "WhatsApp"
+          ],
+          "confirmed": true
+        }
+      ],
+      "controllers": [],
+      "dependencies": [
+        "WAABProperties",
+        "bizStorage",
+        "rolesCache",
+        "profilesCache",
+        "verifiedNameInfosCache",
+        "automatedTypesCache"
+      ]
+    },
+    {
+      "class": "WABiz.BizStorage",
+      "source": "SharedModules/Swift",
+      "role": "business storage",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WABiz.BizProfile",
+      "source": "SharedModules/Swift",
+      "role": "business profile model",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WABiz.BizRole",
+      "source": "SharedModules/Swift",
+      "role": "business role model",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WABiz.EntryPointConversionProvider",
+      "source": "SharedModules/Swift",
+      "role": "conversion/entrypoint layer",
+      "present_in": [
+        "SharedModules"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": []
+    },
+    {
+      "class": "WABizManagerMain",
+      "source": "WhatsApp",
+      "role": "main executable business manager bridge",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": [
+        "WAContextMain",
+        "WAABProperties"
+      ]
+    },
+    {
+      "class": "WACTWABizManagerObjCFacade",
+      "source": "WhatsApp",
+      "role": "CTWA ObjC bridge",
+      "present_in": [
+        "WhatsApp"
+      ],
+      "confirmed": true,
+      "properties": [],
+      "boolGetters": [],
+      "controllers": [],
+      "dependencies": [
+        "WAContextMain"
+      ]
+    }
+  ],
+  "boolGetters": [
+    {
+      "selector": "isCTWAMerchant:",
+      "present_in": [
+        "SharedModules",
+        "WhatsApp"
+      ],
+      "confirmed": true
+    }
+  ],
+  "waab_flags": [
+    {
+      "key": "ai_bizai_2way_integration_enabled",
+      "title": "ai bizai 2way integration enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.56ed4a671915",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ai_rewrite_summary_for_smb_ai_reply_enabled",
+      "title": "ai rewrite summary for smb ai reply enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.ca62f254054a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "allow_other_biz",
+      "title": "allow other biz",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.0156bfa4c3ed",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 3
+    },
+    {
+      "key": "allowed_biz_list",
+      "title": "allowed biz list",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e80834a4bf31",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "biz.pb.eligibility",
+      "title": "biz › pb › eligibility",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.ab6f10d14c26",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_address_companion_enabled",
+      "title": "biz address companion enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.f78b412ef2cc",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_ai_agent_consumer_merge_tos_enabled",
+      "title": "biz ai agent consumer merge tos enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3786cc24722d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_ai_agent_ios_disable_mute_feature_enabled",
+      "title": "biz ai agent ios disable mute feature enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.a6b3af36f47f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_ai_auto_save_enabled",
+      "title": "biz ai auto save enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.6dd24a05f322",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_ai_smb_agents_entrypoint_enabled",
+      "title": "biz ai smb agents entrypoint enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.19fc76ccf46c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_api_payment_links_logging_enabled",
+      "title": "biz api payment links logging enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.bf74ecb5bec4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_flow_companion_enabled",
+      "title": "biz flow companion enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.8649e1a0fb64",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "br_payment_smb_connect_to_bank_enabled",
+      "title": "br payment smb connect to bank enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.90781aeaba94",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "br_pix_biz_profile_entrypoint_enabled",
+      "title": "br pix biz profile entrypoint enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.9ab2c417ede7",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "carousel_product_square_preview_enabled",
+      "title": "carousel product square preview enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b28cbc93348c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "catalog_dc_api_entry_point_gating_m2_enabled",
+      "title": "catalog dc api entry point gating m2 enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c0aec6408cd1",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "coex_business_broadcast_enabled",
+      "title": "coex business broadcast enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.8e7e00bd1032",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "companion_biz_label_sync_enabled",
+      "title": "companion biz label sync enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.0dd661b01d3b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "companion_biz_quick_reply_sync_enabled",
+      "title": "companion biz quick reply sync enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "network_sync",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.6e8314a8f673",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "enable_business_solution_discovery_business_information_forwarding",
+      "title": "enable business solution discovery business information forwarding",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.38137124f776",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "enable_business_solution_discovery_p2p_sharing_logging",
+      "title": "enable business solution discovery p2p sharing logging",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.5f6dcc92a226",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "enable_business_solution_discovery_show_forwarding_branding",
+      "title": "enable business solution discovery show forwarding branding",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b6cc3da2cd31",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "enable_ios_traffic_product_attribution_header",
+      "title": "enable ios traffic product attribution header",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.d4f5dfe0e6d3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "enable_reachout_timelocks_biz_quality_lift_content",
+      "title": "enable reachout timelocks biz quality lift content",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3d9cdfdf4efb",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "foa_to_waffle_linking_eligibility",
+      "title": "foa to waffle linking eligibility",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.af38c28ac4ae",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "has_product_info_m2",
+      "title": "has product info m2",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.2dc8a5be0cdf",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_biz_role_use_accounts_as_fallback",
+      "title": "ios biz role use accounts as fallback",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.fcb3a2986ce4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_biz_simple_signal_enabled_int",
+      "title": "ios biz simple signal enabled int",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d6ce386796ea",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_wabi_mex_bi_signals_enabled_for_biz_api",
+      "title": "ios wabi mex bi signals enabled for biz api",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.60bd85027e05",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_wabi_mex_bi_signals_enabled_for_smb",
+      "title": "ios wabi mex bi signals enabled for smb",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.2cd63f103dd2",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_wabi_smb_non_suspicious_url_friction_enabled",
+      "title": "ios wabi smb non suspicious url friction enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c770c8bc77b0",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_wabi_smb_url_friction_enabled",
+      "title": "ios wabi smb url friction enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.84076efb9108",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_account_linking_iq_retry_waffle_action_set",
+      "title": "is account linking iq retry waffle action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3a9b6ef3a50a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_catalog_type_set",
+      "title": "is biz catalog type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3b49b7ab12ce",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_directory_event_destination_set",
+      "title": "is biz directory event destination set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.8c9195b6b49f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_directory_event_emitter_set",
+      "title": "is biz directory event emitter set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.f02fa4585b0c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_directory_event_source_set",
+      "title": "is biz directory event source set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.72c5d44a4d62",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_directory_event_type_set",
+      "title": "is biz directory event type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c53f9f4ff404",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_directory_variant_set",
+      "title": "is biz directory variant set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.26891dc6bdc0",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_fb_size_set",
+      "title": "is biz fb size set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.9f263f5e7d59",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_home_card_operation_set",
+      "title": "is biz home card operation set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d1e9bf37af36",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_ig_size_set",
+      "title": "is biz ig size set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c5949e0a56ad",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_integrity_banner_banner_type_set",
+      "title": "is biz integrity banner banner type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.f073dd82217a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_integrity_banner_event_source_set",
+      "title": "is biz integrity banner event source set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.cbe65c731e7e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_integrity_banner_event_type_set",
+      "title": "is biz integrity banner event type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.342d02da6fe2",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_opt_out_category_set",
+      "title": "is biz opt out category set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.849c34f1c590",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_platform_set",
+      "title": "is biz platform set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.cbffa646d615",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_action_type_set",
+      "title": "is biz search action type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.8174582e33db",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_filter_type_set",
+      "title": "is biz search filter type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.f234abd28643",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_result_type_set",
+      "title": "is biz search result type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.562b58debc29",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_session_entrypoint_set",
+      "title": "is biz search session entrypoint set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.6f2f9e42003a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_smb_event_destination_set",
+      "title": "is biz search smb event destination set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b1dd23a16455",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_smb_event_emitter_set",
+      "title": "is biz search smb event emitter set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.51e34526528d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_smb_event_source_set",
+      "title": "is biz search smb event source set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5bbf9f1d3a0f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_smb_event_type_set",
+      "title": "is biz search smb event type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.9f416b2d5a90",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_search_smb_session_entrypoint_set",
+      "title": "is biz search smb session entrypoint set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.6a4ab05506a6",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_template_button_event_type_set",
+      "title": "is biz template button event type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.777936e24ef3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_template_button_type_set",
+      "title": "is biz template button type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d602796d1c85",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_trust_signal_card_data_source_set",
+      "title": "is biz trust signal card data source set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.16b2f79173a8",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_trust_signal_card_event_type_set",
+      "title": "is biz trust signal card event type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e827f592b7ea",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_vlevel_set",
+      "title": "is biz vlevel set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e412160b73b4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_bot_biz_action_type_set",
+      "title": "is bot biz action type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.509090908635",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_bot_biz_entry_point_set",
+      "title": "is bot biz entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.a9685428c132",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_bot_biz_type_set",
+      "title": "is bot biz type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.bc68b4f3d987",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_folder_action_type_set",
+      "title": "is business folder action type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.0f9ca3f44148",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_folder_move_reason_set",
+      "title": "is business folder move reason set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.bd0a7f82b359",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_interaction_action_set",
+      "title": "is business interaction action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.447178fa9963",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_interaction_target_screen_set",
+      "title": "is business interaction target screen set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.691c3192c18a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_onboarding_action_set",
+      "title": "is business onboarding action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.6232c0e79994",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_owner_platform_set",
+      "title": "is business owner platform set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4aee7a885bc5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_profile_entry_point_set",
+      "title": "is business profile entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.ca609a3f9580",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_profile_view_entry_point_set",
+      "title": "is business profile view entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.650ca8a77904",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_profile_view_event_type_set",
+      "title": "is business profile view event type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3941c34c4df3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_tools_entry_point_set",
+      "title": "is business tools entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5a9e59db12cd",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_tools_item_set",
+      "title": "is business tools item set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.75404abdc516",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_type_set",
+      "title": "is business type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e84125c27a82",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_business_verified",
+      "title": "is business verified",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d4baafa359a8",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_catalog_biz_action_set",
+      "title": "is catalog biz action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.1265ecea2cea",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_catalog_entry_point_set",
+      "title": "is catalog entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.6cfc2f4cf408",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_catalog_type_set",
+      "title": "is catalog type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d19140aa1421",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_catalog_view_action_set",
+      "title": "is catalog view action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.aca3999d4524",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_coex_onboarding_product_usecase_set",
+      "title": "is coex onboarding product usecase set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4cca50b0783b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_coex_product_usecase_set",
+      "title": "is coex product usecase set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.69884dfe7677",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_consumer_biz_action_target_set",
+      "title": "is consumer biz action target set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c82f9d22d1e3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_consumer_biz_action_type_set",
+      "title": "is consumer biz action type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.ebe9b21d9a8b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_consumer_biz_entry_point_set",
+      "title": "is consumer biz entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.fa52a18d420f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_consumer_biz_feature_set",
+      "title": "is consumer biz feature set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.2e8472293734",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_consumer_biz_surface_set",
+      "title": "is consumer biz surface set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.2dfb6067f240",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_content_refusal_waffle_current_screen_set",
+      "title": "is content refusal waffle current screen set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.8963a2a64a12",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_content_refusal_waffle_event_name_set",
+      "title": "is content refusal waffle event name set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.0239e8881e2e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_crash_log_product_area_set",
+      "title": "is crash log product area set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.f2d90c0bf4ac",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_create_biz_profile_action_field_set",
+      "title": "is create biz profile action field set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.87e71a9b9c99",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_create_biz_profile_action_set",
+      "title": "is create biz profile action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.263cbe11c706",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_ctwa_biz_user_journey_operation_set",
+      "title": "is ctwa biz user journey operation set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d825f69a5a23",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_directory_business_browsing_view_type_set",
+      "title": "is directory business browsing view type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.adfbd0ec274d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_directory_business_list_screen_source_set",
+      "title": "is directory business list screen source set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3d03fd31c2df",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_directory_business_list_screen_type_set",
+      "title": "is directory business list screen type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b29528ed1cc4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_graphql_catalog_endpoint_set",
+      "title": "is graphql catalog endpoint set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b4928cee4615",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_iphone_smb_device_check_result_set",
+      "title": "is iphone smb device check result set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.275badbbf565",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_maiba_biz_profile_action_type_set",
+      "title": "is maiba biz profile action type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.de5eb94cf2a6",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_music_product_set",
+      "title": "is music product set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.443a04faa3f8",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_navigation_destination_product_area_set",
+      "title": "is navigation destination product area set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.348f4c368e1c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_otp_product_type_set",
+      "title": "is otp product type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.ebe9f450715d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_poster_biz",
+      "title": "is poster biz",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b7868a92c232",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "is_product_surface_set",
+      "title": "is product surface set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c4cd80ef7d8e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_share_business_action_set",
+      "title": "is share business action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.1d16045d177f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_shown_biz_display_name_set",
+      "title": "is shown biz display name set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b4182cea087a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_data_sharing_consent_screen_entry_point_set",
+      "title": "is smb data sharing consent screen entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d92f293a437f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_data_sharing_consent_screen_type_set",
+      "title": "is smb data sharing consent screen type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.6f4c645eed1e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_data_sharing_consent_setting_entry_point_set",
+      "title": "is smb data sharing consent setting entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.cb8766c765d5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_feature_name_set",
+      "title": "is smb feature name set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.2cc33e7e0069",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_onboarding_step_set",
+      "title": "is smb onboarding step set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.85f84c648930",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_per_customer_data_sharing_control_action_set",
+      "title": "is smb per customer data sharing control action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.25559f1b4b3c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_per_customer_data_sharing_control_entry_point_set",
+      "title": "is smb per customer data sharing control entry point set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4d5160272581",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_user_action_type_set",
+      "title": "is smb user action type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.47c411b333a5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smbi_access_token_operation_set",
+      "title": "is smbi access token operation set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.1eb6220e1cfd",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smbi_access_token_source_set",
+      "title": "is smbi access token source set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.ae9ebcf3a564",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smbi_ad_creation_access_token_source_set",
+      "title": "is smbi ad creation access token source set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.1e6488262c25",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_view_business_profile_action_set",
+      "title": "is view business profile action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5c1b2f161f35",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_waffle_foa_to_wa_deeplink_bottomsheet_event_set",
+      "title": "is waffle foa to wa deeplink bottomsheet event set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.afdbc00b337d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_waffle_lifecycle_error_action_set",
+      "title": "is waffle lifecycle error action set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d149b7b8f72b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_waffle_lifecycle_error_code_set",
+      "title": "is waffle lifecycle error code set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.fe52fa9ddaa0",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_waffle_lifecycle_link_state_set",
+      "title": "is waffle lifecycle link state set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.8dfc55a9392b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_waffle_lifecycle_trace_action_set",
+      "title": "is waffle lifecycle trace action set",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.f4d87187d49b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_waffle_lifecycle_trace_source_set",
+      "title": "is waffle lifecycle trace source set",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.559bdbb374b0",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_waffle_v2_to_v3_migration_upsell_event_set",
+      "title": "is waffle v2 to v3 migration upsell event set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d270128e7d21",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_wsua_product_type_set",
+      "title": "is wsua product type set",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3bfabd7dbec0",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "lid_migration_for_biz_profile_enabled",
+      "title": "lid migration for biz profile enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.0f7c861acf5b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "lid_migration_for_bizrole_enabled",
+      "title": "lid migration for bizrole enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.9ae17ebae6dd",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "meta_catalog_linking_m2_enabled",
+      "title": "meta catalog linking m2 enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e9a6d5267cf5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "meta_catalog_linking_m3_enabled",
+      "title": "meta catalog linking m3 enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d9deb8b74779",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "order_details_from_catalog_enabled",
+      "title": "order details from catalog enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b44426f75397",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "payment_tos_sync_smbi_enabled",
+      "title": "payment tos sync smbi enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.23d634c5496b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "payments_private_stats_biz_logging_pass_pn_jid_enabled",
+      "title": "payments private stats biz logging pass pn jid enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.4c27dcf5a3c3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "payments_upi_flex_order_details_non_catalog_items_enabled",
+      "title": "payments upi flex order details non catalog items enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b0a128a61d48",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "share_biz_vcard_enabled",
+      "title": "share biz vcard enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.21b1f7a75235",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_agent_web_onboarding_entry_point_enabled",
+      "title": "smb agent web onboarding entry point enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.711f6db8a1f3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_agents_entry_point_content_update_enabled",
+      "title": "smb agents entry point content update enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.7760e4eebb4e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_biztools_deeplink_enabled",
+      "title": "smb biztools deeplink enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.bf1e708d65ab",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_business_broadcast_pro_enabled",
+      "title": "smb business broadcast pro enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.a5740756ccc0",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_catalog_action_load_event_enabled",
+      "title": "smb catalog action load event enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e72d20e2ee71",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_custom_url_display_v2_enabled",
+      "title": "smb custom url display v2 enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.7b130f0f231c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_custom_url_qpl_enabled",
+      "title": "smb custom url qpl enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.a5f4a8c938bf",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_enable_usernames_suggestions",
+      "title": "smb enable usernames suggestions",
+      "value_type": "bool",
+      "groups": [
+        "privacy",
+        "business"
+      ],
+      "override_key": "waab.override.bd2ad1f78b2c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_hide_vpn_with_username_enabled",
+      "title": "smb hide vpn with username enabled",
+      "value_type": "bool",
+      "groups": [
+        "privacy",
+        "business"
+      ],
+      "override_key": "waab.override.dcca24c70535",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_linking_settings_entrypoint_enabled",
+      "title": "smb linking settings entrypoint enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e6df4d319ef5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_payment_links_link_click_funnel_id_logging_enabled",
+      "title": "smb payment links link click funnel id logging enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.2242a67e06c1",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_payment_links_link_click_logging_enabled",
+      "title": "smb payment links link click logging enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.1e624ecb8733",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_payment_links_link_click_psp_logging_enabled",
+      "title": "smb payment links link click psp logging enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.46d098ec6243",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_payment_links_logging_enabled",
+      "title": "smb payment links logging enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.9301331814ea",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_payment_links_seller_logging_enabled",
+      "title": "smb payment links seller logging enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.ee23c8d20ed4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_profile_action_load_event_enabled",
+      "title": "smb profile action load event enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c8c9d36a4260",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_upsell_business_profile_enabled",
+      "title": "smb upsell business profile enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.6f113c1c581c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_username_enable_account_linking_flow",
+      "title": "smb username enable account linking flow",
+      "value_type": "bool",
+      "groups": [
+        "privacy",
+        "business"
+      ],
+      "override_key": "waab.override.9a77e3e738ad",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_verified_badge_parity_changes_enabled",
+      "title": "smb verified badge parity changes enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.d9c0740f7f75",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_web_customer_management_enabled",
+      "title": "smb web customer management enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.93a64ab9531a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_business_broadcast_campaign_syncd_enabled",
+      "title": "smbi business broadcast campaign syncd enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.c4b40c8eb80d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_contact_picker_request_contact_info_enabled",
+      "title": "smbi contact picker request contact info enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.fa148c1095bc",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_migration_three_step_enabled",
+      "title": "smbi migration three step enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.47114f1ec593",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_pm_insights_syncd_mutation_enabled",
+      "title": "smbi pm insights syncd mutation enabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.f8714c6446dd",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_cta_enabled",
+      "title": "smbi premium broadcast cta enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4c76cd20b848",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_deeplink_handling_enabled",
+      "title": "smbi premium broadcast deeplink handling enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4d28fb5c345b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_enabled",
+      "title": "smbi premium broadcast enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4aeec2fdfb3d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_mock_campaign_id_enabled",
+      "title": "smbi premium broadcast mock campaign id enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c63168e4badc",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_nse_send_enabled",
+      "title": "smbi premium broadcast nse send enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.fcd2a539183c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_subscription_content_models_enabled",
+      "title": "smbi subscription content models enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.18209c6007f5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wa_smba_server_feature_subscription_origination_enabled",
+      "title": "wa smba server feature subscription origination enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5c99282ea06a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wabie_biz_profile_enable_member_since_ts",
+      "title": "wabie biz profile enable member since ts",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b3b12c0b966e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wabie_smb_automators_reachout_timelock_revamp_enabled",
+      "title": "wabie smb automators reachout timelock revamp enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.e125ce03dd63",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wabie_smb_cpv_ninja_bans_enabled",
+      "title": "wabie smb cpv ninja bans enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.8483aa423760",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wabie_smb_spam_reachout_timelock_revamp_enabled",
+      "title": "wabie smb spam reachout timelock revamp enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5be7bb3f1604",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_auth_token_cached_api_enabled",
+      "title": "waffle auth token cached api enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.1908acd881ab",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_cachekeys_prefs_enabled",
+      "title": "waffle cachekeys prefs enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.af3fdeb1d71f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_companions_enabled",
+      "title": "waffle companions enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b8ea58d267ed",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_daily_unpause_enabled",
+      "title": "waffle daily unpause enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.cbe447c03568",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_daily_unpause_enabled_ios",
+      "title": "waffle daily unpause enabled ios",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.eeb8a3da862e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_enable_notification_v2",
+      "title": "waffle enable notification v2",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.aee9df9d8f34",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_enabled_for_linked_users",
+      "title": "waffle enabled for linked users",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5dac42821acf",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_enabled_for_unlinked_users",
+      "title": "waffle enabled for unlinked users",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.ce99716211cc",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_exception_handling_fix_enabled",
+      "title": "waffle exception handling fix enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.51cbfd0c2ff5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_foa_to_wa_linking_enabled",
+      "title": "waffle foa to wa linking enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.3fd2678790ae",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_ios_crossposting_eligibility_check_reliability_improvements",
+      "title": "waffle ios crossposting eligibility check reliability improvements",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.f14f89fd8aa9",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_linking_foa_to_wa_bottom_sheet_removal_enabled",
+      "title": "waffle linking foa to wa bottom sheet removal enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.92053e421474",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_mobile_companions_enabled",
+      "title": "waffle mobile companions enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.5b303578b105",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_v2_enabled",
+      "title": "waffle v2 enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.74fa46e403a6",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_v2_updates_tab_after_share_entrypoint_disabled",
+      "title": "waffle v2 updates tab after share entrypoint disabled",
+      "value_type": "bool",
+      "groups": [
+        "business",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.bcdc590550c5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "web_smb_upsell_in_biz_profile_enabled",
+      "title": "web smb upsell in biz profile enabled",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.df2ad91e0b1d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_biz_ai_has_active_subscription",
+      "title": "whatsapp biz ai has active subscription",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.35618705a9d1",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_biz_ai_has_ever_subscribed",
+      "title": "whatsapp biz ai has ever subscribed",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c29d82d84a5d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_biz_ai_has_onboarded_client",
+      "title": "whatsapp biz ai has onboarded client",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.c4c1ed72bc30",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_biz_ai_quota_approaching_eligible",
+      "title": "whatsapp biz ai quota approaching eligible",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.88fa09f87315",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_biz_ai_quota_reached_eligible",
+      "title": "whatsapp biz ai quota reached eligible",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.749345b2fda8",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_smb_user_eligible_for_business_search",
+      "title": "whatsapp smb user eligible for business search",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.0a967b6c6668",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_eligible_for_meta_verified",
+      "title": "whatsapp smb user eligible for meta verified",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.315c01f22aa8",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_has_created_ctwa_ad_client_filter",
+      "title": "whatsapp smb user has created ctwa ad client filter",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.850fe37364e6",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_has_draft_ad",
+      "title": "whatsapp smb user has draft ad",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.b09f58aa78ea",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_has_not_completed_opt_out_eligibility_api",
+      "title": "whatsapp smb user has not completed opt out eligibility api",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.4064ca50bc9e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_smb_user_has_sufficient_internet_connection",
+      "title": "whatsapp smb user has sufficient internet connection",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.01ca7444157a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_is_eligible_for_ad_resolve_payment",
+      "title": "whatsapp smb user is eligible for ad resolve payment",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.fadb225d4f2c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_is_eligible_for_ae_onboarding",
+      "title": "whatsapp smb user is eligible for ae onboarding",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.f19f20fe4cef",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_is_eligible_for_grace_period_qp_banner",
+      "title": "whatsapp smb user is eligible for grace period qp banner",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.0ec6ded34bd4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_is_migrated_to_lists",
+      "title": "whatsapp smb user is migrated to lists",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.62230d4a1fde",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_is_subscribed_to_meta_verified",
+      "title": "whatsapp smb user is subscribed to meta verified",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.877090f25fa3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_is_using_label",
+      "title": "whatsapp smb user is using label",
+      "value_type": "bool",
+      "groups": [
+        "business"
+      ],
+      "override_key": "waab.override.a976e12159d8",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "android_status_dual_upload_video_hevc_production_enabled",
+      "title": "android status dual upload video hevc production enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "business"
+      ],
+      "override_key": "waab.override.d61b7f4f8719",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "enable_ios_traffic_product_attribution_download",
+      "title": "enable ios traffic product attribution download",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.edf117c2e023",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "hd_dual_upload_production_infra_enabled",
+      "title": "hd dual upload production infra enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.4cafeae9aba7",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "hd_video_dual_upload_status_production_enabled",
+      "title": "hd video dual upload status production enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "business"
+      ],
+      "override_key": "waab.override.e5f5bd37292f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_status_dual_upload_video_hevc_production_enabled",
+      "title": "ios status dual upload video hevc production enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "business"
+      ],
+      "override_key": "waab.override.7662e90bf147",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_smb_data_sharing_download_event_type_set",
+      "title": "is smb data sharing download event type set",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.f922437ec479",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "media_surge_upload_biz_catalog_enabled",
+      "title": "media surge upload biz catalog enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.19e39a8c4d36",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "media_surge_upload_biz_cover_enabled",
+      "title": "media surge upload biz cover enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.a8ecdb248f8c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "media_surge_upload_smbai_enabled",
+      "title": "media surge upload smbai enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.706e766b7c69",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "media_surge_upload_waffle_enabled",
+      "title": "media surge upload waffle enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.999810c3ed43",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "motion_photo_production_enabled",
+      "title": "motion photo production enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.a5a1f22bcc2a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "status_biz_product_catalog_sticker_enabled",
+      "title": "status biz product catalog sticker enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "status_stories",
+        "business"
+      ],
+      "override_key": "waab.override.6110ba540bcb",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wabie_smb_automators_reachout_timelock_ai_remediation_enabled",
+      "title": "wabie smb automators reachout timelock ai remediation enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.1ccf78301207",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "wabie_smb_automators_reachout_timelock_selfie_remediation_enabled",
+      "title": "wabie smb automators reachout timelock selfie remediation enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.713fd4e3f2b2",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "waffle_photo_sync_enabled",
+      "title": "waffle photo sync enabled",
+      "value_type": "bool",
+      "groups": [
+        "media",
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.5282f647b45b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ai_bizai_2way_integration_history_sync_pre_chatd_enabled",
+      "title": "ai bizai 2way integration history sync pre chatd enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "status_stories",
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.911f34f89ec2",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_ai_agent_thread_status_history_sync_ios_enabled",
+      "title": "biz ai agent thread status history sync ios enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "status_stories",
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.5dde776c9640",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_ai_thread_control_syncd_enabled",
+      "title": "biz ai thread control syncd enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business",
+        "network_sync"
+      ],
+      "override_key": "waab.override.e1b8d2f59b74",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "biz_message_format_attribution_logging_enabled",
+      "title": "biz message format attribution logging enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business",
+        "analytics_perf"
+      ],
+      "override_key": "waab.override.7a4ca6ec042e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "coex_hide_capi_marketing_messages_on_smb_companion_enabled",
+      "title": "coex hide capi marketing messages on smb companion enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.176bfa99ebf7",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "coex_revoke_message_enabled_for_maiba_business",
+      "title": "coex revoke message enabled for maiba business",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.6a65ae418414",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "hd_image_dual_upload_chat_production_enabled",
+      "title": "hd image dual upload chat production enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.82c02e30e48a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "hd_video_dual_upload_chat_production_enabled",
+      "title": "hd video dual upload chat production enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "media",
+        "business"
+      ],
+      "override_key": "waab.override.344db1522a02",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "ios_biz_role_use_batch_lookup_for_message_recipients",
+      "title": "ios biz role use batch lookup for message recipients",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.75b787505421",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_biz_top_thread_type_set",
+      "title": "is biz top thread type set",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.29b09f14c9b4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_iphone_smb_chat_migration_action_set",
+      "title": "is iphone smb chat migration action set",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.f6174613be1e",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_iphone_smb_chat_migration_result_set",
+      "title": "is iphone smb chat migration result set",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.94110c8c644d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_main_thread_product_area_set",
+      "title": "is main thread product area set",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.fde9df62ffd2",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "is_message_biz_type_set",
+      "title": "is message biz type set",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.a87d7b379bc3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_agent_chat_list_indicator_enabled",
+      "title": "smb agent chat list indicator enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.a6fd8a32e49d",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_agent_disable_away_greeting_message_killswitch",
+      "title": "smb agent disable away greeting message killswitch",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.b0c252b5f961",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_agent_thread_control_notification_enabled",
+      "title": "smb agent thread control notification enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.ce081c48517c",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_ai_agent_hidden_message_buttons_enabled",
+      "title": "smb ai agent hidden message buttons enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.925e168e17bf",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_biz_ai_handoff_chat_pills_enabled",
+      "title": "smb biz ai handoff chat pills enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.22c47807d9b6",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_smart_composer_mode_cache_enabled",
+      "title": "smb smart composer mode cache enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.e1f52f03f09a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_smart_composer_ui_enabled",
+      "title": "smb smart composer ui enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business",
+        "ui_ux"
+      ],
+      "override_key": "waab.override.c719fbf7ef3b",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smb_upsell_chat_banner_enabled",
+      "title": "smb upsell chat banner enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.42c1d894c356",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_enable_system_messages",
+      "title": "smbi premium broadcast enable system messages",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.1335f58965ae",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_premium_broadcast_threads_in_chat_home_enabled",
+      "title": "smbi premium broadcast threads in chat home enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.90ed48dac82f",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "smbi_request_contact_info_native_flow_message_enabled",
+      "title": "smbi request contact info native flow message enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.ef116f98eeb3",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "web_product_list_message_enabled",
+      "title": "web product list message enabled",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.cde40fdaadea",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_smb_thread_eligibility_duration",
+      "title": "whatsapp smb thread eligibility duration",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.8103aa4b3ab7",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_smb_thread_is_ctwa",
+      "title": "whatsapp smb thread is ctwa",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.f7ea3d55a9d5",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_smb_thread_is_deep_conversation",
+      "title": "whatsapp smb thread is deep conversation",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.3a299b4a4ef8",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "medium",
+      "occurrence_count": 1
+    },
+    {
+      "key": "whatsapp_smb_user_has_away_message",
+      "title": "whatsapp smb user has away message",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.e1a87314ce7a",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    },
+    {
+      "key": "whatsapp_smb_user_has_greeting_message",
+      "title": "whatsapp smb user has greeting message",
+      "value_type": "bool",
+      "groups": [
+        "messaging",
+        "business"
+      ],
+      "override_key": "waab.override.666d19fc80c4",
+      "source": "SharedModules(3) static strings/cfstrings/objc metadata",
+      "confidence": "high",
+      "occurrence_count": 2
+    }
+  ],
+  "evidence_strings": [
+    "WABiz.BizBot",
+    "WABiz.BizBotCommand",
+    "WABiz.BizBotCommands",
+    "WABiz.BizBotPrompt",
+    "WABiz.BizCallHoursData",
+    "WABiz.BizConversionInfo",
+    "WABiz.BizEntryPointInfo",
+    "WABiz.BizHours",
+    "WABiz.BizHoursConfig",
+    "WABiz.BizOffering",
+    "WABiz.BizOfferingCategory",
+    "WABiz.BizPriceTier",
+    "WABiz.BizProfile",
+    "WABiz.BizProfileBizSearchIssue",
+    "WABiz.BizProfileOptions",
+    "WABiz.BizProfileServerConfigs",
+    "WABiz.BizProfileSettings",
+    "WABiz.BizProfileVersion",
+    "WABiz.BizRole",
+    "WABiz.BizRoleContext",
+    "WABiz.BizSearchServerConfigs",
+    "WABiz.BizStorage",
+    "WABiz.BizVerifiedNameInfo",
+    "WABiz.BizVertical",
+    "WABiz.BloksWidgetData",
+    "WABiz.BusinessCategory",
+    "WABiz.BusinessStructuredAddress",
+    "WABiz.CatalogParams",
+    "WABiz.ChatGatingProvider",
+    "WABiz.CoexSystemMessageLogger",
+    "WABiz.EntryPointConversionProvider",
+    "WABiz.FlowResponseMessageInfo",
+    "WABiz.FlowsMessageLoggingContext",
+    "WABiz.InteractiveMMVideoPlayWamEventLogger",
+    "WABiz.PaymentLinkLogger",
+    "WABiz.ProductComplianceInfo",
+    "WABiz.ProductDescriptor",
+    "WABiz.ProductImageEnsemble",
+    "WABiz.ProductImporterAddress",
+    "WABiz.ProductImporterDetails",
+    "WABiz.ProductReviewStatus",
+    "WABiz.ProductVideo",
+    "WABiz.ProductVideoEnsemble",
+    "WABiz.SalePrice",
+    "WABiz.TOS2016Manager",
+    "WABiz.TOSFetchStateRequest",
+    "WABiz.TOSManager",
+    "WABiz.TOSSendClientTosAcceptanceState",
+    "WABiz.VerifiedBusinessInfo",
+    "WABiz.WABizCallIcons",
+    "WABiz.XMPPBusiness",
+    "WABiz.XMPPBusinessProfile",
+    "WABizAddressData",
+    "WABizBot",
+    "WABizBotCommand",
+    "WABizBotCommandData",
+    "WABizBotCommands",
+    "WABizBotData",
+    "WABizBotHelper",
+    "WABizBotPrompt",
+    "WABizBotPromptData",
+    "WABizCatalogProductStamp",
+    "WABizCategoryData",
+    "WABizConversionInfo",
+    "WABizConversionInfoData",
+    "WABizCoverPhotoData",
+    "WABizDirectConnectionData",
+    "WABizDirectConnectionEndpointVersionData",
+    "WABizDirectConnectionFeatureData",
+    "WABizEntryPointInfo",
+    "WABizEntryPointInfoData",
+    "WABizHours",
+    "WABizHoursConfig",
+    "WABizLookupProvider",
+    "WABizManager",
+    "WABizManagerNotificationKeys",
+    "WABizManagerProfileDidUpdate",
+    "WABizManagerVerifiedNameDidUpdate",
+    "WABizNameAnnouncing",
+    "WABizObjCABProps",
+    "WABizOffering",
+    "WABizOfferingCategory",
+    "WABizOfferingCategoryData",
+    "WABizOfferingData",
+    "WABizOptOutInfo",
+    "WABizPreferences",
+    "WABizPriceTier",
+    "WABizPriceTierData",
+    "WABizProfile",
+    "WABizProfileAutomatedGreetingMessageData",
+    "WABizProfileBizSearchIssue",
+    "WABizProfileData",
+    "WABizProfileHelper",
+    "WABizProfileOptions",
+    "WABizProfileOptionsData",
+    "WABizProfileServerConfigs",
+    "WABizProfileServerConfigsDidUpdate",
+    "WABizProfileSettings",
+    "WABizProfileVersion",
+    "WABizQualityNotificationLogger",
+    "WABizRole",
+    "WABizRoleContext",
+    "WABizRoleData",
+    "WABizSearchServerConfigs",
+    "WABizServiceAreaData",
+    "WABizVNameLogger",
+    "WABizVNameLoggerHelper",
+    "WABizValueTransformer",
+    "WABizVerificationLevelHelper",
+    "WABizVerifiedNameData",
+    "WABizVerifiedNameInfo",
+    "WABizVertical"
+  ]
+}
