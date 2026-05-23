@@ -145,7 +145,7 @@ NSString *WAGROverrideKeyFor(NSString *className, NSString *selectorName, BOOL i
 //   • WAAuraGating Swift classes in SharedModules
 //   • native Settings row insertion flow
 // So the menu surfaces WAAB flags that actually make rows appear, plus the
-// few ObjC-visible Swift accessors FLEX showed in WAAuraGating.
+// few ObjC-visible Swift accessors runtime browser showed in WAAuraGating.
 
 static WAGRGatingEntry *E(NSString *cls, NSString *sel, BOOL meta,
                           NSString *title, NSString *desc,
@@ -237,7 +237,7 @@ static NSArray<WAGRGatingEntry *> *entries_Aura(void) {
         WAAB(@"isAISubscriptionEnabled", @"AI subscription getter", @"WAAB getter for AI subscription enabled state.", WAGRGatingAreaAura, NO),
     ]];
 
-    // FLEX/SharedModules visible WAAuraGating accessors. These are not the
+    // SharedModules/runtime visible WAAuraGating accessors. These are not the
     // primary Settings-row path; they are exposed for diagnostics and targeted
     // runtime overrides when the Swift class is loaded.
     NSArray<NSString *> *swiftClasses = @[@"WAAuraGating", @"WAAuraGating.AuraGating",
@@ -255,7 +255,7 @@ static NSArray<WAGRGatingEntry *> *entries_Aura(void) {
         for (NSString *sel in selectors) {
             BOOL inv = WAGRAuraRuntimeSelectorIsNegative(sel);
             [a addObject:E(cls, sel, NO, [NSString stringWithFormat:@"%@ -%@", cls, sel],
-                          @"SharedModules WAAuraGating runtime accessor observed through FLEX.",
+                          @"SharedModules WAAuraGating runtime accessor observed through runtime inspection.",
                           WAGRGatingAreaAura, inv)];
         }
     }
@@ -485,7 +485,7 @@ static NSArray<WAGRGatingEntry *> *entries_ContactsHub(void) {
 
 static NSArray<WAGRGatingEntry *> *entries_Payments(void) {
     return @[
-        E(@"WAServerProperties", @"paymentsUPIOverdraftAccountEnabled", YES, @"Runtime: UPI overdraft", @"WAServerProperties class method visible in Flex; enables the UPI overdraft account gate.", WAGRGatingAreaPayments, NO),
+        E(@"WAServerProperties", @"paymentsUPIOverdraftAccountEnabled", YES, @"Runtime: UPI overdraft", @"WAServerProperties class method visible in runtime inspection; enables the UPI overdraft account gate.", WAGRGatingAreaPayments, NO),
         E(@"WASettingsViewController", @"showBRConsumerPaymentsHome", NO, @"Settings payment home", @"Native WASettingsViewController payment-home method.", WAGRGatingAreaPayments, NO),
     ];
 }
@@ -530,15 +530,15 @@ static NSArray<WAGRGatingEntry *> *entries_LiquidGlass(void) {
         WAAB(@"ios_liquid_glass_unify_ui_refresh_enabled", @"Unify UI refresh", @"WAAB + WDSLiquidGlass +isUnifyUIRefreshEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
         WAAB(@"ios_liquid_glass_unify_navigation_bar_enabled", @"Unify navigation bar", @"WAAB + WDSLiquidGlass +isUnifyNavigationBarEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
         WAAB(@"ios_liquid_glass_native_sidebar_enabled", @"Native sidebar", @"WAAB + WDSLiquidGlass +isNativeSidebarEnabled alias.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isChatbarLowerBottomPaddingEnabled", YES, @"Runtime: chatbar lower padding", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"shouldUseNativeSwipeActions", YES, @"Runtime: native swipe actions", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isHidingBottomBarWorkaroundEnabled", YES, @"Runtime: bottom bar workaround", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isTopBarAppearanceWorkaroundEnabled", YES, @"Runtime: top bar workaround", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isFixesForOlderOSEnabled", YES, @"Runtime: older OS fixes", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isFixTabbarBadgeOffthreadEnabled", YES, @"Runtime: tab badge fix", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isContextMenuTransitionSafetyFixEnabled", YES, @"Runtime: context menu safety", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isFixContextMenuOnDisappearEnabled", YES, @"Runtime: context disappear fix", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
-        E(@"WDSLiquidGlass", @"isFixUpdatesTableDynamicColorEnabled", YES, @"Runtime: dynamic table color fix", @"WDSLiquidGlass runtime selector visible in Flex.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isChatbarLowerBottomPaddingEnabled", YES, @"Runtime: chatbar lower padding", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"shouldUseNativeSwipeActions", YES, @"Runtime: native swipe actions", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isHidingBottomBarWorkaroundEnabled", YES, @"Runtime: bottom bar workaround", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isTopBarAppearanceWorkaroundEnabled", YES, @"Runtime: top bar workaround", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixesForOlderOSEnabled", YES, @"Runtime: older OS fixes", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixTabbarBadgeOffthreadEnabled", YES, @"Runtime: tab badge fix", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isContextMenuTransitionSafetyFixEnabled", YES, @"Runtime: context menu safety", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixContextMenuOnDisappearEnabled", YES, @"Runtime: context disappear fix", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
+        E(@"WDSLiquidGlass", @"isFixUpdatesTableDynamicColorEnabled", YES, @"Runtime: dynamic table color fix", @"WDSLiquidGlass runtime selector visible in runtime inspection.", WAGRGatingAreaLiquidGlass, NO),
         E(@"WDSLiquidGlass", @"isCustomToolbarDisabledForLiquidGlass", YES, @"Runtime: keep custom toolbar", @"Inverted: switch ON returns NO for the disabled gate.", WAGRGatingAreaLiquidGlass, YES),
     ];
 }

@@ -52,6 +52,8 @@ static void (*origAddPaymentsRowToSection)(id, SEL, id) = NULL;
 static BOOL (*origShowBRConsumerPaymentsHome)(id, SEL) = NULL;
 static id (*origGetSettingsViewModel)(id, SEL) = NULL;
 static id (*origCreateSettingsEntryPointViewModel)(id, SEL) = NULL;
+static void (*origSettingsViewDidLoad)(id, SEL) = NULL;
+static void (*origSettingsViewDidAppear)(id, SEL, BOOL) = NULL;
 
 static void WAGRSetLastSettingsRowsError(NSString *error) {
     gWAGRSettingsRowsLastError = [error copy];
@@ -181,8 +183,6 @@ static void WAGRSettingsRowsEnsureRuntimeOwners(void) {
 static void WAGRInstallSettingsBarButton(id settingsVC) {
     if (!WAGRIsWASettingsVC(settingsVC) || ![settingsVC isKindOfClass:UIViewController.class]) return;
     gWAGRSettingsRowsInjectAttempts++;
-
-    if ([objc_getAssociatedObject(settingsVC, kWAGRSettingsButtonInstalledKey) boolValue]) return;
 
     UIViewController *vc = (UIViewController *)settingsVC;
     UINavigationItem *item = vc.navigationItem;
@@ -320,6 +320,16 @@ static id hookCreateSettingsEntryPointViewModel(id self, SEL _cmd) {
     return result;
 }
 
+static void hookSettingsViewDidLoad(id self, SEL _cmd) {
+    if (origSettingsViewDidLoad) origSettingsViewDidLoad(self, _cmd);
+    WAGRRefreshSettingsRowsSoon(self);
+}
+
+static void hookSettingsViewDidAppear(id self, SEL _cmd, BOOL animated) {
+    if (origSettingsViewDidAppear) origSettingsViewDidAppear(self, _cmd, animated);
+    WAGRRefreshSettingsRowsSoon(self);
+}
+
 static BOOL WAGRHookInstance(Class cls, NSString *selName, IMP replacement, IMP *origOut) {
     if (!cls || !selName.length || !replacement || !origOut || *origOut) return NO;
     SEL sel = NSSelectorFromString(selName);
@@ -350,6 +360,8 @@ extern "C" void WAGRSettingsRowsNativeEnsureHooksInstalled(void) {
     if (WAGRHookInstance(cls, @"showBRConsumerPaymentsHome", (IMP)hookShowBRConsumerPaymentsHome, (IMP *)&origShowBRConsumerPaymentsHome)) installed++;
     if (WAGRHookInstance(cls, @"getSettingsViewModel", (IMP)hookGetSettingsViewModel, (IMP *)&origGetSettingsViewModel)) installed++;
     if (WAGRHookInstance(cls, @"createSettingsEntryPointViewModel", (IMP)hookCreateSettingsEntryPointViewModel, (IMP *)&origCreateSettingsEntryPointViewModel)) installed++;
+    if (WAGRHookInstance(cls, @"viewDidLoad", (IMP)hookSettingsViewDidLoad, (IMP *)&origSettingsViewDidLoad)) installed++;
+    if (WAGRHookInstance(cls, @"viewDidAppear:", (IMP)hookSettingsViewDidAppear, (IMP *)&origSettingsViewDidAppear)) installed++;
 
     gWAGRSettingsRowsInstalledHookCount = installed;
     gWAGRSettingsRowsHooksInstalled = installed > 0;

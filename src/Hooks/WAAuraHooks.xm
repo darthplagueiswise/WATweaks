@@ -3,7 +3,7 @@
 // Current architecture used here:
 //   1. WAABProperties owns the AB flags that decide whether Aura / WA Plus UI
 //      and Settings rows should be considered by the app.
-//   2. SharedModules contains the Swift WAAuraGating module. Runtime/FLEX
+//   2. SharedModules contains the Swift WAAuraGating module. Runtime
 //      confirms the important classes live there:
 //        _TtC12WAAuraGating20GatedBenefitProvider
 //        _TtC12WAAuraGating25GatedSubscriptionProvider
@@ -397,7 +397,7 @@ static void WAGRHookAllAuraBoolMethodsOnClass(NSString *className) {
         NSString *selectorName = NSStringFromSelector(method_getName(m));
         if (!selectorName.length) continue;
 
-        // Keep this targeted to gate-like getters. FLEX shows WAAuraGating's
+        // Keep this targeted to gate-like getters. Runtime inspection shows WAAuraGating's
         // meaningful properties as isEnabled/isUserEligible/isSettingsRowEnabled
         // and benefit-style is*Active getters; the Swift provider subclasses may
         // expose fewer ObjC methods, so enumeration catches version drift.
@@ -463,7 +463,7 @@ static NSArray<NSString *> *WAGRAuraGatingSelectors(void) {
 extern "C" void WAGRAuraGatingSwiftHooksInstall(void) {
     for (NSString *cls in WAGRAuraGatingClassCandidates()) {
         // First enumerate actual ObjC-visible BOOL properties/methods on the
-        // loaded class. This matches what FLEX shows for WAAuraGating and avoids
+        // loaded class. This matches what Runtime inspection shows for WAAuraGating and avoids
         // depending only on hand-written selector guesses.
         WAGRHookAllAuraBoolMethodsOnClass(cls);
 

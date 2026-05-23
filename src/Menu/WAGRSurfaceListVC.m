@@ -103,7 +103,7 @@ static NSUInteger WAGROverrideCountForSurfaceID(NSString *sid) {
 }
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section { return @"Surfaces técnicas"; }
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
-    return @"Browser bruto para debug. Botão FLEX abre o FLEXManager se o framework estiver carregado.";
+    return @"Browser bruto para debug: WAABProperties, WAContext, WAContextMain, WAAuraGating e demais surfaces técnicas.";
 }
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     WAGRSurfaceSpec *s = _surfaces[(NSUInteger)ip.row];
@@ -157,9 +157,14 @@ typedef NS_ENUM(NSInteger, WAGRDevMenuRow) {
 };
 
 typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
-    WAGRAdvancedRowRawRuntime = 0,
+    WAGRAdvancedRowWAAB = 0,
+    WAGRAdvancedRowWAContext,
+    WAGRAdvancedRowWAContextMain,
+    WAGRAdvancedRowWAAuraGating,
+    WAGRAdvancedRowRawRuntime,
     WAGRAdvancedRowInstallPersisted,
     WAGRAdvancedRowDiagnostics,
+    WAGRAdvancedRowCount,
 };
 
 typedef NS_ENUM(NSInteger, WAGRSystemRow) {
@@ -223,7 +228,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         case WAGRRootSectionAreas: return (NSInteger)WAGRGatingAreaCount;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
-        case WAGRRootSectionAdvanced: return 3;
+        case WAGRRootSectionAdvanced: return WAGRAdvancedRowCount;
         case WAGRRootSectionSystem: return 3;
     }
     return 0;
@@ -366,10 +371,43 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     return c;
 }
 
+static WAGRSurfaceSpec *WAGRRawSurfaceSpecForAdvancedRow(NSInteger row) {
+    NSString *wanted = nil;
+    switch ((WAGRAdvancedRow)row) {
+        case WAGRAdvancedRowWAAB: wanted = kWAGRSurfaceWAAB; break;
+        case WAGRAdvancedRowWAContext: wanted = kWAGRSurfaceContext; break;
+        case WAGRAdvancedRowWAContextMain: wanted = @"contextmain_graph"; break;
+        case WAGRAdvancedRowWAAuraGating: wanted = kWAGRSurfaceAura; break;
+        default: return nil;
+    }
+    for (WAGRSurfaceSpec *spec in [WAGRSurfaceSpec allSurfaces]) {
+        if ([spec.surfaceID isEqualToString:wanted]) return spec;
+    }
+    return nil;
+}
+
 - (UITableViewCell *)advancedCellForRow:(NSInteger)row {
-    NSString *titles[] = { @"Runtime Browser Avançado", @"Instalar hooks salvos", @"Diagnóstico" };
-    NSString *subs[] = { @"WAABProperties, WAContextMain, WAAuraGating etc.", @"Reinstala overrides persistidos", @"Router, LiquidGlass, Dogfood, Keychain" };
-    NSString *icons[] = { @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass" };
+    NSString *titles[] = {
+        @"Runtime WAABProperties",
+        @"Runtime WAContext",
+        @"Runtime WAContextMain",
+        @"Runtime WAAuraGating",
+        @"Runtime Browser Avançado",
+        @"Instalar hooks salvos",
+        @"Diagnóstico"
+    };
+    NSString *subs[] = {
+        @"AB props/feature flags reais; aplica stubs com o router runtime.",
+        @"Gates do WAContext antes da expansão para WAContextMain.",
+        @"Object graph/gates grandes do WAContextMain.",
+        @"Providers Swift Aura/GatedBenefit/GatedSubscription.",
+        @"Lista todas as surfaces técnicas disponíveis.",
+        @"Reinstala overrides persistidos via MSHookMessageEx.",
+        @"Router, LiquidGlass, Dogfood, SettingsRows, Keychain."
+    };
+    NSString *icons[] = {
+        @"switch.2", @"point.3.connected.trianglepath.dotted", @"cube.transparent", @"star", @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass"
+    };
 
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
@@ -377,9 +415,10 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.text = subs[row];
     c.detailTextLabel.textColor = WAGRSub();
+    c.detailTextLabel.numberOfLines = 2;
     c.imageView.image = [[UIImage systemImageNamed:icons[row]] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.imageView.tintColor = WAGRText();
-    c.accessoryType = row == WAGRAdvancedRowRawRuntime ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
+    c.accessoryType = (row <= WAGRAdvancedRowRawRuntime) ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
     return c;
 }
 
@@ -520,7 +559,11 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
     }
 
     if (ip.section == WAGRRootSectionAdvanced) {
-        if (ip.row == WAGRAdvancedRowRawRuntime) {
+        WAGRSurfaceSpec *direct = WAGRRawSurfaceSpecForAdvancedRow(ip.row);
+        if (direct) {
+            WAGRSurfaceBrowserVC *vc = [[WAGRSurfaceBrowserVC alloc] initWithSpec:direct];
+            [self.navigationController pushViewController:vc animated:YES];
+        } else if (ip.row == WAGRAdvancedRowRawRuntime) {
             [self.navigationController pushViewController:[WAGRRawSurfaceListVC new] animated:YES];
         } else if (ip.row == WAGRAdvancedRowInstallPersisted) {
             NSUInteger n = WAGRReinstallPersistedHooks();
