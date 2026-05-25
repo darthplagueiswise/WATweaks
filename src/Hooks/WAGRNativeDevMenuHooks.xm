@@ -17,11 +17,13 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import <substrate.h>
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRGateStore.h"
 
 extern "C" void WAGRGateHooksEnsureInstalled(void);
+extern "C" BOOL WAGRLaunchNativePrivateExperimentation(UIViewController *fromVC, NSError **outError);
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
 typedef BOOL (*BoolIMP)(id, SEL);
@@ -32,6 +34,18 @@ static BoolIMP orig_serverPropsDisableExperimental = NULL;
 static BOOL gDevMenuHooked  = NO;
 static BOOL gShortcutHooked = NO;
 static BOOL gServerPropsDisableExperimentalHooked = NO;
+static BOOL gDebugCreateSectionsHooked = NO;
+static void (*orig_debugCreateSections)(id, SEL) = NULL;
+typedef NSInteger (*WAGRRowsIMP)(id, SEL, UITableView *, NSInteger);
+typedef UITableViewCell *(*WAGRCellIMP)(id, SEL, UITableView *, NSIndexPath *);
+typedef void (*WAGRSelectIMP)(id, SEL, UITableView *, NSIndexPath *);
+static WAGRRowsIMP orig_debugRows = NULL;
+static WAGRCellIMP orig_debugCell = NULL;
+static WAGRSelectIMP orig_debugSelect = NULL;
+static BOOL gDebugTableRowsHooked = NO;
+static BOOL gDebugTableCellHooked = NO;
+static BOOL gDebugTableSelectHooked = NO;
+static const char *kWAGRDebugABPropsInjectedKey = "watweaks.debug.abprops.injected";
 
 static BOOL WAGRGateForcedOn(NSString *selectorName) {
     return selectorName.length && WAGRGateIsSet(selectorName) && WAGRGateGet(selectorName);
@@ -87,6 +101,169 @@ static BOOL hookDevShortcut(id self, SEL _cmd) {
 static BOOL hookServerPropsDisableExperimental(id self, SEL _cmd) {
     if (WAGRNativeDevAllowed() || WAGRGateForcedOff(@"serverPropsDisableExperimental")) return NO;
     return orig_serverPropsDisableExperimental ? orig_serverPropsDisableExperimental(self, _cmd) : NO;
+}
+
+
+static id WAGRMsg0(id obj, SEL sel) {
+    if (!obj || !sel || ![obj respondsToSelector:sel]) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)(obj, sel); }
+    @catch (__unused NSException *ex) { return nil; }
+}
+
+static void WAGRMsg1Void(id obj, SEL sel, id arg) {
+    if (!obj || !sel || ![obj respondsToSelector:sel]) return;
+    @try { ((void (*)(id, SEL, id))objc_msgSend)(obj, sel, arg); }
+    @catch (__unused NSException *ex) {}
+}
+
+static id WAGRMsg1ID(id obj, SEL sel, id arg) {
+    if (!obj || !sel || ![obj respondsToSelector:sel]) return nil;
+    @try { return ((id (*)(id, SEL, id))objc_msgSend)(obj, sel, arg); }
+    @catch (__unused NSException *ex) { return nil; }
+}
+
+static id WAGRMsg1NSInteger(id obj, SEL sel, NSInteger arg) {
+    if (!obj || !sel || ![obj respondsToSelector:sel]) return nil;
+    @try { return ((id (*)(id, SEL, NSInteger))objc_msgSend)(obj, sel, arg); }
+    @catch (__unused NSException *ex) { return nil; }
+}
+
+static void WAGRPresentNativePrivateExperimentationFrom(id debugVC) {
+    NSError *err = nil;
+    if (![debugVC isKindOfClass:UIViewController.class]) return;
+    if (!WAGRLaunchNativePrivateExperimentation((UIViewController *)debugVC, &err)) {
+        NSLog(@"[WATweaks][NativeDevMenu] Private Experimentation launch failed from AB Props row: %@", err.localizedDescription ?: @"unknown");
+    }
+}
+
+static id WAGRCreateDebugRow(id section, NSString *title, dispatch_block_t action) {
+    if (!section || !title.length || !action) return nil;
+
+    id row = nil;
+    SEL addDefaultSel = NSSelectorFromString(@"addDefaultTableRow");
+    SEL addStyleSel = NSSelectorFromString(@"addTableRowWithCellStyle:");
+    if ([section respondsToSelector:addDefaultSel]) {
+        row = WAGRMsg0(section, addDefaultSel);
+    }
+    if (!row && [section respondsToSelector:addStyleSel]) {
+        row = WAGRMsg1NSInteger(section, addStyleSel, UITableViewCellStyleDefault);
+    }
+    if (!row) return nil;
+
+    id cell = WAGRMsg0(row, NSSelectorFromString(@"cell"));
+    if ([cell isKindOfClass:UITableViewCell.class]) {
+        UITableViewCell *tvCell = (UITableViewCell *)cell;
+        tvCell.textLabel.text = title;
+        tvCell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        tvCell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    }
+
+    id handler = [^{ action(); } copy];
+    WAGRMsg1Void(row, NSSelectorFromString(@"setHandler:"), handler);
+    return row;
+}
+
+static id WAGRDebugABPropsSection(id debugVC) {
+    id targetSection = nil;
+    id sections = WAGRMsg0(debugVC, NSSelectorFromString(@"sections"));
+    if ([sections isKindOfClass:NSArray.class]) {
+        for (id section in (NSArray *)sections) {
+            id header = WAGRMsg0(section, NSSelectorFromString(@"headerText"));
+            if ([header isKindOfClass:NSString.class] && [(NSString *)header rangeOfString:@"AB Props" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                targetSection = section;
+                break;
+            }
+        }
+    }
+
+    if (!targetSection && [debugVC respondsToSelector:NSSelectorFromString(@"addSection")]) {
+        targetSection = WAGRMsg0(debugVC, NSSelectorFromString(@"addSection"));
+        WAGRMsg1Void(targetSection, NSSelectorFromString(@"setHeaderText:"), @"AB Props");
+    }
+    return targetSection;
+}
+
+static void WAGRReplaceABPropsReleaseCandidatePlaceholder(id debugVC) {
+    if (!debugVC || objc_getAssociatedObject(debugVC, kWAGRDebugABPropsInjectedKey)) return;
+    if (![NSStringFromClass([debugVC class]) isEqualToString:@"WADebugViewController"]) return;
+
+    id section = WAGRDebugABPropsSection(debugVC);
+    if (!section) return;
+
+    // This is deliberately not a fake WAAB browser. It only replaces the
+    // release-candidate placeholder with rows that open WhatsApp's own native
+    // Private Experimentation / AB Props debug UI, which was confirmed in the
+    // executable as _TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController.
+    WAGRMsg1Void(section, NSSelectorFromString(@"setRows:"), [NSMutableArray array]);
+
+    __unsafe_unretained id weakDebugVC = debugVC;
+    WAGRCreateDebugRow(section, @"Allocated AB Props", ^{
+        WAGRNativeDebugActivateSupportGates();
+        WAGRPresentNativePrivateExperimentationFrom(weakDebugVC);
+    });
+    WAGRCreateDebugRow(section, @"Private Experimentation Debug", ^{
+        WAGRNativeDebugActivateSupportGates();
+        WAGRPresentNativePrivateExperimentationFrom(weakDebugVC);
+    });
+
+    objc_setAssociatedObject(debugVC, kWAGRDebugABPropsInjectedKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+static void hookDebugCreateSections(id self, SEL _cmd) {
+    if (orig_debugCreateSections) orig_debugCreateSections(self, _cmd);
+    WAGRReplaceABPropsReleaseCandidatePlaceholder(self);
+}
+
+
+static BOOL WAGRIsDebugABPropsIndexPath(NSIndexPath *indexPath) {
+    return indexPath && indexPath.section == 0 && (indexPath.row == 0 || indexPath.row == 1);
+}
+
+static UITableViewCell *WAGRNativeABPropsCell(UITableView *tableView, NSIndexPath *indexPath) {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"WAGRNativeABPropsCell"];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WAGRNativeABPropsCell"];
+    cell.backgroundColor = UIColor.clearColor;
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.textLabel.textColor = UIColor.labelColor;
+    cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    cell.textLabel.numberOfLines = 1;
+    cell.detailTextLabel.numberOfLines = 2;
+    if (indexPath.row == 0) {
+        cell.textLabel.text = @"Allocated AB Props";
+        cell.detailTextLabel.text = @"Open WhatsApp's native Private Experimentation AB Props tools";
+    } else {
+        cell.textLabel.text = @"Private Experimentation Debug";
+        cell.detailTextLabel.text = @"Fetch, sync and inspect private experiment configs";
+    }
+    return cell;
+}
+
+static NSInteger hookDebugRows(id self, SEL _cmd, UITableView *tableView, NSInteger section) {
+    NSInteger original = orig_debugRows ? orig_debugRows(self, _cmd, tableView, section) : 0;
+    if (section == 0 && WAGRNativeDevAllowed()) {
+        // Flex confirmed section 0 is the AB Props release-candidate placeholder.
+        // Replace its single yellow warning row with two native navigation rows.
+        return MAX(original, (NSInteger)2);
+    }
+    return original;
+}
+
+static UITableViewCell *hookDebugCell(id self, SEL _cmd, UITableView *tableView, NSIndexPath *indexPath) {
+    if (WAGRNativeDevAllowed() && WAGRIsDebugABPropsIndexPath(indexPath)) {
+        return WAGRNativeABPropsCell(tableView, indexPath);
+    }
+    return orig_debugCell ? orig_debugCell(self, _cmd, tableView, indexPath) : [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+}
+
+static void hookDebugSelect(id self, SEL _cmd, UITableView *tableView, NSIndexPath *indexPath) {
+    if (WAGRNativeDevAllowed() && WAGRIsDebugABPropsIndexPath(indexPath)) {
+        [tableView deselectRowAtIndexPath:indexPath animated:YES];
+        WAGRNativeDebugActivateSupportGates();
+        WAGRPresentNativePrivateExperimentationFrom(self);
+        return;
+    }
+    if (orig_debugSelect) orig_debugSelect(self, _cmd, tableView, indexPath);
 }
 
 static BOOL classHasInstanceMethod(Class cls, SEL sel) {
@@ -162,10 +339,55 @@ static void installNativeDevMenuHooks(void) {
         }
     }
 
-    NSLog(@"[WATweaks][NativeDevMenu] install pass: allowed=%@ shortcut=%@ disableExperimental=%@",
+    Class debugVC = NSClassFromString(@"WADebugViewController");
+    if (!gDebugCreateSectionsHooked) {
+        SEL createSel = NSSelectorFromString(@"createSections");
+        Method m = debugVC ? class_getInstanceMethod(debugVC, createSel) : NULL;
+        if (m) {
+            IMP orig = NULL;
+            MSHookMessageEx(debugVC, createSel, (IMP)hookDebugCreateSections, &orig);
+            if (orig) {
+                orig_debugCreateSections = (void (*)(id, SEL))orig;
+                gDebugCreateSectionsHooked = YES;
+            }
+        }
+    }
+
+    if (debugVC && !gDebugTableRowsHooked) {
+        SEL sel = NSSelectorFromString(@"tableView:numberOfRowsInSection:");
+        Method m = class_getInstanceMethod(debugVC, sel);
+        if (m) {
+            IMP orig = NULL;
+            MSHookMessageEx(debugVC, sel, (IMP)hookDebugRows, &orig);
+            if (orig) { orig_debugRows = (WAGRRowsIMP)orig; gDebugTableRowsHooked = YES; }
+        }
+    }
+
+    if (debugVC && !gDebugTableCellHooked) {
+        SEL sel = NSSelectorFromString(@"tableView:cellForRowAtIndexPath:");
+        Method m = class_getInstanceMethod(debugVC, sel);
+        if (m) {
+            IMP orig = NULL;
+            MSHookMessageEx(debugVC, sel, (IMP)hookDebugCell, &orig);
+            if (orig) { orig_debugCell = (WAGRCellIMP)orig; gDebugTableCellHooked = YES; }
+        }
+    }
+
+    if (debugVC && !gDebugTableSelectHooked) {
+        SEL sel = NSSelectorFromString(@"tableView:didSelectRowAtIndexPath:");
+        Method m = class_getInstanceMethod(debugVC, sel);
+        if (m) {
+            IMP orig = NULL;
+            MSHookMessageEx(debugVC, sel, (IMP)hookDebugSelect, &orig);
+            if (orig) { orig_debugSelect = (WAGRSelectIMP)orig; gDebugTableSelectHooked = YES; }
+        }
+    }
+
+    NSLog(@"[WATweaks][NativeDevMenu] install pass: allowed=%@ shortcut=%@ disableExperimental=%@ debugTable=%@",
           gDevMenuHooked ? @"YES" : @"NO",
           gShortcutHooked ? @"YES" : @"NO",
-          gServerPropsDisableExperimentalHooked ? @"YES" : @"NO");
+          gServerPropsDisableExperimentalHooked ? @"YES" : @"NO",
+          (gDebugTableRowsHooked && gDebugTableCellHooked && gDebugTableSelectHooked) ? @"YES" : @"NO");
 }
 
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void) {
@@ -177,13 +399,17 @@ extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void) {
     Class debugVC = NSClassFromString(@"WADebugViewController");
     Class privateExp = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
     return [NSString stringWithFormat:
-            @"DebugMenuProvider=%@\nWADebugViewController=%@\nPrivateExperimentationVC=%@\nallowedHook=%@\nshortcutHook=%@\ndisableExperimentalHook=%@\nmcDebugUI=%@\nprivateABDevOnly=%@\nprivateExpSync=%@\ndogfoodNudge=%@\nserverPropsDisableExperimental=%@",
+            @"DebugMenuProvider=%@\nWADebugViewController=%@\nPrivateExperimentationVC=%@\nallowedHook=%@\nshortcutHook=%@\ndisableExperimentalHook=%@\ndebugCreateSectionsHook=%@\ndebugTableRows=%@\ndebugTableCell=%@\ndebugTableSelect=%@\nmcDebugUI=%@\nprivateABDevOnly=%@\nprivateExpSync=%@\ndogfoodNudge=%@\nserverPropsDisableExperimental=%@",
             swiftCls ? @"loaded" : @"missing",
             debugVC ? @"loaded" : @"missing",
             privateExp ? @"loaded" : @"missing",
             gDevMenuHooked ? @"YES" : @"NO",
             gShortcutHooked ? @"YES" : @"NO",
             gServerPropsDisableExperimentalHooked ? @"YES" : @"NO",
+            gDebugCreateSectionsHooked ? @"YES" : @"NO",
+            gDebugTableRowsHooked ? @"YES" : @"NO",
+            gDebugTableCellHooked ? @"YES" : @"NO",
+            gDebugTableSelectHooked ? @"YES" : @"NO",
             WAGRGateForcedOn(@"waios_mc_debug_ui_enabled") ? @"ON" : @"system",
             WAGRGateForcedOn(@"private_abprop_for_dev_only") ? @"ON" : @"system",
             WAGRGateForcedOn(@"private_experimentation_should_sync") ? @"ON" : @"system",

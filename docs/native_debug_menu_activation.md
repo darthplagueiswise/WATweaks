@@ -1,36 +1,26 @@
-# Native Debug Menu activation
+# Native WhatsApp Developer / Private Experimentation activation
 
-This build targets WhatsApp's real internal debug stack, not a fake WAAB menu.
+This branch targets WhatsApp's native Developer stack, not a fake WAAB browser.
 
-Static analysis of `WhatsApp(10)` and `SharedModules(14)` confirmed the native path:
+Confirmed binary path from `WhatsApp(10)` / `SharedModules(14)`:
 
 ```text
-WAContext / userContext
+WAContext / provider
   -> debugMenuProvider
   -> _TtC15WADebugMenuMain17DebugMenuProvider
-  -> isDebugMenuAllowed
-  -> debugViewController / presentDebugControllerIfNeeded
+  -> debugViewController
   -> WADebugViewController
 ```
 
-The AB/private experimentation surface is also native:
+The native Private Experimentation controller is:
 
 ```text
 _TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController
-  - initWithUserContext:
 ```
 
-## Rules
+## Gates forced only when the user opens native debug UI
 
-1. Do not create a fake WAAB menu.
-2. Do not do mass WAAB/runtime scans at startup.
-3. Capture `userContext` only after Settings/app UI exists.
-4. Resolve `debugMenuProvider` from the native context/provider path.
-5. Use WAAB only as support gates for the native UI.
-
-## Forced support gates
-
-The launcher primes these gates only when the user explicitly opens the native menu/private experimentation:
+`WAGRNativeDebugActivateSupportGates()` writes these through `WAGRGateStore` only on explicit user action:
 
 ```text
 isDebugMenuAllowed -> YES
@@ -43,23 +33,64 @@ dogfooding_nudge_settings_entrypoint_enabled -> YES
 serverPropsDisableExperimental -> NO
 ```
 
-`serverPropsDisableExperimental` is intentionally forced OFF because the native `isDebugMenuAllowed` path references it as a blocker.
+No mass WAAB scan is performed at startup.
 
-## Opening order
+## AB Props block in release-candidate builds
 
-`WAGRLaunchNativeDeveloperMenu` tries:
+Flex confirmed that the visible Developer screen is:
 
-1. `[provider presentDebugControllerIfNeeded]`
-2. `[provider debugViewController]` and present/push the returned VC
-3. `[[WADebugViewController alloc] initAsModalWithUserContext:]`
-4. `[[WADebugViewController alloc] initWithUserContext:]`
-5. `[[PrivateExperimentationDebugViewController alloc] initWithUserContext:]`
+```text
+WACustomBehaviorsTableView
+  dataSource = WADebugViewController
+```
 
-`WAGRLaunchNativePrivateExperimentation` opens the private experimentation VC directly with the same live `userContext`.
+The yellow warning cell is in:
 
-## Ownership
+```text
+section 0, row 0
+```
 
-- `WAGRNativeDevMenuHooks.xm`: native gate owner and support-gate activation.
-- `WAGRDebugMenuLauncher.xm`: context/provider resolution and native opening.
-- `WAGRSurfaceListVC.m`: UI actions only.
-- `WAGRGateHooks.xm`: WAAB bool/string hook support; no fake AB menu.
+with text similar to:
+
+```text
+AB Props are not available in release candidate builds.
+```
+
+The safe patch point is therefore not a fake WAAB menu and not a raw WAAB scan. The tweak hooks `WADebugViewController`'s native table data source/delegate methods:
+
+```objc
+-tableView:numberOfRowsInSection:
+-tableView:cellForRowAtIndexPath:
+-tableView:didSelectRowAtIndexPath:
+```
+
+For section `0`, it replaces the single release-candidate placeholder row with native navigation rows:
+
+```text
+Allocated AB Props
+Private Experimentation Debug
+```
+
+Selecting either row opens WhatsApp's own `PrivateExperimentationDebugViewController` with the live `userContext`.
+
+This keeps the target native:
+
+```text
+DebugMenuProvider + WADebugViewController + PrivateExperimentationDebugViewController
+```
+
+WAABProperties remains only a gate/value support layer.
+
+## Startup rule
+
+Do not add:
+
+```text
+dispatch_after startup retries
+_dyld_register_func_for_add_image startup fanout
+objc_copyClassList in constructors
+mass class/method scans in constructors
+WAAB browser/menu clones
+```
+
+The constructor path installs fixed, narrow hooks only.
