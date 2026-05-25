@@ -309,6 +309,10 @@ static void WAGRGateHooksInstallPersistedPhaseOnce(void) {
 
 extern "C" void WAGRGateHooksEnsureInstalled(void) {
     WAGRGateHooksInstallLightPhase();
+    // Explicit ensure calls come from menu/toggle paths, not startup. Restore
+    // persisted direct-selector hooks here so saved overrides actually apply
+    // after the user opens WATweaks, without putting this work in constructor.
+    WAGRGateHooksInstallPersistedPhaseOnce();
 }
 
 // ── Diagnostic ───────────────────────────────────────────────────────────────
@@ -329,9 +333,17 @@ extern "C" NSString *WAGRGateHooksDiagnostic(void) {
 // No NSUserDefaults, no migration, no persisted restore, no dyld observer and
 // no timed retry cascade on startup. Menu/toggle actions may call the public
 // ensure/install APIs later when the user explicitly asks for runtime work.
+static void WAGRGateDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    // No scan, no prefs, no restore: just retry the same fixed hook batch
+    // when WhatsApp/SharedModules registers late ObjC classes.
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRGateHooksInstallLightPhase(); });
+}
+
 __attribute__((constructor))
 static void WAGRGateHooksConstructor(void) {
     @autoreleasepool {
         WAGRGateHooksInstallLightPhase();
+        _dyld_register_func_for_add_image(WAGRGateDyldCallback);
     }
 }

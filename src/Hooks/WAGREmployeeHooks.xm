@@ -41,6 +41,7 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
@@ -241,10 +242,15 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 // ── Constructor ──────────────────────────────────────────────────────────────
 // Constructor policy: install immediately, then short bounded retries.
 // No long 6s/7s tail; later UI actions can call WAGRDogfoodEnsureHooksInstalled().
+static void WAGREmployeeDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ installEmployeeHooks(); });
+}
+
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
-        // Watusi-style: constructor installs the hook batch immediately.
         installEmployeeHooks();
+        _dyld_register_func_for_add_image(WAGREmployeeDyldCallback);
     }
 }

@@ -215,6 +215,7 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
 
         UIViewController *settingsVC = WAGRSettingsVCForTable(tv);
         if (settingsVC) {
+            WAGRSettingsRowsNativeEnsureHooksInstalled();
             WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
         }
     }

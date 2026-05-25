@@ -176,11 +176,15 @@ extern "C" NSString *WAGRAccountEligibilityDiagnostic(void) {
             WAGRAuraSimulationEnabled() ? @"YES" : @"NO"];
 }
 
+static void WAGRAccountEligibilityDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
+}
+
 __attribute__((constructor))
 static void WAGRAccountEligibilityCtor(void) {
     @autoreleasepool {
-        // Watusi-style: install hook batch synchronously while the dylib is loaded.
-        // No timed retry loop here; dyld callback covers images that arrive later.
         WAGRAccountEligibilityEnsureHooksInstalled();
+        _dyld_register_func_for_add_image(WAGRAccountEligibilityDyldCallback);
     }
 }

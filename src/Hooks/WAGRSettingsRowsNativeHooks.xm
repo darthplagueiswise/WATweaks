@@ -20,6 +20,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRGateStore.h"
 #import "../Menu/WAGRSurfaceListVC.h"
@@ -393,3 +394,17 @@ extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void) {
             WAGRSettingsRowsShouldForcePayments() ? @"YES" : @"NO",
             gWAGRSettingsRowsLastError ?: @"none"];
 }
+
+static void WAGRSettingsRowsDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRSettingsRowsNativeEnsureHooksInstalled(); });
+}
+
+__attribute__((constructor))
+static void WAGRSettingsRowsNativeCtor(void) {
+    @autoreleasepool {
+        WAGRSettingsRowsNativeEnsureHooksInstalled();
+        _dyld_register_func_for_add_image(WAGRSettingsRowsDyldCallback);
+    }
+}
+

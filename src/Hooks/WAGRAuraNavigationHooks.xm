@@ -364,11 +364,15 @@ extern "C" NSString *WAGRAuraNavigationDiagnostic(void) {
 }
 
 // ── dyld + constructor ───────────────────────────────────────────────────────
+static void WAGRAuraNavDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAuraEnsureNavigationHooksInstalled(); });
+}
+
 __attribute__((constructor))
 static void WAGRAuraNavConstructor(void) {
     @autoreleasepool {
-        // Watusi-style: constructor installs the hook batch immediately.
-        // Late-loaded images are handled by the dyld callback, not fixed timers.
         WAGRAuraEnsureNavigationHooksInstalled();
+        _dyld_register_func_for_add_image(WAGRAuraNavDyldCallback);
     }
 }

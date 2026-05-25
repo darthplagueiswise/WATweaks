@@ -71,7 +71,7 @@ static NSDictionary<NSString *, NSString *> *WAGRAliasToGateTarget(void) {
 
 NSString *WAGRGateCanonicalKey(NSString *key) {
     if (!key.length) return @"";
-    if ([key hasPrefix:@"watweak_gate_"]) return key;
+    if ([key hasPrefix:@"watweak_gate_"] || [key hasPrefix:@"watweak_ui_"]) return key;
     NSString *target = WAGRAliasToGateTarget()[key] ?: key;
     if ([target hasPrefix:@"wagr.settingsrows."]) return WATCanonicalPreferenceKey(@"ui", target);
     return WATCanonicalPreferenceKey(@"gate", target);
