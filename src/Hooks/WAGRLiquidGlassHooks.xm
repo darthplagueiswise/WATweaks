@@ -65,7 +65,6 @@ static NSArray<NSString *> *WAGRLGWDSSelectors(void) {
 }
 
 static NSUInteger WAGRLGHookClass(void){
-    if(!WAGRPref(kWAGRLiquidGlassMaster))return 0;
     Class cls=NSClassFromString(@"WDSLiquidGlass");if(!cls)return 0;
     Class meta=object_getClass(cls);if(!meta)return 0;
     if(!gWAGRLGOrigIMPs)gWAGRLGOrigIMPs=[NSMutableDictionary dictionary];
@@ -105,13 +104,21 @@ extern "C" NSString *WAGRLGDiagnosticText(void){
 
 static void WAGRLGDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
     (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRLGPrefsDidChange(); });
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRLGHookClass(); });
 }
 
 __attribute__((constructor))
 static void WAGRLGConstructor(void) {
     @autoreleasepool {
-        WAGRLGPrefsDidChange();
+        // Watusi-style startup: install the runtime hook path only.
+        // Preference/native UserDefaults writes run after app launch or user action.
+        WAGRLGHookClass();
         _dyld_register_func_for_add_image(WAGRLGDyldCallback);
+        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                          object:nil
+                                                           queue:[NSOperationQueue mainQueue]
+                                                      usingBlock:^(__unused NSNotification *note) {
+            WAGRLGPrefsDidChange();
+        }];
     }
 }

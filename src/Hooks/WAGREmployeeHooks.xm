@@ -244,10 +244,7 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
-        double delays[] = { 0.35, 1.0, 2.0 };
-        for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{ installEmployeeHooks(); });
-        }
+        // Watusi-style: constructor installs the hook batch immediately.
+        installEmployeeHooks();
     }
 }

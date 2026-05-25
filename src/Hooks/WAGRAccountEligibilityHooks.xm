@@ -184,12 +184,9 @@ static void WAGRAccountEligibilityDyldCallback(const struct mach_header *mh, int
 __attribute__((constructor))
 static void WAGRAccountEligibilityCtor(void) {
     @autoreleasepool {
+        // Watusi-style: install hook batch synchronously while the dylib is loaded.
+        // No timed retry loop here; dyld callback covers images that arrive later.
         WAGRAccountEligibilityEnsureHooksInstalled();
         _dyld_register_func_for_add_image(WAGRAccountEligibilityDyldCallback);
-        double delays[] = { 0.25, 0.75, 1.5 };
-        for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
-        }
     }
 }

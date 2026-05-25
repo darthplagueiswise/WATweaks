@@ -369,30 +369,18 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 // picked up.
 static void startup(void) {
     @autoreleasepool {
-        WAGRLGPrefsDidChange();
         installLongPressTableHook();
         installGlobalWindowTapHook();
 
-        // Install idempotent runtime owners early. The gate hooks file owns
-        // its own constructor with dyld + staged retries, but we also nudge
-        // it here so any persisted override is honored on the very first
-        // Settings build of this launch.
-        WAGRGateHooksEnsureInstalled();
+        // Dedicated hook owners install their own runtime hooks from their constructors.
+        // Tweak.x owns only global UI activation and non-gate surface nudges.
         WAGRAuraEnsureNavigationHooksInstalled();
         WAGRNativeDevMenuEnsureHooksInstalled();
         WAGRSettingsRowsNativeEnsureHooksInstalled();
         WAGRAccountEligibilityEnsureHooksInstalled();
 
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-            WAGRGateHooksEnsureInstalled();
-            WAGRAuraEnsureNavigationHooksInstalled();
-            WAGRNativeDevMenuEnsureHooksInstalled();
-            WAGRSettingsRowsNativeEnsureHooksInstalled();
-            WAGRAccountEligibilityEnsureHooksInstalled();
-            WAGRLGPrefsDidChange();
-            if (WAGRNativeDebugAllowed()) WAGRDogfoodEnsureHooksInstalled();
-        });
+        // No timed hook retry cascade here. Watusi installs hook batches from
+        // constructors; each dedicated owner is responsible for its own dyld hook path.
     }
 }
 

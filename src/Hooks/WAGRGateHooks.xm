@@ -340,7 +340,8 @@ static void WAGRGateDyldCallback(const struct mach_header *mh, intptr_t vmaddr_s
 __attribute__((constructor))
 static void WAGRGateHooksConstructor(void) {
     @autoreleasepool {
-        WAGRWipeLegacyStorageIfNeeded();
+        // Watusi-style startup: constructor performs ObjC runtime hook install only.
+        // Do not touch persisted preference storage here.
         WAGRGateHooksInstallLightPhase();
         _dyld_register_func_for_add_image(WAGRGateDyldCallback);
 
@@ -348,6 +349,7 @@ static void WAGRGateHooksConstructor(void) {
                                                           object:nil
                                                            queue:[NSOperationQueue mainQueue]
                                                       usingBlock:^(__unused NSNotification *note) {
+            WAGRWipeLegacyStorageIfNeeded();
             WAGRGateHooksInstallLightPhase();
             WAGRGateHooksInstallPersistedPhaseOnce();
         }];

@@ -372,12 +372,9 @@ static void WAGRAuraNavDyldCallback(const struct mach_header *mh, intptr_t vmadd
 __attribute__((constructor))
 static void WAGRAuraNavConstructor(void) {
     @autoreleasepool {
+        // Watusi-style: constructor installs the hook batch immediately.
+        // Late-loaded images are handled by the dyld callback, not fixed timers.
         WAGRAuraEnsureNavigationHooksInstalled();
         _dyld_register_func_for_add_image(WAGRAuraNavDyldCallback);
-        const double delays[] = { 0.25, 0.75, 1.5 };
-        for (size_t i = 0; i < sizeof(delays)/sizeof(delays[0]); i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{ WAGRAuraEnsureNavigationHooksInstalled(); });
-        }
     }
 }
