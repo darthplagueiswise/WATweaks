@@ -1,23 +1,19 @@
-// WAGRGateStore.m — schema v2 single-key store.
-// ─────────────────────────────────────────────────────────────────────────────
-// Mechanics
-// ─────────
-// Every accessor goes through NSUserDefaults directly. We do not cache: gate
-// reads happen inside MSHookMessageEx trampolines that already pay the cost
-// of dispatching the call, and any cache would have to be invalidated on
-// every UI toggle anyway. Keeping it direct also means the runtime browser
-// always sees the live truth without an explicit refresh step.
+// WAGRGateStore.m — schema v3 single-key store with lazy in-memory hot-path cache.
 //
-// Synchronization is performed at the end of mutations only. NSUserDefaults
-// already handles atomic single-key writes; -synchronize merely flushes the
-// in-memory store to disk so a hard exit() right after a write does not
-// lose the value (the WATweaks "Restart" action does exactly that).
-// ─────────────────────────────────────────────────────────────────────────────
+// Runtime rule:
+// - Do not read NSUserDefaults on every gate check. WhatsApp calls AB/gate
+//   getters thousands of times during launch, so WAGRGateIsSet/Get must be
+//   dictionary-only after one lazy cache load.
+// - Mutations still write NSUserDefaults + index so toggles persist.
 
 #import "WAGRGateStore.h"
 
 NSString * const kWAGRStorageWipedMarkerV2 = @"watweak.storage.wiped.v3";
 NSString * const kWATGateOverrideIndexKey = @"watweak_gate_override_index";
+
+static NSMutableDictionary<NSString *, NSNumber *> *gWATGateCache = nil;
+static BOOL gWATGateCacheLoaded = NO;
+static NSObject *gWATGateCacheLock = nil;
 
 static NSString *WATNormalizeTarget(NSString *target) {
     if (!target.length) return @"";
@@ -117,31 +113,50 @@ static void WATIndexRemove(NSUserDefaults *ud, NSString *canonical) {
     WATWriteIndex(ud, idx);
 }
 
-// ── Legacy prefixes we wipe on the first v2 launch ───────────────────────────
-// Order: most-specific first. Anything matching ANY of these prefixes is
-// removed in a single dictionaryRepresentation pass.
-static NSArray<NSString *> *WAGRLegacyKeyPrefixes(void) {
-    return @[
-        @"wagr.waab.",       // legacy WAAB string-state store
-        @"wagr.override|",   // legacy pipe-separated runtime override
-        @"wagr.override.",   // even older dot-separated runtime override
-        @"wagr.observed|",   // observation mirror for the pipe schema
-        @"wagr.observed."    // observation mirror for the dot schema
-    ];
+static void WATEnsureGateCacheLoaded(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        gWATGateCacheLock = [NSObject new];
+        gWATGateCache = [NSMutableDictionary dictionary];
+    });
+
+    if (gWATGateCacheLoaded) return;
+    @synchronized (gWATGateCacheLock) {
+        if (gWATGateCacheLoaded) return;
+        NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+        for (NSString *ck in WATIndex(ud)) {
+            id obj = [ud objectForKey:ck];
+            if ([obj isKindOfClass:NSNumber.class]) gWATGateCache[ck] = obj;
+        }
+        gWATGateCacheLoaded = YES;
+    }
 }
 
-// ── Accessors ────────────────────────────────────────────────────────────────
+static void WATGateCacheSet(NSString *ck, NSNumber *value) {
+    WATEnsureGateCacheLoaded();
+    @synchronized (gWATGateCacheLock) {
+        if (value) gWATGateCache[ck] = value;
+        else [gWATGateCache removeObjectForKey:ck];
+    }
+}
+
+static NSArray<NSString *> *WAGRLegacyKeyPrefixes(void) {
+    return @[ @"wagr.waab.", @"wagr.override|", @"wagr.override.", @"wagr.observed|", @"wagr.observed." ];
+}
+
 BOOL WAGRGateIsSet(NSString *key) {
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return NO;
-    return [[NSUserDefaults standardUserDefaults] objectForKey:ck] != nil;
+    WATEnsureGateCacheLoaded();
+    return gWATGateCache[ck] != nil;
 }
 
 BOOL WAGRGateGet(NSString *key) {
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return NO;
-    id obj = [[NSUserDefaults standardUserDefaults] objectForKey:ck];
-    return obj ? [obj boolValue] : NO;
+    WATEnsureGateCacheLoaded();
+    NSNumber *n = gWATGateCache[ck];
+    return n ? n.boolValue : NO;
 }
 
 void WAGRGateSet(NSString *key, BOOL value) {
@@ -150,6 +165,7 @@ void WAGRGateSet(NSString *key, BOOL value) {
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
     [ud setBool:value forKey:ck];
     WATIndexAdd(ud, ck);
+    WATGateCacheSet(ck, @(value));
     [ud synchronize];
 }
 
@@ -159,17 +175,13 @@ void WAGRGateClear(NSString *key) {
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
     [ud removeObjectForKey:ck];
     WATIndexRemove(ud, ck);
+    WATGateCacheSet(ck, nil);
     [ud synchronize];
 }
 
 NSArray<NSString *> *WAGRGateAllOverrides(void) {
-    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
-    NSMutableArray<NSString *> *out = [NSMutableArray array];
-    for (NSString *ck in WATIndex(ud)) {
-        id obj = [ud objectForKey:ck];
-        if ([obj isKindOfClass:NSNumber.class]) [out addObject:ck];
-    }
-    return out;
+    WATEnsureGateCacheLoaded();
+    return [gWATGateCache.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 }
 
 NSUInteger WAGRGateClearAll(void) {
@@ -177,11 +189,11 @@ NSUInteger WAGRGateClearAll(void) {
     NSArray<NSString *> *keys = WAGRGateAllOverrides();
     for (NSString *key in keys) [ud removeObjectForKey:key];
     [ud removeObjectForKey:kWATGateOverrideIndexKey];
+    @synchronized (gWATGateCacheLock) { [gWATGateCache removeAllObjects]; }
     [ud synchronize];
     return keys.count;
 }
 
-// ── Wipe ─────────────────────────────────────────────────────────────────────
 void WAGRWipeLegacyStorageIfNeeded(void) {
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
     if ([ud boolForKey:kWAGRStorageWipedMarkerV2]) return;
@@ -191,7 +203,6 @@ void WAGRWipeLegacyStorageIfNeeded(void) {
     NSUInteger removed = 0, migrated = 0;
     for (NSString *key in all) {
         if (![key isKindOfClass:NSString.class]) continue;
-
         id obj = all[key];
         NSString *canonical = WAGRGateCanonicalKey(key);
         BOOL isLegacyAlias = ![canonical isEqualToString:key] &&
@@ -202,17 +213,13 @@ void WAGRWipeLegacyStorageIfNeeded(void) {
         if (isLegacyAlias && [obj isKindOfClass:NSNumber.class]) {
             [ud setBool:[obj boolValue] forKey:canonical];
             WATIndexAdd(ud, canonical);
+            WATGateCacheSet(canonical, @([obj boolValue]));
             [ud removeObjectForKey:key];
             migrated++;
             continue;
         }
-
         for (NSString *prefix in prefixes) {
-            if ([key hasPrefix:prefix]) {
-                [ud removeObjectForKey:key];
-                removed++;
-                break;
-            }
+            if ([key hasPrefix:prefix]) { [ud removeObjectForKey:key]; removed++; break; }
         }
     }
     [ud setBool:YES forKey:kWAGRStorageWipedMarkerV2];
@@ -223,7 +230,7 @@ void WAGRWipeLegacyStorageIfNeeded(void) {
 
 NSString *WAGRGateStoreDiagnostic(void) {
     return [NSString stringWithFormat:
-        @"schema=v3 (watweak canonical keys)\nactive overrides=%lu\nlegacy wipe=%@",
+        @"schema=v3 cached\nactive overrides=%lu\nlegacy wipe=%@",
         (unsigned long)WAGRGateAllOverrides().count,
         [[NSUserDefaults standardUserDefaults] boolForKey:kWAGRStorageWipedMarkerV2] ? @"done" : @"pending"];
 }
