@@ -17,6 +17,7 @@ extern void WAGRWAABEnsureHooksInstalled(void);
 // It does the heavy lifting of locating a WAContextMain and instantiating
 // WADebugViewController via initWithUserContext:.
 extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
+extern BOOL WAGRLaunchNativePrivateExperimentation(UIViewController *fromVC, NSError **outError);
 extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
 static UIColor *WAGRBG(void)     { return UIColor.systemGroupedBackgroundColor; }
 static UIColor *WAGRCell(void)   { return UIColor.secondarySystemGroupedBackgroundColor; }
@@ -135,6 +136,7 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
 // One row inside the new top section.
 typedef NS_ENUM(NSInteger, WAGRDevMenuRow) {
     WAGRDevMenuRowOpen = 0,
+    WAGRDevMenuRowPrivateExperimentation,
 };
 
 typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
@@ -174,7 +176,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
-        case WAGRRootSectionDevMenu: return 1;
+        case WAGRRootSectionDevMenu: return 2;
         case WAGRRootSectionSecret: return 1;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionAdvanced: return 3;
@@ -212,17 +214,28 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 // The headline action: a single, prominent cell that directly invokes the
 // native WADebugViewController bypassing all gating. The blue tint and the
 // `</>` SF Symbol match the visual contract of WhatsApp's own Developer row.
-- (UITableViewCell *)devMenuCell {
+- (UITableViewCell *)devMenuCellForRow:(NSInteger)row {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = @"Abrir Menu Developer Nativo";
     c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = @"Apresenta WADebugViewController diretamente";
     c.detailTextLabel.textColor = WAGRSub();
-    UIImage *icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
-    if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
+    UIImage *icon = nil;
+
+    if (row == WAGRDevMenuRowPrivateExperimentation) {
+        c.textLabel.text = @"Abrir Private Experimentation";
+        c.detailTextLabel.text = @"Abre a tela nativa de AB/private experimentation com userContext";
+        icon = [UIImage systemImageNamed:@"slider.horizontal.3"];
+        if (!icon) icon = [UIImage systemImageNamed:@"testtube.2"];
+        c.imageView.tintColor = UIColor.systemPurpleColor;
+    } else {
+        c.textLabel.text = @"Abrir Menu Developer Nativo";
+        c.detailTextLabel.text = @"DebugMenuProvider → debugViewController → WADebugViewController";
+        icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
+        if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
+        c.imageView.tintColor = UIColor.systemBlueColor;
+    }
+
     c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = UIColor.systemBlueColor;
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
@@ -294,7 +307,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     switch ((WAGRRootSection)ip.section) {
-        case WAGRRootSectionDevMenu: return [self devMenuCell];
+        case WAGRRootSectionDevMenu: return [self devMenuCellForRow:ip.row];
         case WAGRRootSectionSecret:  return [self secretMenusCell];
         case WAGRRootSectionAbout:   return [self aboutCell];
         case WAGRRootSectionAdvanced:return [self advancedCellForRow:ip.row];
@@ -335,17 +348,18 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     [tv deselectRowAtIndexPath:ip animated:YES];
 
     if (ip.section == WAGRRootSectionDevMenu) {
-        // Dismiss the WATweaks sheet first, then launch the native menu from
-        // the underlying VC. We do this in sequence (dismiss → launch in the
-        // completion block) because UIKit only allows one modal at a time
-        // from a given presenter, and the native dev menu is itself going to
-        // be presented modally on top of WhatsApp's settings hierarchy.
         UIViewController *presentedBy = self.presentingViewController;
+        NSInteger row = ip.row;
         [self dismissViewControllerAnimated:YES completion:^{
             NSError *err = nil;
-            BOOL ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
+            BOOL ok = NO;
+            if (row == WAGRDevMenuRowPrivateExperimentation) {
+                ok = WAGRLaunchNativePrivateExperimentation(presentedBy ?: WAGRTopController(), &err);
+            } else {
+                ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
+            }
             if (!ok) {
-                WAGRAlert(@"Não foi possível abrir o menu nativo",
+                WAGRAlert(row == WAGRDevMenuRowPrivateExperimentation ? @"Não foi possível abrir Private Experimentation" : @"Não foi possível abrir o menu nativo",
                           err.localizedDescription ?: @"Erro desconhecido.");
             }
         }];
