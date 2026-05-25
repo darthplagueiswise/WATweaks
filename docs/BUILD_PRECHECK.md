@@ -1,12 +1,12 @@
 # Build precheck — WATweaks
 
-Este checklist existe para evitar exatamente o erro de build em que uma alteração de arquitetura remove uma tela/helper, mas algum arquivo antigo continua importando ou compilando contra ela.
+Este checklist existe para evitar exatamente erros de build causados por patch parcial: arquivo removido mas ainda importado, helper antigo apagado mas ainda usado, ou tela duplicada restaurada sem querer.
 
 ## 1. Nunca aplicar patch parcial sem conferir dependências
 
 Antes de subir qualquer zip/patch, rode uma busca por todos os símbolos removidos. Se um arquivo for removido, nenhum `#import`, chamada, enum, constante ou função dele pode continuar em `src/`.
 
-Exemplo do erro que motivou este documento:
+Exemplo:
 
 ```text
 #import "WAGRSurfaceBrowserVC.h"
@@ -18,8 +18,6 @@ O patch removeu telas duplicadas de gating, mas deixou o caminho `Runtime Avanç
 ## 2. Verificar headers antes de compilar
 
 Para cada `.m`/`.xm`, confirme que todo `#import "..."` existe no repo depois do patch.
-
-Comando recomendado:
 
 ```sh
 python3 - <<'PY'
@@ -48,6 +46,7 @@ Sempre buscar por símbolos obsoletos depois de deletar arquivos ou trocar arqui
 
 ```sh
 grep -R "WAGRGatingCatalog\|WAGRGatingAreaMenuVC\|WAGROverrideKey\|kWAGRSurface" -n src || true
+grep -R "WAGRKey\|WAGRIsOn" -n src || true
 ```
 
 Estado esperado após a unificação do menu:
@@ -57,6 +56,7 @@ Estado esperado após a unificação do menu:
 - `WAGRSurfaceBrowserVC.*`: presente, porque é usado pelo caminho único `Runtime Avançado`.
 - `kWAGRSurface*`: não deve ser necessário em `WAGRSurface.m`; usar strings locais como `@"waab"`, `@"context"`, etc.
 - `WAGROverrideKey`: não deve ser usado pelo Runtime Avançado novo; usar `WAGRGateStore`/`WAGRGateSet`/`WAGRGateClear`.
+- `WAGRKey` e `WAGRIsOn`: se aparecerem, precisam estar declarados em `WAGramPrefix.h`. Hoje existem apenas como compatibilidade para WAAB string overrides (`wagr.waab.<flag>`). Não criar novos usos; código novo deve usar `WAGRGateStore`.
 
 ## 4. Não contrariar a decisão de UI única
 
@@ -142,6 +142,7 @@ git status --short
 python3 scripts/wagr_validate_sources.py || true
 grep -R "WAGRSurfaceBrowserVC.h" -n src/Menu/WAGRSurfaceListVC.m src/Menu/WAGRSurfaceBrowserVC.h src/Menu/WAGRSurfaceBrowserVC.m
 grep -R "kWAGRSurface\|WAGROverrideKey" -n src/Runtime src/Menu || true
+grep -R "WAGRKey\|WAGRIsOn" -n src || true
 ```
 
 Se o build falhar por `file not found`, `undeclared identifier` ou `implicit function declaration`, não é problema do Theos. É patch incompleto ou header/API removida sem atualizar os callers.
