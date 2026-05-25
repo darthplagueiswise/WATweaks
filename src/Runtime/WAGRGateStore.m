@@ -134,16 +134,13 @@ static NSArray<NSString *> *WAGRLegacyKeyPrefixes(void) {
 BOOL WAGRGateIsSet(NSString *key) {
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return NO;
-    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
-    return [WATIndex(ud) containsObject:ck] && [ud objectForKey:ck] != nil;
+    return [[NSUserDefaults standardUserDefaults] objectForKey:ck] != nil;
 }
 
 BOOL WAGRGateGet(NSString *key) {
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return NO;
-    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
-    if (![WATIndex(ud) containsObject:ck]) return NO;
-    id obj = [ud objectForKey:ck];
+    id obj = [[NSUserDefaults standardUserDefaults] objectForKey:ck];
     return obj ? [obj boolValue] : NO;
 }
 

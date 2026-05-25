@@ -62,12 +62,8 @@ extern NSString  *WAGRContextMenuPipelineProbeDiagnosticText(void);
 // already attached", so we never double-attach when -didMoveToWindow fires
 // repeatedly during the table's lifetime.
 static const char *kLP = "wagr.lp.ok";
-static const char *kWAGRGlobalDoubleTapKey = "wagr.global.doubletap.ok";
-
 static void (*orig_tableDidMoveToWindow)(id, SEL) = NULL;
-static void (*orig_windowDidMoveToWindow)(id, SEL) = NULL;
 static BOOL gTableHooked = NO;
-static BOOL gWindowHooked = NO;
 
 // Master gate: any of these prefs being ON is enough to unlock all the
 // "native developer menu" gating behavior throughout the tweak. The list is
@@ -142,29 +138,6 @@ static UIViewController *vcForView(UIView *v) {
     return nil;
 }
 
-static UIViewController *WAGRTopViewController(void) {
-    UIViewController *root = nil;
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if (![scene isKindOfClass:UIWindowScene.class]) continue;
-        for (UIWindow *win in ((UIWindowScene *)scene).windows) {
-            if (win.isKeyWindow && win.rootViewController) { root = win.rootViewController; break; }
-        }
-        if (root) break;
-    }
-    if (!root) root = UIApplication.sharedApplication.keyWindow.rootViewController;
-    UIViewController *p = root;
-    while (p.presentedViewController) p = p.presentedViewController;
-    if ([p isKindOfClass:UINavigationController.class]) {
-        UIViewController *top = ((UINavigationController *)p).visibleViewController ?: ((UINavigationController *)p).topViewController;
-        if (top) p = top;
-    } else if ([p isKindOfClass:UITabBarController.class]) {
-        UIViewController *sel = ((UITabBarController *)p).selectedViewController;
-        if ([sel isKindOfClass:UINavigationController.class]) sel = ((UINavigationController *)sel).visibleViewController ?: ((UINavigationController *)sel).topViewController;
-        if (sel) p = sel;
-    }
-    return p;
-}
-
 
 static UIViewController *WAGRSettingsVCForTable(UITableView *tv) {
     UIViewController *vc = vcForView(tv);
@@ -209,50 +182,6 @@ static UIViewController *WAGRSettingsVCForTable(UITableView *tv) {
 }
 @end
 
-// ── Global fallback activation ────────────────────────────────────────────────
-// Two-finger double tap on any WhatsApp window. This is intentionally attached
-// to UIWindow instead of swizzling UIViewController lifecycle methods, avoiding
-// the recursive launch crashes seen in older builds.
-@interface WAGRGlobalTap : NSObject
-+ (instancetype)shared;
-- (void)tap:(UITapGestureRecognizer *)g;
-@end
-
-@implementation WAGRGlobalTap
-+ (instancetype)shared {
-    static WAGRGlobalTap *s = nil;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{ s = [self new]; });
-    return s;
-}
-- (void)tap:(UITapGestureRecognizer *)g {
-    if (g.state != UIGestureRecognizerStateRecognized) return;
-    WAGRPresent(WAGRTopViewController() ?: vcForView(g.view));
-}
-@end
-
-static void attachGlobalOpenGestureToWindow(UIWindow *win) {
-    if (!win || [objc_getAssociatedObject(win, kWAGRGlobalDoubleTapKey) boolValue]) return;
-    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:[WAGRGlobalTap shared]
-                                                                          action:@selector(tap:)];
-    tap.numberOfTapsRequired = 2;
-    tap.numberOfTouchesRequired = 2;
-    tap.cancelsTouchesInView = NO;
-    tap.delaysTouchesBegan = NO;
-    tap.delaysTouchesEnded = NO;
-    objc_setAssociatedObject(win, kWAGRGlobalDoubleTapKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    [win addGestureRecognizer:tap];
-}
-
-static void attachGlobalOpenGestureToExistingWindows(void) {
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if (![scene isKindOfClass:UIWindowScene.class]) continue;
-        for (UIWindow *win in ((UIWindowScene *)scene).windows) attachGlobalOpenGestureToWindow(win);
-    }
-    UIWindow *key = UIApplication.sharedApplication.keyWindow;
-    if (key) attachGlobalOpenGestureToWindow(key);
-}
-
 // ── Long-press attachment ───────────────────────────────────────────────────
 // 0.65s press duration matches the iOS system "long press" feel. We set
 // cancelsTouchesInView to NO so normal taps on the cell still work.
@@ -291,22 +220,6 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
     }
 }
 
-static void hookWindowDidMoveToWindow(id self, SEL _cmd) {
-    if (orig_windowDidMoveToWindow) orig_windowDidMoveToWindow(self, _cmd);
-    if ([self isKindOfClass:UIWindow.class]) attachGlobalOpenGestureToWindow((UIWindow *)self);
-}
-
-static void installGlobalWindowTapHook(void) {
-    if (gWindowHooked) { attachGlobalOpenGestureToExistingWindows(); return; }
-    Class cls = UIWindow.class;
-    SEL sel = @selector(didMoveToWindow);
-    Method m = class_getInstanceMethod(cls, sel);
-    if (!m) { attachGlobalOpenGestureToExistingWindows(); return; }
-    MSHookMessageEx(cls, sel, (IMP)hookWindowDidMoveToWindow, (IMP *)&orig_windowDidMoveToWindow);
-    gWindowHooked = (orig_windowDidMoveToWindow != NULL);
-    attachGlobalOpenGestureToExistingWindows();
-}
-
 static void installLongPressTableHook(void) {
     if (gTableHooked) return;
 
@@ -327,7 +240,6 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
     // hooks are in place. Each ensure-call is idempotent so this is safe to
     // call multiple times (e.g. when the menu is opened).
     installLongPressTableHook();
-    installGlobalWindowTapHook();
     WAGRNativeDevMenuEnsureHooksInstalled();
     WAGRSettingsRowsNativeEnsureHooksInstalled();
 }
@@ -348,10 +260,9 @@ static void WAGRPresentSecretMenusFrom(UIViewController *host) {
 
 NSString *WAGRDebugMenuDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"nativeDebug=%@\ntableHook=%@\nwindowHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[ContextMenuPipeline]\n%@\n\n[GateHooks]\n%@",
+        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[ContextMenuPipeline]\n%@\n\n[GateHooks]\n%@",
         WAGRNativeDebugAllowed() ? @"ON" : @"OFF",
         gTableHooked ? @"YES" : @"NO",
-        gWindowHooked ? @"YES" : @"NO",
         WAGRNativeDevMenuDiagnosticText() ?: @"n/a",
         WAGRSettingsRowsNativeDiagnosticText() ?: @"n/a",
         WAGRContextMenuPipelineProbeDiagnosticText() ?: @"n/a",
@@ -366,12 +277,11 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 // picked up.
 static void startup(void) {
     @autoreleasepool {
-        // Watusi-style hot path: Tweak.x owns only global UI activation.
+        // Watusi-style hot path: Tweak.x owns only the table long-press fallback.
         // Hook owners install their fixed hook batches from their own constructors.
-        // No runtime probes, no prefs, no hook owner re-entry from here.
+        // No runtime probes, no prefs, no hook owner re-entry, no UIWindow hook here.
         installLongPressTableHook();
-        installGlobalWindowTapHook();
-    }
+        }
 }
 
 %ctor {
