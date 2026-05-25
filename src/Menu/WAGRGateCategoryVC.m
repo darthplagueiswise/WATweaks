@@ -108,21 +108,21 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
     c.detailTextLabel.numberOfLines = 0;
 
     UISwitch *sw = [UISwitch new];
-    BOOL isSet = WAGRGateIsSet(flag.selectorName);
-    sw.on = isSet && WAGRGateGet(flag.selectorName);
+    BOOL isSet = WAGRGateIsSet(WAGRGateCanonicalKey(flag.selectorName));
+    sw.on = isSet && WAGRGateGet(WAGRGateCanonicalKey(flag.selectorName));
     sw.onTintColor = isSet ? UIColor.systemGreenColor : UIColor.systemBlueColor;
     [sw addTarget:self action:@selector(featuredSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-    sw.accessibilityIdentifier = flag.selectorName;
+    sw.accessibilityIdentifier = WAGRGateCanonicalKey(flag.selectorName);
     c.accessoryView = sw;
 
     // Show a small badge when an override exists, so the user can distinguish
     // "explicitly OFF" from "no override yet".
     if (isSet) {
         UILabel *badge = [UILabel new];
-        badge.text = WAGRGateGet(flag.selectorName) ? @" override ON " : @" override OFF ";
+        badge.text = WAGRGateGet(WAGRGateCanonicalKey(flag.selectorName)) ? @" override ON " : @" override OFF ";
         badge.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
         badge.textColor = UIColor.whiteColor;
-        badge.backgroundColor = WAGRGateGet(flag.selectorName)
+        badge.backgroundColor = WAGRGateGet(WAGRGateCanonicalKey(flag.selectorName))
             ? [UIColor.systemGreenColor colorWithAlphaComponent:.85]
             : [UIColor.systemRedColor colorWithAlphaComponent:.85];
         badge.layer.cornerRadius = 4;
@@ -238,7 +238,7 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
             [a addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
                 NSUInteger n = 0;
                 for (WAGRGateFeaturedFlag *f in self.provider.featured) {
-                    if (WAGRGateIsSet(f.selectorName)) { WAGRGateClear(f.selectorName); n++; }
+                    if (WAGRGateIsSet(WAGRGateCanonicalKey(f.selectorName))) { WAGRGateClear(WAGRGateCanonicalKey(f.selectorName)); n++; }
                 }
                 UIAlertController *done = [UIAlertController alertControllerWithTitle:@"Reset"
                                                                               message:[NSString stringWithFormat:@"%lu overrides removidos.", (unsigned long)n]

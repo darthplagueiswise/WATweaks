@@ -98,8 +98,8 @@ static BOOL WAGRGateGenericBoolTrampoline(id self, SEL _cmd) {
 
     BOOL original = orig ? orig(self, _cmd) : NO;
 
-    if (WAGRGateIsSet(selName)) {
-        return WAGRGateGet(selName);
+    if (WAGRGateIsSet(WAGRGateCanonicalKey(selName))) {
+        return WAGRGateGet(WAGRGateCanonicalKey(selName));
     }
     return original;
 }
@@ -157,7 +157,7 @@ static BOOL WAGRBoolForKeyTrampoline(id self, SEL _cmd, NSString *key, BOOL defa
     BoolKeyIMP orig = v ? (BoolKeyIMP)[v pointerValue] : NULL;
     BOOL original = orig ? orig(self, _cmd, key, defaultVal) : defaultVal;
 
-    if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key);
+    if (key.length && WAGRGateIsSet(WAGRGateCanonicalKey(key))) return WAGRGateGet(WAGRGateCanonicalKey(key));
     return original;
 }
 
@@ -171,8 +171,8 @@ static id WAGRStringForKeyTrampoline(id self, SEL _cmd, NSString *key, id defaul
     // explicitly stored a boolean override for the same name and the
     // gate appears to be a YES/NO-shaped enum (returned values like
     // "enabled"/"disabled"). Numeric and unrelated string flags pass through.
-    if (key.length && WAGRGateIsSet(key)) {
-        return WAGRGateGet(key) ? @"enabled" : @"";
+    if (key.length && WAGRGateIsSet(WAGRGateCanonicalKey(key))) {
+        return WAGRGateGet(WAGRGateCanonicalKey(key)) ? @"enabled" : @"";
     }
     return original;
 }
@@ -272,7 +272,8 @@ static NSUInteger WAGRReinstallPersistedOverrideHooks(void) {
     // robustness we try the class hints from the registry first; anything
     // that doesn't match is left for the live browser to re-install on view.
     NSArray<WAGRGateProvider *> *providers = [WAGRGateRegistry allProviders];
-    for (NSString *sel in keys) {
+    for (NSString *storedKey in keys) {
+        NSString *sel = WAGRGateDisplayKey(storedKey);
         for (WAGRGateProvider *p in providers) {
             for (NSString *cname in p.concreteClassNames) {
                 if (WAGRGateInstallHookForSelector(cname, sel, NO)) { installed++; goto next; }
@@ -284,7 +285,7 @@ static NSUInteger WAGRReinstallPersistedOverrideHooks(void) {
     return installed;
 }
 
-extern "C" void WAGRGateHooksEnsureInstalled(void) {
+static void WAGRGateHooksInstallLightPhase(void) {
     WAGRGateStorageInit();
 
     // 1) boolForKey:/stringForKey: on WAAB classes — universal AB hook.
@@ -295,13 +296,19 @@ extern "C" void WAGRGateHooksEnsureInstalled(void) {
         WAGRInstallStringForKeyOnClass(cls);
     }
 
-    // 2) Curated per-selector bootstrap.
+    // 2) Curated early direct selectors.
     for (NSDictionary *h in WAGRBootstrapSelectorHooks()) {
         WAGRGateInstallHookForSelector(h[@"class"], h[@"sel"], [h[@"meta"] boolValue]);
     }
+}
 
-    // 3) Re-install hooks needed by persisted overrides.
-    WAGRReinstallPersistedOverrideHooks();
+static void WAGRGateHooksInstallPersistedPhaseOnce(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ WAGRReinstallPersistedOverrideHooks(); });
+}
+
+extern "C" void WAGRGateHooksEnsureInstalled(void) {
+    WAGRGateHooksInstallLightPhase();
 }
 
 // ── Diagnostic ───────────────────────────────────────────────────────────────
@@ -327,25 +334,22 @@ static void WAGRGateDyldCallback(const struct mach_header *mh, intptr_t vmaddr_s
     // dyld can fire on a non-main thread. Hop to main; hook installs through
     // MSHookMessageEx are intentionally serialized on the main thread for
     // crash-safety on the WhatsApp Swift bridges.
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRGateHooksEnsureInstalled(); });
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRGateHooksInstallLightPhase(); });
 }
 
 __attribute__((constructor))
 static void WAGRGateHooksConstructor(void) {
     @autoreleasepool {
-        // Wipe legacy storage exactly once.
         WAGRWipeLegacyStorageIfNeeded();
-
-        // First-pass install. Classes that aren't loaded yet are skipped
-        // here and picked up by the dyld callback / retries below.
-        WAGRGateHooksEnsureInstalled();
-
+        WAGRGateHooksInstallLightPhase();
         _dyld_register_func_for_add_image(WAGRGateDyldCallback);
 
-        const double delays[] = { 0.25, 0.75, 2.0 };
-        for (size_t i = 0; i < sizeof(delays)/sizeof(delays[0]); i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{ WAGRGateHooksEnsureInstalled(); });
-        }
+        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                          object:nil
+                                                           queue:[NSOperationQueue mainQueue]
+                                                      usingBlock:^(__unused NSNotification *note) {
+            WAGRGateHooksInstallLightPhase();
+            WAGRGateHooksInstallPersistedPhaseOnce();
+        }];
     }
 }

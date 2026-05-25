@@ -64,12 +64,12 @@ static void WAGRSecretApplyRuntimeOverride(NSDictionary *item, BOOL on) {
     BOOL isClassMethod = [item[@"classMethod"] boolValue];
 
     if (on) {
-        WAGRGateSet(selector, YES);
+        WAGRGateSet(WAGRGateCanonicalKey(selector), YES);
         if (className.length) {
             (void)WAGRGateInstallHookForSelector(className, selector, isClassMethod);
         }
     } else {
-        WAGRGateClear(selector);
+        WAGRGateClear(WAGRGateCanonicalKey(selector));
     }
 }
 
@@ -137,8 +137,8 @@ static NSString *WAGRSecretMeTabDiagnosticText(void) {
     NSMutableArray<NSString *> *lines = [NSMutableArray array];
     for (NSString *flag in WAGRSecretMeTabWAABFlags()) {
         NSString *state;
-        if (!WAGRGateIsSet(flag)) state = @"unset";
-        else state = WAGRGateGet(flag) ? @"ON" : @"OFF";
+        if (!WAGRGateIsSet(WAGRGateCanonicalKey(flag))) state = @"unset";
+        else state = WAGRGateGet(WAGRGateCanonicalKey(flag)) ? @"ON" : @"OFF";
         [lines addObject:[NSString stringWithFormat:@"%@=%@", flag, state]];
     }
 
@@ -147,7 +147,7 @@ static NSString *WAGRSecretMeTabDiagnosticText(void) {
     for (NSDictionary *item in WAGRSecretMeTabRuntimeOverrides()) {
         runtimeTotal++;
         NSString *sel = item[@"selector"];
-        if (WAGRGateIsSet(sel) && WAGRGateGet(sel)) runtimeOn++;
+        if (WAGRGateIsSet(WAGRGateCanonicalKey(sel)) && WAGRGateGet(WAGRGateCanonicalKey(sel))) runtimeOn++;
     }
     [lines addObject:[NSString stringWithFormat:@"runtimeOverrides=%lu/%lu",
                       (unsigned long)runtimeOn, (unsigned long)runtimeTotal]];
@@ -200,14 +200,14 @@ static BOOL WAGRMasterIsOn(NSDictionary *toggle) {
         if ([NSUserDefaults.standardUserDefaults boolForKey:k]) return YES;
     }
     for (NSString *flag in (NSArray *)toggle[@"waabOn"]) {
-        if (WAGRGateIsSet(flag) && WAGRGateGet(flag)) return YES;
+        if (WAGRGateIsSet(WAGRGateCanonicalKey(flag)) && WAGRGateGet(WAGRGateCanonicalKey(flag))) return YES;
     }
     for (NSString *flag in (NSArray *)toggle[@"waabOff"]) {
-        if (WAGRGateIsSet(flag) && !WAGRGateGet(flag)) return YES;
+        if (WAGRGateIsSet(WAGRGateCanonicalKey(flag)) && !WAGRGateGet(WAGRGateCanonicalKey(flag))) return YES;
     }
     for (NSDictionary *item in WAGRSecretRuntimeOverrides(toggle[@"runtimeOn"])) {
         NSString *sel = item[@"selector"];
-        if (WAGRGateIsSet(sel) && WAGRGateGet(sel)) return YES;
+        if (WAGRGateIsSet(WAGRGateCanonicalKey(sel)) && WAGRGateGet(WAGRGateCanonicalKey(sel))) return YES;
     }
     return NO;
 }
@@ -227,10 +227,10 @@ static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
     }
 
     for (NSString *flag in (NSArray *)toggle[@"waabOn"]) {
-        if (on) WAGRGateSet(flag, YES); else WAGRGateClear(flag);
+        if (on) WAGRGateSet(WAGRGateCanonicalKey(flag), YES); else WAGRGateClear(WAGRGateCanonicalKey(flag));
     }
     for (NSString *flag in (NSArray *)toggle[@"waabOff"]) {
-        if (on) WAGRGateSet(flag, NO); else WAGRGateClear(flag);
+        if (on) WAGRGateSet(WAGRGateCanonicalKey(flag), NO); else WAGRGateClear(WAGRGateCanonicalKey(flag));
     }
     for (NSDictionary *item in WAGRSecretRuntimeOverrides(toggle[@"runtimeOn"])) {
         WAGRSecretApplyRuntimeOverride(item, on);

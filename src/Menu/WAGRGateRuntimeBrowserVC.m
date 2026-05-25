@@ -230,8 +230,8 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
     c.textLabel.text = [NSString stringWithFormat:@"%@%@", r.isClassMethod ? @"+ " : @"- ", r.selectorName];
     c.textLabel.textColor = UIColor.labelColor;
-    BOOL isSet = WAGRGateIsSet(r.selectorName);
-    BOOL value = isSet && WAGRGateGet(r.selectorName);
+    BOOL isSet = WAGRGateIsSet(WAGRGateCanonicalKey(r.selectorName));
+    BOOL value = isSet && WAGRGateGet(WAGRGateCanonicalKey(r.selectorName));
     NSString *state;
     if (!isSet) state = @"sem override";
     else state = value ? @"override ON" : @"override OFF";
@@ -261,7 +261,7 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
 - (void)rowSwitchChanged:(UISwitch *)sw {
     WAGRRuntimeRow *r = objc_getAssociatedObject(sw, "wagrRow");
     if (!r) return;
-    WAGRGateSet(r.selectorName, sw.isOn);
+    WAGRGateSet(WAGRGateCanonicalKey(r.selectorName), sw.isOn);
     if (sw.isOn) {
         (void)WAGRGateInstallHookForSelector(r.className, r.selectorName, r.isClassMethod);
     }
@@ -280,7 +280,7 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
     a.popoverPresentationController.sourceView = cell;
     a.popoverPresentationController.sourceRect = cell.bounds;
     [a addAction:[UIAlertAction actionWithTitle:@"Limpar override" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
-        WAGRGateClear(r.selectorName);
+        WAGRGateClear(WAGRGateCanonicalKey(r.selectorName));
         [self.tableView reloadData];
     }]];
     [a addAction:[UIAlertAction actionWithTitle:@"Copiar selector" style:UIAlertActionStyleDefault handler:^(__unused id _) {
@@ -298,7 +298,7 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
         NSUInteger n = 0;
         for (WAGRRuntimeGroup *g in self.allGroups) {
             for (WAGRRuntimeRow *r in g.rows) {
-                if (WAGRGateIsSet(r.selectorName)) { WAGRGateClear(r.selectorName); n++; }
+                if (WAGRGateIsSet(WAGRGateCanonicalKey(r.selectorName))) { WAGRGateClear(WAGRGateCanonicalKey(r.selectorName)); n++; }
             }
         }
         UIAlertController *done = [UIAlertController alertControllerWithTitle:@"Reset"
