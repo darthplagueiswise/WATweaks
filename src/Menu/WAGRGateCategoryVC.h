@@ -10,14 +10,20 @@
 // WAGRGateInstallHookForSelector across the provider's concrete classes
 // until one succeeds, so the override actually takes effect even if the
 // constructor-time bootstrap didn't pick that selector up.
+//
+// Initializer policy
+// ──────────────────
+// We expose initWithProvider: as the preferred entry point. We deliberately
+// do NOT mark it NS_DESIGNATED_INITIALIZER, because doing so would force us
+// to override -initWithNibName:bundle: on every UITableViewController
+// subclass in the chain to satisfy -Wobjc-designated-initializers. The
+// VC is only ever instantiated by code (no nib, no storyboard), so the
+// extra ceremony provides no safety.
 // ─────────────────────────────────────────────────────────────────────────────
 #pragma once
 #import <UIKit/UIKit.h>
 #import "../Runtime/WAGRGateRegistry.h"
 
 @interface WAGRGateCategoryVC : UITableViewController
-- (instancetype)initWithProvider:(WAGRGateProvider *)provider NS_DESIGNATED_INITIALIZER;
-- (instancetype)initWithStyle:(UITableViewStyle)style NS_UNAVAILABLE;
-- (instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;
-- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithProvider:(WAGRGateProvider *)provider;
 @end
