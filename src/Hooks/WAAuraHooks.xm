@@ -1,16 +1,8 @@
-// WAAuraHooks.xm — Aura / WA Plus settings-row helpers
+// WAAuraHooks.xm — Aura / WA Plus gating helpers
 // ─────────────────────────────────────────────────────────────────────────────
-// Current architecture used here:
-//   1. WAABProperties owns the AB flags that decide whether Aura / WA Plus UI
-//      and Settings rows should be considered by the app.
-//   2. SharedModules contains the Swift WAAuraGating module. Runtime/FLEX
-//      confirms the important classes live there:
-//        _TtC12WAAuraGating20GatedBenefitProvider
-//        _TtC12WAAuraGating25GatedSubscriptionProvider
-//        WAAuraGating / WAAuraGating.AuraGating bridged ObjC surfaces
-//   3. Settings rows are owned exclusively by WAGRSettingsRowsNativeHooks.xm.
-//      This file must not hook WASettingsViewController. Keeping one owner
-//      avoids chained trampolines and contradictory row-present answers.
+// This file owns only Aura WAAB/runtime gating hooks. Public navigation helpers
+// and bulk activate/deactivate APIs are owned by WAGRAuraNavigationHooks.xm.
+// Keeping one C-symbol owner avoids duplicate-symbol link failures.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import <Foundation/Foundation.h>
@@ -21,11 +13,11 @@
 #import "../WAGramPrefix.h"
 
 extern "C" void WAGRWAABEnsureHooksInstalled(void);
+extern "C" BOOL WAGRAuraSimulationEnabled(void);
+extern "C" BOOL WAGROpenSubscriptionsNative(void);
 
-static NSString * const kWAGRAuraSimulationMaster = @"wagr_aura_simulation_enabled";
 static BOOL gAuraHooksInstalled = NO;
 
-// ── WAAB flags that actually surface Aura / Settings rows ────────────────────
 static NSArray<NSString *> *WAGRAuraPositiveFlags(void) {
     return @[
         @"aura_enabled",
@@ -82,23 +74,11 @@ static NSArray<NSString *> *WAGRAuraNegativeFlags(void) {
     ];
 }
 
-// Exposed as extern "C" so WAGRAccountEligibilityHooks.xm can read the
-// same canonical Aura-simulation flag — keeping a single source of truth
-// for "is Aura simulation on?" instead of duplicating the key lookup.
-extern "C" BOOL WAGRAuraSimulationEnabled(void) {
-    return [[NSUserDefaults standardUserDefaults] boolForKey:kWAGRAuraSimulationMaster];
-}
-
 static void WAGRSetWAABOverride(NSString *flag, NSString *value) {
     if (!flag.length) return;
     if (value.length) [[NSUserDefaults standardUserDefaults] setObject:value forKey:WAGRKey(flag)];
     else [[NSUserDefaults standardUserDefaults] removeObjectForKey:WAGRKey(flag)];
 }
-
-// ── Ownership note ───────────────────────────────────────────────────────────
-// WASettingsViewController / Subscriptions row hooks live in
-// WAGRSettingsRowsNativeHooks.xm. Aura only owns WAAB + WAAuraGating runtime
-// gates. Do not re-add objc_copyClassList selector fishing here.
 
 // ── WAAuraGating Swift/ObjC bridge hooks ─────────────────────────────────────
 typedef BOOL (*WAGRAuraBoolIMP)(id, SEL);
@@ -106,12 +86,9 @@ static NSMutableDictionary<NSString *, NSValue *> *gAuraGatingOrig = nil;
 
 static BOOL WAGRAuraSelectorIsNegative(NSString *sel) {
     NSString *lower = sel.lowercaseString ?: @"";
-
-    // Explicit negative runtime getters. A switch ON in our UI should make
-    // these return NO so the feature is unblocked.
     if ([lower containsString:@"killswitch_disabled"] ||
         [lower containsString:@"kill_switch_disabled"]) {
-        return NO; // these are positive gates: TRUE means the kill switch is disabled
+        return NO;
     }
 
     return [lower containsString:@"killswitch"] ||
@@ -203,9 +180,6 @@ static NSArray<NSString *> *WAGRAuraGatingSelectors(void) {
 }
 
 extern "C" void WAGRAuraGatingSwiftHooksInstall(void) {
-    // Constructor-safe path: no class_copyMethodList/objc_copyClassList and no
-    // NSUserDefaults writes. This mirrors Watusi's launch pattern: fixed class
-    // names + fixed selectors + hook install only.
     for (NSString *cls in WAGRAuraGatingClassCandidates()) {
         for (NSString *sel in WAGRAuraGatingSelectors()) {
             WAGRHookAuraBoolSelectorOnClass(cls, sel);
@@ -216,64 +190,9 @@ extern "C" void WAGRAuraGatingSwiftHooksInstall(void) {
 extern "C" void WAGRAuraEnsureHooksInstalled(void) {
     if (!gAuraHooksInstalled) {
         gAuraHooksInstalled = YES;
-        NSLog(@"[WATweaks][Aura] Aura fixed selector owner installed (WASettingsViewController hooks are owned by WAGRSettingsRowsNativeHooks)");
+        NSLog(@"[WATweaks][Aura] Aura fixed selector owner installed (navigation lives in WAGRAuraNavigationHooks)");
     }
     WAGRAuraGatingSwiftHooksInstall();
-}
-
-extern "C" void WAGRAuraActivateAllFlags(void) {
-    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
-    [ud setBool:YES forKey:kWAGRAuraSimulationMaster];
-    for (NSString *flag in WAGRAuraPositiveFlags()) WAGRSetWAABOverride(flag, @"on");
-    for (NSString *flag in WAGRAuraNegativeFlags()) WAGRSetWAABOverride(flag, @"off");
-    [ud synchronize];
-    WAGRWAABEnsureHooksInstalled();
-    WAGRAuraEnsureHooksInstalled();
-}
-
-extern "C" void WAGRAuraDeactivateAllFlags(void) {
-    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
-    [ud removeObjectForKey:kWAGRAuraSimulationMaster];
-    for (NSString *flag in WAGRAuraPositiveFlags()) WAGRSetWAABOverride(flag, nil);
-    for (NSString *flag in WAGRAuraNegativeFlags()) WAGRSetWAABOverride(flag, nil);
-    [ud synchronize];
-    WAGRWAABEnsureHooksInstalled();
-    WAGRAuraEnsureHooksInstalled();
-}
-
-// ── Safe navigation helpers ──────────────────────────────────────────────────
-// Do not instantiate Swift Aura VCs with plain init(). Use native Settings rows.
-extern "C" BOOL WAGROpenSubscriptionsNative(void) {
-    SEL sel = NSSelectorFromString(@"openSettingsAndSubscriptionManagementWithUserInfo:");
-    unsigned int n = 0;
-    Class *all = objc_copyClassList(&n);
-    if (!all) return NO;
-    for (unsigned int i = 0; i < n; i++) {
-        if (!class_getInstanceMethod(all[i], sel)) continue;
-        NSLog(@"[WATweaks][Aura] native subscription opener exists on %@", NSStringFromClass(all[i]));
-        free(all);
-        return YES;
-    }
-    free(all);
-    return NO;
-}
-
-extern "C" BOOL WAGRPushAuraThemesVC(UIViewController *from) {
-    (void)from;
-    NSLog(@"[WATweaks][Aura] Theme VC direct init disabled; open via Settings > Subscriptions / WA Plus.");
-    return NO;
-}
-
-extern "C" BOOL WAGRPushAuraIconsVC(UIViewController *from) {
-    (void)from;
-    NSLog(@"[WATweaks][Aura] Icons VC direct init disabled; open via Settings > Subscriptions / WA Plus.");
-    return NO;
-}
-
-extern "C" BOOL WAGRPushAuraRingtonesVC(UIViewController *from) {
-    (void)from;
-    NSLog(@"[WATweaks][Aura] Ringtones VC direct init disabled; open via Settings > Subscriptions / WA Plus.");
-    return NO;
 }
 
 extern "C" NSString *WAGRAuraDiagnostic(void) {
@@ -297,12 +216,6 @@ extern "C" NSString *WAGRAuraDiagnostic(void) {
 __attribute__((constructor))
 static void WAGRAuraCtor(void) {
     @autoreleasepool {
-        // Watusi pattern: synchronous install in constructor, no retry queue.
-        // SharedModules (which contains WAAuraGating) is loaded as a regular
-        // framework dependency of WhatsApp.app, so by the time this ctor runs
-        // the class is already in the ObjC runtime. Classes that aren't
-        // available yet (rare dynamic Swift bundles) are picked up on first
-        // menu open via WAGRAuraEnsureHooksInstalled.
         WAGRAuraEnsureHooksInstalled();
     }
 }
