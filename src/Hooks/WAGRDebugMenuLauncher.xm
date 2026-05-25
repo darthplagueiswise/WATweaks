@@ -35,6 +35,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRLog.h"
 
 
 // ── Real userContext cache ──────────────────────────────────────────────────
@@ -54,7 +55,7 @@ extern "C" void WAGRRememberUserContext(id ctx, NSString *source) {
     }
     gWAGRLastUserContext = ctx;
     gWAGRLastUserContextSource = [source copy] ?: @"unknown";
-    NSLog(@"[WATweaks][UserContext] cached %@ from %@", cls, gWAGRLastUserContextSource);
+    WAGRLogAppendF(@"[UserContext] cached %@ from %@", cls, gWAGRLastUserContextSource);
 }
 
 extern "C" id WAGRCurrentUserContext(void) {
@@ -381,8 +382,10 @@ static UIViewController *wagr_topPresenter(UIViewController *fromVC) {
 }
 
 extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError) {
+    WAGRLogAppend(@"[PrivateExp] launch requested");
     id ctx = WAGRCurrentUserContext() ?: wagr_findUserContextAnywhere();
     if (!ctx) {
+        WAGRLogAppend(@"[PrivateExp] failed: no real userContext cached/found");
         if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:51 userInfo:@{NSLocalizedDescriptionKey:@"PrivateExperimentation: não achei userContext real. Abra o Developer nativo primeiro e tente novamente."}];
         return NO;
     }
@@ -390,18 +393,22 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
     Class cls = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
     if (!cls) cls = NSClassFromString(@"WAPrivateExperimentation.PrivateExperimentationDebugViewController");
     if (!cls) {
+        WAGRLogAppend(@"[PrivateExp] failed: PrivateExperimentationDebugViewController class not loaded");
         if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:52 userInfo:@{NSLocalizedDescriptionKey:@"PrivateExperimentationDebugViewController não carregou."}];
         return NO;
     }
 
     SEL initSel = NSSelectorFromString(@"initWithUserContext:");
     if (![cls instancesRespondToSelector:initSel]) {
+        WAGRLogAppend(@"[PrivateExp] failed: VC does not respond to initWithUserContext:");
         if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:53 userInfo:@{NSLocalizedDescriptionKey:@"PrivateExperimentationDebugViewController não responde initWithUserContext:."}];
         return NO;
     }
 
+    WAGRLogAppendF(@"[PrivateExp] opening with ctx=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
     id vc = ((id (*)(id, SEL, id))objc_msgSend)([cls alloc], initSel, ctx);
     if (![vc isKindOfClass:UIViewController.class]) {
+        WAGRLogAppendF(@"[PrivateExp] failed: init returned %@", vc ? NSStringFromClass([vc class]) : @"nil");
         if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:54 userInfo:@{NSLocalizedDescriptionKey:@"initWithUserContext: não retornou UIViewController."}];
         return NO;
     }
@@ -414,6 +421,7 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
         wrap.modalPresentationStyle = UIModalPresentationFormSheet;
         [top presentViewController:wrap animated:YES completion:nil];
     }
+    WAGRLogAppendF(@"[PrivateExp] presented %@", NSStringFromClass([vc class]));
     return YES;
 }
 

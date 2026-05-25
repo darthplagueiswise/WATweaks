@@ -8,6 +8,7 @@
 #import "WAGRSurfaceListVC.h"
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRSecretMenusVC.h"
+#import "WAGRLogViewController.h"
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
@@ -143,6 +144,7 @@ typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
     WAGRAdvancedRowRawRuntime = 0,
     WAGRAdvancedRowInstallPersisted,
     WAGRAdvancedRowDiagnostics,
+    WAGRAdvancedRowLogs,
 };
 
 typedef NS_ENUM(NSInteger, WAGRSystemRow) {
@@ -179,7 +181,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         case WAGRRootSectionDevMenu: return 2;
         case WAGRRootSectionSecret: return 1;
         case WAGRRootSectionAbout: return 1;
-        case WAGRRootSectionAdvanced: return 3;
+        case WAGRRootSectionAdvanced: return 4;
         case WAGRRootSectionSystem: return 3;
     }
     return 0;
@@ -254,9 +256,9 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 }
 
 - (UITableViewCell *)advancedCellForRow:(NSInteger)row {
-    NSString *titles[] = { @"Runtime Browser Avançado", @"Instalar hooks salvos", @"Diagnóstico" };
-    NSString *subs[] = { @"WAABProperties, WAContextMain, WAAuraGating etc.", @"Reinstala overrides persistidos", @"Router, LiquidGlass, Dogfood, Keychain" };
-    NSString *icons[] = { @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass" };
+    NSString *titles[] = { @"Runtime Browser Avançado", @"Instalar hooks salvos", @"Diagnóstico", @"Logs WATweaks" };
+    NSString *subs[] = { @"WAABProperties, WAContextMain, WAAuraGating etc.", @"Reinstala overrides persistidos", @"Router, LiquidGlass, Dogfood, Keychain", @"UserContext, PrivateExperimentation e hooks nativos" };
+    NSString *icons[] = { @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass", @"list.bullet.rectangle" };
 
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
@@ -266,7 +268,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     c.detailTextLabel.textColor = WAGRSub();
     c.imageView.image = [[UIImage systemImageNamed:icons[row]] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.imageView.tintColor = WAGRText();
-    c.accessoryType = row == WAGRAdvancedRowRawRuntime ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
+    c.accessoryType = (row == WAGRAdvancedRowRawRuntime || row == WAGRAdvancedRowLogs) ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
     return c;
 }
 
@@ -384,8 +386,10 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         } else if (ip.row == WAGRAdvancedRowInstallPersisted) {
             NSUInteger n = WAGRReinstallPersistedHooks();
             WAGRAlert(@"Hooks", [NSString stringWithFormat:@"%lu hooks reinstalados.", (unsigned long)n]);
-        } else {
+        } else if (ip.row == WAGRAdvancedRowDiagnostics) {
             [self showDiagnostics];
+        } else if (ip.row == WAGRAdvancedRowLogs) {
+            [self.navigationController pushViewController:[WAGRLogViewController new] animated:YES];
         }
         return;
     }

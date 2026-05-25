@@ -11,6 +11,7 @@
 #import <objc/runtime.h>
 #import <substrate.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRLog.h"
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
 typedef BOOL (*BoolIMP)(id, SEL);
@@ -41,7 +42,10 @@ static BOOL WAGRGateForcedOn(NSString *selectorName) {
 // through DebugMenuProvider it passes the account/session-bound userContext.
 // Cache that object and reuse it for PrivateExperimentationDebugViewController.
 static id hookDebugVCInitWithUserContext(id self, SEL _cmd, id ctx) {
-    if (ctx) WAGRRememberUserContext(ctx, @"WADebugViewController initWithUserContext: arg");
+    if (ctx) {
+        WAGRLogAppendF(@"[DebugVC] initWithUserContext arg=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
+        WAGRRememberUserContext(ctx, @"WADebugViewController initWithUserContext: arg");
+    }
     id result = orig_debugVCInitWithUserContext ? orig_debugVCInitWithUserContext(self, _cmd, ctx) : self;
     if (ctx) WAGRRememberUserContext(ctx, @"WADebugViewController initWithUserContext: result");
     return result;
@@ -49,14 +53,34 @@ static id hookDebugVCInitWithUserContext(id self, SEL _cmd, id ctx) {
 
 static id hookDebugVCUserContext(id self, SEL _cmd) {
     id ctx = orig_debugVCUserContext ? orig_debugVCUserContext(self, _cmd) : nil;
-    if (ctx) WAGRRememberUserContext(ctx, @"WADebugViewController userContext getter");
+    if (ctx) {
+        WAGRLogAppendF(@"[DebugVC] userContext getter=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
+        WAGRRememberUserContext(ctx, @"WADebugViewController userContext getter");
+    }
     return ctx;
 }
 
 static id hookPrivateExpInitWithUserContext(id self, SEL _cmd, id ctx) {
     id realCtx = ctx ?: WAGRCurrentUserContext();
-    if (realCtx) WAGRRememberUserContext(realCtx, @"PrivateExperimentation initWithUserContext: arg/cache");
-    return orig_privateExpInitWithUserContext ? orig_privateExpInitWithUserContext(self, _cmd, realCtx) : self;
+    if (realCtx) {
+        WAGRLogAppendF(@"[PrivateExpVC] initWithUserContext arg/cache=%@ (%p)", NSStringFromClass([realCtx class]), (__bridge void *)realCtx);
+        WAGRRememberUserContext(realCtx, @"PrivateExperimentation initWithUserContext: arg/cache");
+    } else {
+        WAGRLogAppend(@"[PrivateExpVC] initWithUserContext received nil and cache is nil");
+    }
+
+    id instance = orig_privateExpInitWithUserContext ? orig_privateExpInitWithUserContext(self, _cmd, realCtx) : self;
+    if (instance) {
+        uintptr_t base = (uintptr_t)(__bridge void *)instance;
+        void *managerWord0 = NULL;
+        void *ctxWord = NULL;
+        @try {
+            managerWord0 = *(void **)(base + 0x8);
+            ctxWord = *(void **)(base + 0x30);
+        } @catch (__unused NSException *ex) {}
+        WAGRLogAppendF(@"[PrivateExpVC] initialized instance=%@ managerWord@0x8=%p userContext@0x30=%p", NSStringFromClass([instance class]), managerWord0, ctxWord);
+    }
+    return instance;
 }
 
 static void installUserContextCaptureHooks(void) {
@@ -172,9 +196,11 @@ static void installNativeDevMenuHooks(void) {
         if (gDevMenuHooked && gShortcutHooked) break;
     }
 
-    NSLog(@"[WATweaks][NativeDevMenu] install pass: allowed=%@ shortcut=%@",
+    WAGRLogAppendF(@"[NativeDevMenu] install pass: allowed=%@ shortcut=%@ debugVCHook=%@ privateExpHook=%@",
           gDevMenuHooked  ? @"YES" : @"NO",
-          gShortcutHooked ? @"YES" : @"NO");
+          gShortcutHooked ? @"YES" : @"NO",
+          gDebugVCHooked ? @"YES" : @"NO",
+          gPrivateExpVCHooked ? @"YES" : @"NO");
 }
 
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void) {
