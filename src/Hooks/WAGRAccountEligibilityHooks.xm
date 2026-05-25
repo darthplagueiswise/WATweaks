@@ -26,11 +26,13 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRGateStore.h"
 
-// The "is Aura simulation on?" predicate is owned by WAAuraHooks.xm. We
-// re-declare it here so we read the same source of truth instead of
-// duplicating the pref-key list.
+// The "is Aura simulation on?" predicate is owned by
+// WAGRAuraNavigationHooks.xm. We re-declare it here so we read the same
+// source of truth instead of duplicating the pref-key list.
 extern "C" BOOL WAGRAuraSimulationEnabled(void);
 
 typedef BOOL (*WAGREligBoolIMP)(id, SEL);
@@ -70,7 +72,10 @@ static NSArray<NSString *> *WAGRAccountEligibilityTargetSelectors(void) {
 // Selectors that are deliberately opt-in only — they unlock features that
 // can break account state if forced without the supporting flags.
 static BOOL WAGRAccountEligibilityIsOptIn(NSString *sel) {
-    return [sel isEqualToString:@"isEligibleForPayments"];
+    if ([sel isEqualToString:@"isEligibleForPayments"]) {
+        return !WAGRPref(@"wagr.settingsrows.force_payments");
+    }
+    return NO;
 }
 
 static BOOL hook_eligibilityBool(id self, SEL _cmd) {
@@ -84,17 +89,12 @@ static BOOL hook_eligibilityBool(id self, SEL _cmd) {
     BOOL original = orig ? orig(self, _cmd) : NO;
 
     // Two-tier policy:
-    //   1) If the user explicitly enabled the per-selector override via
-    //      the catalog, that wins. The catalog writes
-    //      `wagr.override|objc|<Class>|inst|<sel>` keys which we read here
-    //      directly so a single toggle in the UI takes effect immediately.
+    //   1) If the user explicitly stored a schema-v2 override for this
+    //      selector (key = selector name, value = NSNumber BOOL), it wins.
     //   2) Otherwise, if the Aura master pref is on AND this is not an
     //      opt-in-only selector, we force YES.
-    NSString *overrideKey = [NSString stringWithFormat:
-        @"wagr.override|objc|%@|inst|%@", NSStringFromClass([self class]), sel];
-    id overrideVal = [NSUserDefaults.standardUserDefaults objectForKey:overrideKey];
-    if (overrideVal != nil) {
-        return [overrideVal boolValue];
+    if (WAGRGateIsSet(sel)) {
+        return WAGRGateGet(sel);
     }
 
     if (WAGRAuraSimulationEnabled() && !WAGRAccountEligibilityIsOptIn(sel)) {
@@ -176,22 +176,20 @@ extern "C" NSString *WAGRAccountEligibilityDiagnostic(void) {
             WAGRAuraSimulationEnabled() ? @"YES" : @"NO"];
 }
 
+static void WAGRAccountEligibilityDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
+}
+
 __attribute__((constructor))
 static void WAGRAccountEligibilityCtor(void) {
     @autoreleasepool {
-        // Priority install: the eligibility gates need to be in place
-        // before the very first SettingsVC tries to query them.
         WAGRAccountEligibilityEnsureHooksInstalled();
-        // SharedModules is loaded shortly after main launch on most builds,
-        // but the staggered-retry pattern is a safety net for cold launches
-        // where class registration runs slightly later. The install is
-        // idempotent so repeated invocations cost only the class-lookup pass.
-        double delays[] = { 0.5, 1.5, 3.5, 6.0 };
+        _dyld_register_func_for_add_image(WAGRAccountEligibilityDyldCallback);
+        double delays[] = { 0.25, 0.75, 1.5 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                         (int64_t)(delays[i] * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(),
-                           ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
         }
     }
 }

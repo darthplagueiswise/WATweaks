@@ -28,17 +28,19 @@
 #import <objc/runtime.h>
 #import <substrate.h>
 #import "Menu/WAGRSurfaceListVC.h"
+#import "Menu/WAGRSecretMenusVC.h"
 #import "WAGramPrefix.h"
 
 // ── External entry points provided by dedicated hook files ──────────────────
-extern NSUInteger WAGRReinstallPersistedHooks(void);
 extern void       WAGRDogfoodEnsureHooksInstalled(void);
 extern void       WAGRLGPrefsDidChange(void);
-extern NSString  *WAGRHookRouterDiagnostic(void);
+extern void       WAGRGateHooksEnsureInstalled(void);
+extern void       WAGRAuraEnsureNavigationHooksInstalled(void);
 
 // Native developer menu surface — moved out of Tweak.x into a dedicated file.
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
+extern NSString  *WAGRGateHooksDiagnostic(void);
 
 // Native WhatsApp Settings rows — implemented in WASettingsViewController's
 // WATableSection/WATableRow pipeline.
@@ -52,15 +54,20 @@ extern void       WAGRSettingsRowsNativeInjectIfPossible(id settingsVC);
 // main image, so the bootstrap is delay-staggered like the WAAB observer.
 extern void       WAGRAccountEligibilityEnsureHooksInstalled(void);
 extern NSString  *WAGRAccountEligibilityDiagnostic(void);
+extern void       WAGRContextMenuPipelineProbeEnsureInstalled(void);
+extern NSString  *WAGRContextMenuPipelineProbeDiagnosticText(void);
 
 // ── Long-press setup ─────────────────────────────────────────────────────────
 // kLP is the associated-object key used to mark a UITableView as "long-press
 // already attached", so we never double-attach when -didMoveToWindow fires
 // repeatedly during the table's lifetime.
 static const char *kLP = "wagr.lp.ok";
+static const char *kWAGRGlobalDoubleTapKey = "wagr.global.doubletap.ok";
 
 static void (*orig_tableDidMoveToWindow)(id, SEL) = NULL;
+static void (*orig_windowDidMoveToWindow)(id, SEL) = NULL;
 static BOOL gTableHooked = NO;
+static BOOL gWindowHooked = NO;
 
 // Master gate: any of these prefs being ON is enough to unlock all the
 // "native developer menu" gating behavior throughout the tweak. The list is
@@ -135,6 +142,29 @@ static UIViewController *vcForView(UIView *v) {
     return nil;
 }
 
+static UIViewController *WAGRTopViewController(void) {
+    UIViewController *root = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (![scene isKindOfClass:UIWindowScene.class]) continue;
+        for (UIWindow *win in ((UIWindowScene *)scene).windows) {
+            if (win.isKeyWindow && win.rootViewController) { root = win.rootViewController; break; }
+        }
+        if (root) break;
+    }
+    if (!root) root = UIApplication.sharedApplication.keyWindow.rootViewController;
+    UIViewController *p = root;
+    while (p.presentedViewController) p = p.presentedViewController;
+    if ([p isKindOfClass:UINavigationController.class]) {
+        UIViewController *top = ((UINavigationController *)p).visibleViewController ?: ((UINavigationController *)p).topViewController;
+        if (top) p = top;
+    } else if ([p isKindOfClass:UITabBarController.class]) {
+        UIViewController *sel = ((UITabBarController *)p).selectedViewController;
+        if ([sel isKindOfClass:UINavigationController.class]) sel = ((UINavigationController *)sel).visibleViewController ?: ((UINavigationController *)sel).topViewController;
+        if (sel) p = sel;
+    }
+    return p;
+}
+
 
 static UIViewController *WAGRSettingsVCForTable(UITableView *tv) {
     UIViewController *vc = vcForView(tv);
@@ -179,6 +209,50 @@ static UIViewController *WAGRSettingsVCForTable(UITableView *tv) {
 }
 @end
 
+// ── Global fallback activation ────────────────────────────────────────────────
+// Two-finger double tap on any WhatsApp window. This is intentionally attached
+// to UIWindow instead of swizzling UIViewController lifecycle methods, avoiding
+// the recursive launch crashes seen in older builds.
+@interface WAGRGlobalTap : NSObject
++ (instancetype)shared;
+- (void)tap:(UITapGestureRecognizer *)g;
+@end
+
+@implementation WAGRGlobalTap
++ (instancetype)shared {
+    static WAGRGlobalTap *s = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ s = [self new]; });
+    return s;
+}
+- (void)tap:(UITapGestureRecognizer *)g {
+    if (g.state != UIGestureRecognizerStateRecognized) return;
+    WAGRPresent(WAGRTopViewController() ?: vcForView(g.view));
+}
+@end
+
+static void attachGlobalOpenGestureToWindow(UIWindow *win) {
+    if (!win || [objc_getAssociatedObject(win, kWAGRGlobalDoubleTapKey) boolValue]) return;
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:[WAGRGlobalTap shared]
+                                                                          action:@selector(tap:)];
+    tap.numberOfTapsRequired = 2;
+    tap.numberOfTouchesRequired = 2;
+    tap.cancelsTouchesInView = NO;
+    tap.delaysTouchesBegan = NO;
+    tap.delaysTouchesEnded = NO;
+    objc_setAssociatedObject(win, kWAGRGlobalDoubleTapKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [win addGestureRecognizer:tap];
+}
+
+static void attachGlobalOpenGestureToExistingWindows(void) {
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (![scene isKindOfClass:UIWindowScene.class]) continue;
+        for (UIWindow *win in ((UIWindowScene *)scene).windows) attachGlobalOpenGestureToWindow(win);
+    }
+    UIWindow *key = UIApplication.sharedApplication.keyWindow;
+    if (key) attachGlobalOpenGestureToWindow(key);
+}
+
 // ── Long-press attachment ───────────────────────────────────────────────────
 // 0.65s press duration matches the iOS system "long press" feel. We set
 // cancelsTouchesInView to NO so normal taps on the cell still work.
@@ -213,9 +287,26 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
         UIViewController *settingsVC = WAGRSettingsVCForTable(tv);
         if (settingsVC) {
             WAGRSettingsRowsNativeEnsureHooksInstalled();
+            WAGRContextMenuPipelineProbeEnsureInstalled();
             WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
         }
     }
+}
+
+static void hookWindowDidMoveToWindow(id self, SEL _cmd) {
+    if (orig_windowDidMoveToWindow) orig_windowDidMoveToWindow(self, _cmd);
+    if ([self isKindOfClass:UIWindow.class]) attachGlobalOpenGestureToWindow((UIWindow *)self);
+}
+
+static void installGlobalWindowTapHook(void) {
+    if (gWindowHooked) { attachGlobalOpenGestureToExistingWindows(); return; }
+    Class cls = UIWindow.class;
+    SEL sel = @selector(didMoveToWindow);
+    Method m = class_getInstanceMethod(cls, sel);
+    if (!m) { attachGlobalOpenGestureToExistingWindows(); return; }
+    MSHookMessageEx(cls, sel, (IMP)hookWindowDidMoveToWindow, (IMP *)&orig_windowDidMoveToWindow);
+    gWindowHooked = (orig_windowDidMoveToWindow != NULL);
+    attachGlobalOpenGestureToExistingWindows();
 }
 
 static void installLongPressTableHook(void) {
@@ -238,18 +329,36 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
     // hooks are in place. Each ensure-call is idempotent so this is safe to
     // call multiple times (e.g. when the menu is opened).
     installLongPressTableHook();
+    installGlobalWindowTapHook();
     WAGRNativeDevMenuEnsureHooksInstalled();
     WAGRSettingsRowsNativeEnsureHooksInstalled();
+    WAGRContextMenuPipelineProbeEnsureInstalled();
+}
+
+
+static void WAGRPresentSecretMenusFrom(UIViewController *host) {
+    if (!host) return;
+    WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.prefersGrabberVisible = YES;
+        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
+    }
+    [host presentViewController:nav animated:YES completion:nil];
 }
 
 NSString *WAGRDebugMenuDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[Router]\n%@",
+        @"nativeDebug=%@\ntableHook=%@\nwindowHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[ContextMenuPipeline]\n%@\n\n[GateHooks]\n%@",
         WAGRNativeDebugAllowed() ? @"ON" : @"OFF",
         gTableHooked ? @"YES" : @"NO",
+        gWindowHooked ? @"YES" : @"NO",
         WAGRNativeDevMenuDiagnosticText() ?: @"n/a",
         WAGRSettingsRowsNativeDiagnosticText() ?: @"n/a",
-        WAGRHookRouterDiagnostic() ?: @"n/a"];
+        WAGRContextMenuPipelineProbeDiagnosticText() ?: @"n/a",
+        WAGRGateHooksDiagnostic() ?: @"n/a"];
 }
 
 // ── Startup ──────────────────────────────────────────────────────────────────
@@ -262,21 +371,26 @@ static void startup(void) {
     @autoreleasepool {
         WAGRLGPrefsDidChange();
         installLongPressTableHook();
+        installGlobalWindowTapHook();
+
+        // Install idempotent runtime owners early. The gate hooks file owns
+        // its own constructor with dyld + staged retries, but we also nudge
+        // it here so any persisted override is honored on the very first
+        // Settings build of this launch.
+        WAGRGateHooksEnsureInstalled();
+        WAGRAuraEnsureNavigationHooksInstalled();
         WAGRNativeDevMenuEnsureHooksInstalled();
-        // WAAccountEligibility hooks own the real Subscriptions/Aura row
-        // visibility gate. Install at startup AND on the deferred pass so
-        // SharedModules is guaranteed to be in-process by the second call.
+        WAGRSettingsRowsNativeEnsureHooksInstalled();
         WAGRAccountEligibilityEnsureHooksInstalled();
 
-        if (WAGRPref(@"wagr.startupHooksEnabled")) {
-            WAGRReinstallPersistedHooks();
-        }
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
+            WAGRGateHooksEnsureInstalled();
+            WAGRAuraEnsureNavigationHooksInstalled();
             WAGRNativeDevMenuEnsureHooksInstalled();
+            WAGRSettingsRowsNativeEnsureHooksInstalled();
             WAGRAccountEligibilityEnsureHooksInstalled();
-            if (WAGRPref(@"wagr.startupHooksEnabled")) WAGRReinstallPersistedHooks();
+            WAGRLGPrefsDidChange();
             if (WAGRNativeDebugAllowed()) WAGRDogfoodEnsureHooksInstalled();
         });
     }

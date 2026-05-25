@@ -1,0 +1,5350 @@
+{
+  "target": "WABiz",
+  "schema_version": 1,
+  "generated_from": [
+    {
+      "file": "SharedModules(11)",
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8"
+    },
+    {
+      "file": "WhatsApp(7)",
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed"
+    }
+  ],
+  "validation": "static strings + Swift demangle + known ObjC runtime naming; runtime scanner still validates method signatures before hook install",
+  "class_filters": [
+    "WABiz",
+    "BizManager",
+    "BizProfile",
+    "BizRole",
+    "BizSearch",
+    "Business",
+    "SMB",
+    "Catalog",
+    "Merchant",
+    "Commerce"
+  ],
+  "classes_total": 3138,
+  "selectors_total": 2052,
+  "classes": [
+    {
+      "name": "WABiz",
+      "raw": "WABiz",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizBot",
+      "raw": "WABiz.BizBot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizBotCommand",
+      "raw": "WABiz.BizBotCommand",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizBotCommands",
+      "raw": "WABiz.BizBotCommands",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizBotPrompt",
+      "raw": "WABiz.BizBotPrompt",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizCallHoursData",
+      "raw": "WABiz.BizCallHoursData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizConversionInfo",
+      "raw": "WABiz.BizConversionInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizEntryPointInfo",
+      "raw": "WABiz.BizEntryPointInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizHours",
+      "raw": "WABiz.BizHours",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizHoursConfig",
+      "raw": "WABiz.BizHoursConfig",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizOffering",
+      "raw": "WABiz.BizOffering",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizOfferingCategory",
+      "raw": "WABiz.BizOfferingCategory",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizPriceTier",
+      "raw": "WABiz.BizPriceTier",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizProfile",
+      "raw": "WABiz.BizProfile",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizProfileBizSearchIssue",
+      "raw": "WABiz.BizProfileBizSearchIssue",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizProfileOptions",
+      "raw": "WABiz.BizProfileOptions",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizProfileServerConfigs",
+      "raw": "WABiz.BizProfileServerConfigs",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizProfileSettings",
+      "raw": "WABiz.BizProfileSettings",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizProfileVersion",
+      "raw": "WABiz.BizProfileVersion",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizRole",
+      "raw": "WABiz.BizRole",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizRoleContext",
+      "raw": "WABiz.BizRoleContext",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizSearchServerConfigs",
+      "raw": "WABiz.BizSearchServerConfigs",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizStorage",
+      "raw": "WABiz.BizStorage",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizVerifiedNameInfo",
+      "raw": "WABiz.BizVerifiedNameInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BizVertical",
+      "raw": "WABiz.BizVertical",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BloksWidgetData",
+      "raw": "WABiz.BloksWidgetData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BusinessCategory",
+      "raw": "WABiz.BusinessCategory",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.BusinessStructuredAddress",
+      "raw": "WABiz.BusinessStructuredAddress",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.CatalogParams",
+      "raw": "WABiz.CatalogParams",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ChatGatingProvider",
+      "raw": "WABiz.ChatGatingProvider",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.CoexSystemMessageLogger",
+      "raw": "WABiz.CoexSystemMessageLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.EntryPointConversionProvider",
+      "raw": "WABiz.EntryPointConversionProvider",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.FlowResponseMessageInfo",
+      "raw": "WABiz.FlowResponseMessageInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.FlowsMessageLoggingContext",
+      "raw": "WABiz.FlowsMessageLoggingContext",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.InteractiveMMVideoPlayWamEventLogger",
+      "raw": "WABiz.InteractiveMMVideoPlayWamEventLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.PaymentLinkLogger",
+      "raw": "WABiz.PaymentLinkLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductComplianceInfo",
+      "raw": "WABiz.ProductComplianceInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductDescriptor",
+      "raw": "WABiz.ProductDescriptor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductImageEnsemble",
+      "raw": "WABiz.ProductImageEnsemble",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductImporterAddress",
+      "raw": "WABiz.ProductImporterAddress",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductImporterDetails",
+      "raw": "WABiz.ProductImporterDetails",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductReviewStatus",
+      "raw": "WABiz.ProductReviewStatus",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductVideo",
+      "raw": "WABiz.ProductVideo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.ProductVideoEnsemble",
+      "raw": "WABiz.ProductVideoEnsemble",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.SalePrice",
+      "raw": "WABiz.SalePrice",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.TOS2016Manager",
+      "raw": "WABiz.TOS2016Manager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.TOSFetchStateRequest",
+      "raw": "WABiz.TOSFetchStateRequest",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.TOSManager",
+      "raw": "WABiz.TOSManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.TOSSendClientTosAcceptanceState",
+      "raw": "WABiz.TOSSendClientTosAcceptanceState",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.VerifiedBusinessInfo",
+      "raw": "WABiz.VerifiedBusinessInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.WABizCallIcons",
+      "raw": "WABiz.WABizCallIcons",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.XMPPBusiness",
+      "raw": "WABiz.XMPPBusiness",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz.XMPPBusinessProfile",
+      "raw": "WABiz.XMPPBusinessProfile",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz1",
+      "raw": "WABiz1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz10",
+      "raw": "WABiz10",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz11",
+      "raw": "WABiz11",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz12",
+      "raw": "WABiz12",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz13",
+      "raw": "WABiz13",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz14",
+      "raw": "WABiz14",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz15",
+      "raw": "WABiz15",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz16",
+      "raw": "WABiz16",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz17",
+      "raw": "WABiz17",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz18",
+      "raw": "WABiz18",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz19",
+      "raw": "WABiz19",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz2",
+      "raw": "WABiz2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz20",
+      "raw": "WABiz20",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz21",
+      "raw": "WABiz21",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz22",
+      "raw": "WABiz22",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz23",
+      "raw": "WABiz23",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz24",
+      "raw": "WABiz24",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz25",
+      "raw": "WABiz25",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz26",
+      "raw": "WABiz26",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz3",
+      "raw": "WABiz3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz4",
+      "raw": "WABiz4",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz5",
+      "raw": "WABiz5",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz6",
+      "raw": "WABiz6",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz7",
+      "raw": "WABiz7",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz8",
+      "raw": "WABiz8",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABiz9",
+      "raw": "WABiz9",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizAIAgentDeviceHandling",
+      "raw": "WABizAIAgentDeviceHandling",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizAIAgentDeviceHandlingSocketProtocol",
+      "raw": "WABizAIAgentDeviceHandlingSocketProtocol",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizAIHubConstants",
+      "raw": "WABizAIHubConstants",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizAddressData",
+      "raw": "WABizAddressData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBot",
+      "raw": "WABizBot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotCommand",
+      "raw": "WABizBotCommand",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotCommandData",
+      "raw": "WABizBotCommandData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotCommands",
+      "raw": "WABizBotCommands",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotConsumerLogger",
+      "raw": "WABizBotConsumerLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotConsumerLogging",
+      "raw": "WABizBotConsumerLogging",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotData",
+      "raw": "WABizBotData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotHelper",
+      "raw": "WABizBotHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotPrompt",
+      "raw": "WABizBotPrompt",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizBotPromptData",
+      "raw": "WABizBotPromptData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizCallIcons",
+      "raw": "WABizCallIcons",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizCatalogProductStamp",
+      "raw": "WABizCatalogProductStamp",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizCategoryData",
+      "raw": "WABizCategoryData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizConversionInfo",
+      "raw": "WABizConversionInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizConversionInfoData",
+      "raw": "WABizConversionInfoData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizCoverPhotoData",
+      "raw": "WABizCoverPhotoData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizDirectConnectionData",
+      "raw": "WABizDirectConnectionData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizDirectConnectionEndpointVersionData",
+      "raw": "WABizDirectConnectionEndpointVersionData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizDirectConnectionFeatureData",
+      "raw": "WABizDirectConnectionFeatureData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizEntryPointInfo",
+      "raw": "WABizEntryPointInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizEntryPointInfoData",
+      "raw": "WABizEntryPointInfoData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizHours",
+      "raw": "WABizHours",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizHoursConfig",
+      "raw": "WABizHoursConfig",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizLookupProvider",
+      "raw": "WABizLookupProvider",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizManager",
+      "raw": "WABizManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizManagerNotificationKeys",
+      "raw": "WABizManagerNotificationKeys",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizManagerProfileDidUpdate",
+      "raw": "WABizManagerProfileDidUpdate",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizManagerVerifiedNameDidUpdate",
+      "raw": "WABizManagerVerifiedNameDidUpdate",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizNameAnnouncing",
+      "raw": "WABizNameAnnouncing",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizObjCABProps",
+      "raw": "WABizObjCABProps",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizOffering",
+      "raw": "WABizOffering",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizOfferingCategory",
+      "raw": "WABizOfferingCategory",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizOfferingCategoryData",
+      "raw": "WABizOfferingCategoryData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizOfferingData",
+      "raw": "WABizOfferingData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizOptOutInfo",
+      "raw": "WABizOptOutInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizPreferences",
+      "raw": "WABizPreferences",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizPriceTier",
+      "raw": "WABizPriceTier",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizPriceTierData",
+      "raw": "WABizPriceTierData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfile",
+      "raw": "WABizProfile",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileAutomatedGreetingMessageData",
+      "raw": "WABizProfileAutomatedGreetingMessageData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileBizSearchIssue",
+      "raw": "WABizProfileBizSearchIssue",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileData",
+      "raw": "WABizProfileData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileHelper",
+      "raw": "WABizProfileHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileOptions",
+      "raw": "WABizProfileOptions",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileOptionsData",
+      "raw": "WABizProfileOptionsData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileServerConfigs",
+      "raw": "WABizProfileServerConfigs",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileServerConfigsDidUpdate",
+      "raw": "WABizProfileServerConfigsDidUpdate",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileSettings",
+      "raw": "WABizProfileSettings",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizProfileVersion",
+      "raw": "WABizProfileVersion",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizQualityNotificationLogger",
+      "raw": "WABizQualityNotificationLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizRole",
+      "raw": "WABizRole",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizRoleContext",
+      "raw": "WABizRoleContext",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizRoleData",
+      "raw": "WABizRoleData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizSearchServerConfigs",
+      "raw": "WABizSearchServerConfigs",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizServiceAreaData",
+      "raw": "WABizServiceAreaData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizVNameLogger",
+      "raw": "WABizVNameLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizVNameLoggerHelper",
+      "raw": "WABizVNameLoggerHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizValueTransformer",
+      "raw": "WABizValueTransformer",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizVerificationLevelHelper",
+      "raw": "WABizVerificationLevelHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizVerifiedNameData",
+      "raw": "WABizVerifiedNameData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizVerifiedNameInfo",
+      "raw": "WABizVerifiedNameInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizVertical",
+      "raw": "WABizVertical",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessBackoffUntilDate",
+      "raw": "WABusinessBackoffUntilDate",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessCategory",
+      "raw": "WABusinessCategory",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessIntegrity",
+      "raw": "WABusinessIntegrity",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessIntegrity.BusinessIntegritySignalsManager",
+      "raw": "WABusinessIntegrity.BusinessIntegritySignalsManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessIntegrityObjCABProps",
+      "raw": "WABusinessIntegrityObjCABProps",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessIntegritySignalsManager",
+      "raw": "WABusinessIntegritySignalsManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessNameLinkSliceModel",
+      "raw": "WABusinessNameLinkSliceModel",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessNextFullSyncDate",
+      "raw": "WABusinessNextFullSyncDate",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABusinessStructuredAddress",
+      "raw": "WABusinessStructuredAddress",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor.__businessMessageTextColor_Catalyst",
+      "raw": "WAColor.__businessMessageTextColor_Catalyst",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor.__businessMessageTextColor_iOS",
+      "raw": "WAColor.__businessMessageTextColor_iOS",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._blueRoundedButtonBackgroundColor_SMB",
+      "raw": "WAColor._blueRoundedButtonBackgroundColor_SMB",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._blueRoundedButtonBackgroundDarkColor_SMB",
+      "raw": "WAColor._blueRoundedButtonBackgroundDarkColor_SMB",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._blueRoundedButtonBackgroundLightColor_SMB",
+      "raw": "WAColor._blueRoundedButtonBackgroundLightColor_SMB",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._businessCategoryPillBackgroundColor",
+      "raw": "WAColor._businessCategoryPillBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._businessUpsellBackgroundColor",
+      "raw": "WAColor._businessUpsellBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._businessUpsellBannerBackgroundColor",
+      "raw": "WAColor._businessUpsellBannerBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._businessUpsellBannerIconBackgroundColor",
+      "raw": "WAColor._businessUpsellBannerIconBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._businessUpsellBannerIconColor",
+      "raw": "WAColor._businessUpsellBannerIconColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._businessUpsellBorderColor",
+      "raw": "WAColor._businessUpsellBorderColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogCartRecipientTextColor",
+      "raw": "WAColor._catalogCartRecipientTextColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogCollectionStatusRejectedBackgroundColor",
+      "raw": "WAColor._catalogCollectionStatusRejectedBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogCollectionStatusRejectedIconColor",
+      "raw": "WAColor._catalogCollectionStatusRejectedIconColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogCollectionStatusRejectedTextColor",
+      "raw": "WAColor._catalogCollectionStatusRejectedTextColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogCollectionStatusReviewBackgroundColor",
+      "raw": "WAColor._catalogCollectionStatusReviewBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogCollectionStatusReviewIconColor",
+      "raw": "WAColor._catalogCollectionStatusReviewIconColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogCollectionStatusReviewTextColor",
+      "raw": "WAColor._catalogCollectionStatusReviewTextColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._catalogSecondaryGrayIconTintColor",
+      "raw": "WAColor._catalogSecondaryGrayIconTintColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._ctwaBannerInfoBackgroundColor_SMB",
+      "raw": "WAColor._ctwaBannerInfoBackgroundColor_SMB",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._ctwaBannerWarningBackgroundColor_SMB",
+      "raw": "WAColor._ctwaBannerWarningBackgroundColor_SMB",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryBrowseBusinessesController_1",
+      "raw": "WAColor._custom_BusinessDirectoryBrowseBusinessesController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryBrowseBusinessesController_2",
+      "raw": "WAColor._custom_BusinessDirectoryBrowseBusinessesController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryBrowseBusinessesController_3",
+      "raw": "WAColor._custom_BusinessDirectoryBrowseBusinessesController_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryBrowseCategoriesController_1",
+      "raw": "WAColor._custom_BusinessDirectoryBrowseCategoriesController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryLocationAuthorizationCell_1",
+      "raw": "WAColor._custom_BusinessDirectoryLocationAuthorizationCell_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryProfileCell_1",
+      "raw": "WAColor._custom_BusinessDirectoryProfileCell_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryProfileCell_2",
+      "raw": "WAColor._custom_BusinessDirectoryProfileCell_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryProfileCell_3",
+      "raw": "WAColor._custom_BusinessDirectoryProfileCell_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryProfileCollectionCell_1",
+      "raw": "WAColor._custom_BusinessDirectoryProfileCollectionCell_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectoryRootCategoriesController_1",
+      "raw": "WAColor._custom_BusinessDirectoryRootCategoriesController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectorySMBEditCategoriesController_1",
+      "raw": "WAColor._custom_BusinessDirectorySMBEditCategoriesController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectorySMBEditCategoriesController_2",
+      "raw": "WAColor._custom_BusinessDirectorySMBEditCategoriesController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectorySMBEditCategoriesController_3",
+      "raw": "WAColor._custom_BusinessDirectorySMBEditCategoriesController_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectorySMBHomeStatusController_1",
+      "raw": "WAColor._custom_BusinessDirectorySMBHomeStatusController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectorySMBPerformanceController_1",
+      "raw": "WAColor._custom_BusinessDirectorySMBPerformanceController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessDirectorySMBPerformanceController_2",
+      "raw": "WAColor._custom_BusinessDirectorySMBPerformanceController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_BusinessProfileSearchEnabledTableViewController_1",
+      "raw": "WAColor._custom_BusinessProfileSearchEnabledTableViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_CatalogCart_1",
+      "raw": "WAColor._custom_CatalogCart_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_CatalogCells_1",
+      "raw": "WAColor._custom_CatalogCells_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_CatalogCells_2",
+      "raw": "WAColor._custom_CatalogCells_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_CatalogHeaderViewController_1",
+      "raw": "WAColor._custom_CatalogHeaderViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_CatalogUIComponents_1",
+      "raw": "WAColor._custom_CatalogUIComponents_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_EditBusinessCategoryViewController_1",
+      "raw": "WAColor._custom_EditBusinessCategoryViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_EditBusinessProfileMappedLocationViewController_1",
+      "raw": "WAColor._custom_EditBusinessProfileMappedLocationViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_OrdersHubPaymentBRMerchantAccountViewModel_1",
+      "raw": "WAColor._custom_OrdersHubPaymentBRMerchantAccountViewModel_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_OrdersHubPaymentBRMerchantAccountViewModel_2",
+      "raw": "WAColor._custom_OrdersHubPaymentBRMerchantAccountViewModel_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_PaymentMerchantBannerAccountActive_1",
+      "raw": "WAColor._custom_PaymentMerchantBannerAccountActive_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_PaymentMerchantHubViewControllerSections_1",
+      "raw": "WAColor._custom_PaymentMerchantHubViewControllerSections_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBAPIConnectionChatExportProgressViewController_1",
+      "raw": "WAColor._custom_SMBAPIConnectionChatExportProgressViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBAPIConnectionChatExportProgressViewController_2",
+      "raw": "WAColor._custom_SMBAPIConnectionChatExportProgressViewController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBAPIConnectionChatExportProgressViewController_3",
+      "raw": "WAColor._custom_SMBAPIConnectionChatExportProgressViewController_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBAPIConnectionEducationViewController_1",
+      "raw": "WAColor._custom_SMBAPIConnectionEducationViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBAPIConnectionEducationViewController_2",
+      "raw": "WAColor._custom_SMBAPIConnectionEducationViewController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBBusinessToolsViewController_1",
+      "raw": "WAColor._custom_SMBBusinessToolsViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBBusinessToolsViewController_2",
+      "raw": "WAColor._custom_SMBBusinessToolsViewController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBCTWAUpsellBottomSheet_1",
+      "raw": "WAColor._custom_SMBCTWAUpsellBottomSheet_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBCatalogEditViewController_1",
+      "raw": "WAColor._custom_SMBCatalogEditViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBCatalogEditViewController_2",
+      "raw": "WAColor._custom_SMBCatalogEditViewController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBCatalogViewController_1",
+      "raw": "WAColor._custom_SMBCatalogViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBColor_1",
+      "raw": "WAColor._custom_SMBColor_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBEnforcementInterstitialViewController_1",
+      "raw": "WAColor._custom_SMBEnforcementInterstitialViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBEnforcementWarningBannerViewModel_1",
+      "raw": "WAColor._custom_SMBEnforcementWarningBannerViewModel_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBLinkedAccountsTableViewController_1",
+      "raw": "WAColor._custom_SMBLinkedAccountsTableViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBMarketingMessagesTextView_1",
+      "raw": "WAColor._custom_SMBMarketingMessagesTextView_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBMarketingMessagesViewController_1",
+      "raw": "WAColor._custom_SMBMarketingMessagesViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBMarketingMessagesViewController_2",
+      "raw": "WAColor._custom_SMBMarketingMessagesViewController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBMessagingGuideHeaderCell_1",
+      "raw": "WAColor._custom_SMBMessagingGuideHeaderCell_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_1",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_2",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_3",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_4",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_4",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_5",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_5",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_6",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_6",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_7",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_7",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_8",
+      "raw": "WAColor._custom_SMBQuickReplyAttachmentThumbnailView_8",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBRegisterCustomURLViewController_1",
+      "raw": "WAColor._custom_SMBRegisterCustomURLViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBRegisterCustomURLViewController_2",
+      "raw": "WAColor._custom_SMBRegisterCustomURLViewController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBRegisterCustomURLViewController_3",
+      "raw": "WAColor._custom_SMBRegisterCustomURLViewController_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBShortLinkAboutTableViewHeader_1",
+      "raw": "WAColor._custom_SMBShortLinkAboutTableViewHeader_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WASMBChatAssignmentViewController_1",
+      "raw": "WAColor._custom_WASMBChatAssignmentViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WASMBLinkedAccountViewController_1",
+      "raw": "WAColor._custom_WASMBLinkedAccountViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WASMBSettingsViewController_1",
+      "raw": "WAColor._custom_WASMBSettingsViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._productCatalogGrayTextColor",
+      "raw": "WAColor._productCatalogGrayTextColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._tintColorActual_SMB",
+      "raw": "WAColor._tintColorActual_SMB",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._userNoticeSMBTableViewCellBackgroundColor",
+      "raw": "WAColor._userNoticeSMBTableViewCellBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor.bizProfileCoverPhotoBackgroundColor",
+      "raw": "WAColor.bizProfileCoverPhotoBackgroundColor",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContacts.ConsumerBizSearchLogger",
+      "raw": "WAContacts.ConsumerBizSearchLogger",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WACtwaBizDataStore",
+      "raw": "WACtwaBizDataStore",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMMSMediaProductCatalogUploadOperation",
+      "raw": "WAMMSMediaProductCatalogUploadOperation",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_AutoOrganizeBusinessChatSetting",
+      "raw": "WAPBAppStateSyncActionValue_AutoOrganizeBusinessChatSetting",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_BusinessBroadcastAssociationAction",
+      "raw": "WAPBAppStateSyncActionValue_BusinessBroadcastAssociationAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_BusinessBroadcastCampaignAction",
+      "raw": "WAPBAppStateSyncActionValue_BusinessBroadcastCampaignAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_BusinessBroadcastCampaignStatus",
+      "raw": "WAPBAppStateSyncActionValue_BusinessBroadcastCampaignStatus",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_BusinessBroadcastInsightsAction",
+      "raw": "WAPBAppStateSyncActionValue_BusinessBroadcastInsightsAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_BusinessBroadcastListAction",
+      "raw": "WAPBAppStateSyncActionValue_BusinessBroadcastListAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_MerchantPaymentPartnerAction",
+      "raw": "WAPBAppStateSyncActionValue_MerchantPaymentPartnerAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_MerchantPaymentPartnerAction_Status",
+      "raw": "WAPBAppStateSyncActionValue_MerchantPaymentPartnerAction_Status",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBizProfileLinkedAccounts",
+      "raw": "WAPBBizProfileLinkedAccounts",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBizProfileLinkedAccounts_Facebook",
+      "raw": "WAPBBizProfileLinkedAccounts_Facebook",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBizProfileLinkedAccounts_Instagram",
+      "raw": "WAPBBizProfileLinkedAccounts_Instagram",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBizProfileRoot",
+      "raw": "WAPBBizProfileRoot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBizRole",
+      "raw": "WAPBBizRole",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBizRoleRoot",
+      "raw": "WAPBBizRoleRoot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBusinessConversation",
+      "raw": "WAPBBusinessConversation",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBusinessConversationMessageEvent",
+      "raw": "WAPBBusinessConversationMessageEvent",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBusinessThreadConversationSketchEvent",
+      "raw": "WAPBBusinessThreadConversationSketchEvent",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBBusinessThreadConversationSketchEvents",
+      "raw": "WAPBBusinessThreadConversationSketchEvents",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBChatCommerceCountEvent",
+      "raw": "WAPBChatCommerceCountEvent",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBChatCommerceCountEventRoot",
+      "raw": "WAPBChatCommerceCountEventRoot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBChatCommerceCountEvent_BizCatalogType",
+      "raw": "WAPBChatCommerceCountEvent_BizCatalogType",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBChatMessageCountEvent_BusinessType",
+      "raw": "WAPBChatMessageCountEvent_BusinessType",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBChatSMBEngagementCountEvent",
+      "raw": "WAPBChatSMBEngagementCountEvent",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBChatSmbEngagementCountEventRoot",
+      "raw": "WAPBChatSmbEngagementCountEventRoot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBContextInfo_BusinessMessageForwardInfo",
+      "raw": "WAPBContextInfo_BusinessMessageForwardInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBDeviceCapabilities_BusinessBroadcast",
+      "raw": "WAPBDeviceCapabilities_BusinessBroadcast",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBHighlyStructuredMessagePack_HighlyStructuredMessageTranslation_HighlyStructuredMessageButtonElement_CatalogButton",
+      "raw": "WAPBHighlyStructuredMessagePack_HighlyStructuredMessageTranslation_HighlyStructuredMessageButtonElement_CatalogButton",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBMediaItemMetadata_BizRoleMetadata",
+      "raw": "WAPBMediaItemMetadata_BizRoleMetadata",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBMediaItemMetadata_BusinessMessageForwardInfoMetadata",
+      "raw": "WAPBMediaItemMetadata_BusinessMessageForwardInfoMetadata",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBMediaItemMetadata_BusinessOptOutMetadata",
+      "raw": "WAPBMediaItemMetadata_BusinessOptOutMetadata",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBMessageChatDBMetadata_SMBAIAgentMetaData",
+      "raw": "WAPBMessageChatDBMetadata_SMBAIAgentMetaData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBPaymentMerchantAccountMetadata",
+      "raw": "WAPBPaymentMerchantAccountMetadata",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBPaymentMerchantAccountMetadata_BRMerchant",
+      "raw": "WAPBPaymentMerchantAccountMetadata_BRMerchant",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBPaymentMerchantAccountMetadata_MarketMetadata",
+      "raw": "WAPBPaymentMerchantAccountMetadata_MarketMetadata",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBPaymentMerchantAccountMetadata_PixOnboardingState",
+      "raw": "WAPBPaymentMerchantAccountMetadata_PixOnboardingState",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBPaymentMerchantAccountMetadata_ProviderType",
+      "raw": "WAPBPaymentMerchantAccountMetadata_ProviderType",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPaintCanvasBizCatalogProductTextureRecipe",
+      "raw": "WAPaintCanvasBizCatalogProductTextureRecipe",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBCTWAThreadStartedDayRangeFilter",
+      "raw": "WAQuickPromotionClient.QPSMBCTWAThreadStartedDayRangeFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBSurfaceCooldownDaysFilter",
+      "raw": "WAQuickPromotionClient.QPSMBSurfaceCooldownDaysFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBThreadActionCooldownFilter",
+      "raw": "WAQuickPromotionClient.QPSMBThreadActionCooldownFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBThreadEligibilityDurationFilter",
+      "raw": "WAQuickPromotionClient.QPSMBThreadEligibilityDurationFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBThreadIsCTWAFilter",
+      "raw": "WAQuickPromotionClient.QPSMBThreadIsCTWAFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBThreadIsDeepConversationFilter",
+      "raw": "WAQuickPromotionClient.QPSMBThreadIsDeepConversationFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBThreadIsGoogleDeepLinkFilter",
+      "raw": "WAQuickPromotionClient.QPSMBThreadIsGoogleDeepLinkFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBThreadParallelCountFilter",
+      "raw": "WAQuickPromotionClient.QPSMBThreadParallelCountFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBUserCTWADataSharingOnFilter",
+      "raw": "WAQuickPromotionClient.QPSMBUserCTWADataSharingOnFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBUserDismissCooldownFilter",
+      "raw": "WAQuickPromotionClient.QPSMBUserDismissCooldownFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBUserImpressionCooldownFilter",
+      "raw": "WAQuickPromotionClient.QPSMBUserImpressionCooldownFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPSMBUserResponseCooldownFilter",
+      "raw": "WAQuickPromotionClient.QPSMBUserResponseCooldownFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppSMBUserDailyAverageOutgoingCallsRangeEligibilityFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppSMBUserDailyAverageOutgoingCallsRangeEligibilityFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppSMBUserHasCompletedOptOutEligibilityAPIFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppSMBUserHasCompletedOptOutEligibilityAPIFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMB.Notification.LostApp",
+      "raw": "WASMB.Notification.LostApp",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBAIAgentAssignmentCache",
+      "raw": "WASMBAIAgentAssignmentCache",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBAIAgentGatingAccessing",
+      "raw": "WASMBAIAgentGatingAccessing",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBAIAgentGatingIntegration",
+      "raw": "WASMBAIAgentGatingIntegration",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBAIAgentGatingManagerAccessingObjC",
+      "raw": "WASMBAIAgentGatingManagerAccessingObjC",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBAutomaticMessageManagerDataSourceHelper",
+      "raw": "WASMBAutomaticMessageManagerDataSourceHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBCTWAConversionManager",
+      "raw": "WASMBCTWAConversionManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBCertProvider",
+      "raw": "WASMBCertProvider",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBCertProviding",
+      "raw": "WASMBCertProviding",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBDeviceAgent",
+      "raw": "WASMBDeviceAgent",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBDeviceAgentEntityType",
+      "raw": "WASMBDeviceAgentEntityType",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBDeviceAgentMessageProxy",
+      "raw": "WASMBDeviceAgentMessageProxy",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBExtensionItemInteractiveMessageHelper",
+      "raw": "WASMBExtensionItemInteractiveMessageHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBManager",
+      "raw": "WASMBManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBManagerOwnVerifiedNameDidUpdateNotification",
+      "raw": "WASMBManagerOwnVerifiedNameDidUpdateNotification",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBMigrationSanitizer",
+      "raw": "WASMBMigrationSanitizer",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBPaymentContextProviding",
+      "raw": "WASMBPaymentContextProviding",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBPixAccountProviding",
+      "raw": "WASMBPixAccountProviding",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBPremiumBroadcastSerializationFactory",
+      "raw": "WASMBPremiumBroadcastSerializationFactory",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBPremiumBroadcastShared",
+      "raw": "WASMBPremiumBroadcastShared",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBShared",
+      "raw": "WASMBShared",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBShared.DeviceAgentProperties",
+      "raw": "WASMBShared.DeviceAgentProperties",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBShared.SMBCTWAConversionManager",
+      "raw": "WASMBShared.SMBCTWAConversionManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBShared1",
+      "raw": "WASMBShared1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBStashedChatSessionFetching",
+      "raw": "WASMBStashedChatSessionFetching",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    }
+  ],
+  "selectors": [
+    {
+      "name": "accountEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "adminProfileEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "adminProfilesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "ageCollectionEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "AIBizIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "allow_other_biz",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "allowed_biz_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "allowed_biz_listArray",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "allows1PBizBotMessages",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "allowsBizBotMessages",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "biz_settings_Facebook_page_visibleEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "biz_settings_Instagram_account_visibleEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "BizBot1PMessagingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "BizBot3PMessagingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "bizProfRefreshCoverPhotoViewEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "bizProfRefreshM5FbIgTrustEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "business_account",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_accountId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_accountId_p",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_best_practices",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_broadcast_campaign",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_broadcast_insights_sync",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_broadcast_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_broadcast_sync_mutation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_availability_privacy_setting_enabled_ios",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_availability_subtext_enabled_ios",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_Business_initiated_callingCallback_permissions_enabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_Business_initiated_callingDefault_call_permission_params",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_Business_initiated_callingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_User_initiated_calling_Call_icon_visibility_Limit_to_user_countries__elementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_User_initiated_calling_Call_icon_visibility_Limit_to_user_countriesStringValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_User_initiated_calling_Call_icon_visibilityVisibility",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_calling_User_initiated_calling_Video_callingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_callingCalling_hidden_entrypoints",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_callingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_category",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_categoryArray",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_info",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_info_Business_domain__elementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_info_Business_domainStringValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_info_Issuer_cn__elementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_info_Issuer_cnStringValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_info_Ttl_timestamp__elementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_info_Ttl_timestampStringValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_cert_infoBiz_jid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "business"
+      ]
+    },
+    {
+      "name": "business_chat_state_db_migration",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_conversation_feedback_event_type",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_country_code",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_discovery_entry_point",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_discovery_id",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_discovery_timestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_domain",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_flows",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_folder_action_type",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_folder_event",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_folder_move_reason",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_home",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_home_dot",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_home_dot_status",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_hours_config",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_hours_configArray",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_hours_note",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_hub",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_initiated",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_initiated_calling",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_interaction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_interaction_action",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_interaction_target_screen",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_mute",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_onboarding_action",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_onboarding_interaction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_order_id",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_owner_jid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_owner_platform",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_payment_account",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_payment_accountId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_payment_accountId_p",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_person",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_personId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_personId_p",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_phone_number",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_platforms_qr",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_profile",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profile_entry_point",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profile_view_entry_point",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profile_view_event_type",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileMutation_type",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileProfileArray",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileServer_configs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileSetProfileFieldsMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileSetProfileFieldsMixinMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileSettings",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileTag",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_profileV",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "business_search_event",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_searchIssues",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_searchSearchability",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_shortcut",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_booking_status",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_calling_stats",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_message_incoming_stats",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_message_notification_stats",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_message_read_stats",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_message_reply_stats",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_message_thread_level_user_action",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_message_user_action",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_payment_reminder",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_template_rich_order_status",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_thread_response_feedback",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_tools_click",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_tools_entry",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_tools_entry_point",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_tools_impression",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_tools_item",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_type",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_unmute",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "business_user",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessBroadcast",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessBroadcastCampaignAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessBroadcastDelivered",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessBroadcastDeliveredNotificationName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessBroadcastInsightsAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessBroadcastListAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessBroadcastPicturePlaceholder",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessCategory",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessDescription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessDirectoryLearnMore",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessDirectoryLocationLearnMore",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessDirectorySMBLearnMore",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "smb"
+      ]
+    },
+    {
+      "name": "businessDirectorySMBRequirements",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "smb"
+      ]
+    },
+    {
+      "name": "businessIntegritySignals",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessJID",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessJid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessMessageFeedbackSubmitted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessMessageForwardInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessMessageForwardInfoMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessOptOutMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessOwnerJid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessOwnerJID",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessPhoneNumber",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessProduct",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "BusinessProfileV3FacebookIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "BusinessProfileV3InstagramIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "businessSearchConfigIssueMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessSearchConfigMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessSearchDiscoverabilityLearnMore",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessSearchLearnMore",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessThreadResponseFeedback",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "businessType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "canProvideBusinessMessageFeedback",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "capiBizInitiatedCallingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "catalogCategoriesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "commerce_experience",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_manager_url",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_metadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_metadataBloks_links",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_metadataTranslations",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_perf",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_perf_entry_point",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_perf_marker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_perf_view",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_settings",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_settings_CartEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerce_url",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceExperience",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceExperienceAC08CommerceF0OSgvpWvd",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceGuidelinesURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceManagerURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceManagerURLString",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceMsgsReceived",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceMsgsSent",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "commerceSanctioned",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "DigitalCommerceSubscription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "disableProfilePictureSelector",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "Eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "enable_business_solution_discovery_business_information_forwarding",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "enable_business_solution_discovery_p2p_sharing_logging",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "enable_business_solution_discovery_show_forwarding_branding",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "enable_reachout_timelocks_biz_quality_lift_content",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "enableBizActivityReportRequest",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "enableCartV11BusinessActions",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "enableGroupProfileEditor",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "ExpiredInviteEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "foa_to_wa_verified_profile_link",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile",
+        "verified"
+      ]
+    },
+    {
+      "name": "GetBusinessEligibility",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "has_ads_eligible_for_recreation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasAdminProfile",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasAdminProfileEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasAdsEligibleStatus",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasAgeCollectionEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasAiProactiveMessageControlEverSent",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "role"
+      ]
+    },
+    {
+      "name": "hasAllows1PBizBotMessages",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasAuthorProfileURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasAutoOrganizeBusinessChatSetting",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBizAccountType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizAccountTypeMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizAccountTypeMismatch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizAcctLinkInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizAiSettingsNudgeAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizBotActionType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizBroadcastInsightsContactListRequest",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizBroadcastInsightsContactListResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizBroadcastInsightsRefreshRequest",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizJid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizOptOutAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizOptOutCategory",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizPrivacyStatus",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBizRole",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "role"
+      ]
+    },
+    {
+      "name": "hasBizRoleMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "role"
+      ]
+    },
+    {
+      "name": "hasBizSystemMessageType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasBotProfilePictureJidModel",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasBotProfilePictureURLModel",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasBusinessBroadcast",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessBroadcastCampaignAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessBroadcastInsightsAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessBroadcastListAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessMessageFeedbackSubmitted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessMessageForwardInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessMessageForwardInfoMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessOptOutMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessOwnerJid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessProduct",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasBusinessVerificationLevel",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasCatalog",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "hasCatalogType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "hasFrozenWACatalog",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "hasHasProfilePictureDeletionAlerts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasIncentiveEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasIs1PBizBotMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasIsBusinessVerified",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "verified"
+      ]
+    },
+    {
+      "name": "hasIsComplaintEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasIsConversionInfoDeliveredToBusiness",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasIsOtp0TapEligibleMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasIsPushEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasLinkedMetaCatalog",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "hasMerchantName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "merchant"
+      ]
+    },
+    {
+      "name": "hasMerchantPaymentEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "merchant",
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasMerchantPaymentPartnerAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "merchant"
+      ]
+    },
+    {
+      "name": "hasMerchantStatusHash",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "merchant"
+      ]
+    },
+    {
+      "name": "hasMerchantSupportPhoneNumber",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "merchant"
+      ]
+    },
+    {
+      "name": "hasMyProfilePictureLocally",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasNewsletterAdminProfile",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasNewsletterAdminProfileMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasNewsletterAdminProfileMessageV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasNewsletterCurrentAdminProfile",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasPartnerMerchantId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "merchant"
+      ]
+    },
+    {
+      "name": "hasPeerPaymentEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasProductCatalog",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "hasProfileIconURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfileName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePhoto",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePhotoCdnURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePicDirectPath",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePicture",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePictureDeletionAlerts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePictureDirectPath",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePictureId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePictureMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePicturePreviewDirectPath",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePicturePreviewId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasProfilePictureURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasRole",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "role"
+      ]
+    },
+    {
+      "name": "hasRoleMismatch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "role"
+      ]
+    },
+    {
+      "name": "hasShowOnProfileMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "hasSmbAiAgentMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "smb"
+      ]
+    },
+    {
+      "name": "hasSubmittedBusinessMessageFeedback",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "hasSupportBizHostedMsg",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "hasTEEEligibleContent",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasUserHasSeenPaymentIneligibleOfferKilledBlurbTs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasUserHasSeenPaymentIneligibleSenderMaxedBlurbTs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasVerified",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "verified"
+      ]
+    },
+    {
+      "name": "hasVerifiedBadge",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "verified"
+      ]
+    },
+    {
+      "name": "hasVerifiedBizName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "verified"
+      ]
+    },
+    {
+      "name": "hasVerifiedFileSize",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "verified"
+      ]
+    },
+    {
+      "name": "hasVerifiedName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "verified"
+      ]
+    },
+    {
+      "name": "hasWhatsappBizAcctFbid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "incentiveEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "individualChatMentionReceiverEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "iosBizIntegrityWarningLoggingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "iosProfileRefreshModalPresentationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "is1PBizBotMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is4role25equalIgnoringUpdateTimeToSbACSg_AGtFZ",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "role"
+      ]
+    },
+    {
+      "name": "is_avatar_profile_pic_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "is_biz_catalog_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "catalog"
+      ]
+    },
+    {
+      "name": "is_biz_directory_event_destination_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_directory_event_emitter_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_directory_event_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_directory_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_directory_variant_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_fb_size_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_home_card_operation_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_ig_size_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_integrity_banner_banner_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_integrity_banner_event_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_integrity_banner_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_opt_out_category_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_platform_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_search_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_search_filter_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_search_result_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_search_session_entrypoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_search_smb_event_destination_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "smb"
+      ]
+    },
+    {
+      "name": "is_biz_search_smb_event_emitter_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "smb"
+      ]
+    },
+    {
+      "name": "is_biz_search_smb_event_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "smb"
+      ]
+    },
+    {
+      "name": "is_biz_search_smb_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "smb"
+      ]
+    },
+    {
+      "name": "is_biz_search_smb_session_entrypoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "smb"
+      ]
+    },
+    {
+      "name": "is_biz_template_button_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_template_button_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_top_thread_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_trust_signal_card_data_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_trust_signal_card_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_biz_vlevel_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_bot_biz_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_bot_biz_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_bot_biz_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_business_folder_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_folder_move_reason_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_home_dot_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_interaction_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_interaction_target_screen_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_onboarding_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_owner_platform_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_profile_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "is_business_profile_view_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "is_business_profile_view_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "profile"
+      ]
+    },
+    {
+      "name": "is_business_tools_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_tools_item_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_business_verified",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business",
+        "verified"
+      ]
+    },
+    {
+      "name": "is_catalog_biz_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "catalog"
+      ]
+    },
+    {
+      "name": "is_catalog_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "is_catalog_preview_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "is_catalog_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "is_catalog_view_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "is_commerce_perf_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "is_commerce_perf_marker_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "is_commerce_perf_view_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "commerce"
+      ]
+    },
+    {
+      "name": "is_complaint_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_consumer_biz_action_target_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_consumer_biz_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_consumer_biz_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_consumer_biz_feature_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_consumer_biz_surface_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_create_biz_profile_action_field_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "profile"
+      ]
+    },
+    {
+      "name": "is_create_biz_profile_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "profile"
+      ]
+    },
+    {
+      "name": "is_ctwa_biz_user_journey_operation_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_directory_business_browsing_view_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_directory_business_list_screen_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_directory_business_list_screen_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "business"
+      ]
+    },
+    {
+      "name": "is_directory_profile_completeness_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "is_edit_profile_action_field_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "is_edit_profile_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "is_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible__elementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_for_udd",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_linked_fb",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_linked_ig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_linked_rl",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_unlinked_fb",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_unlinked_ig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_unlinked_rl",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligibleElementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligibleResult",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_extended_fep_window_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_fpm_device_role_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "role"
+      ]
+    },
+    {
+      "name": "is_graphql_catalog_endpoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "catalog"
+      ]
+    },
+    {
+      "name": "is_group_profile_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "is_group_role_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "role"
+      ]
+    },
+    {
+      "name": "is_hevc_main_10_profile",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "profile"
+      ]
+    },
+    {
+      "name": "is_iphone_smb_chat_migration_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "smb"
+      ]
+    },
+    {
+      "name": "is_iphone_smb_chat_migration_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "smb"
+      ]
+    },
+    {
+      "name": "is_iphone_smb_device_check_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "smb"
+      ]
+    },
+    {
+      "name": "is_label_sync_device_role_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "role"
+      ]
+    },
+    {
+      "name": "is_maiba_biz_profile_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz",
+        "profile"
+      ]
+    },
+    {
+      "name": "is_merchant_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "merchant"
+      ]
+    },
+    {
+      "name": "is_message_biz_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "biz"
+      ]
+    },
+    {
+      "name": "is_meta_verified_dialog_interaction_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "verified"
+      ]
+    }
+  ]
+}

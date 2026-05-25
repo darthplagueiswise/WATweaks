@@ -1,31 +1,35 @@
-// WAGRSurfaceListVC.m — RyukGram-style WAGram root menu.
-// Long-press activation is kept in Tweak.x. This file only changes the UI hierarchy:
-// feature bundles first, raw runtime browser only under Avançado.
+// WAGRSurfaceListVC.m — root WATweaks menu, post-unification.
+// ─────────────────────────────────────────────────────────────────────────────
+// Sections (top to bottom)
+//   1. Menu Developer Nativo — opens WhatsApp's hidden WADebugViewController
+//   2. Menus Secretos        — Internal/Aura simulation + Debug VC Lab
+//   3. Runtime Gates         — the new unified, category-driven gate browser
+//   4. Sobre                 — short usage note
+//   5. Sistema               — backup / restart / reset
+//
+// Everything that used to live under "Categorias", "Avançado" and the
+// duplicate raw-surface list has been folded into Runtime Gates. There is
+// now exactly one runtime browser; categories surface their featured flags
+// at the top and a "Runtime Avançado" button drills into the full live
+// selector list for that category.
+// ─────────────────────────────────────────────────────────────────────────────
 
-#import <UIKit/UIKit.h>
-#import <CoreFoundation/CoreFoundation.h>
-#import <stdlib.h>
 #import "WAGRSurfaceListVC.h"
-#import "WAGRSurfaceBrowserVC.h"
-#import "WAGRGatingCatalog.h"
-#import "WAGRGatingAreaMenuVC.h"
+#import "WAGRRuntimeGatesVC.h"
 #import "WAGRSecretMenusVC.h"
+#import "WAGRDebugVCInstantiatorVC.h"
+#import "WAGRSettingsBackup.h"
+#import "../Runtime/WAGRRuntimeInventory.h"
+#import "../Runtime/WAGRGateStore.h"
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
-#import "../Runtime/WAGRSurface.h"
 
-extern void WAGRWAABEnsureHooksInstalled(void);
-// The native dev-menu launcher lives in src/Hooks/WAGRDebugMenuLauncher.xm.
-// It does the heavy lifting of locating a WAContextMain and instantiating
-// WADebugViewController via initWithUserContext:.
 extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
-extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
-static UIColor *WAGRBG(void)     { return UIColor.systemGroupedBackgroundColor; }
-static UIColor *WAGRCell(void)   { return UIColor.secondarySystemGroupedBackgroundColor; }
-static UIColor *WAGRText(void)   { return UIColor.labelColor; }
-static UIColor *WAGRSub(void)    { return UIColor.secondaryLabelColor; }
-static UIColor *WAGRBlue(void)   { return UIColor.systemBlueColor; }
-static UIColor *WAGRRed(void)    { return UIColor.systemRedColor; }
+
+static UIColor *WAGRBG(void)   { return UIColor.systemGroupedBackgroundColor; }
+static UIColor *WAGRText(void) { return UIColor.labelColor; }
+static UIColor *WAGRSub(void)  { return UIColor.secondaryLabelColor; }
+static UIColor *WAGRRed(void)  { return UIColor.systemRedColor; }
 
 static UIViewController *WAGRTopController(void) {
     UIViewController *c = nil;
@@ -66,157 +70,72 @@ static void WAGRAlert(NSString *title, NSString *message) {
     });
 }
 
-static NSUInteger WAGROverrideCountForSurfaceID(NSString *sid) {
-    if (!sid.length) return 0;
-    NSString *prefix = [NSString stringWithFormat:@"wagr.override|%@|", sid];
-    NSString *legacy = [NSString stringWithFormat:@"wagr.override.%@.", sid];
-    NSUInteger n = 0;
-    for (NSString *k in NSUserDefaults.standardUserDefaults.dictionaryRepresentation.allKeys)
-        if ([k hasPrefix:prefix] || [k hasPrefix:legacy]) n++;
-    return n;
-}
-
-@interface WAGRRawSurfaceListVC : UITableViewController
-@property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *surfaces;
-@end
-
-@implementation WAGRRawSurfaceListVC
-- (instancetype)init {
-    if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = @"Runtime Avançado";
-    _surfaces = [WAGRSurfaceSpec allSurfaces];
-    return self;
-}
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
-}
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section { return (NSInteger)_surfaces.count; }
-- (void)tableView:(UITableView *)tv willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
-    if ([view isKindOfClass:UITableViewHeaderFooterView.class]) {
-        UITableViewHeaderFooterView *h = (UITableViewHeaderFooterView *)view;
-        h.textLabel.font = [UIFont boldSystemFontOfSize:11];
-        h.textLabel.textColor = [UIColor colorWithWhite:.5 alpha:1];
-    }
-}
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section { return @"Surfaces técnicas"; }
-- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
-    return @"Browser bruto para debug. A UI principal usa bundles compactos.";
-}
-- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    WAGRSurfaceSpec *s = _surfaces[(NSUInteger)ip.row];
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = s.title;
-    c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = s.subtitle ?: @"";
-    c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:s.icon ?: @"circle"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
-    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    return c;
-}
-- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
-    [tv deselectRowAtIndexPath:ip animated:YES];
-    WAGRSurfaceBrowserVC *vc = [[WAGRSurfaceBrowserVC alloc] initWithSpec:_surfaces[(NSUInteger)ip.row]];
-    [self.navigationController pushViewController:vc animated:YES];
-}
-@end
-
-typedef NS_ENUM(NSInteger, WAGRRootSection) {
-    // The native dev-menu launcher sits at the top so it is the very first
-    // thing the user sees when the WATweaks sheet opens. It is the headline
-    // action — most users only want this one button.
-    WAGRRootSectionDevMenu = 0,
-    // Curated list of ~25 hidden WhatsApp debug VCs that ship in the
-    // binary but are not exposed in normal UI. One tap = try every known
-    // init signature and present the controller modally.
-    WAGRRootSectionSecret,
-    // The new curated, data-driven gating-area menus. Each row pushes a
-    // WAGRGatingAreaMenuVC seeded with that area's catalog entries. This
-    // is the primary path going forward — the older "Categorias" section
-    // (bundle scans) is kept below for backward compatibility.
-    WAGRRootSectionAreas,
-    WAGRRootSectionAbout,
-    WAGRRootSectionBundles,
-    WAGRRootSectionAdvanced,
-    WAGRRootSectionSystem,
+typedef NS_ENUM(NSInteger, WAGRRoot) {
+    WAGRRootDevMenu = 0,
+    WAGRRootSecret,
+    WAGRRootGates,
+    WAGRRootAbout,
+    WAGRRootSystem,
+    WAGRRootCount
 };
 
-// One row inside the new top section.
-typedef NS_ENUM(NSInteger, WAGRDevMenuRow) {
-    WAGRDevMenuRowOpen = 0,
+typedef NS_ENUM(NSInteger, WAGRGatesRow) {
+    WAGRGatesRowOpen = 0,
+    WAGRGatesRowDiagnostics,
+    WAGRGatesRowResetOverrides,
+    WAGRGatesRowCount
 };
 
-typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
-    WAGRAdvancedRowRawRuntime = 0,
-    WAGRAdvancedRowInstallPersisted,
-    WAGRAdvancedRowDiagnostics,
+typedef NS_ENUM(NSInteger, WAGRSecretRow) {
+    WAGRSecretRowInternalAura = 0,
+    WAGRSecretRowDebugVCLab,
+    WAGRSecretRowCount
 };
 
 typedef NS_ENUM(NSInteger, WAGRSystemRow) {
-    WAGRSystemRowRestart = 0,
-    WAGRSystemRowResetOverrides,
-    WAGRSystemRowResetWAGramPrefs,
+    WAGRSystemRowExportBackup = 0,
+    WAGRSystemRowImportBackup,
+    WAGRSystemRowRestart,
+    WAGRSystemRowResetAll,
+    WAGRSystemRowCount
 };
-
-@interface WAGRSurfaceListVC () <UISearchResultsUpdating>
-@property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *bundles;
-@property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *filteredBundles;
-@property(nonatomic, strong) UISearchController *search;
-@end
 
 @implementation WAGRSurfaceListVC
 
 - (instancetype)init {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
     self.title = @"WATweaks";
-    _bundles = [WAGRSurfaceSpec featureBundles];
-    _filteredBundles = _bundles;
     return self;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-                                                                                           target:self
-                                                                                           action:@selector(done)];
+    self.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                                                      target:self
+                                                      action:@selector(done)];
+}
 
-    _search = [[UISearchController alloc] initWithSearchResultsController:nil];
-    _search.searchResultsUpdater = self;
-    _search.obscuresBackgroundDuringPresentation = NO;
-    _search.searchBar.placeholder = @"Buscar configurações";
-    self.navigationItem.searchController = _search;
-    self.navigationItem.hidesSearchBarWhenScrolling = NO;
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self.tableView reloadData];
 }
 
 - (void)done { [self dismissViewControllerAnimated:YES completion:nil]; }
 
-- (void)updateSearchResultsForSearchController:(UISearchController *)sc {
-    NSString *q = sc.searchBar.text.lowercaseString ?: @"";
-    if (!q.length) {
-        _filteredBundles = _bundles;
-    } else {
-        _filteredBundles = [_bundles filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(WAGRSurfaceSpec *s, NSDictionary *_) {
-            NSString *hay = [NSString stringWithFormat:@"%@ %@", s.title ?: @"", s.subtitle ?: @""].lowercaseString;
-            return [hay containsString:q];
-        }]];
-    }
-    [self.tableView reloadData];
-}
+#pragma mark - Table view
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 7; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return WAGRRootCount; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
-    switch ((WAGRRootSection)section) {
-        case WAGRRootSectionDevMenu: return 1;
-        case WAGRRootSectionSecret: return 1;
-        case WAGRRootSectionAreas: return (NSInteger)WAGRGatingAreaCount;
-        case WAGRRootSectionAbout: return 1;
-        case WAGRRootSectionBundles: return (NSInteger)_filteredBundles.count;
-        case WAGRRootSectionAdvanced: return 3;
-        case WAGRRootSectionSystem: return 3;
+    switch ((WAGRRoot)section) {
+        case WAGRRootDevMenu: return 1;
+        case WAGRRootSecret:  return WAGRSecretRowCount;
+        case WAGRRootGates:   return WAGRGatesRowCount;
+        case WAGRRootAbout:   return 1;
+        case WAGRRootSystem:  return WAGRSystemRowCount;
+        case WAGRRootCount:   return 0;
     }
     return 0;
 }
@@ -228,215 +147,186 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         h.textLabel.textColor = [UIColor colorWithWhite:.5 alpha:1];
     }
 }
+
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
-    switch ((WAGRRootSection)section) {
-        case WAGRRootSectionDevMenu: return @"Menu Developer Nativo";
-        case WAGRRootSectionSecret: return @"Menus Secretos do App";
-        case WAGRRootSectionAreas: return @"Áreas de Gating (Curadas)";
-        case WAGRRootSectionAbout: return nil;
-        case WAGRRootSectionBundles: return @"Categorias";
-        case WAGRRootSectionAdvanced: return @"Avançado";
-        case WAGRRootSectionSystem: return @"Sistema";
+    switch ((WAGRRoot)section) {
+        case WAGRRootDevMenu: return @"Menu Developer Nativo";
+        case WAGRRootSecret:  return @"Menus Secretos do App";
+        case WAGRRootGates:   return @"Runtime Gates";
+        case WAGRRootAbout:   return nil;
+        case WAGRRootSystem:  return @"Sistema";
+        case WAGRRootCount:   return nil;
     }
     return nil;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
-    if (section == WAGRRootSectionBundles)
-        return @"Os bundles usam scan direcionado por tokens/classes e exibem apenas features compactas.";
-    if (section == WAGRRootSectionAdvanced)
-        return @"Runtime bruto fica aqui, separado do menu normal.";
+    if (section == WAGRRootGates) {
+        return @"Cada categoria mostra os flags principais e dá acesso ao runtime avançado para edição fina.";
+    }
+    if (section == WAGRRootSystem) {
+        return @"Backup exporta apenas chaves wagr*/wa*. Reset apaga todos os overrides salvos.";
+    }
     return nil;
 }
 
-// The headline action: a single, prominent cell that directly invokes the
-// native WADebugViewController bypassing all gating. The blue tint and the
-// `</>` SF Symbol match the visual contract of WhatsApp's own Developer row.
-- (UITableViewCell *)devMenuCell {
+- (UITableViewCell *)cellWithTitle:(NSString *)title
+                          subtitle:(NSString *)subtitle
+                              icon:(NSString *)icon
+                              tint:(UIColor *)tint
+                         accessory:(UITableViewCellAccessoryType)acc {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = @"Abrir Menu Developer Nativo";
+    c.textLabel.text = title;
     c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = @"Apresenta WADebugViewController diretamente";
+    c.detailTextLabel.text = subtitle ?: @"";
     c.detailTextLabel.textColor = WAGRSub();
-    UIImage *icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
-    if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
-    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = UIColor.systemBlueColor;
-    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    return c;
-}
-
-// Cell for a single gating area. The icon and tint reflect the area's
-// semantic (drop for LiquidGlass, star for Aura, eye-slash for hidden rows,
-// etc.). The detail line shows the curated-entry count so the user knows
-// at a glance whether the area is populated yet.
-- (UITableViewCell *)areaCellForRow:(NSInteger)row {
-    WAGRGatingArea area = (WAGRGatingArea)row;
-    NSUInteger count = [WAGRGatingCatalog countForArea:area];
-
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = WAGRGatingAreaTitle(area);
-    c.textLabel.textColor = WAGRText();
-
-    NSString *baseSub = WAGRGatingAreaSubtitle(area) ?: @"";
-    NSString *suffix = count == 0 ? @"  ·  vazio (catálogo pendente)"
-                                  : [NSString stringWithFormat:@"  ·  %lu gates", (unsigned long)count];
-    c.detailTextLabel.text = [baseSub stringByAppendingString:suffix];
-    c.detailTextLabel.textColor = count == 0 ? UIColor.tertiaryLabelColor : WAGRSub();
-
-    UIImage *icon = [UIImage systemImageNamed:WAGRGatingAreaIconName(area)];
-    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRTintForBundleTitle(WAGRGatingAreaTitle(area));
-    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    return c;
-}
-
-- (UITableViewCell *)aboutCell {
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = @"WATweaks";
-    c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = @"Runtime router · MSHookMessageEx · UI compacta";
-    c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:@"bolt.horizontal.circle"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
-    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    return c;
-}
-
-// Maps a bundle's title fragment to a category-specific tint. The intent is
-// to make the menu scannable at a glance: blue for general-platform items
-// like LiquidGlass, purple for premium/business gates, green for status and
-// calls, orange for AI, red for privacy. Falls back to system gray for any
-// title the map does not recognize.
-static UIColor *WAGRTintForBundleTitle(NSString *title) {
-    NSString *t = title.lowercaseString ?: @"";
-    if ([t containsString:@"liquid"])       return UIColor.systemBlueColor;
-    if ([t containsString:@"aura"] || [t containsString:@"plus"])
-                                            return UIColor.systemPurpleColor;
-    if ([t containsString:@"status"])       return UIColor.systemGreenColor;
-    if ([t containsString:@"channel"])      return UIColor.systemTealColor;
-    if ([t containsString:@"call"])         return UIColor.systemGreenColor;
-    if ([t containsString:@"mensag"] || [t containsString:@"messag"])
-                                            return UIColor.systemBlueColor;
-    if ([t containsString:@"ai"] || [t containsString:@"meta"])
-                                            return UIColor.systemOrangeColor;
-    if ([t containsString:@"privacy"] || [t containsString:@"username"])
-                                            return UIColor.systemRedColor;
-    if ([t containsString:@"premium"] || [t containsString:@"business"])
-                                            return UIColor.systemYellowColor;
-    if ([t containsString:@"setting"] || [t containsString:@"row"])
-                                            return UIColor.systemIndigoColor;
-    if ([t containsString:@"geral"] || [t containsString:@"general"])
-                                            return UIColor.systemGrayColor;
-    return [UIColor colorWithRed:0.6 green:0.65 blue:0.75 alpha:1.0];
-}
-
-- (UITableViewCell *)bundleCellForRow:(NSInteger)row {
-    WAGRSurfaceSpec *s = _filteredBundles[(NSUInteger)row];
-    NSUInteger count = WAGROverrideCountForSurfaceID(s.surfaceID);
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = s.title;
-    c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = count ? [NSString stringWithFormat:@"%lu overrides", (unsigned long)count] : (s.subtitle ?: @"");
-    c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:s.icon ?: @"circle"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRTintForBundleTitle(s.title);
-    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    return c;
-}
-
-- (UITableViewCell *)advancedCellForRow:(NSInteger)row {
-    NSString *titles[] = { @"Runtime Browser Avançado", @"Instalar hooks salvos", @"Diagnóstico" };
-    NSString *subs[] = { @"WAABProperties, WAContextMain, WAAuraGating etc.", @"Reinstala overrides persistidos", @"Router, LiquidGlass, Dogfood, Keychain" };
-    NSString *icons[] = { @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass" };
-
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = titles[row];
-    c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = subs[row];
-    c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:icons[row]] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
-    c.accessoryType = row == WAGRAdvancedRowRawRuntime ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
-    return c;
-}
-
-- (UITableViewCell *)systemCellForRow:(NSInteger)row {
-    NSString *titles[] = { @"Reiniciar WhatsApp", @"Reset overrides", @"Reset WATweaks prefs" };
-    NSString *subs[] = { @"Fecha o app", @"Remove wagr.override.* e wagr.observed.*", @"Remove preferências wagr*/wa* do tweak" };
-    NSString *icons[] = { @"power", @"arrow.counterclockwise", @"trash" };
-
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = titles[row];
-    c.textLabel.textColor = row == WAGRSystemRowRestart ? WAGRRed() : WAGRText();
-    c.detailTextLabel.text = subs[row];
-    c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:icons[row]] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
-    return c;
-}
-
-// Single cell for the Secret menus entry. The "key" icon and the
-// orange tint signal that this is an "unlocks something usually hidden"
-// action — different visual contract from the blue dev-menu launcher
-// and the per-area cells so the user can tell them apart at a glance.
-- (UITableViewCell *)secretMenusCell {
-    UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
-    c.textLabel.text = @"Painel Internal / Aura";
-    c.textLabel.textColor = WAGRText();
-    c.detailTextLabel.text = @"Masters de internal/employee + Aura, diagnóstico ao vivo, lista de Debug VCs";
-    c.detailTextLabel.textColor = WAGRSub();
-    UIImage *icon = [UIImage systemImageNamed:@"key.fill"];
-    if (!icon) icon = [UIImage systemImageNamed:@"lock.open.fill"];
-    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = UIColor.systemOrangeColor;
-    c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    c.detailTextLabel.numberOfLines = 0;
+    UIImage *img = [UIImage systemImageNamed:icon ?: @"circle"];
+    c.imageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    c.imageView.tintColor = tint ?: WAGRText();
+    c.accessoryType = acc;
     return c;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    switch ((WAGRRootSection)ip.section) {
-        case WAGRRootSectionDevMenu: return [self devMenuCell];
-        case WAGRRootSectionSecret:  return [self secretMenusCell];
-        case WAGRRootSectionAreas:   return [self areaCellForRow:ip.row];
-        case WAGRRootSectionAbout:   return [self aboutCell];
-        case WAGRRootSectionBundles: return [self bundleCellForRow:ip.row];
-        case WAGRRootSectionAdvanced:return [self advancedCellForRow:ip.row];
-        case WAGRRootSectionSystem:  return [self systemCellForRow:ip.row];
+    switch ((WAGRRoot)ip.section) {
+        case WAGRRootDevMenu:
+            return [self cellWithTitle:@"Abrir Menu Developer Nativo"
+                              subtitle:@"Apresenta WADebugViewController diretamente"
+                                  icon:@"chevron.left.forwardslash.chevron.right"
+                                  tint:UIColor.systemBlueColor
+                             accessory:UITableViewCellAccessoryDisclosureIndicator];
+        case WAGRRootSecret:
+            if (ip.row == WAGRSecretRowDebugVCLab) {
+                return [self cellWithTitle:@"Debug VC Lab"
+                                  subtitle:@"Lista/probe de Debug VCs; bloqueia alloc/init cru que traps em Swift."
+                                      icon:@"stethoscope"
+                                      tint:UIColor.systemRedColor
+                                 accessory:UITableViewCellAccessoryDisclosureIndicator];
+            }
+            return [self cellWithTitle:@"Painel Internal / Aura"
+                              subtitle:@"Masters Internal/Employee + Aura, diagnóstico ao vivo, lista de Debug VCs."
+                                  icon:@"key.fill"
+                                  tint:UIColor.systemOrangeColor
+                             accessory:UITableViewCellAccessoryDisclosureIndicator];
+        case WAGRRootGates: {
+            switch ((WAGRGatesRow)ip.row) {
+                case WAGRGatesRowOpen: {
+                    NSUInteger overrides = WAGRGateAllOverrides().count;
+                    NSString *sub = overrides
+                        ? [NSString stringWithFormat:@"%lu overrides ativos · categorias + runtime avançado",
+                           (unsigned long)overrides]
+                        : @"Categorias curadas (LiquidGlass, Aura, MobileConfig, ...) + runtime avançado.";
+                    return [self cellWithTitle:@"Abrir Runtime Gates"
+                                      subtitle:sub
+                                          icon:@"switch.2"
+                                          tint:UIColor.systemGreenColor
+                                     accessory:UITableViewCellAccessoryDisclosureIndicator];
+                }
+                case WAGRGatesRowDiagnostics:
+                    return [self cellWithTitle:@"Diagnóstico"
+                                      subtitle:@"Storage, hooks, router, LiquidGlass, Aura, Dogfood, Settings Rows, Keychain."
+                                          icon:@"doc.text.magnifyingglass"
+                                          tint:WAGRText()
+                                     accessory:UITableViewCellAccessoryNone];
+                case WAGRGatesRowResetOverrides:
+                    return [self cellWithTitle:@"Reset overrides"
+                                      subtitle:@"Remove todos os overrides salvos (mantém prefs masters)."
+                                          icon:@"arrow.counterclockwise"
+                                          tint:WAGRRed()
+                                     accessory:UITableViewCellAccessoryNone];
+                case WAGRGatesRowCount: break;
+            }
+            break;
+        }
+        case WAGRRootAbout:
+            return [self cellWithTitle:@"WATweaks"
+                              subtitle:@"Long-press em Ajuda/Developer no Settings, ou toque na linha WATweaks abaixo de Developer."
+                                  icon:@"info.circle"
+                                  tint:WAGRText()
+                             accessory:UITableViewCellAccessoryNone];
+        case WAGRRootSystem: {
+            switch ((WAGRSystemRow)ip.row) {
+                case WAGRSystemRowExportBackup:
+                    return [self cellWithTitle:@"Exportar backup JSON"
+                                      subtitle:@"Exporta preferências e overrides do WATweaks."
+                                          icon:@"square.and.arrow.up"
+                                          tint:WAGRText()
+                                     accessory:UITableViewCellAccessoryNone];
+                case WAGRSystemRowImportBackup:
+                    return [self cellWithTitle:@"Importar backup JSON"
+                                      subtitle:@"Modo espelho: chaves ausentes no JSON são removidas."
+                                          icon:@"square.and.arrow.down"
+                                          tint:WAGRText()
+                                     accessory:UITableViewCellAccessoryNone];
+                case WAGRSystemRowRestart:
+                    return [self cellWithTitle:@"Reiniciar WhatsApp"
+                                      subtitle:@"Fecha o app para aplicar mudanças."
+                                          icon:@"power"
+                                          tint:WAGRRed()
+                                     accessory:UITableViewCellAccessoryNone];
+                case WAGRSystemRowResetAll:
+                    return [self cellWithTitle:@"Reset WATweaks prefs"
+                                      subtitle:@"Remove TODAS as preferências do WATweaks (wagr*, wa_*)."
+                                          icon:@"trash"
+                                          tint:WAGRRed()
+                                     accessory:UITableViewCellAccessoryNone];
+                case WAGRSystemRowCount: break;
+            }
+            break;
+        }
+        case WAGRRootCount: break;
     }
-    return [UITableViewCell new];
+    return [[UITableViewCell alloc] init];
 }
 
+#pragma mark - Selection
+
 - (void)showDiagnostics {
-    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\nKeychain=%@",
-                     WAGRHookRouterDiagnostic() ?: @"Router n/a",
-                     WAGRLGDiagnosticText() ?: @"LiquidGlass n/a",
-                     WAGRDogfoodDiagnosticText() ?: @"Dogfood n/a",
-                     WAKeychainAccessGroupDiagnostic() ?: @"n/a"];
+    NSString *msg = [NSString stringWithFormat:
+        @"[Store]\n%@\n\n[GateHooks]\n%@\n\n[AuraNav]\n%@\n\n[LiquidGlass]\n%@\n\n[Dogfood]\n%@\n\n[Inventory]\n%@\n\n[Backup]\n%@\n\nKeychain=%@",
+        WAGRGateStoreDiagnostic() ?: @"n/a",
+        WAGRGateHooksDiagnostic() ?: @"n/a",
+        WAGRAuraNavigationDiagnostic() ?: @"n/a",
+        WAGRLGDiagnosticText() ?: @"n/a",
+        WAGRDogfoodDiagnosticText() ?: @"n/a",
+        WAGRRuntimeInventoryDiagnosticText() ?: @"n/a",
+        WAGRSettingsBackupDiagnosticText() ?: @"n/a",
+        WAKeychainAccessGroupDiagnostic() ?: @"n/a"];
     WAGRAlert(@"Diagnóstico", msg);
 }
 
-- (void)resetKeysMatching:(BOOL (^)(NSString *key))match title:(NSString *)title restart:(BOOL)restart {
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:title
-                                                               message:@"Confirmar limpeza?"
+- (void)confirmResetOverrides {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Reset overrides"
+                                                               message:@"Remover todos os overrides salvos?"
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
+        NSUInteger n = WAGRGateClearAll();
+        WAGRAlert(@"Reset", [NSString stringWithFormat:@"%lu overrides removidos.", (unsigned long)n]);
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)confirmResetAllPrefs {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Reset WATweaks prefs"
+                                                               message:@"Remover TODAS as preferências do WATweaks? Esta ação reinicia o app."
                                                         preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
         NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
         NSUInteger n = 0;
         for (NSString *k in ud.dictionaryRepresentation.allKeys) {
-            if (match(k)) { [ud removeObjectForKey:k]; n++; }
+            if ([k hasPrefix:@"wagr"] || [k hasPrefix:@"wa_"] || [k hasPrefix:@"WA"]) {
+                [ud removeObjectForKey:k];
+                n++;
+            }
         }
         [ud synchronize];
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
-        WAGRAlert(@"Reset", [NSString stringWithFormat:@"%lu chaves removidas.", (unsigned long)n]);
-        if (restart) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ exit(0); });
+        WAGRAlert(@"Reset", [NSString stringWithFormat:@"%lu chaves removidas. Reiniciando…", (unsigned long)n]);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{ exit(0); });
     }]];
     [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:a animated:YES completion:nil];
@@ -445,76 +335,65 @@ static UIColor *WAGRTintForBundleTitle(NSString *title) {
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
 
-    if (ip.section == WAGRRootSectionDevMenu) {
-        // Dismiss the WATweaks sheet first, then launch the native menu from
-        // the underlying VC. We do this in sequence (dismiss → launch in the
-        // completion block) because UIKit only allows one modal at a time
-        // from a given presenter, and the native dev menu is itself going to
-        // be presented modally on top of WhatsApp's settings hierarchy.
-        UIViewController *presentedBy = self.presentingViewController;
-        [self dismissViewControllerAnimated:YES completion:^{
-            NSError *err = nil;
-            BOOL ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
-            if (!ok) {
-                WAGRAlert(@"Não foi possível abrir o menu nativo",
-                          err.localizedDescription ?: @"Erro desconhecido.");
+    switch ((WAGRRoot)ip.section) {
+        case WAGRRootDevMenu: {
+            UIViewController *presentedBy = self.presentingViewController;
+            [self dismissViewControllerAnimated:YES completion:^{
+                NSError *err = nil;
+                BOOL ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
+                if (!ok) {
+                    WAGRAlert(@"Não foi possível abrir o menu nativo",
+                              err.localizedDescription ?: @"Erro desconhecido.");
+                }
+            }];
+            return;
+        }
+        case WAGRRootSecret: {
+            if (ip.row == WAGRSecretRowDebugVCLab) {
+                WAGRDebugVCInstantiatorVC *vc = [[WAGRDebugVCInstantiatorVC alloc] init];
+                [self.navigationController pushViewController:vc animated:YES];
+            } else {
+                WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
+                [self.navigationController pushViewController:vc animated:YES];
             }
-        }];
-        return;
-    }
-
-    if (ip.section == WAGRRootSectionSecret) {
-        // Push the dedicated VC. Stays inside the WATweaks navigation stack
-        // — the user can back out and pick a different one without leaving
-        // the WATweaks menu.
-        WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
-        [self.navigationController pushViewController:vc animated:YES];
-        return;
-    }
-
-    if (ip.section == WAGRRootSectionAreas) {
-        WAGRGatingArea area = (WAGRGatingArea)ip.row;
-        WAGRGatingAreaMenuVC *vc = [[WAGRGatingAreaMenuVC alloc] initWithArea:area];
-        [self.navigationController pushViewController:vc animated:YES];
-        return;
-    }
-
-    if (ip.section == WAGRRootSectionAbout) {
-        WAGRAlert(@"WATweaks", @"Acesse este menu de duas formas: (1) long-press no item Ajuda, Developer ou WATweaks da tela de Configurações do WhatsApp, ou (2) toque na linha WATweaks que aparece abaixo do Developer em Configurações.");
-        return;
-    }
-
-    if (ip.section == WAGRRootSectionBundles) {
-        WAGRSurfaceSpec *spec = _filteredBundles[(NSUInteger)ip.row];
-        WAGRSurfaceBrowserVC *vc = [[WAGRSurfaceBrowserVC alloc] initWithSpec:spec];
-        [self.navigationController pushViewController:vc animated:YES];
-        return;
-    }
-
-    if (ip.section == WAGRRootSectionAdvanced) {
-        if (ip.row == WAGRAdvancedRowRawRuntime) {
-            [self.navigationController pushViewController:[WAGRRawSurfaceListVC new] animated:YES];
-        } else if (ip.row == WAGRAdvancedRowInstallPersisted) {
-            NSUInteger n = WAGRReinstallPersistedHooks();
-            WAGRAlert(@"Hooks", [NSString stringWithFormat:@"%lu hooks reinstalados.", (unsigned long)n]);
-        } else {
-            [self showDiagnostics];
+            return;
         }
-        return;
-    }
-
-    if (ip.section == WAGRRootSectionSystem) {
-        if (ip.row == WAGRSystemRowRestart) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ exit(0); });
-        } else if (ip.row == WAGRSystemRowResetOverrides) {
-            [self resetKeysMatching:^BOOL(NSString *key) {
-                return [key hasPrefix:@"wagr.override"] || [key hasPrefix:@"wagr.observed"];
-            } title:@"Reset overrides" restart:NO];
-        } else {
-            [self resetKeysMatching:^BOOL(NSString *key) {
-                return [key hasPrefix:@"wagr"] || [key hasPrefix:@"wa_"] || [key hasPrefix:@"WA"];
-            } title:@"Reset WAGram prefs" restart:YES];
+        case WAGRRootGates: {
+            switch ((WAGRGatesRow)ip.row) {
+                case WAGRGatesRowOpen: {
+                    WAGRRuntimeGatesVC *vc = [[WAGRRuntimeGatesVC alloc] init];
+                    [self.navigationController pushViewController:vc animated:YES];
+                    return;
+                }
+                case WAGRGatesRowDiagnostics:
+                    [self showDiagnostics];
+                    return;
+                case WAGRGatesRowResetOverrides:
+                    [self confirmResetOverrides];
+                    return;
+                case WAGRGatesRowCount: return;
+            }
+            return;
         }
+        case WAGRRootAbout:
+            WAGRAlert(@"WATweaks",
+                @"Long-press no item Ajuda, Developer ou WATweaks da tela de Configurações do WhatsApp, "
+                @"ou toque na linha WATweaks que aparece abaixo do Developer em Configurações.");
+            return;
+        case WAGRRootSystem: {
+            switch ((WAGRSystemRow)ip.row) {
+                case WAGRSystemRowExportBackup: [WAGRSettingsBackup presentExport]; return;
+                case WAGRSystemRowImportBackup: [WAGRSettingsBackup presentImport]; return;
+                case WAGRSystemRowRestart:
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)),
+                                   dispatch_get_main_queue(), ^{ exit(0); });
+                    return;
+                case WAGRSystemRowResetAll: [self confirmResetAllPrefs]; return;
+                case WAGRSystemRowCount: return;
+            }
+            return;
+        }
+        case WAGRRootCount: return;
     }
 }
 

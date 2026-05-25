@@ -45,6 +45,7 @@
 #import <objc/runtime.h>
 #import <substrate.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRGateStore.h"
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
 // One per gate so we never chain calls between them. Both are typed BoolIMP
@@ -71,14 +72,13 @@ static BOOL WAGRNativeDevAllowed(void) {
         return YES;
     }
 
-    // Also honor toggles written by the curated Settings Rows / Developer
-    // catalog. Without this bridge the direct "Open native Developer menu"
-    // path can work, while WhatsApp's own row still evaluates the provider as
-    // disabled because the native provider hook only checks master prefs.
-    NSString *allowedKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuAllowed");
-    NSString *shortcutKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuShortcutEnabled");
-    if ((WAGRHasOverride(allowedKey) && WAGROverrideBool(allowedKey)) ||
-        (WAGRHasOverride(shortcutKey) && WAGROverrideBool(shortcutKey))) {
+    // Also honor toggles written by the runtime gates UI. Without this
+    // bridge the direct "Open native Developer menu" path can work, while
+    // WhatsApp's own row still evaluates the provider as disabled because
+    // the native provider hook only checks master prefs. Schema v2 keys
+    // are flat selector names.
+    if ((WAGRGateIsSet(@"isDebugMenuAllowed") && WAGRGateGet(@"isDebugMenuAllowed")) ||
+        (WAGRGateIsSet(@"isDebugMenuShortcutEnabled") && WAGRGateGet(@"isDebugMenuShortcutEnabled"))) {
         return YES;
     }
     return NO;
@@ -205,7 +205,7 @@ extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void) {
 __attribute__((constructor))
 static void WAGRNativeDevMenuCtor(void) {
     @autoreleasepool {
-        double delays[] = { 0.2, 1.0, 3.0 };
+        double delays[] = { 0.35, 1.0, 2.0 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{ installNativeDevMenuHooks(); });

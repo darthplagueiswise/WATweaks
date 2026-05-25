@@ -36,6 +36,7 @@ $(TWEAK_NAME)_CFLAGS = \
 	-Wno-incompatible-pointer-types \
 	-Imodules/fishhook
 
+
 $(TWEAK_NAME)_LOGOSFLAGS = --c warnings=none
 
 CCFLAGS += -std=c++11
@@ -49,5 +50,7 @@ after-stage::
 		[ -f "$$f" ] && gzip -dc "$$f" > "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/$$(basename "$$f" .gz)" 2>/dev/null || true; \
 	done
 	@cp -f resources/*.json "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/" 2>/dev/null || true
+	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/runtime"
+	@cp -f resources/runtime/*.json "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/runtime/" 2>/dev/null || true
 	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/docs"
 	@cp -f docs/*.md "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/docs/" 2>/dev/null || true

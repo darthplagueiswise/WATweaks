@@ -21,12 +21,14 @@
 #import <objc/message.h>
 #import <substrate.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRGateStore.h"
 #import "../Menu/WAGRSurfaceListVC.h"
 
-extern "C" NSUInteger WAGRReinstallPersistedHooks(void);
-extern "C" void WAGRWAABEnsureHooksInstalled(void);
-extern "C" void WAGRAuraEnsureHooksInstalled(void);
+// Single ensure-installed entry point provided by WAGRGateHooks.xm.
+extern "C" void WAGRGateHooksEnsureInstalled(void);
+extern "C" void WAGRAuraEnsureNavigationHooksInstalled(void);
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void);
+extern "C" void WAGRAccountEligibilityEnsureHooksInstalled(void);
 
 static BOOL gWAGRSettingsRowsAttempted = NO;
 static BOOL gWAGRSettingsRowsHooksInstalled = NO;
@@ -51,6 +53,8 @@ static void (*origAddPaymentsRowToSection)(id, SEL, id) = NULL;
 static BOOL (*origShowBRConsumerPaymentsHome)(id, SEL) = NULL;
 static id (*origGetSettingsViewModel)(id, SEL) = NULL;
 static id (*origCreateSettingsEntryPointViewModel)(id, SEL) = NULL;
+static void (*origSettingsViewDidLoad)(id, SEL) = NULL;
+static void (*origSettingsViewDidAppear)(id, SEL, BOOL) = NULL;
 
 static void WAGRSetLastSettingsRowsError(NSString *error) {
     gWAGRSettingsRowsLastError = [error copy];
@@ -126,7 +130,12 @@ static void WAGRPresentWATweaksMenuFromSettings(id settingsVC) {
 @end
 
 static BOOL WAGRWAABAnyOn(NSArray<NSString *> *flags) {
-    for (NSString *flag in flags) if (WAGRIsOn(flag)) return YES;
+    // Schema v2: a flag is "on" when its selector-name key holds NSNumber(YES).
+    // Absent keys mean "no override"; we never count absent as ON here because
+    // forcing a Settings row open requires explicit intent.
+    for (NSString *flag in flags) {
+        if (WAGRGateIsSet(flag) && WAGRGateGet(flag)) return YES;
+    }
     return NO;
 }
 
@@ -171,17 +180,14 @@ static BOOL WAGRSettingsRowsShouldForcePayments(void) {
 static void WAGRSettingsRowsEnsureRuntimeOwners(void) {
     // Settings-only path. Tweak.x calls this only after WASettingsViewController
     // is already visible or when the debug menu explicitly requests diagnostics.
-    WAGRWAABEnsureHooksInstalled();
-    WAGRAuraEnsureHooksInstalled();
+    WAGRGateHooksEnsureInstalled();
+    WAGRAuraEnsureNavigationHooksInstalled();
     WAGRNativeDevMenuEnsureHooksInstalled();
-    WAGRReinstallPersistedHooks();
 }
 
 static void WAGRInstallSettingsBarButton(id settingsVC) {
     if (!WAGRIsWASettingsVC(settingsVC) || ![settingsVC isKindOfClass:UIViewController.class]) return;
     gWAGRSettingsRowsInjectAttempts++;
-
-    if ([objc_getAssociatedObject(settingsVC, kWAGRSettingsButtonInstalledKey) boolValue]) return;
 
     UIViewController *vc = (UIViewController *)settingsVC;
     UINavigationItem *item = vc.navigationItem;
@@ -231,38 +237,16 @@ static BOOL WAGROrigSubscriptionsRowPresent(id self) {
     return NO;
 }
 
-// Associated-object marker: have we successfully forced an insert on THIS
-// settings VC instance yet? The marker is used by hookIsSubscriptionsRowPresent
-// so that we only claim "present" to WhatsApp AFTER we have actually inserted
-// the row — claiming "present" beforehand would sabotage WhatsApp's own
-// checkSubscriptionsEligibilityAndInsertRowIfNeeded → insertSubscriptionsRow
-// pipeline (because that pipeline early-returns if the row is "already present").
-static const void *kWAGRSubsRowInsertedMarker = &kWAGRSubsRowInsertedMarker;
-
-static BOOL WAGRSubsRowAlreadyForced(id settingsVC) {
-    return [objc_getAssociatedObject(settingsVC, kWAGRSubsRowInsertedMarker) boolValue];
-}
-
 static void WAGRForceSubscriptionsRowIfNeeded(id settingsVC) {
     if (!WAGRIsWASettingsVC(settingsVC) || !WAGRSettingsRowsShouldForceSubscriptions()) return;
-    if (WAGRSubsRowAlreadyForced(settingsVC)) return;
     if ([objc_getAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker) boolValue]) return;
     objc_setAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     dispatch_async(dispatch_get_main_queue(), ^{
         objc_setAssociatedObject(settingsVC, kWAGRNativeSettingsRefreshMarker, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        // PREVIOUSLY: we early-returned here when WAGROrigSubscriptionsRowPresent
-        // was YES. That was the bug: WhatsApp's `_subscriptionsRow` ivar can
-        // already be non-nil at startup (row object exists in memory but is
-        // not yet attached to the visible section), so the orig check returned
-        // YES and our force never ran — visible-on-screen count stayed at 0.
-        // We now call insertSubscriptionsRow unconditionally; the WhatsApp
-        // implementation itself is responsible for handling the "already
-        // attached" case idempotently. We then mark the VC as forced so the
-        // hookIsSubscriptionsRowPresent guard knows when to return YES.
+        if (WAGROrigSubscriptionsRowPresent(settingsVC)) return;
         gWAGRSettingsRowsSubscriptionForces++;
         if ([settingsVC respondsToSelector:NSSelectorFromString(@"insertSubscriptionsRow")]) {
             ((void (*)(id, SEL))objc_msgSend)(settingsVC, NSSelectorFromString(@"insertSubscriptionsRow"));
-            objc_setAssociatedObject(settingsVC, kWAGRSubsRowInsertedMarker, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         }
     });
 }
@@ -270,6 +254,9 @@ static void WAGRForceSubscriptionsRowIfNeeded(id settingsVC) {
 static void WAGRForcePaymentsIfNeeded(id settingsVC) {
     if (!WAGRIsWASettingsVC(settingsVC) || !WAGRSettingsRowsShouldForcePayments()) return;
     gWAGRSettingsRowsPaymentsForces++;
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"wagr.settingsrows.force_payments"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    WAGRAccountEligibilityEnsureHooksInstalled();
 }
 
 static void WAGRRefreshSettingsRowsSoon(id settingsVC) {
@@ -287,22 +274,13 @@ static void hookCheckSubscriptionsEligibility(id self, SEL _cmd) {
 
 static BOOL hookIsSubscriptionsRowPresent(id self, SEL _cmd) {
     BOOL original = origIsSubscriptionsRowPresent ? origIsSubscriptionsRowPresent(self, _cmd) : NO;
-    // PREVIOUSLY: this returned YES whenever forceSubscriptions was on,
-    // unconditionally. That was wrong: WhatsApp's own
-    // checkSubscriptionsEligibilityAndInsertRowIfNeeded uses this method as
-    // the "already-inserted, skip" guard. Returning YES *before* the row was
-    // actually inserted meant WA skipped its own insert path entirely.
-    //
-    // The correct behavior:
-    //   * If we have already forced an insert on this VC, claim YES so any
-    //     subsequent re-evaluation by WA (e.g. removeSubscriptionsRow check)
-    //     keeps the row alive.
-    //   * Otherwise return whatever WhatsApp's own method returned. WA's
-    //     insert logic then runs normally, and our force runs on top as
-    //     a belt-and-suspenders guarantee.
-    if (WAGRSettingsRowsShouldForceSubscriptions() && WAGRSubsRowAlreadyForced(self)) {
-        return YES;
-    }
+
+    // This method answers "is the Subscriptions row present?". When the
+    // Aura/WA Plus chain is forced, the externally visible answer should be
+    // YES. Insertion is handled separately by WAGRForceSubscriptionsRowIfNeeded
+    // using the original IMP, so returning YES here no longer blocks our own
+    // insertion path.
+    if (WAGRSettingsRowsShouldForceSubscriptions()) return YES;
     return original;
 }
 
@@ -347,6 +325,16 @@ static id hookCreateSettingsEntryPointViewModel(id self, SEL _cmd) {
     return result;
 }
 
+static void hookSettingsViewDidLoad(id self, SEL _cmd) {
+    if (origSettingsViewDidLoad) origSettingsViewDidLoad(self, _cmd);
+    WAGRRefreshSettingsRowsSoon(self);
+}
+
+static void hookSettingsViewDidAppear(id self, SEL _cmd, BOOL animated) {
+    if (origSettingsViewDidAppear) origSettingsViewDidAppear(self, _cmd, animated);
+    WAGRRefreshSettingsRowsSoon(self);
+}
+
 static BOOL WAGRHookInstance(Class cls, NSString *selName, IMP replacement, IMP *origOut) {
     if (!cls || !selName.length || !replacement || !origOut || *origOut) return NO;
     SEL sel = NSSelectorFromString(selName);
@@ -377,6 +365,8 @@ extern "C" void WAGRSettingsRowsNativeEnsureHooksInstalled(void) {
     if (WAGRHookInstance(cls, @"showBRConsumerPaymentsHome", (IMP)hookShowBRConsumerPaymentsHome, (IMP *)&origShowBRConsumerPaymentsHome)) installed++;
     if (WAGRHookInstance(cls, @"getSettingsViewModel", (IMP)hookGetSettingsViewModel, (IMP *)&origGetSettingsViewModel)) installed++;
     if (WAGRHookInstance(cls, @"createSettingsEntryPointViewModel", (IMP)hookCreateSettingsEntryPointViewModel, (IMP *)&origCreateSettingsEntryPointViewModel)) installed++;
+    if (WAGRHookInstance(cls, @"viewDidLoad", (IMP)hookSettingsViewDidLoad, (IMP *)&origSettingsViewDidLoad)) installed++;
+    if (WAGRHookInstance(cls, @"viewDidAppear:", (IMP)hookSettingsViewDidAppear, (IMP *)&origSettingsViewDidAppear)) installed++;
 
     gWAGRSettingsRowsInstalledHookCount = installed;
     gWAGRSettingsRowsHooksInstalled = installed > 0;

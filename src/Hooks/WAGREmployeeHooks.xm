@@ -50,6 +50,13 @@ static BoolIMP orig_isMetaEmployeeSnake  = NULL;
 static BoolIMP orig_isInternalUser       = NULL;
 static BoolIMP orig_graphQLEmpC1         = NULL;
 
+typedef id   (*ObjIMP)(id, SEL);
+typedef void (*VoidObjIMP)(id, SEL, id);
+static ObjIMP     orig_WAServer_userContext      = NULL;
+static VoidObjIMP orig_WAServer_setUserContext   = NULL;
+static VoidObjIMP orig_WAServer_configureContext = NULL;
+static NSString  *gWAServerLastUserContextClass  = nil;
+
 static BOOL    gEmpInstalled = NO;
 static NSUInteger gEmpHookedCount = 0;
 
@@ -60,6 +67,28 @@ static NSUInteger gEmpHookedCount = 0;
 // flip just one selector instead of the whole bundle.
 static BOOL WAGRDogfoodForce(NSString *granularKey) {
     return WAGRPref(kWAGREmployeeMaster) || WAGRPref(granularKey);
+}
+
+
+static void WAGRRememberWAServerUserContext(id ctx) {
+    if (!ctx) return;
+    gWAServerLastUserContextClass = NSStringFromClass([ctx class]);
+}
+
+static id h_WAServer_userContext(id s, SEL c) {
+    id ctx = orig_WAServer_userContext ? orig_WAServer_userContext(s, c) : nil;
+    WAGRRememberWAServerUserContext(ctx);
+    return ctx;
+}
+
+static void h_WAServer_setUserContext(id s, SEL c, id ctx) {
+    WAGRRememberWAServerUserContext(ctx);
+    if (orig_WAServer_setUserContext) orig_WAServer_setUserContext(s, c, ctx);
+}
+
+static void h_WAServer_configureContext(id s, SEL c, id ctx) {
+    WAGRRememberWAServerUserContext(ctx);
+    if (orig_WAServer_configureContext) orig_WAServer_configureContext(s, c, ctx);
 }
 
 // ── Trampolines ──────────────────────────────────────────────────────────────
@@ -113,11 +142,40 @@ static void hookSelectorOnClass(Class cls, const char *selCStr,
     }
 }
 
+
+static void hookClassObjectSelector(Class cls, const char *selCStr,
+                                    IMP replacement, IMP *origSlot) {
+    if (!cls || !selCStr || !replacement || !origSlot || *origSlot) return;
+    SEL sel = sel_registerName(selCStr);
+    Method mth = class_getClassMethod(cls, sel);
+    if (!mth) return;
+    Class meta = object_getClass(cls);
+    MSHookMessageEx(meta, sel, replacement, origSlot);
+}
+
+static void installWAServerContextHooks(Class serverProps) {
+    if (!serverProps) return;
+    hookClassObjectSelector(serverProps, "userContext",
+                            (IMP)h_WAServer_userContext, (IMP *)&orig_WAServer_userContext);
+    hookClassObjectSelector(serverProps, "setUserContext:",
+                            (IMP)h_WAServer_setUserContext, (IMP *)&orig_WAServer_setUserContext);
+    hookClassObjectSelector(serverProps, "configureUserContext:",
+                            (IMP)h_WAServer_configureContext, (IMP *)&orig_WAServer_configureContext);
+
+    if (orig_WAServer_userContext) {
+        @try { WAGRRememberWAServerUserContext(((id (*)(id, SEL))objc_msgSend)(serverProps, sel_registerName("userContext"))); }
+        @catch (__unused id ex) {}
+    }
+}
+
 // ── Deterministic installer ──────────────────────────────────────────────────
 // Replaces the previous broad-scan approach with a small, audited candidate
 // list. Each name here is justified in the file header.
 static void installEmployeeHooks(void) {
     if (gEmpInstalled) return;
+
+    Class serverProps = NSClassFromString(@"WAServerProperties");
+    if (serverProps) installWAServerContextHooks(serverProps);
 
     // Single source of truth for which classes own the gates we care about.
     // Adding a new candidate is a one-line edit if a future WhatsApp build
@@ -166,34 +224,27 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
 
 extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"master=%@\nhookedTotal=%lu\ninternalUser=%@\nmetaEmployee=%@\nsnakeVariant=%@\ngraphQLEmpC1=%@",
+        @"master=%@\nhookedTotal=%lu\nserverProperties=%@\ninternalUser=%@\nuserContextGetter=%@\nsetUserContext=%@\nconfigureUserContext=%@\nlastUserContext=%@\nmetaEmployee=%@\nsnakeVariant=%@\ngraphQLEmpC1=%@",
         WAGRPref(kWAGREmployeeMaster) ? @"ON" : @"OFF",
         (unsigned long)gEmpHookedCount,
+        NSClassFromString(@"WAServerProperties") ? @"YES" : @"NO",
         orig_isInternalUser      ? @"YES" : @"NO",
+        orig_WAServer_userContext ? @"YES" : @"NO",
+        orig_WAServer_setUserContext ? @"YES" : @"NO",
+        orig_WAServer_configureContext ? @"YES" : @"NO",
+        gWAServerLastUserContextClass ?: @"none",
         orig_isMetaEmployee      ? @"YES" : @"NO",
         orig_isMetaEmployeeSnake ? @"YES" : @"NO",
         orig_graphQLEmpC1        ? @"YES" : @"NO"];
 }
 
 // ── Constructor ──────────────────────────────────────────────────────────────
-// Retry policy identical to the dev-menu file: 0.2 / 1.0 / 3.0 / 6.0 s. The
-// extra 6 s slot covers the case where SharedModules takes longer to fully
-// register WAServerProperties on cold launches.
+// Constructor policy: install immediately, then short bounded retries.
+// No long 6s/7s tail; later UI actions can call WAGRDogfoodEnsureHooksInstalled().
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
-        // PRIORITY INSTALL: synchronous on constructor entry. This runs
-        // before any UI code, before viewDidLoad of any settings VC, and
-        // before most WhatsApp code paths that consult +isInternalUser.
-        // SharedModules is already loaded by dyld at this point (our
-        // dylib links it as a dependency target), so WAServerProperties
-        // is available now in the runtime. If for some reason it is not,
-        // the staggered retries below pick up the slack.
-        installEmployeeHooks();
-
-        // Safety-net retries: cover cold-launch corner cases where
-        // SharedModules takes longer to fully register class symbols.
-        double delays[] = { 0.2, 1.0, 3.0, 6.0 };
+        double delays[] = { 0.35, 1.0, 2.0 };
         for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{ installEmployeeHooks(); });
