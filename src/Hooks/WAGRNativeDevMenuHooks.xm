@@ -112,6 +112,130 @@ static void installUserContextCaptureHooks(void) {
     }
 }
 
+
+// ── WAContextMain / userContext spy ─────────────────────────────────────────
+// Diagnostic-only. We hook only selectors that actually exist on the captured
+// runtime context class. This tells us whether PrivateExperimentationManager is
+// asking the context for abProperties/privateABProperties/preferences/etc. and
+// what comes back. No return values are modified here.
+typedef id   (*CtxObjIMP)(id, SEL);
+typedef BOOL (*CtxBoolIMP)(id, SEL);
+
+static NSMutableDictionary<NSString *, NSValue *> *gCtxObjOrig = nil;
+static NSMutableDictionary<NSString *, NSValue *> *gCtxBoolOrig = nil;
+static NSMutableSet<NSString *> *gCtxSpyInstalled = nil;
+
+static NSString *WAGRContextSpyKey(Class cls, SEL sel) {
+    return [NSString stringWithFormat:@"%@|%@", NSStringFromClass(cls), NSStringFromSelector(sel)];
+}
+
+static id hookContextSpyObject(id self, SEL _cmd) {
+    NSString *key = WAGRContextSpyKey([self class], _cmd);
+    CtxObjIMP orig = NULL;
+    NSValue *v = gCtxObjOrig[key];
+    if (v) orig = (CtxObjIMP)[v pointerValue];
+    id ret = nil;
+    @try { ret = orig ? orig(self, _cmd) : nil; } @catch (__unused NSException *ex) { ret = nil; }
+    WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (%p)",
+                   NSStringFromClass([self class]), NSStringFromSelector(_cmd),
+                   ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
+    return ret;
+}
+
+static BOOL hookContextSpyBool(id self, SEL _cmd) {
+    NSString *key = WAGRContextSpyKey([self class], _cmd);
+    CtxBoolIMP orig = NULL;
+    NSValue *v = gCtxBoolOrig[key];
+    if (v) orig = (CtxBoolIMP)[v pointerValue];
+    BOOL ret = NO;
+    @try { ret = orig ? orig(self, _cmd) : NO; } @catch (__unused NSException *ex) { ret = NO; }
+    WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@",
+                   NSStringFromClass([self class]), NSStringFromSelector(_cmd), ret ? @"YES" : @"NO");
+    return ret;
+}
+
+static BOOL WAGRContextSpyHookObjectSelector(Class cls, NSString *selectorName) {
+    if (!cls || !selectorName.length) return NO;
+    SEL sel = NSSelectorFromString(selectorName);
+    Method m = class_getInstanceMethod(cls, sel);
+    if (!m) return NO;
+    if (method_getNumberOfArguments(m) != 2) return NO;
+    char ret[16] = {0};
+    method_getReturnType(m, ret, sizeof(ret));
+    if (ret[0] != '@') return NO;
+
+    NSString *key = WAGRContextSpyKey(cls, sel);
+    if ([gCtxSpyInstalled containsObject:key]) return YES;
+
+    IMP orig = NULL;
+    MSHookMessageEx(cls, sel, (IMP)hookContextSpyObject, &orig);
+    if (!orig) return NO;
+    if (!gCtxObjOrig) gCtxObjOrig = [NSMutableDictionary dictionary];
+    if (!gCtxSpyInstalled) gCtxSpyInstalled = [NSMutableSet set];
+    gCtxObjOrig[key] = [NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+    [gCtxSpyInstalled addObject:key];
+    WAGRLogAppendF(@"[ContextSpy] hooked object selector %@.%@", NSStringFromClass(cls), selectorName);
+    return YES;
+}
+
+static BOOL WAGRContextSpyHookBoolSelector(Class cls, NSString *selectorName) {
+    if (!cls || !selectorName.length) return NO;
+    SEL sel = NSSelectorFromString(selectorName);
+    Method m = class_getInstanceMethod(cls, sel);
+    if (!m) return NO;
+    if (method_getNumberOfArguments(m) != 2) return NO;
+    char ret[16] = {0};
+    method_getReturnType(m, ret, sizeof(ret));
+    if (ret[0] != 'B' && ret[0] != 'c') return NO;
+
+    NSString *key = WAGRContextSpyKey(cls, sel);
+    if ([gCtxSpyInstalled containsObject:key]) return YES;
+
+    IMP orig = NULL;
+    MSHookMessageEx(cls, sel, (IMP)hookContextSpyBool, &orig);
+    if (!orig) return NO;
+    if (!gCtxBoolOrig) gCtxBoolOrig = [NSMutableDictionary dictionary];
+    if (!gCtxSpyInstalled) gCtxSpyInstalled = [NSMutableSet set];
+    gCtxBoolOrig[key] = [NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+    [gCtxSpyInstalled addObject:key];
+    WAGRLogAppendF(@"[ContextSpy] hooked bool selector %@.%@", NSStringFromClass(cls), selectorName);
+    return YES;
+}
+
+extern "C" void WAGRContextSpyInstallForContext(id ctx) {
+    if (!ctx) return;
+    if (!gCtxSpyInstalled) gCtxSpyInstalled = [NSMutableSet set];
+    Class cls = [ctx class];
+    if (!cls) return;
+
+    NSArray<NSString *> *objectSelectors = @[
+        @"abProperties",
+        @"privateABProperties",
+        @"debugPropOverrides",
+        @"preferences",
+        @"preferencesStore",
+        @"accountProvider",
+        @"propertiesStore",
+        @"mobileConfig",
+        @"mobileConfigManager",
+        @"waABProperties",
+        @"serverProperties"
+    ];
+    NSArray<NSString *> *boolSelectors = @[
+        @"isPrimaryDevice",
+        @"isInternalUser",
+        @"isEmployee",
+        @"isMetaEmployeeOrInternalTester",
+        @"isDebugMenuAllowed"
+    ];
+
+    NSUInteger hooked = 0;
+    for (NSString *sel in objectSelectors) if (WAGRContextSpyHookObjectSelector(cls, sel)) hooked++;
+    for (NSString *sel in boolSelectors) if (WAGRContextSpyHookBoolSelector(cls, sel)) hooked++;
+
+    WAGRLogAppendF(@"[ContextSpy] install pass class=%@ hookedTotal=%lu", NSStringFromClass(cls), (unsigned long)hooked);
+}
+
 // ── Master gate ──────────────────────────────────────────────────────────────
 // Returns YES if any relevant master pref or runtime-browser gate is ON.
 static BOOL WAGRNativeDevAllowed(void) {

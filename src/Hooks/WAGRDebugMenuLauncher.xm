@@ -37,6 +37,7 @@
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRLog.h"
 
+extern "C" void WAGRContextSpyInstallForContext(id ctx);
 
 // ── Real userContext cache ──────────────────────────────────────────────────
 // The real context is the object WhatsApp passes into WADebugViewController
@@ -56,6 +57,7 @@ extern "C" void WAGRRememberUserContext(id ctx, NSString *source) {
     gWAGRLastUserContext = ctx;
     gWAGRLastUserContextSource = [source copy] ?: @"unknown";
     WAGRLogAppendF(@"[UserContext] cached %@ from %@", cls, gWAGRLastUserContextSource);
+    WAGRContextSpyInstallForContext(ctx);
 }
 
 extern "C" id WAGRCurrentUserContext(void) {
