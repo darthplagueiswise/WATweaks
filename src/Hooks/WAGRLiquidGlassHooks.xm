@@ -102,23 +102,11 @@ extern "C" NSString *WAGRLGDiagnosticText(void){
         (unsigned long)gWAGRLGOrigIMPs.count];
 }
 
-static void WAGRLGDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRLGHookClass(); });
-}
-
 __attribute__((constructor))
 static void WAGRLGConstructor(void) {
     @autoreleasepool {
         // Watusi-style startup: install the runtime hook path only.
         // Preference/native UserDefaults writes run after app launch or user action.
         WAGRLGHookClass();
-        _dyld_register_func_for_add_image(WAGRLGDyldCallback);
-        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
-                                                          object:nil
-                                                           queue:[NSOperationQueue mainQueue]
-                                                      usingBlock:^(__unused NSNotification *note) {
-            WAGRLGPrefsDidChange();
-        }];
     }
 }

@@ -286,8 +286,6 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
 
         UIViewController *settingsVC = WAGRSettingsVCForTable(tv);
         if (settingsVC) {
-            WAGRSettingsRowsNativeEnsureHooksInstalled();
-            WAGRContextMenuPipelineProbeEnsureInstalled();
             WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
         }
     }
@@ -332,7 +330,6 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
     installGlobalWindowTapHook();
     WAGRNativeDevMenuEnsureHooksInstalled();
     WAGRSettingsRowsNativeEnsureHooksInstalled();
-    WAGRContextMenuPipelineProbeEnsureInstalled();
 }
 
 
@@ -369,18 +366,11 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 // picked up.
 static void startup(void) {
     @autoreleasepool {
+        // Watusi-style hot path: Tweak.x owns only global UI activation.
+        // Hook owners install their fixed hook batches from their own constructors.
+        // No runtime probes, no prefs, no hook owner re-entry from here.
         installLongPressTableHook();
         installGlobalWindowTapHook();
-
-        // Dedicated hook owners install their own runtime hooks from their constructors.
-        // Tweak.x owns only global UI activation and non-gate surface nudges.
-        WAGRAuraEnsureNavigationHooksInstalled();
-        WAGRNativeDevMenuEnsureHooksInstalled();
-        WAGRSettingsRowsNativeEnsureHooksInstalled();
-        WAGRAccountEligibilityEnsureHooksInstalled();
-
-        // No timed hook retry cascade here. Watusi installs hook batches from
-        // constructors; each dedicated owner is responsible for its own dyld hook path.
     }
 }
 

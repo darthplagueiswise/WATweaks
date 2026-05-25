@@ -324,34 +324,14 @@ extern "C" NSString *WAGRGateHooksDiagnostic(void) {
         (unsigned long)WAGRGateAllOverrides().count];
 }
 
-// ── dyld + constructor ───────────────────────────────────────────────────────
-// SharedModules can load slightly after the main image. We re-run the
-// ensure path on each dyld add-image event so newly loaded classes get
-// their hooks. We also schedule three short retries to cover Swift-only
-// classes that get registered with the ObjC runtime late in launch.
-static void WAGRGateDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    // dyld can fire on a non-main thread. Hop to main; hook installs through
-    // MSHookMessageEx are intentionally serialized on the main thread for
-    // crash-safety on the WhatsApp Swift bridges.
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRGateHooksInstallLightPhase(); });
-}
-
+// ── constructor ──────────────────────────────────────────────────────────────
+// Watusi hot path: fixed ObjC hook batch only, synchronously during dylib load.
+// No NSUserDefaults, no migration, no persisted restore, no dyld observer and
+// no timed retry cascade on startup. Menu/toggle actions may call the public
+// ensure/install APIs later when the user explicitly asks for runtime work.
 __attribute__((constructor))
 static void WAGRGateHooksConstructor(void) {
     @autoreleasepool {
-        // Watusi-style startup: constructor performs ObjC runtime hook install only.
-        // Do not touch persisted preference storage here.
         WAGRGateHooksInstallLightPhase();
-        _dyld_register_func_for_add_image(WAGRGateDyldCallback);
-
-        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
-                                                          object:nil
-                                                           queue:[NSOperationQueue mainQueue]
-                                                      usingBlock:^(__unused NSNotification *note) {
-            WAGRWipeLegacyStorageIfNeeded();
-            WAGRGateHooksInstallLightPhase();
-            WAGRGateHooksInstallPersistedPhaseOnce();
-        }];
     }
 }
