@@ -17,7 +17,7 @@ extern void WAGRWAABEnsureHooksInstalled(void);
 // It does the heavy lifting of locating a WAContextMain and instantiating
 // WADebugViewController via initWithUserContext:.
 extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
-extern BOOL WAGRLaunchNativePrivateExperimentation(UIViewController *fromVC, NSError **outError);
+extern BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
 extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
 static UIColor *WAGRBG(void)     { return UIColor.systemGroupedBackgroundColor; }
 static UIColor *WAGRCell(void)   { return UIColor.secondarySystemGroupedBackgroundColor; }
@@ -219,23 +219,23 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.textColor = WAGRSub();
-    UIImage *icon = nil;
 
     if (row == WAGRDevMenuRowPrivateExperimentation) {
         c.textLabel.text = @"Abrir Private Experimentation";
-        c.detailTextLabel.text = @"Abre a tela nativa de AB/private experimentation com userContext";
-        icon = [UIImage systemImageNamed:@"slider.horizontal.3"];
-        if (!icon) icon = [UIImage systemImageNamed:@"testtube.2"];
+        c.detailTextLabel.text = @"Usa o userContext real capturado do WADebugViewController";
+        UIImage *icon = [UIImage systemImageNamed:@"testtube.2"];
+        if (!icon) icon = [UIImage systemImageNamed:@"flask"];
+        c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
         c.imageView.tintColor = UIColor.systemPurpleColor;
     } else {
         c.textLabel.text = @"Abrir Menu Developer Nativo";
-        c.detailTextLabel.text = @"DebugMenuProvider → debugViewController → WADebugViewController";
-        icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
+        c.detailTextLabel.text = @"Apresenta WADebugViewController pelo provider nativo";
+        UIImage *icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
         if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
+        c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
         c.imageView.tintColor = UIColor.systemBlueColor;
     }
 
-    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
@@ -354,13 +354,11 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
             NSError *err = nil;
             BOOL ok = NO;
             if (row == WAGRDevMenuRowPrivateExperimentation) {
-                ok = WAGRLaunchNativePrivateExperimentation(presentedBy ?: WAGRTopController(), &err);
+                ok = WAGRLaunchPrivateExperimentationDebug(presentedBy ?: WAGRTopController(), &err);
+                if (!ok) WAGRAlert(@"Não foi possível abrir Private Experimentation", err.localizedDescription ?: @"Erro desconhecido.");
             } else {
                 ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
-            }
-            if (!ok) {
-                WAGRAlert(row == WAGRDevMenuRowPrivateExperimentation ? @"Não foi possível abrir Private Experimentation" : @"Não foi possível abrir o menu nativo",
-                          err.localizedDescription ?: @"Erro desconhecido.");
+                if (!ok) WAGRAlert(@"Não foi possível abrir o menu nativo", err.localizedDescription ?: @"Erro desconhecido.");
             }
         }];
         return;

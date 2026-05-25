@@ -1,17 +1,9 @@
 // WAGRNativeDevMenuHooks.xm
 // ─────────────────────────────────────────────────────────────────────────────
-// Native WhatsApp Debug Menu gate owner.
-//
-// Target confirmed from WhatsApp(10):
-//   _TtC15WADebugMenuMain17DebugMenuProvider
-//     -isDebugMenuAllowed
-//     -isDebugMenuShortcutEnabled
-//     -debugViewController
-//     -presentDebugControllerIfNeeded
-//
-// This file does not create a fake WAAB menu. It only unlocks the native
-// provider/controller path and primes the WAAB/private-experimentation gates
-// through WAGRGateStore when the user asks to open the native menu.
+// Single owner of the hooks that unlock WhatsApp's native Developer Menu.
+// Constructor path is Watusi-style: fixed class/selector lookups + hook install
+// only. State reads go through WAGRGateStore/WAGRPref; no legacy override-key
+// storage is used here.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import <Foundation/Foundation.h>
@@ -19,61 +11,104 @@
 #import <objc/runtime.h>
 #import <substrate.h>
 #import "../WAGramPrefix.h"
-#import "../Runtime/WAGRGateStore.h"
-
-extern "C" void WAGRGateHooksEnsureInstalled(void);
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
 typedef BOOL (*BoolIMP)(id, SEL);
+typedef id   (*IDIMP)(id, SEL);
+typedef id   (*InitCtxIMP)(id, SEL, id);
+
+extern "C" void WAGRRememberUserContext(id ctx, NSString *source);
+extern "C" id WAGRCurrentUserContext(void);
+
 static BoolIMP orig_dmAllowed = NULL;
 static BoolIMP orig_dmShortcutEnabled = NULL;
-static BoolIMP orig_serverPropsDisableExperimental = NULL;
+static IDIMP orig_debugVCUserContext = NULL;
+static InitCtxIMP orig_debugVCInitWithUserContext = NULL;
+static InitCtxIMP orig_privateExpInitWithUserContext = NULL;
 
 static BOOL gDevMenuHooked  = NO;
 static BOOL gShortcutHooked = NO;
-static BOOL gServerPropsDisableExperimentalHooked = NO;
+static BOOL gDebugVCHooked = NO;
+static BOOL gPrivateExpVCHooked = NO;
 
 static BOOL WAGRGateForcedOn(NSString *selectorName) {
     return selectorName.length && WAGRGateIsSet(selectorName) && WAGRGateGet(selectorName);
 }
 
-static BOOL WAGRGateForcedOff(NSString *selectorName) {
-    return selectorName.length && WAGRGateIsSet(selectorName) && !WAGRGateGet(selectorName);
+
+// ── Real userContext capture ────────────────────────────────────────────────
+// WADebugViewController is the reliable native owner. When WhatsApp creates it
+// through DebugMenuProvider it passes the account/session-bound userContext.
+// Cache that object and reuse it for PrivateExperimentationDebugViewController.
+static id hookDebugVCInitWithUserContext(id self, SEL _cmd, id ctx) {
+    if (ctx) WAGRRememberUserContext(ctx, @"WADebugViewController initWithUserContext: arg");
+    id result = orig_debugVCInitWithUserContext ? orig_debugVCInitWithUserContext(self, _cmd, ctx) : self;
+    if (ctx) WAGRRememberUserContext(ctx, @"WADebugViewController initWithUserContext: result");
+    return result;
 }
 
-// Called by the launcher before opening native UI. This is intentionally not
-// called from constructor: it writes prefs and installs optional hooks only on
-// explicit user action.
-extern "C" void WAGRNativeDebugActivateSupportGates(void) {
-    WAGRGateSet(@"isDebugMenuAllowed", YES);
-    WAGRGateSet(@"isDebugMenuShortcutEnabled", YES);
-
-    WAGRGateSet(@"waios_mc_debug_ui_enabled", YES);
-    WAGRGateSet(@"whatsbroken_enabled", YES);
-    WAGRGateSet(@"private_abprop_for_dev_only", YES);
-    WAGRGateSet(@"private_experimentation_should_sync", YES);
-    WAGRGateSet(@"dogfooding_nudge_settings_entrypoint_enabled", YES);
-
-    // isDebugMenuAllowed references this gate in the binary. This must be OFF.
-    WAGRGateSet(@"serverPropsDisableExperimental", NO);
-
-    WAGRGateHooksEnsureInstalled();
+static id hookDebugVCUserContext(id self, SEL _cmd) {
+    id ctx = orig_debugVCUserContext ? orig_debugVCUserContext(self, _cmd) : nil;
+    if (ctx) WAGRRememberUserContext(ctx, @"WADebugViewController userContext getter");
+    return ctx;
 }
 
+static id hookPrivateExpInitWithUserContext(id self, SEL _cmd, id ctx) {
+    id realCtx = ctx ?: WAGRCurrentUserContext();
+    if (realCtx) WAGRRememberUserContext(realCtx, @"PrivateExperimentation initWithUserContext: arg/cache");
+    return orig_privateExpInitWithUserContext ? orig_privateExpInitWithUserContext(self, _cmd, realCtx) : self;
+}
+
+static void installUserContextCaptureHooks(void) {
+    if (!gDebugVCHooked) {
+        Class dbg = NSClassFromString(@"WADebugViewController");
+        if (dbg) {
+            SEL initSel = NSSelectorFromString(@"initWithUserContext:");
+            if (class_getInstanceMethod(dbg, initSel)) {
+                MSHookMessageEx(dbg, initSel, (IMP)hookDebugVCInitWithUserContext, (IMP *)&orig_debugVCInitWithUserContext);
+            }
+            SEL ctxSel = NSSelectorFromString(@"userContext");
+            if (class_getInstanceMethod(dbg, ctxSel)) {
+                MSHookMessageEx(dbg, ctxSel, (IMP)hookDebugVCUserContext, (IMP *)&orig_debugVCUserContext);
+            }
+            gDebugVCHooked = (orig_debugVCInitWithUserContext != NULL || orig_debugVCUserContext != NULL);
+        }
+    }
+
+    if (!gPrivateExpVCHooked) {
+        Class pe = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
+        if (!pe) pe = NSClassFromString(@"WAPrivateExperimentation.PrivateExperimentationDebugViewController");
+        if (pe) {
+            SEL initSel = NSSelectorFromString(@"initWithUserContext:");
+            if (class_getInstanceMethod(pe, initSel)) {
+                MSHookMessageEx(pe, initSel, (IMP)hookPrivateExpInitWithUserContext, (IMP *)&orig_privateExpInitWithUserContext);
+                gPrivateExpVCHooked = (orig_privateExpInitWithUserContext != NULL);
+            }
+        }
+    }
+}
+
+// ── Master gate ──────────────────────────────────────────────────────────────
+// Returns YES if any relevant master pref or runtime-browser gate is ON.
 static BOOL WAGRNativeDevAllowed(void) {
-    if (WAGRPref(kWAGRDebugMenuNative) ||
-        WAGRPref(kWAGRInternalMaster) ||
-        WAGRPref(kWAGREmployeeMaster) ||
-        WAGRPref(kWAGRDebugMode)) {
+    if (WAGRPref(kWAGRDebugMenuNative)
+        || WAGRPref(kWAGRInternalMaster)
+        || WAGRPref(kWAGREmployeeMaster)
+        || WAGRPref(kWAGRDebugMode)) {
         return YES;
     }
 
-    return WAGRGateForcedOn(@"isDebugMenuAllowed") ||
-           WAGRGateForcedOn(@"isDebugMenuShortcutEnabled") ||
-           WAGRGateForcedOn(@"waios_mc_debug_ui_enabled") ||
-           WAGRGateForcedOn(@"private_abprop_for_dev_only");
+    // Runtime Avançado now writes selector names through WAGRGateStore. Do not
+    // use WAGROverrideKey/WAGRHasOverride here: those belonged to the removed
+    // duplicated UI/storage path.
+    if (WAGRGateForcedOn(@"isDebugMenuAllowed") ||
+        WAGRGateForcedOn(@"isDebugMenuShortcutEnabled")) {
+        return YES;
+    }
+    return NO;
 }
 
+// ── Trampolines ──────────────────────────────────────────────────────────────
 static BOOL hookDevAllowed(id self, SEL _cmd) {
     if (WAGRNativeDevAllowed()) return YES;
     return orig_dmAllowed ? orig_dmAllowed(self, _cmd) : NO;
@@ -84,11 +119,7 @@ static BOOL hookDevShortcut(id self, SEL _cmd) {
     return orig_dmShortcutEnabled ? orig_dmShortcutEnabled(self, _cmd) : NO;
 }
 
-static BOOL hookServerPropsDisableExperimental(id self, SEL _cmd) {
-    if (WAGRNativeDevAllowed() || WAGRGateForcedOff(@"serverPropsDisableExperimental")) return NO;
-    return orig_serverPropsDisableExperimental ? orig_serverPropsDisableExperimental(self, _cmd) : NO;
-}
-
+// ── Method presence probes ───────────────────────────────────────────────────
 static BOOL classHasInstanceMethod(Class cls, SEL sel) {
     return cls && sel && class_getInstanceMethod(cls, sel) != NULL;
 }
@@ -97,23 +128,12 @@ static BOOL classHasClassMethod(Class cls, SEL sel) {
     return cls && sel && class_getClassMethod(cls, sel) != NULL;
 }
 
-static BOOL WAGRHookBoolNoArg(Class cls, SEL sel, BOOL classMethod, IMP replacement, BoolIMP *origOut) {
-    if (!cls || !sel || !replacement || !origOut) return NO;
-    Method m = classMethod ? class_getClassMethod(cls, sel) : class_getInstanceMethod(cls, sel);
-    if (!m || method_getNumberOfArguments(m) != 2) return NO;
-    char ret[8] = {0};
-    method_getReturnType(m, ret, sizeof(ret));
-    if (ret[0] != 'B' && ret[0] != 'c') return NO;
-    Class target = classMethod ? object_getClass(cls) : cls;
-    IMP orig = NULL;
-    MSHookMessageEx(target, sel, replacement, &orig);
-    if (!orig) return NO;
-    *origOut = (BoolIMP)orig;
-    return YES;
-}
-
+// ── Installer ────────────────────────────────────────────────────────────────
 static void installNativeDevMenuHooks(void) {
-    NSArray *providerCandidates = @[
+    installUserContextCaptureHooks();
+    if (gDevMenuHooked && gShortcutHooked) return;
+
+    NSArray *candidates = @[
         @"_TtC15WADebugMenuMain17DebugMenuProvider",
         @"WASettingsViewController",
         @"WASettingsTableViewController",
@@ -125,47 +145,36 @@ static void installNativeDevMenuHooks(void) {
     SEL allowedSel  = NSSelectorFromString(@"isDebugMenuAllowed");
     SEL shortcutSel = NSSelectorFromString(@"isDebugMenuShortcutEnabled");
 
-    for (NSString *n in providerCandidates) {
+    for (NSString *n in candidates) {
         Class cls = NSClassFromString(n);
         if (!cls) continue;
 
         if (!gDevMenuHooked) {
             if (classHasInstanceMethod(cls, allowedSel)) {
-                gDevMenuHooked = WAGRHookBoolNoArg(cls, allowedSel, NO, (IMP)hookDevAllowed, &orig_dmAllowed);
+                MSHookMessageEx(cls, allowedSel, (IMP)hookDevAllowed, (IMP *)&orig_dmAllowed);
+                gDevMenuHooked = (orig_dmAllowed != NULL);
             } else if (classHasClassMethod(cls, allowedSel)) {
-                gDevMenuHooked = WAGRHookBoolNoArg(cls, allowedSel, YES, (IMP)hookDevAllowed, &orig_dmAllowed);
+                MSHookMessageEx(object_getClass(cls), allowedSel, (IMP)hookDevAllowed, (IMP *)&orig_dmAllowed);
+                gDevMenuHooked = (orig_dmAllowed != NULL);
             }
         }
 
         if (!gShortcutHooked) {
             if (classHasInstanceMethod(cls, shortcutSel)) {
-                gShortcutHooked = WAGRHookBoolNoArg(cls, shortcutSel, NO, (IMP)hookDevShortcut, &orig_dmShortcutEnabled);
+                MSHookMessageEx(cls, shortcutSel, (IMP)hookDevShortcut, (IMP *)&orig_dmShortcutEnabled);
+                gShortcutHooked = (orig_dmShortcutEnabled != NULL);
             } else if (classHasClassMethod(cls, shortcutSel)) {
-                gShortcutHooked = WAGRHookBoolNoArg(cls, shortcutSel, YES, (IMP)hookDevShortcut, &orig_dmShortcutEnabled);
+                MSHookMessageEx(object_getClass(cls), shortcutSel, (IMP)hookDevShortcut, (IMP *)&orig_dmShortcutEnabled);
+                gShortcutHooked = (orig_dmShortcutEnabled != NULL);
             }
         }
 
         if (gDevMenuHooked && gShortcutHooked) break;
     }
 
-    if (!gServerPropsDisableExperimentalHooked) {
-        SEL offSel = NSSelectorFromString(@"serverPropsDisableExperimental");
-        for (NSString *n in @[ @"WAServerProperties", @"WAABProperties", @"FOAWAABPropertiesImpl" ]) {
-            Class cls = NSClassFromString(n);
-            if (!cls) continue;
-            if (classHasClassMethod(cls, offSel)) {
-                gServerPropsDisableExperimentalHooked = WAGRHookBoolNoArg(cls, offSel, YES, (IMP)hookServerPropsDisableExperimental, &orig_serverPropsDisableExperimental);
-            } else if (classHasInstanceMethod(cls, offSel)) {
-                gServerPropsDisableExperimentalHooked = WAGRHookBoolNoArg(cls, offSel, NO, (IMP)hookServerPropsDisableExperimental, &orig_serverPropsDisableExperimental);
-            }
-            if (gServerPropsDisableExperimentalHooked) break;
-        }
-    }
-
-    NSLog(@"[WATweaks][NativeDevMenu] install pass: allowed=%@ shortcut=%@ disableExperimental=%@",
-          gDevMenuHooked ? @"YES" : @"NO",
-          gShortcutHooked ? @"YES" : @"NO",
-          gServerPropsDisableExperimentalHooked ? @"YES" : @"NO");
+    NSLog(@"[WATweaks][NativeDevMenu] install pass: allowed=%@ shortcut=%@",
+          gDevMenuHooked  ? @"YES" : @"NO",
+          gShortcutHooked ? @"YES" : @"NO");
 }
 
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void) {
@@ -175,20 +184,17 @@ extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void) {
 extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void) {
     Class swiftCls = NSClassFromString(@"_TtC15WADebugMenuMain17DebugMenuProvider");
     Class debugVC = NSClassFromString(@"WADebugViewController");
-    Class privateExp = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
+    Class peVC = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
     return [NSString stringWithFormat:
-            @"DebugMenuProvider=%@\nWADebugViewController=%@\nPrivateExperimentationVC=%@\nallowedHook=%@\nshortcutHook=%@\ndisableExperimentalHook=%@\nmcDebugUI=%@\nprivateABDevOnly=%@\nprivateExpSync=%@\ndogfoodNudge=%@\nserverPropsDisableExperimental=%@",
-            swiftCls ? @"loaded" : @"missing",
-            debugVC ? @"loaded" : @"missing",
-            privateExp ? @"loaded" : @"missing",
-            gDevMenuHooked ? @"YES" : @"NO",
+            @"swiftClassLoaded=%@\nallowedHook=%@\nshortcutHook=%@\ndebugVC=%@\ndebugVCHooks=%@\nprivateExpVC=%@\nprivateExpInitHook=%@\ncachedUserContext=%@",
+            swiftCls ? @"YES" : @"NO",
+            gDevMenuHooked  ? @"YES" : @"NO",
             gShortcutHooked ? @"YES" : @"NO",
-            gServerPropsDisableExperimentalHooked ? @"YES" : @"NO",
-            WAGRGateForcedOn(@"waios_mc_debug_ui_enabled") ? @"ON" : @"system",
-            WAGRGateForcedOn(@"private_abprop_for_dev_only") ? @"ON" : @"system",
-            WAGRGateForcedOn(@"private_experimentation_should_sync") ? @"ON" : @"system",
-            WAGRGateForcedOn(@"dogfooding_nudge_settings_entrypoint_enabled") ? @"ON" : @"system",
-            WAGRGateForcedOff(@"serverPropsDisableExperimental") ? @"OFF" : @"system"];
+            debugVC ? @"YES" : @"NO",
+            gDebugVCHooked ? @"YES" : @"NO",
+            peVC ? @"YES" : @"NO",
+            gPrivateExpVCHooked ? @"YES" : @"NO",
+            WAGRCurrentUserContext() ? NSStringFromClass([WAGRCurrentUserContext() class]) : @"nil"];
 }
 
 __attribute__((constructor))
