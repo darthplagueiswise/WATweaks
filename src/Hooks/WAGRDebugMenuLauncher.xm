@@ -370,6 +370,76 @@ extern "C" BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError 
 }
 
 
+
+static id wagr_preflightCallObject(id obj, NSString *selectorName, BOOL *respondsOut) {
+    if (respondsOut) *respondsOut = NO;
+    if (!obj || !selectorName.length) return nil;
+    SEL sel = NSSelectorFromString(selectorName);
+    if (![obj respondsToSelector:sel]) return nil;
+    if (respondsOut) *respondsOut = YES;
+    id ret = nil;
+    @try {
+        id (*fn)(id, SEL) = (id (*)(id, SEL))[obj methodForSelector:sel];
+        ret = fn(obj, sel);
+    } @catch (__unused NSException *ex) { ret = nil; }
+    return ret;
+}
+
+static BOOL wagr_preflightCallBool(id obj, NSString *selectorName, BOOL *respondsOut) {
+    if (respondsOut) *respondsOut = NO;
+    if (!obj || !selectorName.length) return NO;
+    SEL sel = NSSelectorFromString(selectorName);
+    if (![obj respondsToSelector:sel]) return NO;
+    if (respondsOut) *respondsOut = YES;
+    BOOL ret = NO;
+    @try {
+        BOOL (*fn)(id, SEL) = (BOOL (*)(id, SEL))[obj methodForSelector:sel];
+        ret = fn(obj, sel);
+    } @catch (__unused NSException *ex) { ret = NO; }
+    return ret;
+}
+
+static void wagr_privateExpPreflight(id ctx) {
+    if (!ctx) {
+        WAGRLogAppend(@"[PreFlight] ctx=nil");
+        return;
+    }
+
+    WAGRLogAppendF(@"[PreFlight] ctx=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
+
+    NSArray<NSString *> *objSelectors = @[
+        @"privateABProperties", @"debugPropOverrides", @"abProperties",
+        @"preferences", @"preferencesStore", @"accountProvider",
+        @"mobileConfig", @"mobileConfigManager"
+    ];
+    for (NSString *sel in objSelectors) {
+        BOOL responds = NO;
+        id ret = wagr_preflightCallObject(ctx, sel, &responds);
+        WAGRLogAppendF(@"[PreFlight] ctx.%@ responds=%@ -> %@ (%p)",
+                       sel, responds ? @"YES" : @"NO",
+                       ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
+    }
+
+    for (NSString *sel in @[@"isPrimaryDevice", @"isInternalUser", @"isEmployee", @"isMetaEmployeeOrInternalTester"]) {
+        BOOL responds = NO;
+        BOOL ret = wagr_preflightCallBool(ctx, sel, &responds);
+        WAGRLogAppendF(@"[PreFlight] ctx.%@ responds=%@ -> %@",
+                       sel, responds ? @"YES" : @"NO", ret ? @"YES" : @"NO");
+    }
+
+    BOOL apResponds = NO;
+    id accountProvider = wagr_preflightCallObject(ctx, @"accountProvider", &apResponds);
+    if (accountProvider) {
+        WAGRLogAppendF(@"[PreFlight] accountProvider=%@ (%p)", NSStringFromClass([accountProvider class]), (__bridge void *)accountProvider);
+        for (NSString *sel in @[@"isPrimaryDevice", @"isInternalUser", @"isEmployee", @"isMetaEmployeeOrInternalTester"]) {
+            BOOL responds = NO;
+            BOOL ret = wagr_preflightCallBool(accountProvider, sel, &responds);
+            WAGRLogAppendF(@"[PreFlight] accountProvider.%@ responds=%@ -> %@",
+                           sel, responds ? @"YES" : @"NO", ret ? @"YES" : @"NO");
+        }
+    }
+}
+
 static UIViewController *wagr_topPresenter(UIViewController *fromVC) {
     UIViewController *top = fromVC;
     if (!top) {
@@ -408,6 +478,7 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
     }
 
     WAGRLogAppendF(@"[PrivateExp] opening with ctx=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
+    wagr_privateExpPreflight(ctx);
     id vc = ((id (*)(id, SEL, id))objc_msgSend)([cls alloc], initSel, ctx);
     if (![vc isKindOfClass:UIViewController.class]) {
         WAGRLogAppendF(@"[PrivateExp] failed: init returned %@", vc ? NSStringFromClass([vc class]) : @"nil");

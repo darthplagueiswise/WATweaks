@@ -129,6 +129,9 @@ static NSString *WAGRContextSpyKey(Class cls, SEL sel) {
     return [NSString stringWithFormat:@"%@|%@", NSStringFromClass(cls), NSStringFromSelector(sel)];
 }
 
+static BOOL WAGRContextSpyHookBoolSelector(Class cls, NSString *selectorName);
+extern "C" void WAGRContextSpyInstallForObject(id obj);
+
 static id hookContextSpyObject(id self, SEL _cmd) {
     NSString *key = WAGRContextSpyKey([self class], _cmd);
     CtxObjIMP orig = NULL;
@@ -136,9 +139,17 @@ static id hookContextSpyObject(id self, SEL _cmd) {
     if (v) orig = (CtxObjIMP)[v pointerValue];
     id ret = nil;
     @try { ret = orig ? orig(self, _cmd) : nil; } @catch (__unused NSException *ex) { ret = nil; }
+    NSString *selName = NSStringFromSelector(_cmd);
     WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (%p)",
-                   NSStringFromClass([self class]), NSStringFromSelector(_cmd),
+                   NSStringFromClass([self class]), selName,
                    ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
+
+    // The PrivateExperimentationManager path appears to call isPrimaryDevice on
+    // the accountProvider dependency, not on WAContextMain itself. When we see
+    // the real provider, install the same diagnostic/force hook there too.
+    if (ret && [selName isEqualToString:@"accountProvider"]) {
+        WAGRContextSpyInstallForObject(ret);
+    }
     return ret;
 }
 
@@ -149,8 +160,16 @@ static BOOL hookContextSpyBool(id self, SEL _cmd) {
     if (v) orig = (CtxBoolIMP)[v pointerValue];
     BOOL ret = NO;
     @try { ret = orig ? orig(self, _cmd) : NO; } @catch (__unused NSException *ex) { ret = NO; }
+    NSString *selName = NSStringFromSelector(_cmd);
+
+    if ([selName isEqualToString:@"isPrimaryDevice"]) {
+        WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES for PrivateExp)",
+                       NSStringFromClass([self class]), selName, ret ? @"YES" : @"NO");
+        return YES;
+    }
+
     WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@",
-                   NSStringFromClass([self class]), NSStringFromSelector(_cmd), ret ? @"YES" : @"NO");
+                   NSStringFromClass([self class]), selName, ret ? @"YES" : @"NO");
     return ret;
 }
 
@@ -202,6 +221,20 @@ static BOOL WAGRContextSpyHookBoolSelector(Class cls, NSString *selectorName) {
     return YES;
 }
 
+extern "C" void WAGRContextSpyInstallForObject(id obj) {
+    if (!obj) return;
+    if (!gCtxSpyInstalled) gCtxSpyInstalled = [NSMutableSet set];
+    Class cls = [obj class];
+    if (!cls) return;
+
+    NSUInteger hooked = 0;
+    if (WAGRContextSpyHookBoolSelector(cls, @"isPrimaryDevice")) hooked++;
+    if (hooked) {
+        WAGRLogAppendF(@"[ContextSpy] dependency install class=%@ hookedPrimary=%lu",
+                       NSStringFromClass(cls), (unsigned long)hooked);
+    }
+}
+
 extern "C" void WAGRContextSpyInstallForContext(id ctx) {
     if (!ctx) return;
     if (!gCtxSpyInstalled) gCtxSpyInstalled = [NSMutableSet set];
@@ -232,6 +265,20 @@ extern "C" void WAGRContextSpyInstallForContext(id ctx) {
     NSUInteger hooked = 0;
     for (NSString *sel in objectSelectors) if (WAGRContextSpyHookObjectSelector(cls, sel)) hooked++;
     for (NSString *sel in boolSelectors) if (WAGRContextSpyHookBoolSelector(cls, sel)) hooked++;
+
+    // Proactively hook accountProvider.isPrimaryDevice because the Swift
+    // PrivateExperimentationManager constructor calls a helper that resolves
+    // selector isPrimaryDevice on one of its injected dependencies. The logs
+    // showed WAContextMain.accountProvider is valid while WAContextMain.isPrimaryDevice
+    // reports NO.
+    @try {
+        SEL apSel = NSSelectorFromString(@"accountProvider");
+        if ([ctx respondsToSelector:apSel]) {
+            id (*fn)(id, SEL) = (id (*)(id, SEL))[ctx methodForSelector:apSel];
+            id provider = fn(ctx, apSel);
+            if (provider) WAGRContextSpyInstallForObject(provider);
+        }
+    } @catch (__unused NSException *ex) {}
 
     WAGRLogAppendF(@"[ContextSpy] install pass class=%@ hookedTotal=%lu", NSStringFromClass(cls), (unsigned long)hooked);
 }
