@@ -41,7 +41,6 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <substrate.h>
-#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
@@ -163,10 +162,8 @@ static void installWAServerContextHooks(Class serverProps) {
     hookClassObjectSelector(serverProps, "configureUserContext:",
                             (IMP)h_WAServer_configureContext, (IMP *)&orig_WAServer_configureContext);
 
-    if (orig_WAServer_userContext) {
-        @try { WAGRRememberWAServerUserContext(((id (*)(id, SEL))objc_msgSend)(serverProps, sel_registerName("userContext"))); }
-        @catch (__unused id ex) {}
-    }
+    // Do not call WhatsApp getters during constructor. The hook will capture
+    // the userContext lazily the first time WhatsApp calls it itself.
 }
 
 // ── Deterministic installer ──────────────────────────────────────────────────
@@ -240,17 +237,12 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 }
 
 // ── Constructor ──────────────────────────────────────────────────────────────
-// Constructor policy: install immediately, then short bounded retries.
-// No long 6s/7s tail; later UI actions can call WAGRDogfoodEnsureHooksInstalled().
-static void WAGREmployeeDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ installEmployeeHooks(); });
-}
-
+// Watusi pattern: synchronous install. Previously 4 dispatch_after retries
+// (0.2/1.0/3.0/6.0s) — removed because WAServerProperties is in SharedModules
+// which is loaded before our ctor runs.
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
         installEmployeeHooks();
-        _dyld_register_func_for_add_image(WAGREmployeeDyldCallback);
     }
 }

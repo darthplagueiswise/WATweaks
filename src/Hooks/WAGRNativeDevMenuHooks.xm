@@ -44,9 +44,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <substrate.h>
-#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
-#import "../Runtime/WAGRGateStore.h"
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
 // One per gate so we never chain calls between them. Both are typed BoolIMP
@@ -73,13 +71,14 @@ static BOOL WAGRNativeDevAllowed(void) {
         return YES;
     }
 
-    // Also honor toggles written by the runtime gates UI. Without this
-    // bridge the direct "Open native Developer menu" path can work, while
-    // WhatsApp's own row still evaluates the provider as disabled because
-    // the native provider hook only checks master prefs. Schema v2 keys
-    // are flat selector names.
-    if ((WAGRGateIsSet(@"isDebugMenuAllowed") && WAGRGateGet(@"isDebugMenuAllowed")) ||
-        (WAGRGateIsSet(@"isDebugMenuShortcutEnabled") && WAGRGateGet(@"isDebugMenuShortcutEnabled"))) {
+    // Also honor toggles written by the curated Settings Rows / Developer
+    // catalog. Without this bridge the direct "Open native Developer menu"
+    // path can work, while WhatsApp's own row still evaluates the provider as
+    // disabled because the native provider hook only checks master prefs.
+    NSString *allowedKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuAllowed");
+    NSString *shortcutKey = WAGROverrideKey(nil, @"_TtC15WADebugMenuMain17DebugMenuProvider", NO, @"isDebugMenuShortcutEnabled");
+    if ((WAGRHasOverride(allowedKey) && WAGROverrideBool(allowedKey)) ||
+        (WAGRHasOverride(shortcutKey) && WAGROverrideBool(shortcutKey))) {
         return YES;
     }
     return NO;
@@ -99,26 +98,13 @@ static BOOL hookDevShortcut(id self, SEL _cmd) {
 }
 
 // ── Method presence probes ───────────────────────────────────────────────────
-// We use class_copyMethodList rather than respondsToSelector so we only
-// match methods that are actually declared (or category-attached) on the
-// class itself, never on a superclass. This matters because the Swift
-// DebugMenuProvider inherits from NSObject, and NSObject happens to declare
-// a generic respondsToSelector path that would lie if we used it directly.
+// Constructor-safe direct lookups only. No method-list enumeration in launch.
 static BOOL classHasInstanceMethod(Class cls, SEL sel) {
-    if (!cls || !sel) return NO;
-    unsigned int n = 0;
-    Method *ms = class_copyMethodList(cls, &n);
-    BOOL found = NO;
-    for (unsigned int i = 0; i < n; i++) {
-        if (method_getName(ms[i]) == sel) { found = YES; break; }
-    }
-    if (ms) free(ms);
-    return found;
+    return cls && sel && class_getInstanceMethod(cls, sel) != NULL;
 }
 
 static BOOL classHasClassMethod(Class cls, SEL sel) {
-    Class meta = object_getClass(cls);
-    return meta ? classHasInstanceMethod(meta, sel) : NO;
+    return cls && sel && class_getClassMethod(cls, sel) != NULL;
 }
 
 // ── Installer ────────────────────────────────────────────────────────────────
@@ -198,20 +184,13 @@ extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void) {
 }
 
 // ── Constructor ──────────────────────────────────────────────────────────────
-// Three retries chosen empirically to cover (a) classes already loaded at
-// %ctor time, (b) classes loaded during Swift runtime bring-up around 1s, and
-// (c) classes loaded lazily by the dependency provider around 3s. The work
-// itself is cheap: each retry only installs what is missing thanks to the
-// gDevMenuHooked / gShortcutHooked guards.
-static void WAGRNativeDevMenuDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ installNativeDevMenuHooks(); });
-}
-
+// Watusi pattern: synchronous install. The previous 3 retries (0.2/1.0/3.0s)
+// were removed — WADebugMenuMain Swift class is registered with the ObjC
+// runtime by the time the user opens Settings, so the menu-open ensure path
+// in Tweak.x covers any late registration.
 __attribute__((constructor))
 static void WAGRNativeDevMenuCtor(void) {
     @autoreleasepool {
         installNativeDevMenuHooks();
-        _dyld_register_func_for_add_image(WAGRNativeDevMenuDyldCallback);
     }
 }

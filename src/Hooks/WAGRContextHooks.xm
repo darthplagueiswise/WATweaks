@@ -36,7 +36,6 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <substrate.h>
-#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
 
 // Public-facing pref key that controls whether the verified-channel gate is
@@ -116,15 +115,12 @@ extern "C" NSString *WAGRContextHooksDiagnostic(void) {
 // regardless of whether the user already toggled the pref — installing the
 // hook ahead of time means flipping the pref later takes effect immediately
 // without requiring the user to relaunch the app.
-static void WAGRContextDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ installContextHooks(); });
-}
-
 __attribute__((constructor))
 static void WAGRContextHooksCtor(void) {
     @autoreleasepool {
+        // Watusi pattern: synchronous install. Previously 4 dispatch_after
+        // retries (0.2/1.0/3.0/6.0s) — removed because WAContext is in
+        // SharedModules which is loaded before our ctor runs.
         installContextHooks();
-        _dyld_register_func_for_add_image(WAGRContextDyldCallback);
     }
 }

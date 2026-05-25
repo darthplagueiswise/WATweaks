@@ -26,13 +26,11 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
-#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
-#import "../Runtime/WAGRGateStore.h"
 
-// The "is Aura simulation on?" predicate is owned by
-// WAGRAuraNavigationHooks.xm. We re-declare it here so we read the same
-// source of truth instead of duplicating the pref-key list.
+// The "is Aura simulation on?" predicate is owned by WAAuraHooks.xm. We
+// re-declare it here so we read the same source of truth instead of
+// duplicating the pref-key list.
 extern "C" BOOL WAGRAuraSimulationEnabled(void);
 
 typedef BOOL (*WAGREligBoolIMP)(id, SEL);
@@ -72,10 +70,7 @@ static NSArray<NSString *> *WAGRAccountEligibilityTargetSelectors(void) {
 // Selectors that are deliberately opt-in only — they unlock features that
 // can break account state if forced without the supporting flags.
 static BOOL WAGRAccountEligibilityIsOptIn(NSString *sel) {
-    if ([sel isEqualToString:@"isEligibleForPayments"]) {
-        return !WAGRPref(@"wagr.settingsrows.force_payments");
-    }
-    return NO;
+    return [sel isEqualToString:@"isEligibleForPayments"];
 }
 
 static BOOL hook_eligibilityBool(id self, SEL _cmd) {
@@ -89,12 +84,17 @@ static BOOL hook_eligibilityBool(id self, SEL _cmd) {
     BOOL original = orig ? orig(self, _cmd) : NO;
 
     // Two-tier policy:
-    //   1) If the user explicitly stored a schema-v2 override for this
-    //      selector (key = selector name, value = NSNumber BOOL), it wins.
+    //   1) If the user explicitly enabled the per-selector override via
+    //      the catalog, that wins. The catalog writes
+    //      `wagr.override|objc|<Class>|inst|<sel>` keys which we read here
+    //      directly so a single toggle in the UI takes effect immediately.
     //   2) Otherwise, if the Aura master pref is on AND this is not an
     //      opt-in-only selector, we force YES.
-    if (WAGRGateIsSet(sel)) {
-        return WAGRGateGet(sel);
+    NSString *overrideKey = [NSString stringWithFormat:
+        @"wagr.override|objc|%@|inst|%@", NSStringFromClass([self class]), sel];
+    id overrideVal = [NSUserDefaults.standardUserDefaults objectForKey:overrideKey];
+    if (overrideVal != nil) {
+        return [overrideVal boolValue];
     }
 
     if (WAGRAuraSimulationEnabled() && !WAGRAccountEligibilityIsOptIn(sel)) {
@@ -176,15 +176,15 @@ extern "C" NSString *WAGRAccountEligibilityDiagnostic(void) {
             WAGRAuraSimulationEnabled() ? @"YES" : @"NO"];
 }
 
-static void WAGRAccountEligibilityDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
-}
-
 __attribute__((constructor))
 static void WAGRAccountEligibilityCtor(void) {
     @autoreleasepool {
+        // Watusi pattern: synchronous install in constructor. SharedModules
+        // (which contains WAAccountEligibility) is loaded as a regular
+        // framework dependency, so the class is available by ctor time. Late
+        // Swift bundles are picked up by the menu-open ensure path. The
+        // previous staggered-retry (0.5/1.5/3.5/6.0s) fired four blocks on
+        // the main queue during launch — removed.
         WAGRAccountEligibilityEnsureHooksInstalled();
-        _dyld_register_func_for_add_image(WAGRAccountEligibilityDyldCallback);
     }
 }

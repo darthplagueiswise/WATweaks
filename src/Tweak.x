@@ -28,19 +28,14 @@
 #import <objc/runtime.h>
 #import <substrate.h>
 #import "Menu/WAGRSurfaceListVC.h"
-#import "Menu/WAGRSecretMenusVC.h"
 #import "WAGramPrefix.h"
 
 // ── External entry points provided by dedicated hook files ──────────────────
-extern void       WAGRDogfoodEnsureHooksInstalled(void);
-extern void       WAGRLGPrefsDidChange(void);
-extern void       WAGRGateHooksEnsureInstalled(void);
-extern void       WAGRAuraEnsureNavigationHooksInstalled(void);
+extern NSString  *WAGRHookRouterDiagnostic(void);
 
 // Native developer menu surface — moved out of Tweak.x into a dedicated file.
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
-extern NSString  *WAGRGateHooksDiagnostic(void);
 
 // Native WhatsApp Settings rows — implemented in WASettingsViewController's
 // WATableSection/WATableRow pipeline.
@@ -52,16 +47,14 @@ extern void       WAGRSettingsRowsNativeInjectIfPossible(id settingsVC);
 // for the Subscriptions / WA Plus row, plus several other family-of-apps
 // surface eligibilities. Lives in SharedModules; loaded slightly after the
 // main image, so the bootstrap is delay-staggered like the WAAB observer.
-extern void       WAGRAccountEligibilityEnsureHooksInstalled(void);
 extern NSString  *WAGRAccountEligibilityDiagnostic(void);
-extern void       WAGRContextMenuPipelineProbeEnsureInstalled(void);
-extern NSString  *WAGRContextMenuPipelineProbeDiagnosticText(void);
 
 // ── Long-press setup ─────────────────────────────────────────────────────────
 // kLP is the associated-object key used to mark a UITableView as "long-press
 // already attached", so we never double-attach when -didMoveToWindow fires
 // repeatedly during the table's lifetime.
 static const char *kLP = "wagr.lp.ok";
+
 static void (*orig_tableDidMoveToWindow)(id, SEL) = NULL;
 static BOOL gTableHooked = NO;
 
@@ -245,44 +238,29 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
     WAGRSettingsRowsNativeEnsureHooksInstalled();
 }
 
-
-static void WAGRPresentSecretMenusFrom(UIViewController *host) {
-    if (!host) return;
-    WAGRSecretMenusVC *vc = [[WAGRSecretMenusVC alloc] init];
-    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
-    nav.modalPresentationStyle = UIModalPresentationFormSheet;
-    if (@available(iOS 15.0, *)) {
-        UISheetPresentationController *sheet = nav.sheetPresentationController;
-        sheet.prefersGrabberVisible = YES;
-        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
-    }
-    [host presentViewController:nav animated:YES completion:nil];
-}
-
 NSString *WAGRDebugMenuDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[ContextMenuPipeline]\n%@\n\n[GateHooks]\n%@",
+        @"nativeDebug=%@\ntableHook=%@\n\n[NativeDevMenu]\n%@\n\n[NativeSettingsRows]\n%@\n\n[Router]\n%@",
         WAGRNativeDebugAllowed() ? @"ON" : @"OFF",
         gTableHooked ? @"YES" : @"NO",
         WAGRNativeDevMenuDiagnosticText() ?: @"n/a",
         WAGRSettingsRowsNativeDiagnosticText() ?: @"n/a",
-        WAGRContextMenuPipelineProbeDiagnosticText() ?: @"n/a",
-        WAGRGateHooksDiagnostic() ?: @"n/a"];
+        WAGRHookRouterDiagnostic() ?: @"n/a"];
 }
 
 // ── Startup ──────────────────────────────────────────────────────────────────
-// Stays intentionally light. Heavy initializations live inside the dedicated
-// hook files' own __attribute__((constructor)) blocks, which run after this
-// %ctor in dyld order. The work here is the part Tweak.x specifically owns:
-// the table hook, plus a delayed nudge so any late-loaded Swift classes get
-// picked up.
+// Tweak.x's %ctor runs AFTER all the hook files' own __attribute__((constructor))
+// blocks (dyld order: leaves first, root image last). By the time we get here,
+// every fixed hook owner has already attempted its constructor-safe
+// trampoline install. Watusi pattern: no dispatch_after, no runtime scan and
+// no NSUserDefaults mutation here. Tweak.x owns only the table long-press hook.
 static void startup(void) {
     @autoreleasepool {
-        // Watusi-style hot path: Tweak.x owns only the table long-press fallback.
-        // Hook owners install their fixed hook batches from their own constructors.
-        // No runtime probes, no prefs, no hook owner re-entry, no UIWindow hook here.
+        // Keep Tweak.x startup minimal. Hook owners install their fixed
+        // trampolines in their own constructors. Do not touch prefs, runtime
+        // restore, LiquidGlass native defaults, or dogfood reinstall here.
         installLongPressTableHook();
-        }
+    }
 }
 
 %ctor {
