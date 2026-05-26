@@ -5,11 +5,13 @@ UIColor *WAGRMenuBackgroundColor(void) {
 }
 
 UIColor *WAGRMenuCellColor(void) {
-    return [UIColor colorWithRed:0.055 green:0.055 blue:0.065 alpha:0.92];
+    // Match WhatsApp's native dark grouped cards more closely: lighter than pure
+    // black and stable across all rows inside a group.
+    return [UIColor colorWithRed:0.110 green:0.110 blue:0.118 alpha:1.0];
 }
 
 UIColor *WAGRMenuSecondaryCellColor(void) {
-    return [UIColor colorWithRed:0.075 green:0.075 blue:0.09 alpha:0.88];
+    return WAGRMenuCellColor();
 }
 
 UIColor *WAGRMenuTextColor(void) {
@@ -17,11 +19,11 @@ UIColor *WAGRMenuTextColor(void) {
 }
 
 UIColor *WAGRMenuSecondaryTextColor(void) {
-    return [UIColor colorWithWhite:0.72 alpha:1.0];
+    return [UIColor colorWithWhite:0.74 alpha:1.0];
 }
 
 UIColor *WAGRMenuSeparatorColor(void) {
-    return [UIColor colorWithWhite:0.18 alpha:1.0];
+    return [UIColor colorWithRed:0.235 green:0.235 blue:0.250 alpha:1.0];
 }
 
 static NSArray<UIColor *> *WAGRMenuPalette(void) {
@@ -107,7 +109,7 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
 
 void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *key) {
     if (!cell) return;
-    cell.backgroundColor = (index % 2 == 0) ? WAGRMenuCellColor() : WAGRMenuSecondaryCellColor();
+    cell.backgroundColor = WAGRMenuCellColor();
     cell.contentView.backgroundColor = UIColor.clearColor;
     cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
@@ -115,7 +117,7 @@ void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *ke
     cell.detailTextLabel.font = WAGRMenuDetailFont();
     cell.detailTextLabel.numberOfLines = 0;
     UIView *selected = [UIView new];
-    selected.backgroundColor = [[WAGRMenuAccentForKey(key, index) colorWithAlphaComponent:0.22] colorWithAlphaComponent:0.22];
+    selected.backgroundColor = [WAGRMenuAccentForKey(key, index) colorWithAlphaComponent:0.18];
     cell.selectedBackgroundView = selected;
     cell.imageView.tintColor = WAGRMenuAccentForKey(key, index);
 }
