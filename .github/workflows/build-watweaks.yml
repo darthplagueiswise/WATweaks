@@ -3,7 +3,7 @@ name: Build WATweaks
 on:
   push:
     branches:
-      - 'dev'
+      - 'alpha'
   workflow_dispatch:
 
 concurrency:
