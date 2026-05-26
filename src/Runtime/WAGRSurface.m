@@ -1,4 +1,5 @@
 #import "WAGRSurface.h"
+#import "WAGRRuntimeClassifier.h"
 #import <objc/runtime.h>
 
 @implementation WAGREntry @end
@@ -178,11 +179,12 @@ static void WAGRAddEntry(NSMutableArray *out,
     if (!selector.length || [selector containsString:@":"]) return;
     NSString *cname = NSStringFromClass(cls);
     NSString *display = WAGRCleanDisplayName(selector);
-    NSString *cat = WAGRCategoryForSelector([NSString stringWithFormat:@"%@ %@ %@", cname, selector, display]);
-    NSString *hay = [NSString stringWithFormat:@"%@ %@ %@", cname, selector, cat];
+    NSString *semanticCat = WAGRCategoryForSelector([NSString stringWithFormat:@"%@ %@ %@", cname, selector, display]);
+    NSString *runtimeCat = WAGRRuntimeSectionForSelector(selector, cname);
+    NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@", cname, selector, semanticCat, runtimeCat];
 
     if (!WAGRTokenMatch(spec.selectorTokens, hay)) return;
-    if (!WAGRCategoryAllowed(spec, cat)) return;
+    if (!WAGRCategoryAllowed(spec, semanticCat)) return;
 
     NSString *uid = [NSString stringWithFormat:@"%@.%d.%@", cname, meta, selector];
     if ([seen containsObject:uid]) return;
@@ -196,7 +198,7 @@ static void WAGRAddEntry(NSMutableArray *out,
     e.selectorName = selector;
     e.displayName = display;
     e.returnType = returnType ?: @"BOOL";
-    e.category = cat ?: @"Other";
+    e.category = runtimeCat ?: semanticCat ?: @"Other";
     e.overrideKey = selector;
     [out addObject:e];
 }

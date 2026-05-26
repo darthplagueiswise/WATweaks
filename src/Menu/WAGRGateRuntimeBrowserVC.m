@@ -1,6 +1,7 @@
 // WAGRGateRuntimeBrowserVC.m
 #import "WAGRGateRuntimeBrowserVC.h"
 #import "../Runtime/WAGRGateStore.h"
+#import "../Runtime/WAGRRuntimeClassifier.h"
 #import <objc/runtime.h>
 
 extern BOOL WAGRGateInstallHookForSelector(NSString *className,
@@ -13,10 +14,11 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className,
 @property(nonatomic, copy) NSString *selectorName;
 @property(nonatomic, assign) BOOL isClassMethod;
 @property(nonatomic, assign) BOOL isProperty;
+@property(nonatomic, copy) NSString *sectionName;
 @end
 @implementation WAGRRuntimeRow @end
 
-// ── Group model (one section per class) ──────────────────────────────────────
+// ── Group model (one UI section per prefix/subcategory) ──────────────────────
 @interface WAGRRuntimeGroup : NSObject
 @property(nonatomic, copy) NSString *className;
 @property(nonatomic, strong) NSMutableArray<WAGRRuntimeRow *> *rows;
@@ -161,6 +163,7 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
             r.selectorName = selName;
             r.isClassMethod = isMeta;
             r.isProperty = NO;
+            r.sectionName = WAGRRuntimeSectionForSelector(selName, group.className);
             [group.rows addObject:r];
         }
         free(methods);
@@ -178,13 +181,32 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
 
 - (void)scanProvider {
     NSArray<Class> *classes = [self candidateClasses];
-    NSMutableArray<WAGRRuntimeGroup *> *groups = [NSMutableArray array];
+    NSMutableDictionary<NSString *, WAGRRuntimeGroup *> *sectionMap = [NSMutableDictionary dictionary];
+
     for (Class c in classes) {
-        WAGRRuntimeGroup *g = [self scanGroupForClass:c];
-        if (g.rows.count) [groups addObject:g];
+        WAGRRuntimeGroup *classGroup = [self scanGroupForClass:c];
+        for (WAGRRuntimeRow *r in classGroup.rows) {
+            NSString *section = r.sectionName.length ? r.sectionName : WAGRRuntimeSectionForSelector(r.selectorName, r.className);
+            WAGRRuntimeGroup *g = sectionMap[section];
+            if (!g) {
+                g = [WAGRRuntimeGroup new];
+                g.className = section;
+                sectionMap[section] = g;
+            }
+            [g.rows addObject:r];
+        }
+    }
+
+    NSMutableArray<WAGRRuntimeGroup *> *groups = [NSMutableArray arrayWithArray:sectionMap.allValues];
+    for (WAGRRuntimeGroup *g in groups) {
+        [g.rows sortUsingComparator:^NSComparisonResult(WAGRRuntimeRow *a, WAGRRuntimeRow *b) {
+            NSComparisonResult r = [a.className localizedCaseInsensitiveCompare:b.className];
+            if (r != NSOrderedSame) return r;
+            return [a.selectorName localizedCaseInsensitiveCompare:b.selectorName];
+        }];
     }
     [groups sortUsingComparator:^NSComparisonResult(WAGRRuntimeGroup *a, WAGRRuntimeGroup *b) {
-        return [a.className compare:b.className];
+        return [a.className localizedCaseInsensitiveCompare:b.className];
     }];
     _allGroups = groups;
     _visibleGroups = groups;
@@ -201,7 +223,10 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
         WAGRRuntimeGroup *filtered = [WAGRRuntimeGroup new];
         filtered.className = g.className;
         for (WAGRRuntimeRow *r in g.rows) {
-            if (classMatches || [r.selectorName rangeOfString:q options:NSCaseInsensitiveSearch].location != NSNotFound) {
+            NSString *prefix = WAGRRuntimePrefixForName(r.selectorName ?: @"");
+            NSString *subcat = WAGRRuntimeSubcategoryForName(r.selectorName ?: @"");
+            NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@ %@", r.className ?: @"", r.selectorName ?: @"", r.sectionName ?: @"", prefix ?: @"", subcat ?: @""];
+            if (classMatches || [hay rangeOfString:q options:NSCaseInsensitiveSearch].location != NSNotFound) {
                 [filtered.rows addObject:r];
             }
         }
@@ -216,7 +241,8 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return (NSInteger)_visibleGroups.count; }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
-    return _visibleGroups[(NSUInteger)section].className;
+    WAGRRuntimeGroup *g = _visibleGroups[(NSUInteger)section];
+    return [NSString stringWithFormat:@"%@  (%lu)", g.className ?: @"Other", (unsigned long)g.rows.count];
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
@@ -235,7 +261,7 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
     NSString *state;
     if (!isSet) state = @"sem override";
     else state = value ? @"override ON" : @"override OFF";
-    c.detailTextLabel.text = state;
+    c.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", r.className ?: @"", state];
     c.detailTextLabel.textColor = isSet
         ? (value ? UIColor.systemGreenColor : UIColor.systemRedColor)
         : UIColor.secondaryLabelColor;

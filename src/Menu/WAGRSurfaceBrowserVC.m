@@ -4,6 +4,7 @@
 
 #import "WAGRSurfaceBrowserVC.h"
 #import "../Runtime/WAGRGateStore.h"
+#import "../Runtime/WAGRRuntimeClassifier.h"
 #import <objc/runtime.h>
 
 extern BOOL WAGRGateInstallHookForSelector(NSString *className,
@@ -69,7 +70,8 @@ static NSString *WAGRRTFeatureName(WAGREntry *e) {
 }
 
 static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
-    return e.className.length ? e.className : @"Other";
+    if (e.category.length) return e.category;
+    return WAGRRuntimeSectionForSelector(e.selectorName, e.className);
 }
 
 - (void)scanNow {
@@ -89,8 +91,10 @@ static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
     NSArray<WAGREntry *> *base = self.allEntries;
     if (q.length) {
         base = [base filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(WAGREntry *e, NSDictionary *_) {
-            NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@",
-                             e.className ?: @"", e.selectorName ?: @"", e.displayName ?: @"", e.category ?: @""].lowercaseString;
+            NSString *prefix = WAGRRuntimePrefixForName(e.selectorName ?: e.displayName ?: @"");
+            NSString *subcat = WAGRRuntimeSubcategoryForName(e.selectorName ?: e.displayName ?: @"");
+            NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@",
+                             e.className ?: @"", e.selectorName ?: @"", e.displayName ?: @"", e.category ?: @"", prefix ?: @"", subcat ?: @""].lowercaseString;
             return [hay containsString:q];
         }]];
     }
@@ -119,7 +123,9 @@ static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return (NSInteger)self.sectionKeys.count; }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return self.sectionKeys[(NSUInteger)section];
+    NSString *key = self.sectionKeys[(NSUInteger)section];
+    NSUInteger count = self.sections[key].count;
+    return [NSString stringWithFormat:@"%@  (%lu)", key, (unsigned long)count];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -150,8 +156,9 @@ static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
     BOOL isSet = WAGRGateIsSet(e.selectorName);
     BOOL value = isSet && WAGRGateGet(e.selectorName);
     cell.textLabel.text = WAGRRTFeatureName(e);
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@",
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · %@",
                                  e.isClassMethod ? @"+" : @"-",
+                                 e.className ?: @"",
                                  e.selectorName ?: @"",
                                  isSet ? (value ? @"override ON" : @"override OFF") : @"system"];
     cell.detailTextLabel.textColor = isSet ? (value ? WAGRRTAcc() : WAGRRTOff()) : WAGRRTSub();
