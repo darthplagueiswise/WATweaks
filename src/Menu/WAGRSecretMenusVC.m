@@ -123,6 +123,42 @@ static NSArray<NSDictionary *> *WAGRSecretMeTabRuntimeOverrides(void) {
     return out;
 }
 
+
+// ── Internal / employee / dogfood WAAB flags ───────────────────────────────
+// These are not Objective-C selectors on WAContextMain. They are WAAB/private
+// experimentation keys read through WAABProperties / FOAWAABPropertiesImpl.
+// The previous Internal master only wrote selector overrides, so these keys
+// stayed at server defaults and the app still behaved as non-internal.
+static NSArray<NSString *> *WAGRSecretInternalWAABOnFlags(void) {
+    return @[
+        @"waios_mc_debug_ui_enabled",
+        @"whatsbroken_enabled",
+        @"private_abprop_for_dev_only",
+        @"private_experimentation_should_sync",
+        @"private_experimentation_use_acs_config_id",
+        @"dogfooding_nudge_settings_entrypoint_enabled",
+        @"dogfooding_nudge_banner_home_screen_enabled",
+        @"username_dogfooding_pn_privacy_enabled",
+        @"give_dogfooders_task_id_for_bug_reporting",
+        @"groups_member_recommendations_debug_ui",
+        @"is_internal",
+        @"is_internal_tester",
+        @"_is_employee",
+        @"wamo_is_employee",
+        @"ig_fb_dogfooder",
+        @"hn_dogfooding",
+        @"malibu_dogfooding"
+    ];
+}
+
+static NSArray<NSString *> *WAGRSecretInternalWAABOffFlags(void) {
+    return @[
+        @"serverPropsDisableExperimental",
+        @"graphQLEmployeeC1Disabled",
+        @"ios_contact_suggestions_internal_tool_exclude_employees_enabled"
+    ];
+}
+
 // ── Internal / isInternalUser override bundle ────────────────────────────────
 static NSArray<NSDictionary *> *WAGRSecretInternalRuntimeOverrides(void) {
     return @[
@@ -169,7 +205,7 @@ typedef NS_ENUM(NSInteger, WAGRSecretSection) {
 static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
     return @[
         @{ @"title":    @"Modo Internal / Employee",
-           @"subtitle": @"Liga prefs masters + override runtime de WAServerProperties/WAContext isInternalUser.",
+           @"subtitle": @"Liga masters + selectors reais + WAAB/private experimentation gates usados pelo Developer.",
            @"icon":     @"person.crop.circle.badge.checkmark",
            @"masterKeys": @[ kWAGREmployeeMaster,
                              kWAGRDogfoodGateInternalUser,
@@ -178,6 +214,8 @@ static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
                              kWAGRDogfoodGateGraphQLEmpC1,
                              kWAGRInternalMaster,
                              kWAGRDebugMode ],
+           @"waabOn":   WAGRSecretInternalWAABOnFlags(),
+           @"waabOff":  WAGRSecretInternalWAABOffFlags(),
            @"runtimeOn": WAGRSecretInternalRuntimeOverrides() },
 
         @{ @"title":    @"Simulação Aura / WA Plus",

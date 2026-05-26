@@ -28,6 +28,8 @@ static BoolIMP orig_dmShortcutEnabled = NULL;
 static IDIMP orig_debugVCUserContext = NULL;
 static InitCtxIMP orig_debugVCInitWithUserContext = NULL;
 static InitCtxIMP orig_privateExpInitWithUserContext = NULL;
+typedef void (*VoidBoolIMP)(id, SEL, BOOL);
+static VoidBoolIMP orig_privateExpViewDidAppear = NULL;
 
 static BOOL gDevMenuHooked  = NO;
 static BOOL gShortcutHooked = NO;
@@ -185,9 +187,21 @@ static id hookPrivateExpInitWithUserContext(id self, SEL _cmd, id ctx) {
     if (instance) {
         WAGRLogAppendF(@"[PrivateExpVC] initialized instance=%@", NSStringFromClass([instance class]));
         WAGRPrivateExpDumpDynamicFields(instance, @"after initWithUserContext:");
-        WAGRPrivateExpKickManagerIfAvailable(instance);
+        WAGRLogAppend(@"[PrivateExpVC] manager kick deferred until viewDidAppear");
     }
     return instance;
+}
+
+
+static const char *kWAGRPrivateExpVisibleKickDone = "watweaks.privateexp.visiblekick";
+
+static void hookPrivateExpViewDidAppear(id self, SEL _cmd, BOOL animated) {
+    if (orig_privateExpViewDidAppear) orig_privateExpViewDidAppear(self, _cmd, animated);
+    if ([objc_getAssociatedObject(self, kWAGRPrivateExpVisibleKickDone) boolValue]) return;
+    objc_setAssociatedObject(self, kWAGRPrivateExpVisibleKickDone, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    WAGRLogAppend(@"[PrivateExpVC] viewDidAppear: first visible kick");
+    WAGRPrivateExpDumpDynamicFields(self, @"viewDidAppear");
+    WAGRPrivateExpKickManagerIfAvailable(self);
 }
 
 static void installUserContextCaptureHooks(void) {
@@ -214,6 +228,10 @@ static void installUserContextCaptureHooks(void) {
             if (class_getInstanceMethod(pe, initSel)) {
                 MSHookMessageEx(pe, initSel, (IMP)hookPrivateExpInitWithUserContext, (IMP *)&orig_privateExpInitWithUserContext);
                 gPrivateExpVCHooked = (orig_privateExpInitWithUserContext != NULL);
+            }
+            SEL appearSel = NSSelectorFromString(@"viewDidAppear:");
+            if (class_getInstanceMethod(pe, appearSel)) {
+                MSHookMessageEx(pe, appearSel, (IMP)hookPrivateExpViewDidAppear, (IMP *)&orig_privateExpViewDidAppear);
             }
         }
     }
@@ -290,6 +308,18 @@ static BOOL hookContextSpyBool(id self, SEL _cmd) {
         WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES for PrivateExp)",
                        NSStringFromClass([self class]), selName, ret ? @"YES" : @"NO");
         return YES;
+    }
+
+    if ([selName isEqualToString:@"isInternalUser"] ||
+        [selName isEqualToString:@"isEmployee"] ||
+        [selName isEqualToString:@"isMetaEmployeeOrInternalTester"]) {
+        BOOL forced = WAGRPref(kWAGRInternalMaster) || WAGRPref(kWAGREmployeeMaster) ||
+                      WAGRGateGet(selName) || WAGRGateGet(@"isInternalUser");
+        if (forced) {
+            WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES by Internal/Employee master)",
+                           NSStringFromClass([self class]), selName, ret ? @"YES" : @"NO");
+            return YES;
+        }
     }
 
     WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@",

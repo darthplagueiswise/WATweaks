@@ -401,6 +401,47 @@ static BOOL wagr_preflightCallBool(id obj, NSString *selectorName, BOOL *respond
     return ret;
 }
 
+
+static NSArray<NSString *> *wagr_privateExpPositiveGateKeys(void) {
+    return @[
+        @"isDebugMenuAllowed",
+        @"isDebugMenuShortcutEnabled",
+        @"waios_mc_debug_ui_enabled",
+        @"whatsbroken_enabled",
+        @"private_abprop_for_dev_only",
+        @"private_experimentation_should_sync",
+        @"private_experimentation_use_acs_config_id",
+        @"dogfooding_nudge_settings_entrypoint_enabled",
+        @"dogfooding_nudge_banner_home_screen_enabled",
+        @"username_dogfooding_pn_privacy_enabled",
+        @"give_dogfooders_task_id_for_bug_reporting",
+        @"groups_member_recommendations_debug_ui",
+        @"is_internal",
+        @"is_internal_tester",
+        @"_is_employee",
+        @"wamo_is_employee",
+        @"ig_fb_dogfooder",
+        @"hn_dogfooding",
+        @"malibu_dogfooding"
+    ];
+}
+
+static NSArray<NSString *> *wagr_privateExpNegativeGateKeys(void) {
+    return @[
+        @"serverPropsDisableExperimental",
+        @"graphQLEmployeeC1Disabled",
+        @"ios_contact_suggestions_internal_tool_exclude_employees_enabled"
+    ];
+}
+
+static void wagr_bootstrapPrivateExpInternalGates(void) {
+    for (NSString *key in wagr_privateExpPositiveGateKeys()) WAGRGateSet(key, YES);
+    for (NSString *key in wagr_privateExpNegativeGateKeys()) WAGRGateSet(key, NO);
+    WAGRLogAppendF(@"[PrivateExp][Gates] bootstrapped positive=%lu negative=%lu",
+                   (unsigned long)wagr_privateExpPositiveGateKeys().count,
+                   (unsigned long)wagr_privateExpNegativeGateKeys().count);
+}
+
 static void wagr_privateExpPreflight(id ctx) {
     if (!ctx) {
         WAGRLogAppend(@"[PreFlight] ctx=nil");
@@ -479,6 +520,7 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
         return NO;
     }
 
+    wagr_bootstrapPrivateExpInternalGates();
     WAGRLogAppendF(@"[PrivateExp] opening with ctx=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
     wagr_privateExpPreflight(ctx);
     id vc = ((id (*)(id, SEL, id))objc_msgSend)([cls alloc], initSel, ctx);
@@ -489,7 +531,7 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
     }
 
     WAGRPrivateExpDumpDynamicFields(vc, @"after launcher init");
-    WAGRPrivateExpKickManagerIfAvailable(vc);
+    WAGRLogAppend(@"[PrivateExp] manager kick deferred to PrivateExpVC viewDidAppear");
 
     UIViewController *top = wagr_topPresenter(fromVC);
     UINavigationController *nav = top.navigationController;
