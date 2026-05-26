@@ -38,6 +38,8 @@
 #import "../Runtime/WAGRLog.h"
 
 extern "C" void WAGRContextSpyInstallForContext(id ctx);
+extern "C" void WAGRPrivateExpDumpDynamicFields(id instance, NSString *stage);
+extern "C" void WAGRPrivateExpKickManagerIfAvailable(id instance);
 
 // ── Real userContext cache ──────────────────────────────────────────────────
 // The real context is the object WhatsApp passes into WADebugViewController
@@ -399,59 +401,6 @@ static BOOL wagr_preflightCallBool(id obj, NSString *selectorName, BOOL *respond
     return ret;
 }
 
-
-static NSString *wagr_objDesc(id obj) {
-    return obj ? [NSString stringWithFormat:@"%@ (%p)", NSStringFromClass([obj class]), (__bridge void *)obj] : @"nil (0x0)";
-}
-
-static void wagr_tryPrivateABConstructors(id ctx) {
-    Class cls = NSClassFromString(@"_TtC24WAPrivateExperimentation19PrivateABProperties");
-    if (!cls) cls = NSClassFromString(@"WAPrivateExperimentation.PrivateABProperties");
-    if (!cls) {
-        WAGRLogAppend(@"[PreFlight][PrivateAB] class not loaded");
-        return;
-    }
-
-    BOOL rDebug = NO, rAB = NO, rPrefs = NO, rAcct = NO;
-    id debugOverrides = wagr_preflightCallObject(ctx, @"debugPropOverrides", &rDebug);
-    id abProperties = wagr_preflightCallObject(ctx, @"abProperties", &rAB);
-    id preferences = wagr_preflightCallObject(ctx, @"preferences", &rPrefs);
-    id accountProvider = wagr_preflightCallObject(ctx, @"accountProvider", &rAcct);
-
-    WAGRLogAppendF(@"[PreFlight][PrivateAB] deps debug=%@ ab=%@ prefs=%@ account=%@",
-                   wagr_objDesc(debugOverrides), wagr_objDesc(abProperties),
-                   wagr_objDesc(preferences), wagr_objDesc(accountProvider));
-
-    SEL initStoreSel = NSSelectorFromString(@"initWithPropertiesStore:debugOverrides:");
-    if ([cls instancesRespondToSelector:initStoreSel] && abProperties && debugOverrides) {
-        @try {
-            id obj = ((id (*)(id, SEL, id, id))objc_msgSend)([cls alloc], initStoreSel, abProperties, debugOverrides);
-            WAGRLogAppendF(@"[PreFlight][PrivateAB] initWithPropertiesStore:debugOverrides: -> %@", wagr_objDesc(obj));
-        } @catch (NSException *ex) {
-            WAGRLogAppendF(@"[PreFlight][PrivateAB] initWithPropertiesStore exception: %@: %@", ex.name, ex.reason);
-        }
-    } else {
-        WAGRLogAppendF(@"[PreFlight][PrivateAB] skip initWithPropertiesStore responds=%@ ab=%@ debug=%@",
-                       [cls instancesRespondToSelector:initStoreSel] ? @"YES" : @"NO",
-                       abProperties ? @"YES" : @"NO", debugOverrides ? @"YES" : @"NO");
-    }
-
-    SEL initPrefsSel = NSSelectorFromString(@"initWithPreferencesStore:accountProvider:debugOverrides:userContext:");
-    if ([cls instancesRespondToSelector:initPrefsSel] && preferences && accountProvider && debugOverrides && ctx) {
-        @try {
-            id obj = ((id (*)(id, SEL, id, id, id, id))objc_msgSend)([cls alloc], initPrefsSel, preferences, accountProvider, debugOverrides, ctx);
-            WAGRLogAppendF(@"[PreFlight][PrivateAB] initWithPreferencesStore:accountProvider:debugOverrides:userContext: -> %@", wagr_objDesc(obj));
-        } @catch (NSException *ex) {
-            WAGRLogAppendF(@"[PreFlight][PrivateAB] initWithPreferencesStore exception: %@: %@", ex.name, ex.reason);
-        }
-    } else {
-        WAGRLogAppendF(@"[PreFlight][PrivateAB] skip initWithPreferencesStore responds=%@ prefs=%@ account=%@ debug=%@ ctx=%@",
-                       [cls instancesRespondToSelector:initPrefsSel] ? @"YES" : @"NO",
-                       preferences ? @"YES" : @"NO", accountProvider ? @"YES" : @"NO",
-                       debugOverrides ? @"YES" : @"NO", ctx ? @"YES" : @"NO");
-    }
-}
-
 static void wagr_privateExpPreflight(id ctx) {
     if (!ctx) {
         WAGRLogAppend(@"[PreFlight] ctx=nil");
@@ -491,8 +440,6 @@ static void wagr_privateExpPreflight(id ctx) {
                            sel, responds ? @"YES" : @"NO", ret ? @"YES" : @"NO");
         }
     }
-
-    wagr_tryPrivateABConstructors(ctx);
 }
 
 static UIViewController *wagr_topPresenter(UIViewController *fromVC) {
@@ -540,6 +487,9 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
         if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:54 userInfo:@{NSLocalizedDescriptionKey:@"initWithUserContext: não retornou UIViewController."}];
         return NO;
     }
+
+    WAGRPrivateExpDumpDynamicFields(vc, @"after launcher init");
+    WAGRPrivateExpKickManagerIfAvailable(vc);
 
     UIViewController *top = wagr_topPresenter(fromVC);
     UINavigationController *nav = top.navigationController;
