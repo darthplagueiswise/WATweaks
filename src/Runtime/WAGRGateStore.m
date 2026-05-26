@@ -144,6 +144,18 @@ static NSArray<NSString *> *WAGRLegacyKeyPrefixes(void) {
     return @[ @"wagr.waab.", @"wagr.override|", @"wagr.override.", @"wagr.observed|", @"wagr.observed." ];
 }
 
+static BOOL WAGRGateStoreShouldRemoveOverrideKey(NSString *key) {
+    if (![key isKindOfClass:NSString.class] || !key.length) return NO;
+    if ([key isEqualToString:kWATGateOverrideIndexKey]) return YES;
+    if ([key hasPrefix:@"watweak_gate_"] || [key hasPrefix:@"watweak_ui_"]) return YES;
+    if ([key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) return YES;
+    if ([key isEqualToString:@"wagr_native_debug_menu_enabled"] || [key isEqualToString:@"wagr_internal_master_enabled"]) return YES;
+    for (NSString *prefix in WAGRLegacyKeyPrefixes()) {
+        if ([key hasPrefix:prefix]) return YES;
+    }
+    return NO;
+}
+
 BOOL WAGRGateIsSet(NSString *key) {
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return NO;
@@ -185,13 +197,22 @@ NSArray<NSString *> *WAGRGateAllOverrides(void) {
 }
 
 NSUInteger WAGRGateClearAll(void) {
+    WATEnsureGateCacheLoaded();
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
-    NSArray<NSString *> *keys = WAGRGateAllOverrides();
-    for (NSString *key in keys) [ud removeObjectForKey:key];
+    NSMutableSet<NSString *> *keys = [NSMutableSet setWithArray:WAGRGateAllOverrides() ?: @[]];
+    for (NSString *key in ud.dictionaryRepresentation.allKeys) {
+        if (WAGRGateStoreShouldRemoveOverrideKey(key)) [keys addObject:key];
+    }
+
+    NSUInteger removed = 0;
+    for (NSString *key in keys) {
+        if (![key isEqualToString:kWATGateOverrideIndexKey] && [ud objectForKey:key] != nil) removed++;
+        [ud removeObjectForKey:key];
+    }
     [ud removeObjectForKey:kWATGateOverrideIndexKey];
     @synchronized (gWATGateCacheLock) { [gWATGateCache removeAllObjects]; }
     [ud synchronize];
-    return keys.count;
+    return removed;
 }
 
 void WAGRWipeLegacyStorageIfNeeded(void) {
