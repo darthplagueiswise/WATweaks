@@ -15,7 +15,7 @@ UIFont *WAGRMenuTitleFont(void);
 UIFont *WAGRMenuDetailFont(void);
 UIFont *WAGRMenuRuntimeTitleFont(void);
 UIFont *WAGRMenuRuntimeDetailFont(void);
-void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController * _Nullable owner);
+void WAGRMenuApplyTableStyle(UITableView * _Nullable tableView, UIViewController * _Nullable owner);
 void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString * _Nullable key);
 UIImage * _Nullable WAGRMenuSymbol(NSString * _Nullable name, UIColor * _Nullable tint);
 BOOL WAGRMenuIsNegativeGateName(NSString * _Nullable name);
