@@ -1,5 +1,6 @@
 #import "WAGRLogViewController.h"
 #import "../Runtime/WAGRLog.h"
+#import "WAGRMenuTheme.h"
 
 @interface WAGRLogViewController ()
 @property(nonatomic, strong) UITextView *textView;
@@ -9,16 +10,18 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Logs WATweaks";
-    self.view.backgroundColor = UIColor.systemBackgroundColor;
+    self.title = @"WATweaks Log";
+    WAGRMenuApplyTableStyle(nil, self);
+    self.view.backgroundColor = WAGRMenuBackgroundColor();
 
     self.textView = [[UITextView alloc] initWithFrame:CGRectZero];
     self.textView.translatesAutoresizingMaskIntoConstraints = NO;
     self.textView.editable = NO;
     self.textView.alwaysBounceVertical = YES;
-    self.textView.backgroundColor = UIColor.systemBackgroundColor;
-    self.textView.textColor = UIColor.labelColor;
-    self.textView.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
+    self.textView.backgroundColor = WAGRMenuBackgroundColor();
+    self.textView.textColor = WAGRMenuTextColor();
+    self.textView.font = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
+    self.textView.textContainerInset = UIEdgeInsetsMake(12, 10, 12, 10);
     [self.view addSubview:self.textView];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -31,9 +34,19 @@
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshLogs)];
     UIBarButtonItem *copy = [[UIBarButtonItem alloc] initWithTitle:@"Copiar" style:UIBarButtonItemStylePlain target:self action:@selector(copyLogs)];
     self.navigationItem.rightBarButtonItems = @[copy, refresh];
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Limpar" style:UIBarButtonItemStylePlain target:self action:@selector(clearLogs)];
+    UIBarButtonItem *back = [[UIBarButtonItem alloc] initWithTitle:@"Voltar" style:UIBarButtonItemStylePlain target:self action:@selector(closeOrBack)];
+    UIBarButtonItem *clear = [[UIBarButtonItem alloc] initWithTitle:@"Limpar" style:UIBarButtonItemStylePlain target:self action:@selector(clearLogs)];
+    self.navigationItem.leftBarButtonItems = @[back, clear];
 
     [self refreshLogs];
+}
+
+- (void)closeOrBack {
+    if (self.navigationController.viewControllers.count > 1) {
+        [self.navigationController popViewControllerAnimated:YES];
+    } else {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }
 }
 
 - (void)refreshLogs {

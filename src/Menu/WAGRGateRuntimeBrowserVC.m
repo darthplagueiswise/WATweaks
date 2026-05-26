@@ -3,10 +3,12 @@
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRRuntimeClassifier.h"
 #import <objc/runtime.h>
+#import "WAGRMenuTheme.h"
 
 extern BOOL WAGRGateInstallHookForSelector(NSString *className,
                                             NSString *selectorName,
                                             BOOL isClassMethod);
+extern void WAGRGateHooksEnsureInstalled(void);
 
 // ── Row model ────────────────────────────────────────────────────────────────
 @interface WAGRRuntimeRow : NSObject
@@ -49,7 +51,7 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className,
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
+    WAGRMenuApplyTableStyle(self.tableView, self);
 
     _search = [[UISearchController alloc] initWithSearchResultsController:nil];
     _search.searchResultsUpdater = self;
@@ -63,7 +65,11 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className,
                                                                   style:UIBarButtonItemStylePlain
                                                                  target:self
                                                                  action:@selector(resetCategory)];
-    self.navigationItem.rightBarButtonItem = resetItem;
+    UIBarButtonItem *applyItem = [[UIBarButtonItem alloc] initWithTitle:@"Aplicar"
+                                                                  style:UIBarButtonItemStyleDone
+                                                                 target:self
+                                                                 action:@selector(applyVisibleOverrides)];
+    self.navigationItem.rightBarButtonItems = @[applyItem, resetItem];
 
     [self scanProvider];
 }
@@ -96,6 +102,11 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
         }
     }
     return NO;
+}
+
+
+static BOOL WAGRRuntimeShouldSkipApply(WAGRRuntimeRow *row) {
+    return WAGRMenuIsNegativeGateName(row.selectorName) || WAGRMenuIsNegativeGateName(row.sectionName);
 }
 
 // Collect candidate classes for this provider. We deduplicate via NSMutableSet
@@ -253,18 +264,19 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
     WAGRRuntimeRow *r = _visibleGroups[(NSUInteger)ip.section].rows[(NSUInteger)ip.row];
     UITableViewCell *c = [tv dequeueReusableCellWithIdentifier:@"WAGRRuntimeBrowserCell"];
     if (!c) c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WAGRRuntimeBrowserCell"];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, ip.row, r.selectorName);
+    c.textLabel.font = WAGRMenuRuntimeTitleFont();
+    c.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
     c.textLabel.text = [NSString stringWithFormat:@"%@%@", r.isClassMethod ? @"+ " : @"- ", r.selectorName];
-    c.textLabel.textColor = UIColor.labelColor;
     BOOL isSet = WAGRGateIsSet(WAGRGateCanonicalKey(r.selectorName));
     BOOL value = isSet && WAGRGateGet(WAGRGateCanonicalKey(r.selectorName));
     NSString *state;
     if (!isSet) state = @"sem override";
     else state = value ? @"override ON" : @"override OFF";
     c.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", r.className ?: @"", state];
-    c.detailTextLabel.textColor = isSet
-        ? (value ? UIColor.systemGreenColor : UIColor.systemRedColor)
-        : UIColor.secondaryLabelColor;
+    c.detailTextLabel.textColor = WAGRRuntimeShouldSkipApply(r)
+        ? UIColor.systemRedColor
+        : (isSet ? (value ? UIColor.systemGreenColor : UIColor.systemRedColor) : WAGRMenuSecondaryTextColor());
 
     UISwitch *sw = [UISwitch new];
     sw.on = value;
@@ -288,10 +300,10 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
     WAGRRuntimeRow *r = objc_getAssociatedObject(sw, "wagrRow");
     if (!r) return;
     WAGRGateSet(WAGRGateCanonicalKey(r.selectorName), sw.isOn);
-    if (sw.isOn) {
+    if (!WAGRRuntimeShouldSkipApply(r)) {
         (void)WAGRGateInstallHookForSelector(r.className, r.selectorName, r.isClassMethod);
+        WAGRGateHooksEnsureInstalled();
     }
-    // Refresh just this row.
     [self.tableView reloadData];
 }
 
@@ -314,6 +326,29 @@ static BOOL WAGRSelectorPassesTokens(NSString *selectorName, NSArray<NSString *>
     }]];
     [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)applyVisibleOverrides {
+    NSUInteger setCount = 0;
+    NSUInteger installed = 0;
+    NSUInteger skipped = 0;
+
+    WAGRGateHooksEnsureInstalled();
+    for (WAGRRuntimeGroup *g in self.allGroups) {
+        for (WAGRRuntimeRow *r in g.rows) {
+            if (!WAGRGateIsSet(WAGRGateCanonicalKey(r.selectorName))) continue;
+            setCount++;
+            if (WAGRRuntimeShouldSkipApply(r)) { skipped++; continue; }
+            if (WAGRGateInstallHookForSelector(r.className, r.selectorName, r.isClassMethod)) installed++;
+        }
+    }
+
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Aplicar Runtime"
+                                                               message:[NSString stringWithFormat:@"Overrides visíveis: %lu\nHooks aplicados: %lu\nIgnorados por segurança: %lu", (unsigned long)setCount, (unsigned long)installed, (unsigned long)skipped]
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+    [self.tableView reloadData];
 }
 
 - (void)resetCategory {

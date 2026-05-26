@@ -42,6 +42,11 @@ NSString *WAGRRuntimePrefixForName(NSString *name) {
     if ([s hasPrefix:@"private_"] || [s containsString:@"private_experiment"] || [s containsString:@"privateab"] || [s containsString:@"debugpropoverride"]) return @"Private Experimentation";
 
     if (WAGRContainsAny(s, @[@"employee", @"dogfood", @"dogfooding", @"internal", @"tester", @"developer", @"debugmenu", @"debug_menu", @"whitehat", @"white_hat"])) return @"Internal / Dogfood";
+    if (WAGRContainsAny(s, @[@"me_tab", @"tab_me", @"profile_picture_entrypoint", @"account_switcher_settings_me_tab", @"xfam_lg_switcher_m2_me_tab"])) return @"Tab Me / Profile";
+    if (WAGRContainsAny(s, @[@"evolve_about", @"is_evolve_about", @"isevolveabout", @"about_m1", @"privacy_settings_about", @"is_about_"])) return @"About / Evolve";
+    if (WAGRContainsAny(s, @[@"ios_evolution", @"evolution_navigation", @"evolution_bloks", @"modern_style"])) return @"Evolution UI";
+    if (WAGRContainsAny(s, @[@"username", @"pn_privacy", @"lid_username", @"username_contact", @"username_group", @"shouldshowusernamerow"])) return @"Username / Identity";
+    if (WAGRContainsAny(s, @[@"recently_online", @"online_contacts", @"contacts_hub", @"contactshub", @"presence_status", @"allow_lid_contacts", @"frequent_contacts", @"contact_sync"])) return @"Online Contacts / Presence";
     if (WAGRContainsAny(s, @[@"aura", @"subscription", @"premium", @"benefit", @"watsapp_plus", @"whatsapp_plus", @"wa_plus"])) return @"WA Plus / Aura";
     if (WAGRContainsAny(s, @[@"asteria", @"ai_home", @"metaai", @"meta_ai", @"ai_", @"llama", @"imagine", @"hatch", @"bot", @"incognito", @"genai", @"gen_ai", @"persona", @"assistant"])) return @"AI / Meta AI";
     if (WAGRContainsAny(s, @[@"settings", @"setting", @"menu", @"row", @"cell", @"entrypoint", @"entry_point", @"nux", @"tooltip", @"banner"])) return @"Settings / UI";
@@ -70,6 +75,11 @@ NSString *WAGRRuntimeSubcategoryForName(NSString *name) {
     if (WAGRContainsAny(s, @[@"block", @"blocked", @"deny", @"denied", @"disallow", @"blacklist", @"black_list", @"ban_"])) return @"Negative · Block / Deny";
 
     if (WAGRContainsAny(s, @[@"employee", @"dogfood", @"dogfooding", @"internal", @"tester", @"developer", @"dev_only", @"debugmenu", @"debug_menu", @"whitehat", @"white_hat"])) return @"Internal · Employee / Dogfood";
+    if (WAGRContainsAny(s, @[@"me_tab", @"tab_me", @"profile_picture", @"account_switcher", @"settings_header", @"settings_title"])) return @"Tab Me / Profile";
+    if (WAGRContainsAny(s, @[@"about", @"evolve_about", @"about_m1"])) return @"About / Evolve";
+    if (WAGRContainsAny(s, @[@"evolution", @"modern_style", @"bloks_color", @"navigation_bar_buttons"])) return @"Evolution UI";
+    if (WAGRContainsAny(s, @[@"username", @"findability", @"pn_privacy", @"account_linking", @"suggestions", @"migration"])) return @"Username";
+    if (WAGRContainsAny(s, @[@"recently_online", @"contacts_hub", @"contactshub", @"presence", @"allow_lid_contacts", @"contact_sync"])) return @"Online Contacts / Presence";
     if (WAGRContainsAny(s, @[@"debug", @"diagnostic", @"logging", @"log_", @"trace", @"whatsbroken", @"override", @"qa", @"test_data"])) return @"Debug / Overrides";
     if (WAGRContainsAny(s, @[@"eligible", @"eligibility", @"allowed", @"is_allowed", @"can_", @"should_show", @"entrypoint", @"entry_point", @"visible", @"availability"])) return @"Eligibility / Entrypoint";
     if (WAGRContainsAny(s, @[@"enabled", @"enable", @"is_enabled", @"feature_enabled", @"master", @"launched", @"launch"])) return @"Positive · Enabled";

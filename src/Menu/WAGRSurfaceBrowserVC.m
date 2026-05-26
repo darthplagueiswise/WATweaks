@@ -6,6 +6,7 @@
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRRuntimeClassifier.h"
 #import <objc/runtime.h>
+#import "WAGRMenuTheme.h"
 
 extern BOOL WAGRGateInstallHookForSelector(NSString *className,
                                             NSString *selectorName,
@@ -13,10 +14,10 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className,
 
 static const void *kWAGRSurfaceEntryKey = &kWAGRSurfaceEntryKey;
 
-static UIColor *WAGRRTBG(void)   { return [UIColor colorWithRed:.010 green:.010 blue:.012 alpha:1]; }
-static UIColor *WAGRRTCell(void) { return [UIColor colorWithRed:.120 green:.120 blue:.130 alpha:1]; }
-static UIColor *WAGRRTAcc(void)  { return UIColor.systemBlueColor; }
-static UIColor *WAGRRTSub(void)  { return UIColor.secondaryLabelColor; }
+static UIColor *WAGRRTBG(void)   { return WAGRMenuBackgroundColor(); }
+static UIColor *WAGRRTCell(void) { return WAGRMenuCellColor(); }
+static UIColor *WAGRRTAcc(void)  { return UIColor.systemCyanColor; }
+static UIColor *WAGRRTSub(void)  { return WAGRMenuSecondaryTextColor(); }
 static UIColor *WAGRRTOff(void)  { return UIColor.systemRedColor; }
 
 @interface WAGRSurfaceBrowserVC ()
@@ -42,9 +43,7 @@ static UIColor *WAGRRTOff(void)  { return UIColor.systemRedColor; }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = WAGRRTBG();
-    self.tableView.backgroundColor = WAGRRTBG();
-    self.tableView.separatorColor = UIColor.separatorColor;
+    WAGRMenuApplyTableStyle(self.tableView, self);
     self.tableView.estimatedRowHeight = 72;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
 
@@ -55,8 +54,11 @@ static UIColor *WAGRRTOff(void)  { return UIColor.systemRedColor; }
     self.navigationItem.searchController = _search;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
 
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+    UIBarButtonItem *scan = [[UIBarButtonItem alloc]
         initWithTitle:@"Scan" style:UIBarButtonItemStylePlain target:self action:@selector(scanNow)];
+    UIBarButtonItem *apply = [[UIBarButtonItem alloc]
+        initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone target:self action:@selector(applyVisibleOverrides)];
+    self.navigationItem.rightBarButtonItems = @[apply, scan];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -145,8 +147,10 @@ static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WAGRSurfaceBrowserCell"];
 
     WAGREntry *e = [self entryAtIndexPath:indexPath];
-    cell.backgroundColor = WAGRRTCell();
-    cell.textLabel.textColor = UIColor.labelColor;
+    WAGRMenuApplyCellStyle(cell, indexPath.row, e.selectorName ?: e.displayName);
+    cell.textLabel.font = WAGRMenuRuntimeTitleFont();
+    cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
+    cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRRTSub();
     cell.textLabel.numberOfLines = 0;
     cell.detailTextLabel.numberOfLines = 2;
@@ -161,7 +165,7 @@ static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
                                  e.className ?: @"",
                                  e.selectorName ?: @"",
                                  isSet ? (value ? @"override ON" : @"override OFF") : @"system"];
-    cell.detailTextLabel.textColor = isSet ? (value ? WAGRRTAcc() : WAGRRTOff()) : WAGRRTSub();
+    cell.detailTextLabel.textColor = WAGRMenuIsNegativeGateName(e.selectorName) ? WAGRRTOff() : (isSet ? (value ? WAGRRTAcc() : WAGRRTOff()) : WAGRRTSub());
 
     UISwitch *sw = (UISwitch *)objc_getAssociatedObject(cell, kWAGRSurfaceEntryKey);
     if (!sw) {
@@ -174,6 +178,23 @@ static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
     sw.on = value;
     sw.tag = indexPath.section * 100000 + indexPath.row;
     return cell;
+}
+
+- (void)applyVisibleOverrides {
+    NSUInteger setCount = 0, installed = 0, skipped = 0;
+    for (NSString *key in self.sectionKeys) {
+        for (WAGREntry *e in self.sections[key]) {
+            if (!WAGRGateIsSet(e.selectorName)) continue;
+            setCount++;
+            if (WAGRMenuIsNegativeGateName(e.selectorName) || WAGRMenuIsNegativeGateName(key)) { skipped++; continue; }
+            if (WAGRGateInstallHookForSelector(e.className, e.selectorName, e.isClassMethod)) installed++;
+        }
+    }
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Aplicar Runtime"
+                                                               message:[NSString stringWithFormat:@"Overrides: %lu\nHooks: %lu\nIgnorados negative/kill: %lu", (unsigned long)setCount, (unsigned long)installed, (unsigned long)skipped]
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)switchChanged:(UISwitch *)sw {

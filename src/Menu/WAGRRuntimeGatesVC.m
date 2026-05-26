@@ -3,6 +3,7 @@
 #import "WAGRGateCategoryVC.h"
 #import "../Runtime/WAGRGateRegistry.h"
 #import "../Runtime/WAGRGateStore.h"
+#import "WAGRMenuTheme.h"
 
 @interface WAGRRuntimeGatesVC ()
 @property(nonatomic, copy) NSArray<WAGRGateProvider *> *providers;
@@ -19,7 +20,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     _providers = [WAGRGateRegistry allProviders];
-    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
+    WAGRMenuApplyTableStyle(self.tableView, self);
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -56,19 +57,17 @@ static NSUInteger WAGRCountOverridesForProvider(WAGRGateProvider *p) {
     WAGRGateProvider *p = _providers[(NSUInteger)ip.row];
     UITableViewCell *c = [tv dequeueReusableCellWithIdentifier:@"WAGRRuntimeGatesCell"];
     if (!c) c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WAGRRuntimeGatesCell"];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, ip.row, p.providerID);
     c.textLabel.text = p.title;
-    c.textLabel.textColor = UIColor.labelColor;
     NSUInteger overrides = WAGRCountOverridesForProvider(p);
     NSString *subtitle = overrides
         ? [NSString stringWithFormat:@"%@ · %lu overrides", p.subtitle ?: @"", (unsigned long)overrides]
         : (p.subtitle ?: @"");
     c.detailTextLabel.text = subtitle;
-    c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    c.detailTextLabel.textColor = overrides ? UIColor.systemGreenColor : WAGRMenuSecondaryTextColor();
     c.detailTextLabel.numberOfLines = 0;
-    UIImage *img = [UIImage systemImageNamed:p.icon ?: @"circle"];
-    c.imageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = overrides ? UIColor.systemGreenColor : UIColor.labelColor;
+    c.imageView.image = WAGRMenuSymbol(p.icon ?: @"circle", nil);
+    c.imageView.tintColor = overrides ? UIColor.systemGreenColor : WAGRMenuAccentForKey(p.providerID, ip.row);
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }

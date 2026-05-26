@@ -30,6 +30,7 @@
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRGateStore.h"
 #import <objc/runtime.h>
+#import "WAGRMenuTheme.h"
 
 // ── External symbols (resolved at link time across files) ────────────────────
 extern NSString *WAGRDogfoodDiagnosticText(void);
@@ -359,7 +360,7 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
+    WAGRMenuApplyTableStyle(self.tableView, self);
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return WAGRSecretSectionCount; }
@@ -398,15 +399,15 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, ip.row, [NSString stringWithFormat:@"%ld-%ld", (long)ip.section, (long)ip.row]);
 
     switch ((WAGRSecretSection)ip.section) {
         case WAGRSecretSectionMasters: {
             NSDictionary *t = WAGRMasterToggles()[ip.row];
             c.textLabel.text = t[@"title"];
-            c.textLabel.textColor = UIColor.labelColor;
+            c.textLabel.textColor = WAGRMenuTextColor();
             c.detailTextLabel.text = t[@"subtitle"];
-            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+            c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
             c.detailTextLabel.numberOfLines = 0;
             UIImage *icon = [UIImage systemImageNamed:t[@"icon"]];
             c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -423,11 +424,11 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         case WAGRSecretSectionDiagnostic: {
             NSDictionary *d = WAGRDiagnosticRows()[ip.row];
             c.textLabel.text = d[@"name"];
-            c.textLabel.textColor = UIColor.labelColor;
+            c.textLabel.textColor = WAGRMenuTextColor();
             NSString *full = WAGRDiagnosticText(d[@"fn"]) ?: @"";
             NSString *firstLine = [[full componentsSeparatedByString:@"\n"] firstObject] ?: @"";
             c.detailTextLabel.text = firstLine;
-            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+            c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
             UIImage *icon = [UIImage systemImageNamed:@"stethoscope"];
             c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
             c.imageView.tintColor = UIColor.systemBlueColor;
@@ -437,8 +438,8 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         case WAGRSecretSectionList: {
             NSString *cls = WAGRSecretVCRoster()[ip.row];
             c.textLabel.text = cls;
-            c.textLabel.font = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular];
-            c.textLabel.textColor = UIColor.labelColor;
+            c.textLabel.font = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
+            c.textLabel.textColor = WAGRMenuTextColor();
             c.textLabel.numberOfLines = 0;
             BOOL loaded = NSClassFromString(cls) != nil;
             UIImage *dot = [UIImage systemImageNamed:@"circle.fill"];
@@ -451,12 +452,12 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         }
         case WAGRSecretSectionHowTo: {
             c.textLabel.text = @"Sequência recomendada";
-            c.textLabel.textColor = UIColor.labelColor;
+            c.textLabel.textColor = WAGRMenuTextColor();
             c.detailTextLabel.text = @"1. Ligue \"Modo Internal\" e/ou \"Simulação Aura\" acima.\n"
                                       "2. Force-quit e reabra o WhatsApp uma vez.\n"
                                       "3. Abra Configurações no app. A row Developer aparece abaixo do bloco Meta; Subscriptions / WA Plus aparece com Aura ligado.\n"
                                       "4. Toque NATIVAMENTE — não use o launcher modal do WATweaks para essas células.";
-            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+            c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
             c.detailTextLabel.numberOfLines = 0;
             UIImage *icon = [UIImage systemImageNamed:@"list.number"];
             c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];

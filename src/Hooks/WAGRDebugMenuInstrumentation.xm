@@ -1,7 +1,7 @@
 // WAGRDebugMenuInstrumentation.xm
 // Diagnostic owner for WhatsApp's native WADebugViewController menu assembly.
 // New WhatsApp(11) target: the useful choke point is -createSections, not only
-// tableView datasource callbacks. It also appends a safe WATweaks section via datasource hooks.
+// tableView datasource callbacks. It no longer mutates native section counts; only observes and adds a back button.
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
@@ -102,9 +102,11 @@ static NSInteger WAGRDMOriginalSectionCount(id self, id tableView) {
 }
 
 static BOOL WAGRDMIsExtraSection(id self, id tableView, NSInteger section) {
-    if (!WAGRDMIsNativeDebugVC(self)) return NO;
-    NSInteger nativeSections = WAGRDMOriginalSectionCount(self, tableView);
-    return section == nativeSections;
+    // Disabled deliberately: mutating WADebugViewController's datasource section
+    // count can desync WhatsApp's private WATableSection cache and crash the
+    // native Developer menu. Keep this instrumentation observational.
+    (void)self; (void)tableView; (void)section;
+    return NO;
 }
 
 static void WAGRDMEnsureBackButton(id owner) {
@@ -350,13 +352,12 @@ static BOOL WAGRDMShouldLogStable(NSString *key, NSString *value) {
 static NSInteger hookDMSections(id self, SEL _cmd, id tableView) {
     WAGRDMSectionsIMP orig = (WAGRDMSectionsIMP)WAGRDMOrig([self class], _cmd, @"sections");
     NSInteger native = orig ? orig(self, _cmd, tableView) : 1;
-    NSInteger ret = WAGRDMIsNativeDebugVC(self) ? native + 1 : native;
     NSString *key = [NSString stringWithFormat:@"sections|%@", NSStringFromClass([self class])];
-    NSString *val = [NSString stringWithFormat:@"%ld", (long)ret];
+    NSString *val = [NSString stringWithFormat:@"%ld", (long)native];
     if (WAGRDMShouldLogStable(key, val)) {
-        WAGRLogAppendF(@"[DebugMenuSpy] %@ numberOfSections native=%ld final=%ld", NSStringFromClass([self class]), (long)native, (long)ret);
+        WAGRLogAppendF(@"[DebugMenuSpy] %@ numberOfSections -> %ld", NSStringFromClass([self class]), (long)native);
     }
-    return ret;
+    return native;
 }
 
 static NSInteger hookDMRows(id self, SEL _cmd, id tableView, NSInteger section) {

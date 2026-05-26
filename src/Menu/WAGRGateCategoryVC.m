@@ -2,12 +2,14 @@
 #import "WAGRGateCategoryVC.h"
 #import "WAGRGateRuntimeBrowserVC.h"
 #import "../Runtime/WAGRGateStore.h"
+#import "WAGRMenuTheme.h"
 
 // Provided by WAGRGateHooks.xm. Installs the gate trampoline on one
 // concrete (class, selector, isClassMethod) tuple. Idempotent.
 extern BOOL WAGRGateInstallHookForSelector(NSString *className,
                                             NSString *selectorName,
                                             BOOL isClassMethod);
+extern void WAGRGateHooksEnsureInstalled(void);
 
 typedef NS_ENUM(NSInteger, WAGRCategorySection) {
     WAGRCategorySectionFeatured = 0,
@@ -36,12 +38,25 @@ typedef NS_ENUM(NSInteger, WAGRCategoryAction) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
+    WAGRMenuApplyTableStyle(self.tableView, self);
+    if (![self shouldHideApplyButton]) {
+        self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone target:self action:@selector(applyFeaturedOverrides)];
+    }
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.tableView reloadData];
+}
+
+
+- (BOOL)shouldHideApplyButton {
+    NSString *pid = self.provider.providerID.lowercaseString ?: @"";
+    return [pid containsString:@"negative"] || [pid containsString:@"kill"];
+}
+
+static BOOL WAGRCategoryShouldSkipApply(NSString *selectorName) {
+    return WAGRMenuIsNegativeGateName(selectorName);
 }
 
 // ── Hook install helper used when the user flips a featured switch ON ────────
@@ -83,17 +98,16 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
     if (section == WAGRCategorySectionFeatured) {
-        return @"Toque no switch para forçar ON/OFF. Long-press na linha para limpar o override (volta ao comportamento original). "
-               @"Para flags fora desta lista, use \"Runtime Avançado\".";
+        return @"Toque no switch para preparar ON/OFF e use Aplicar para instalar os hooks da categoria. "
+               @"Long-press limpa o override. Negative/Kill Switch não são aplicados em massa por segurança.";
     }
     return nil;
 }
 
 - (UITableViewCell *)cellForFeatured:(WAGRGateFeaturedFlag *)flag {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, 0, flag.selectorName);
     c.textLabel.text = flag.title;
-    c.textLabel.textColor = UIColor.labelColor;
     NSMutableString *detail = [NSMutableString string];
     [detail appendString:flag.selectorName ?: @""];
     if (flag.detail.length) {
@@ -104,7 +118,7 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
         [detail appendString:@"\n(invertido: ON na UI = retorna NO)"];
     }
     c.detailTextLabel.text = detail;
-    c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    c.detailTextLabel.textColor = WAGRCategoryShouldSkipApply(flag.selectorName) ? UIColor.systemRedColor : WAGRMenuSecondaryTextColor();
     c.detailTextLabel.numberOfLines = 0;
 
     UISwitch *sw = [UISwitch new];
@@ -112,7 +126,7 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
     sw.on = isSet && WAGRGateGet(WAGRGateCanonicalKey(flag.selectorName));
     sw.onTintColor = isSet ? UIColor.systemGreenColor : UIColor.systemBlueColor;
     [sw addTarget:self action:@selector(featuredSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-    sw.accessibilityIdentifier = WAGRGateCanonicalKey(flag.selectorName);
+    sw.accessibilityIdentifier = flag.selectorName;
     c.accessoryView = sw;
 
     // Show a small badge when an override exists, so the user can distinguish
@@ -140,25 +154,25 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
 
 - (UITableViewCell *)cellForAction:(WAGRCategoryAction)action {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, action, self.provider.providerID);
     switch (action) {
         case WAGRCategoryActionRuntimeBrowser:
             c.textLabel.text = @"Runtime Avançado";
             c.detailTextLabel.text = @"Listar TODOS os selectors BOOL desta categoria descobertos em runtime.";
-            c.imageView.image = [[UIImage systemImageNamed:@"binoculars"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            c.imageView.image = WAGRMenuSymbol(@"binoculars.fill", nil);
             c.imageView.tintColor = UIColor.systemBlueColor;
             c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         case WAGRCategoryActionResetCategory:
             c.textLabel.text = @"Reset overrides desta categoria";
             c.detailTextLabel.text = @"Remove apenas os overrides cujos nomes correspondem aos flags principais.";
-            c.imageView.image = [[UIImage systemImageNamed:@"arrow.counterclockwise"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            c.imageView.image = WAGRMenuSymbol(@"arrow.counterclockwise.circle.fill", nil);
             c.imageView.tintColor = UIColor.systemRedColor;
             break;
         case WAGRCategoryActionCount: break;
     }
-    c.textLabel.textColor = UIColor.labelColor;
-    c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    c.textLabel.textColor = WAGRMenuTextColor();
+    c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
     c.detailTextLabel.numberOfLines = 0;
     return c;
 }
@@ -174,19 +188,40 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
     return [[UITableViewCell alloc] init];
 }
 
+- (void)applyFeaturedOverrides {
+    NSUInteger installed = 0;
+    NSUInteger skipped = 0;
+    NSUInteger setCount = 0;
+
+    WAGRGateHooksEnsureInstalled();
+    for (WAGRGateFeaturedFlag *f in self.provider.featured) {
+        NSString *sel = WAGRGateCanonicalKey(f.selectorName);
+        if (!WAGRGateIsSet(sel)) continue;
+        setCount++;
+        if (WAGRCategoryShouldSkipApply(f.selectorName)) { skipped++; continue; }
+        if (WAGRTryInstallFeaturedHook(self.provider, f.selectorName)) installed++;
+    }
+
+    NSString *msg = [NSString stringWithFormat:@"Overrides nesta categoria: %lu\nHooks diretos instalados: %lu\nIgnorados por segurança (negative/kill/disable/block): %lu\nWAAB boolForKey: fica coberto pelo hook central.",
+                     (unsigned long)setCount, (unsigned long)installed, (unsigned long)skipped];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Aplicar categoria"
+                                                               message:msg
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+    [self.tableView reloadData];
+}
+
 #pragma mark - Featured interaction
 
 - (void)featuredSwitchChanged:(UISwitch *)sw {
     NSString *selectorName = sw.accessibilityIdentifier;
     if (!selectorName.length) return;
     WAGRGateSet(selectorName, sw.isOn);
-    if (sw.isOn) {
-        // Only install a runtime hook if the universal boolForKey: hook
-        // is not enough — i.e. this selector is a direct BOOL method.
-        // Try each concrete class; failure here is fine (the
-        // boolForKey: hook on WAABProperties will still apply for
-        // WAAB-shaped flag names).
+    if (!WAGRCategoryShouldSkipApply(selectorName)) {
+        // Install for both ON and OFF overrides; explicit OFF needs a hook too.
         (void)WAGRTryInstallFeaturedHook(_provider, selectorName);
+        WAGRGateHooksEnsureInstalled();
     }
     // Rebuild the row so the badge updates.
     NSUInteger row = NSNotFound;

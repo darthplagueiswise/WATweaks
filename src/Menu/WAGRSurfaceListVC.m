@@ -13,6 +13,7 @@
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
+#import "WAGRMenuTheme.h"
 
 extern void WAGRWAABEnsureHooksInstalled(void);
 // The native dev-menu launcher lives in src/Hooks/WAGRDebugMenuLauncher.xm.
@@ -21,11 +22,11 @@ extern void WAGRWAABEnsureHooksInstalled(void);
 extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
 extern BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
 extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
-static UIColor *WAGRBG(void)     { return UIColor.systemGroupedBackgroundColor; }
-static UIColor *WAGRCell(void)   { return UIColor.secondarySystemGroupedBackgroundColor; }
-static UIColor *WAGRText(void)   { return UIColor.labelColor; }
-static UIColor *WAGRSub(void)    { return UIColor.secondaryLabelColor; }
-static UIColor *WAGRBlue(void)   { return UIColor.systemBlueColor; }
+static UIColor *WAGRBG(void)     { return WAGRMenuBackgroundColor(); }
+static UIColor *WAGRCell(void)   { return WAGRMenuCellColor(); }
+static UIColor *WAGRText(void)   { return WAGRMenuTextColor(); }
+static UIColor *WAGRSub(void)    { return WAGRMenuSecondaryTextColor(); }
+static UIColor *WAGRBlue(void)   { return UIColor.systemCyanColor; }
 static UIColor *WAGRRed(void)    { return UIColor.systemRedColor; }
 
 static UIViewController *WAGRTopController(void) {
@@ -80,7 +81,7 @@ static void WAGRAlert(NSString *title, NSString *message) {
 }
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
+    WAGRMenuApplyTableStyle(self.tableView, self);
 }
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section { return (NSInteger)_surfaces.count; }
 - (void)tableView:(UITableView *)tv willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
@@ -97,13 +98,12 @@ static void WAGRAlert(NSString *title, NSString *message) {
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     WAGRSurfaceSpec *s = _surfaces[(NSUInteger)ip.row];
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, ip.row, s.title);
     c.textLabel.text = s.title;
-    c.textLabel.textColor = WAGRText();
     c.detailTextLabel.text = s.subtitle ?: @"";
     c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:s.icon ?: @"circle"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
+    c.imageView.image = WAGRMenuSymbol(s.icon ?: @"circle", nil);
+    c.imageView.tintColor = WAGRMenuAccentForKey(s.title, ip.row);
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
@@ -164,7 +164,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
+    WAGRMenuApplyTableStyle(self.tableView, self);
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                                                            target:self
                                                                                            action:@selector(done)];
@@ -215,7 +215,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 // `</>` SF Symbol match the visual contract of WhatsApp's own Developer row.
 - (UITableViewCell *)devMenuCellForRow:(NSInteger)row {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, row, row == WAGRDevMenuRowPrivateExperimentation ? @"private_experimentation" : @"developer");
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.textColor = WAGRSub();
 
@@ -241,13 +241,13 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (UITableViewCell *)aboutCell {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, 0, @"about");
     c.textLabel.text = @"WATweaks";
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.text = @"Runtime router · MSHookMessageEx · UI compacta";
     c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:@"bolt.horizontal.circle"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
+    c.imageView.image = WAGRMenuSymbol(@"info.circle.fill", nil);
+    c.imageView.tintColor = WAGRMenuAccentForKey(@"about", 0);
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
 }
@@ -261,7 +261,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         @"Logs WATweaks"
     };
     NSString *subs[] = {
-        @"Categorias legíveis: WAAB, Aura, MobileConfig, Internal, Settings",
+        @"Categorias legíveis: About, Tab Me, Evolution, Aura, Username, Online Contacts",
         @"Surfaces técnicas: WAABProperties, WAContextMain, WAAuraGating etc.",
         @"Reinstala overrides persistidos",
         @"Router, LiquidGlass, Dogfood, Keychain",
@@ -276,14 +276,14 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     };
 
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, row, titles[row]);
     c.textLabel.text = titles[row];
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.text = subs[row];
     c.detailTextLabel.textColor = WAGRSub();
     c.detailTextLabel.numberOfLines = 0;
-    c.imageView.image = [[UIImage systemImageNamed:icons[row]] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
+    c.imageView.image = WAGRMenuSymbol(icons[row], nil);
+    c.imageView.tintColor = WAGRMenuAccentForKey(titles[row], row);
     c.accessoryType = (row == WAGRAdvancedRowRuntimeGates ||
                        row == WAGRAdvancedRowRawRuntime ||
                        row == WAGRAdvancedRowLogs)
@@ -298,13 +298,13 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     NSString *icons[] = { @"power", @"arrow.counterclockwise", @"trash" };
 
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, row, titles[row]);
     c.textLabel.text = titles[row];
     c.textLabel.textColor = row == WAGRSystemRowRestart ? WAGRRed() : WAGRText();
     c.detailTextLabel.text = subs[row];
     c.detailTextLabel.textColor = WAGRSub();
-    c.imageView.image = [[UIImage systemImageNamed:icons[row]] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    c.imageView.tintColor = WAGRText();
+    c.imageView.image = WAGRMenuSymbol(icons[row], nil);
+    c.imageView.tintColor = WAGRMenuAccentForKey(titles[row], row);
     return c;
 }
 
@@ -314,7 +314,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 // and the per-area cells so the user can tell them apart at a glance.
 - (UITableViewCell *)secretMenusCell {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
+    WAGRMenuApplyCellStyle(c, 0, @"internal aura");
     c.textLabel.text = @"Painel Internal / Aura";
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.text = @"Masters de internal/employee + Aura, diagnóstico ao vivo, lista de Debug VCs";
