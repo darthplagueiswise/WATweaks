@@ -22,6 +22,8 @@ typedef id   (*InitCtxIMP)(id, SEL, id);
 
 extern "C" void WAGRRememberUserContext(id ctx, NSString *source);
 extern "C" id WAGRCurrentUserContext(void);
+extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void);
+extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void);
 
 static BoolIMP orig_dmAllowed = NULL;
 static BoolIMP orig_dmShortcutEnabled = NULL;
@@ -480,6 +482,7 @@ static BOOL classHasClassMethod(Class cls, SEL sel) {
 // ── Installer ────────────────────────────────────────────────────────────────
 static void installNativeDevMenuHooks(void) {
     installUserContextCaptureHooks();
+    WAGRDebugMenuInstrumentationEnsureInstalled();
     if (gDevMenuHooked && gShortcutHooked) return;
 
     NSArray *candidates = @[
@@ -537,7 +540,7 @@ extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void) {
     Class debugVC = NSClassFromString(@"WADebugViewController");
     Class peVC = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
     return [NSString stringWithFormat:
-            @"swiftClassLoaded=%@\nallowedHook=%@\nshortcutHook=%@\ndebugVC=%@\ndebugVCHooks=%@\nprivateExpVC=%@\nprivateExpInitHook=%@\ncachedUserContext=%@",
+            @"swiftClassLoaded=%@\nallowedHook=%@\nshortcutHook=%@\ndebugVC=%@\ndebugVCHooks=%@\nprivateExpVC=%@\nprivateExpInitHook=%@\ncachedUserContext=%@\n%@",
             swiftCls ? @"YES" : @"NO",
             gDevMenuHooked  ? @"YES" : @"NO",
             gShortcutHooked ? @"YES" : @"NO",
@@ -545,7 +548,8 @@ extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void) {
             gDebugVCHooked ? @"YES" : @"NO",
             peVC ? @"YES" : @"NO",
             gPrivateExpVCHooked ? @"YES" : @"NO",
-            WAGRCurrentUserContext() ? NSStringFromClass([WAGRCurrentUserContext() class]) : @"nil"];
+            WAGRCurrentUserContext() ? NSStringFromClass([WAGRCurrentUserContext() class]) : @"nil",
+            WAGRDebugMenuInstrumentationDiagnosticText() ?: @"DebugMenuSpy n/a"];
 }
 
 __attribute__((constructor))

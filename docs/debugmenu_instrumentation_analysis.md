@@ -1,0 +1,214 @@
+# Debug menu instrumentation analysis
+
+Ferramentas executadas: LIEF 0.17.6, Capstone 5.0.7, strings/binários locais enviados.
+
+## WhatsApp(10)
+- file type: FILE_TYPE.EXECUTE
+- sections: 52
+- symbols: 31489
+- objc sections: __objc_stubs, __objc_methname, __objc_methlist, __objc_classlist, __objc_nlclslist, __objc_catlist, __objc_protolist, __objc_imageinfo, __objc_const, __objc_selrefs, __objc_protorefs, __objc_classrefs, __objc_superrefs, __objc_ivar, __objc_data, __objc_clsrolist, __objc_stublist
+- relevant string hits:
+  - WADebugViewController: 4
+  - DebugMenuProvider: 3
+  - debugViewController: 1
+  - numberOfSectionsInTableView:: 1
+  - tableView:numberOfRowsInSection:: 1
+  - tableView:cellForRowAtIndexPath:: 2
+  - tableView:titleForHeaderInSection:: 1
+  - tableView:titleForFooterInSection:: 1
+  - sections: 166
+  - items: 302
+  - menuItems: 3
+  - WADebugMenuMain: 10
+  - PrivateExperimentationDebugViewController: 3
+- objc_methname filtered count: 2339
+  - $__lazy_storage_$_adminActivitySection
+  - $__lazy_storage_$_advertiserInfoSection
+  - $__lazy_storage_$_allItemsCollection
+  - $__lazy_storage_$_bizProfileSectionView
+  - $__lazy_storage_$_businessDetailsSection
+  - $__lazy_storage_$_buttonSectionView
+  - $__lazy_storage_$_catalogSectionVC
+  - $__lazy_storage_$_chatHeaderItemSocket
+  - $__lazy_storage_$_chatsDataSourceRecentChatsIndexPathSection
+  - $__lazy_storage_$_confidentialCloudActionSection
+  - $__lazy_storage_$_confidentialCloudDurationSection
+  - $__lazy_storage_$_confidentialCloudSwitchSection
+  - $__lazy_storage_$_debugInfoButton
+  - $__lazy_storage_$_debugInfoDateFormatter
+  - $__lazy_storage_$_debugOverlayContainerView
+  - $__lazy_storage_$_extraBenefitsSectionView
+  - $__lazy_storage_$_facebookSection
+  - $__lazy_storage_$_feedbackItems
+  - $__lazy_storage_$_followerActivitySection
+  - $__lazy_storage_$_infoSectionView
+  - $__lazy_storage_$_items
+  - $__lazy_storage_$_itemsLabel
+  - $__lazy_storage_$_lazySwiftDebugDescription
+  - $__lazy_storage_$_linkedAccountPostsSectionController
+  - $__lazy_storage_$_localStickersSection
+  - $__lazy_storage_$_menuSections
+  - $__lazy_storage_$_mitigationSections
+  - $__lazy_storage_$_monthDaySectionIndex
+  - $__lazy_storage_$_otherItems
+  - $__lazy_storage_$_postItems
+  - $__lazy_storage_$_postcodeSectionHeader
+  - $__lazy_storage_$_productListPostcodeSectionDelegate
+  - $__lazy_storage_$_productsSectionView
+  - $__lazy_storage_$_reportSection
+  - $__lazy_storage_$_sectionContentView
+  - $__lazy_storage_$_sectionDivider
+  - $__lazy_storage_$_sectionHeaderLabel
+  - $__lazy_storage_$_sectionHeaderSizingView
+  - $__lazy_storage_$_sectionHeaderView
+  - $__lazy_storage_$_sectionIndicesByTitle
+  - $__lazy_storage_$_sectionLayout
+  - $__lazy_storage_$_sectionViews
+  - $__lazy_storage_$_sections
+  - $__lazy_storage_$_sendMediaItemsPolicySocket
+  - $__lazy_storage_$_shouldShowDebugInfo
+  - $__lazy_storage_$_tableItems
+  - $__lazy_storage_$_websiteItems
+  - $__lazy_storage_$_yearSectionIndex
+  - AIImagineEditVideoStylesQuery_styles_sectionsFragmentImpl
+  - AIImagineEditVideoStylesQuery_styles_sections_inlineGenAIImagineWAVideoInspirationSectionImpl
+  - AIImagineEditVideoStylesQuery_styles_sections_inlineGenAIImagineWAVideoInspirationSection_promptsFragmentImpl
+  - AIImagineEditVideoStylesQuery_styles_sections_inlineGenAIImagineWAVideoInspirationSection_prompts_edgesFragmentImpl
+  - AIImagineEditVideoStylesQuery_styles_sections_inlineGenAIImagineWAVideoInspirationSection_prompts_edges_nodeFragmentImpl
+  - AIImagineEditVideoStylesQuery_styles_sections_inlineGenAIImagineWAVideoInspirationSection_prompts_edges_node_promptPieceBaseFragmentImpl
+  - BKActionCtwaOpenMediaComposerWithEnvironment:onMediaEditCompleted:isOpenTemplate:adItems:error:
+  - DEBUG_KEY
+  - DebugNewsletterRecommendedResponseImpl
+  - DebugNewsletterRecommended_xwa2NewslettersRecommendedResponseImpl
+  - DebugNewsletterRecommended_xwa2NewslettersRecommended_resultFragmentImpl
+  - DebugNewsletterRecommended_xwa2NewslettersRecommended_result_threadMetadataFragmentImpl
+  - DebugNewsletterRecommended_xwa2NewslettersRecommended_result_threadMetadata_nameFragmentImpl
+  - DebugNewsletterRecommended_xwa2NewslettersRecommended_result_threadMetadata_previewFragmentImpl
+  - GenAIImagineRestyleSectionsQueryResponseImpl
+  - GenAIImagineRestyleSectionsQuery_xfbGenaiImagineRestyleInspirationFeedForC50ResponseImpl
+  - GenAIImagineRestyleSectionsQuery_xfbGenaiImagineRestyleInspirationFeedForC50_sectionsFragmentImpl
+  - GenAIImagineRestyleSectionsQuery_xfbGenaiImagineRestyleInspirationFeedForC50_sections_inlineXFBGenAIImagineC50ImageInspirationSectionImpl
+  - GenAIImagineRestyleSectionsQuery_xfbGenaiImagineRestyleInspirationFeedForC50_sections_inlineXFBGenAIImagineC50ImageInspirationSection_promptsFragmentImpl
+  - GenAIImagineRestyleSectionsQuery_xfbGenaiImagineRestyleInspirationFeedForC50_sections_inlineXFBGenAIImagineC50ImageInspirationSection_prompts_edgesFragmentImpl
+  - GenAIImagineRestyleSectionsQuery_xfbGenaiImagineRestyleInspirationFeedForC50_sections_inlineXFBGenAIImagineC50ImageInspirationSection_prompts_edges_nodeFragmentImpl
+  - INTEROPUSERS_SECTION
+  - MAIImagineCanvasInspirationAPISectionFragmentImpl
+  - MAIImagineCanvasInspirationAPISection_promptsFragmentImpl
+  - MAIImagineCanvasInspirationAPISection_prompts_edgesFragmentImpl
+  - MAIImagineCanvasInspirationAPISection_prompts_edges_nodeFragmentImpl
+  - MAIImagineCanvasInspirationAPI_xfbGenaiImagineInspirationFeed_sectionsFragmentImpl
+  - MAIImagineIntentsLandingPageItemStoryMetadataFragmentImpl
+  - MAIImagineIntentsLandingPageItemStoryMetadata_storyPromptFragmentImpl
+  - MAIImagineIntentsLandingPageItemStoryMetadata_storyPrompt_userForAttributionFragmentImpl
+  - NativeContactsRestoreStateBannerSectionIndex
+  - T@"<CKCollectionComponentDataSourceItemsManagerListener>",W,N,V_listener
+- capstone __text sample:
+  - 0x100008000: sub sp, sp, #0x40
+  - 0x100008004: stp x20, x19, [sp, #0x20]
+  - 0x100008008: stp x29, x30, [sp, #0x30]
+  - 0x10000800c: add x29, sp, #0x30
+  - 0x100008010: str xzr, [sp, #0x18]
+  - 0x100008014: adrp x0, #0x107d86000
+
+## SharedModules(14)
+- file type: FILE_TYPE.DYLIB
+- sections: 51
+- symbols: 30420
+- objc sections: __objc_stubs, __objc_methname, __objc_methlist, __objc_classlist, __objc_nlclslist, __objc_catlist, __objc_protolist, __objc_imageinfo, __objc_const, __objc_selrefs, __objc_protorefs, __objc_classrefs, __objc_superrefs, __objc_ivar, __objc_data, __objc_clsrolist, __objc_stublist
+- relevant string hits:
+  - numberOfSectionsInTableView:: 1
+  - tableView:numberOfRowsInSection:: 1
+  - tableView:cellForRowAtIndexPath:: 2
+  - tableView:titleForHeaderInSection:: 1
+  - tableView:titleForFooterInSection:: 1
+  - sections: 46
+  - items: 149
+  - menuItems: 4
+- objc_methname filtered count: 1084
+  - $__lazy_storage_$_chatTopBarRightBarButtonItemsEnabled
+  - $__lazy_storage_$_chatTopBarRightBarButtonItemsPaddedDropdowns
+  - $__lazy_storage_$_debugColor
+  - $__lazy_storage_$_nonGroupItems
+  - AIStudioChatHistorySectionFragmentImpl
+  - AIStudioChatHistorySection_itemsFragmentImpl
+  - AIStudioChatHistorySection_items_personaFragmentImpl
+  - AIStudioHomeLayoutQuery_xfbFetchGenaiPersonaDiscoveryPaginatedLayout_unionSectionsQueryFragmentImpl
+  - AIStudioHomeLayoutQuery_xfbFetchGenaiPersonaDiscoveryPaginatedLayout_unionSectionsQuery_edgesFragmentImpl
+  - AIStudioHomeLayoutQuery_xfbFetchGenaiPersonaDiscoveryPaginatedLayout_unionSectionsQuery_edges_nodeFragmentImpl
+  - AIStudioHomeLayoutQuery_xfbFetchGenaiPersonaDiscoveryPaginatedLayout_unionSectionsQuery_pageInfoFragmentImpl
+  - AIStudioPersonaSectionFragmentImpl
+  - AIStudioPersonaSection_queryFragmentImpl
+  - AIStudioPersonaSection_query_edgesFragmentImpl
+  - AIStudioPersonaSection_query_edges_nodeFragmentImpl
+  - AIStudioPersonaSection_query_pageInfoFragmentImpl
+  - AIStudioYourCreatedAISectionFragmentImpl
+  - AIStudioYourCreatedAISection_yourAisQueryFragmentImpl
+  - AIStudioYourCreatedAISection_yourAisQuery_edgesFragmentImpl
+  - AIStudioYourCreatedAISection_yourAisQuery_edges_nodeFragmentImpl
+  - FOAEmbeddedSingleScreen_sectionsFragmentImpl
+  - FOAUnifiedResponseTab_sectionsFragmentImpl
+  - GenAI3PExtCalendarDateSectionFragmentImpl
+  - GenAI3PExtCalendarDateSection_eventsFragmentImpl
+  - GenAI3PExtCalendarEventList_sectionsFragmentImpl
+  - GenAI3PExtWidgetStandardHeader_leadingItemsFragmentImpl
+  - GenAIDebugDataFragmentImpl
+  - GenAIMapItemStaticMapFragmentImpl
+  - GenAIMapPrimitive_itemsFragmentImpl
+  - GenAINestedUnifiedResponse_footerSectionsFragmentImpl
+  - GenAINestedUnifiedResponse_sectionsFragmentImpl
+  - GenAISearchPluginResponseSectionFragmentImpl
+  - GenAISearchPluginResponseSectionReferencesFragmentImpl
+  - GenAISearchPluginResponseSection_referencesFragmentImpl
+  - GenAIUnifiedResponseMetadata_debugDataFragmentImpl
+  - GenAIUnifiedResponseSectionFragmentImpl
+  - GenAIUnifiedResponseSectionInlinedViewModelFragmentImpl
+  - GenAIUnifiedResponseSectionViewModelFragmentImpl
+  - GenAIUnifiedResponseSection_viewModelFragmentImpl
+  - GenAIUnifiedResponse_footerSectionsFragmentImpl
+  - GenAIUnifiedResponse_sectionsFragmentImpl
+  - SLVSendMessagePayload_productCatalogItemsFragmentImpl
+  - T@"<WABizDebugPreferences>",R,N
+  - T@"<WADebugPropertiesOverriding>",N,R
+  - T@"GQLModel<GenAIUnifiedResponseSectionFragment>",N,R
+  - T@"NSArray",&,N,V_prefetchedContactSections
+  - T@"NSArray",C,N,V_additionalQueryItems
+  - T@"NSArray",C,N,V_menuItems
+  - T@"NSArray",C,N,V_queryItems
+  - T@"NSArray",C,N,V_sections
+  - T@"NSArray",R,C,N,V_previewItems
+  - T@"NSArray",R,N,V_items
+  - T@"NSArray",R,N,V_mediaItems
+  - T@"NSDictionary",C,N,V_layoutAttributesForDeletedItems
+  - T@"NSMutableArray",&,N,V_sections
+  - T@"NSString",&,N,V_debugInfo
+  - T@"NSString",C,N,V_access_library_logger_debug_test_data
+  - T@"NSString",C,N,V_debug
+  - T@"NSString",C,N,V_debug_data_json
+  - T@"NSString",C,N,V_debug_info_map
+  - T@"NSString",C,N,V_debug_media_exception
+  - T@"NSString",C,N,V_debug_media_ip
+  - T@"NSString",C,N,V_debug_message
+  - T@"NSString",C,N,V_debug_underlying_exception
+  - T@"NSString",C,N,V_debug_url
+  - T@"NSString",C,N,V_decoder_debug_info
+  - T@"NSString",C,N,V_extra_debug
+  - T@"NSString",C,N,V_extra_debug_data
+  - T@"NSString",C,N,V_prev_stage_debug
+  - T@"NSString",C,N,V_sectionID
+  - T@"NSString",C,N,V_sectionTitle
+  - T@"NSString",C,N,V_vvp_debug_info
+  - T@"NSString",C,N,V_wamo_items_lifecycle_bitmap
+  - T@"NSString",R,C,N,V_descriptionDebug
+  - T@"NSString",R,C,N,V_hostDebug
+  - T@"NSString",R,C,N,V_sectionTitle
+  - T@"UIFont",R,N,V_genericSectionHeaderFont
+  - T@"UILabel",&,N,V_contactsGridSectionTitleLabel
+  - T@"WAContactsSection",&,N,V_actionsSection
+  - T@"WAContactsSection",&,N,V_bannerSection
+- capstone __text sample:
+  - 0x4000: stp x22, x21, [sp, #-0x30]!
+  - 0x4004: stp x20, x19, [sp, #0x10]
+  - 0x4008: stp x29, x30, [sp, #0x20]
+  - 0x400c: add x29, sp, #0x20
+  - 0x4010: mov x19, x1
+  - 0x4014: adrp x8, #0x3ca5000
