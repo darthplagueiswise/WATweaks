@@ -266,6 +266,36 @@ static NSString *WAGRContextSpyKey(Class cls, SEL sel) {
     return [NSString stringWithFormat:@"%@|%@", NSStringFromClass(cls), NSStringFromSelector(sel)];
 }
 
+static NSMutableDictionary<NSString *, NSString *> *gCtxSpyLastSummary = nil;
+static NSMutableDictionary<NSString *, NSNumber *> *gCtxSpyLastLogTime = nil;
+static NSObject *gCtxSpyLogLock = nil;
+
+static void WAGRContextSpyEnsureLogState(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        gCtxSpyLastSummary = [NSMutableDictionary dictionary];
+        gCtxSpyLastLogTime = [NSMutableDictionary dictionary];
+        gCtxSpyLogLock = [NSObject new];
+    });
+}
+
+static BOOL WAGRContextSpyShouldLog(NSString *key, NSString *summary, NSTimeInterval minInterval) {
+    if (!key.length) return YES;
+    WAGRContextSpyEnsureLogState();
+    NSTimeInterval now = [NSDate date].timeIntervalSince1970;
+
+    @synchronized (gCtxSpyLogLock) {
+        NSString *last = gCtxSpyLastSummary[key];
+        NSTimeInterval lastTime = [gCtxSpyLastLogTime[key] doubleValue];
+        if (last && [last isEqualToString:summary ?: @""] && (now - lastTime) < minInterval) {
+            return NO;
+        }
+        gCtxSpyLastSummary[key] = summary ?: @"";
+        gCtxSpyLastLogTime[key] = @(now);
+        return YES;
+    }
+}
+
 static BOOL WAGRContextSpyHookBoolSelector(Class cls, NSString *selectorName);
 extern "C" void WAGRContextSpyInstallForObject(id obj);
 
@@ -273,18 +303,27 @@ static id hookContextSpyObject(id self, SEL _cmd) {
     NSString *key = WAGRContextSpyKey([self class], _cmd);
     CtxObjIMP orig = NULL;
     NSValue *v = gCtxObjOrig[key];
-    if (v) orig = (CtxObjIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<CtxObjIMP>([v pointerValue]);
     id ret = nil;
     @try { ret = orig ? orig(self, _cmd) : nil; } @catch (__unused NSException *ex) { ret = nil; }
     NSString *selName = NSStringFromSelector(_cmd);
+    NSString *clsName = NSStringFromClass([self class]);
+    NSString *summary = [NSString stringWithFormat:@"%@:%p",
+                         ret ? NSStringFromClass([ret class]) : @"nil",
+                         (__bridge void *)ret];
+    NSString *logKey = [NSString stringWithFormat:@"obj|%@|%@", clsName, selName];
+
     if (!ret && [selName isEqualToString:@"debugPropOverrides"]) {
         ret = WAGRDebugPropOverridesFallback();
-        WAGRLogAppendF(@"[ContextSpy] %@.%@ -> nil; returning fallback %@ (%p)",
-                       NSStringFromClass([self class]), selName,
-                       NSStringFromClass([ret class]), (__bridge void *)ret);
-    } else {
+        summary = [NSString stringWithFormat:@"fallback:%@:%p", NSStringFromClass([ret class]), (__bridge void *)ret];
+        if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
+            WAGRLogAppendF(@"[ContextSpy] %@.%@ -> nil; returning fallback %@ (%p)",
+                           clsName, selName,
+                           NSStringFromClass([ret class]), (__bridge void *)ret);
+        }
+    } else if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
         WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (%p)",
-                       NSStringFromClass([self class]), selName,
+                       clsName, selName,
                        ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
     }
 
@@ -301,14 +340,20 @@ static BOOL hookContextSpyBool(id self, SEL _cmd) {
     NSString *key = WAGRContextSpyKey([self class], _cmd);
     CtxBoolIMP orig = NULL;
     NSValue *v = gCtxBoolOrig[key];
-    if (v) orig = (CtxBoolIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<CtxBoolIMP>([v pointerValue]);
     BOOL ret = NO;
     @try { ret = orig ? orig(self, _cmd) : NO; } @catch (__unused NSException *ex) { ret = NO; }
     NSString *selName = NSStringFromSelector(_cmd);
 
+    NSString *clsName = NSStringFromClass([self class]);
+    NSString *logKey = [NSString stringWithFormat:@"bool|%@|%@", clsName, selName];
+
     if ([selName isEqualToString:@"isPrimaryDevice"]) {
-        WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES for PrivateExp)",
-                       NSStringFromClass([self class]), selName, ret ? @"YES" : @"NO");
+        NSString *summary = [NSString stringWithFormat:@"%@->forcedYES", ret ? @"YES" : @"NO"];
+        if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
+            WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES for PrivateExp)",
+                           clsName, selName, ret ? @"YES" : @"NO");
+        }
         return YES;
     }
 
@@ -318,14 +363,19 @@ static BOOL hookContextSpyBool(id self, SEL _cmd) {
         BOOL forced = WAGRPref(kWAGRInternalMaster) || WAGRPref(kWAGREmployeeMaster) ||
                       WAGRGateGet(selName) || WAGRGateGet(@"isInternalUser");
         if (forced) {
-            WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES by Internal/Employee master)",
-                           NSStringFromClass([self class]), selName, ret ? @"YES" : @"NO");
+            NSString *summary = [NSString stringWithFormat:@"%@->forcedYES", ret ? @"YES" : @"NO"];
+            if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
+                WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES by Internal/Employee master)",
+                               clsName, selName, ret ? @"YES" : @"NO");
+            }
             return YES;
         }
     }
 
-    WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@",
-                   NSStringFromClass([self class]), selName, ret ? @"YES" : @"NO");
+    NSString *summary = ret ? @"YES" : @"NO";
+    if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
+        WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@", clsName, selName, ret ? @"YES" : @"NO");
+    }
     return ret;
 }
 
@@ -552,9 +602,18 @@ extern "C" NSString *WAGRNativeDevMenuDiagnosticText(void) {
             WAGRDebugMenuInstrumentationDiagnosticText() ?: @"DebugMenuSpy n/a"];
 }
 
+static void WAGRNativeDevMenuScheduleRetry(NSTimeInterval delay) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        installNativeDevMenuHooks();
+    });
+}
+
 __attribute__((constructor))
 static void WAGRNativeDevMenuCtor(void) {
     @autoreleasepool {
         installNativeDevMenuHooks();
+        WAGRNativeDevMenuScheduleRetry(0.2);
+        WAGRNativeDevMenuScheduleRetry(1.0);
+        WAGRNativeDevMenuScheduleRetry(3.0);
     }
 }

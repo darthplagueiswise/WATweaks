@@ -437,9 +437,18 @@ extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void) {
             [[gWAGRDMObservedClasses allObjects] componentsJoinedByString:@", "] ?: @""];
 }
 
+static void WAGRDebugMenuInstrumentationScheduleRetry(NSTimeInterval delay) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        WAGRDebugMenuInstrumentationEnsureInstalled();
+    });
+}
+
 __attribute__((constructor))
 static void WAGRDebugMenuInstrumentationCtor(void) {
     @autoreleasepool {
         WAGRDebugMenuInstrumentationEnsureInstalled();
+        WAGRDebugMenuInstrumentationScheduleRetry(0.2);
+        WAGRDebugMenuInstrumentationScheduleRetry(1.0);
+        WAGRDebugMenuInstrumentationScheduleRetry(3.0);
     }
 }

@@ -12,7 +12,7 @@
 
 - (instancetype)init {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = @"Runtime Gates";
+    self.title = @"Runtime Gates por Categoria";
     return self;
 }
 
@@ -47,9 +47,9 @@ static NSUInteger WAGRCountOverridesForProvider(WAGRGateProvider *p) {
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return (NSInteger)_providers.count; }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
-    return @"Cada categoria mostra os flags principais com toggle direto. "
-           @"Para qualquer ajuste fino além dos flags listados, use o botão "
-           @"\"Runtime Avançado\" dentro da categoria.";
+    return @"Cada categoria mostra flags principais com toggle direto. "
+           @"Dentro dela, o botão Runtime Avançado abre os getters descobertos "
+           @"por classe/selector para ajuste fino.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {

@@ -9,6 +9,7 @@
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRSecretMenusVC.h"
 #import "WAGRLogViewController.h"
+#import "WAGRRuntimeGatesVC.h"
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
@@ -123,13 +124,9 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
     // init signature and present the controller modally.
     WAGRRootSectionSecret,
     WAGRRootSectionAbout,
-    // "Avançado" — single entry point to the gate editor (Runtime Avançado
-    // row pushes WAGRRawSurfaceListVC, which lists every technical surface:
-    // WAABProperties, WAContextMain, Feature Gate Keepers, WAAuraGating,
-    // Settings Navigation, Employee/Dogfood). The previously separate
-    // "Áreas de Gating (Curadas)" and "Categorias" sections were removed
-    // because they wrote to the same WAGROverrideKeyFor() storage as the
-    // runtime browser and produced duplicate / conflicting hook installs.
+    // "Avançado" owns both curated runtime gate categories and the raw
+    // technical browser. The curated row is intentionally first because it is
+    // the readable UI; the raw browser remains available for low-level debug.
     WAGRRootSectionAdvanced,
     WAGRRootSectionSystem,
 };
@@ -141,7 +138,8 @@ typedef NS_ENUM(NSInteger, WAGRDevMenuRow) {
 };
 
 typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
-    WAGRAdvancedRowRawRuntime = 0,
+    WAGRAdvancedRowRuntimeGates = 0,
+    WAGRAdvancedRowRawRuntime,
     WAGRAdvancedRowInstallPersisted,
     WAGRAdvancedRowDiagnostics,
     WAGRAdvancedRowLogs,
@@ -181,7 +179,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         case WAGRRootSectionDevMenu: return 2;
         case WAGRRootSectionSecret: return 1;
         case WAGRRootSectionAbout: return 1;
-        case WAGRRootSectionAdvanced: return 4;
+        case WAGRRootSectionAdvanced: return 5;
         case WAGRRootSectionSystem: return 3;
     }
     return 0;
@@ -207,9 +205,8 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
     if (section == WAGRRootSectionAdvanced)
-        return @"Toque em \"Runtime Browser Avançado\" para abrir o editor de gates. "
-               @"Cada surface técnica (WAABProperties, WAContextMain, WAAuraGating, etc.) "
-               @"é uma seção própria com search e toggles diretos.";
+        return @"Use \"Runtime Gates por Categoria\" para a UI legível com categorias. "
+               @"Use \"Runtime Browser Bruto\" só para debug técnico de classes/surfaces.";
     return nil;
 }
 
@@ -256,9 +253,27 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 }
 
 - (UITableViewCell *)advancedCellForRow:(NSInteger)row {
-    NSString *titles[] = { @"Runtime Browser Avançado", @"Instalar hooks salvos", @"Diagnóstico", @"Logs WATweaks" };
-    NSString *subs[] = { @"WAABProperties, WAContextMain, WAAuraGating etc.", @"Reinstala overrides persistidos", @"Router, LiquidGlass, Dogfood, Keychain", @"UserContext, PrivateExperimentation e hooks nativos" };
-    NSString *icons[] = { @"terminal", @"arrow.triangle.2.circlepath", @"doc.text.magnifyingglass", @"list.bullet.rectangle" };
+    NSString *titles[] = {
+        @"Runtime Gates por Categoria",
+        @"Runtime Browser Bruto",
+        @"Instalar hooks salvos",
+        @"Diagnóstico",
+        @"Logs WATweaks"
+    };
+    NSString *subs[] = {
+        @"Categorias legíveis: WAAB, Aura, MobileConfig, Internal, Settings",
+        @"Surfaces técnicas: WAABProperties, WAContextMain, WAAuraGating etc.",
+        @"Reinstala overrides persistidos",
+        @"Router, LiquidGlass, Dogfood, Keychain",
+        @"UserContext, PrivateExperimentation e hooks nativos"
+    };
+    NSString *icons[] = {
+        @"rectangle.grid.2x2",
+        @"terminal",
+        @"arrow.triangle.2.circlepath",
+        @"doc.text.magnifyingglass",
+        @"list.bullet.rectangle"
+    };
 
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
@@ -266,9 +281,14 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.text = subs[row];
     c.detailTextLabel.textColor = WAGRSub();
+    c.detailTextLabel.numberOfLines = 0;
     c.imageView.image = [[UIImage systemImageNamed:icons[row]] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     c.imageView.tintColor = WAGRText();
-    c.accessoryType = (row == WAGRAdvancedRowRawRuntime || row == WAGRAdvancedRowLogs) ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
+    c.accessoryType = (row == WAGRAdvancedRowRuntimeGates ||
+                       row == WAGRAdvancedRowRawRuntime ||
+                       row == WAGRAdvancedRowLogs)
+        ? UITableViewCellAccessoryDisclosureIndicator
+        : UITableViewCellAccessoryNone;
     return c;
 }
 
@@ -381,7 +401,9 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     }
 
     if (ip.section == WAGRRootSectionAdvanced) {
-        if (ip.row == WAGRAdvancedRowRawRuntime) {
+        if (ip.row == WAGRAdvancedRowRuntimeGates) {
+            [self.navigationController pushViewController:[WAGRRuntimeGatesVC new] animated:YES];
+        } else if (ip.row == WAGRAdvancedRowRawRuntime) {
             [self.navigationController pushViewController:[WAGRRawSurfaceListVC new] animated:YES];
         } else if (ip.row == WAGRAdvancedRowInstallPersisted) {
             NSUInteger n = WAGRReinstallPersistedHooks();

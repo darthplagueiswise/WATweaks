@@ -4,7 +4,7 @@
 static NSMutableArray<NSString *> *gWAGRLogLines = nil;
 static NSObject *gWAGRLogLock = nil;
 static NSDateFormatter *gWAGRLogFormatter = nil;
-static const NSUInteger kWAGRMaxLogLines = 600;
+static const NSUInteger kWAGRMaxLogLines = 2000;
 
 static void WAGRLogEnsure(void) {
     static dispatch_once_t once;
