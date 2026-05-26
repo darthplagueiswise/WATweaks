@@ -125,6 +125,16 @@ static NSMutableDictionary<NSString *, NSValue *> *gCtxObjOrig = nil;
 static NSMutableDictionary<NSString *, NSValue *> *gCtxBoolOrig = nil;
 static NSMutableSet<NSString *> *gCtxSpyInstalled = nil;
 
+
+static id WAGRDebugPropOverridesFallback(void) {
+    static NSMutableDictionary *fallback = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        fallback = [NSMutableDictionary dictionary];
+    });
+    return fallback;
+}
+
 static NSString *WAGRContextSpyKey(Class cls, SEL sel) {
     return [NSString stringWithFormat:@"%@|%@", NSStringFromClass(cls), NSStringFromSelector(sel)];
 }
@@ -140,9 +150,16 @@ static id hookContextSpyObject(id self, SEL _cmd) {
     id ret = nil;
     @try { ret = orig ? orig(self, _cmd) : nil; } @catch (__unused NSException *ex) { ret = nil; }
     NSString *selName = NSStringFromSelector(_cmd);
-    WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (%p)",
-                   NSStringFromClass([self class]), selName,
-                   ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
+    if (!ret && [selName isEqualToString:@"debugPropOverrides"]) {
+        ret = WAGRDebugPropOverridesFallback();
+        WAGRLogAppendF(@"[ContextSpy] %@.%@ -> nil; returning fallback %@ (%p)",
+                       NSStringFromClass([self class]), selName,
+                       NSStringFromClass([ret class]), (__bridge void *)ret);
+    } else {
+        WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (%p)",
+                       NSStringFromClass([self class]), selName,
+                       ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
+    }
 
     // The PrivateExperimentationManager path appears to call isPrimaryDevice on
     // the accountProvider dependency, not on WAContextMain itself. When we see
