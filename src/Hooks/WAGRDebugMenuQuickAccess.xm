@@ -11,7 +11,6 @@
 #import "../Menu/WAGRRuntimeGatesVC.h"
 
 static const char *kWAGRDebugQuickAccessTargetKey = "watweaks.debug.quickaccess.target";
-static const char *kWAGRDebugQuickAccessInstalledKey = "watweaks.debug.quickaccess.installed";
 
 typedef void (*WAGRQAViewDidLoadIMP)(id, SEL);
 typedef void (*WAGRQAViewDidAppearIMP)(id, SEL, BOOL);
