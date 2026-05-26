@@ -238,7 +238,7 @@ static BOOL WAGRDMInstall(Class cls, SEL sel, IMP repl, NSString *kind) {
     if (!gWAGRDMInstalled) gWAGRDMInstalled = [NSMutableSet set];
 
     NSString *key = WAGRDMKey(cls, sel, kind);
-    if ([gWAGRDMInstalled containsObject:key]) return YES;
+    if ([gWAGRDMInstalled containsObject:key]) return NO;
 
     IMP orig = NULL;
     MSHookMessageEx(cls, sel, repl, &orig);
@@ -515,29 +515,34 @@ static void WAGRDebugMenuInstrumentationInstallObjectHooksForClass(Class cls, NS
 static void WAGRDebugMenuInstrumentationInstallAssemblyHooksForClass(Class cls, NSString *source) {
     if (!cls) return;
 
+    NSUInteger installed = 0;
     SEL setupSel = NSSelectorFromString(@"setUpTableView");
     Method setup = class_getInstanceMethod(cls, setupSel);
     if (setup && method_getNumberOfArguments(setup) == 2 && WAGRDMMethodReturns(setup, 'v')) {
-        WAGRDMInstall(cls, setupSel, (IMP)hookDMSetUpTableView, @"setUpTableView");
+        installed += WAGRDMInstall(cls, setupSel, (IMP)hookDMSetUpTableView, @"setUpTableView") ? 1 : 0;
     }
 
     SEL createSel = NSSelectorFromString(@"createSections");
     Method create = class_getInstanceMethod(cls, createSel);
     if (create && method_getNumberOfArguments(create) == 2) {
         if (WAGRDMMethodReturns(create, 'v')) {
-            WAGRDMInstall(cls, createSel, (IMP)hookDMCreateSectionsVoid, @"createSectionsVoid");
+            installed += WAGRDMInstall(cls, createSel, (IMP)hookDMCreateSectionsVoid, @"createSectionsVoid") ? 1 : 0;
         } else if (WAGRDMMethodReturns(create, '@')) {
-            WAGRDMInstall(cls, createSel, (IMP)hookDMCreateSectionsObject, @"createSectionsObject");
+            installed += WAGRDMInstall(cls, createSel, (IMP)hookDMCreateSectionsObject, @"createSectionsObject") ? 1 : 0;
         } else {
             char ret[32] = {0};
             method_getReturnType(create, ret, sizeof(ret));
-            WAGRLogAppendF(@"[DebugMenuSpy] skipped %@.createSections unsupported return='%s'", NSStringFromClass(cls), ret);
+            NSString *skipKey = [NSString stringWithFormat:@"skip-create|%@", NSStringFromClass(cls)];
+            NSString *skipVal = [NSString stringWithUTF8String:ret] ?: @"?";
+            if (WAGRDMShouldLogStable(skipKey, skipVal)) {
+                WAGRLogAppendF(@"[DebugMenuSpy] skipped %@.createSections unsupported return='%s'", NSStringFromClass(cls), ret);
+            }
         }
     }
 
-    if (setup || create) {
-        WAGRLogAppendF(@"[DebugMenuSpy] assembly probes checked class=%@ source=%@ setup=%@ create=%@",
-                       NSStringFromClass(cls), source ?: @"?",
+    if (installed) {
+        WAGRLogAppendF(@"[DebugMenuSpy] assembly probes installed class=%@ source=%@ count=%lu setup=%@ create=%@",
+                       NSStringFromClass(cls), source ?: @"?", (unsigned long)installed,
                        setup ? @"YES" : @"NO", create ? @"YES" : @"NO");
     }
 }
@@ -684,10 +689,13 @@ extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void) {
     Class providerCls = NSClassFromString(@"_TtC15WADebugMenuMain17DebugMenuProvider");
     if (providerCls) WAGRDebugMenuInstrumentationInstallObjectHooksForClass(providerCls, @"base-provider");
 
-    WAGRLogAppendF(@"[DebugMenuSpy] ensure installed debugVC=%@ provider=%@ totalHooks=%lu",
-                   debugCls ? @"YES" : @"NO",
-                   providerCls ? @"YES" : @"NO",
-                   (unsigned long)gWAGRDMInstalled.count);
+    NSString *ensureVal = [NSString stringWithFormat:@"debugVC=%@ provider=%@ totalHooks=%lu",
+                           debugCls ? @"YES" : @"NO",
+                           providerCls ? @"YES" : @"NO",
+                           (unsigned long)gWAGRDMInstalled.count];
+    if (WAGRDMShouldLogStable(@"ensure-installed", ensureVal)) {
+        WAGRLogAppendF(@"[DebugMenuSpy] ensure installed %@", ensureVal);
+    }
 }
 
 extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void) {
