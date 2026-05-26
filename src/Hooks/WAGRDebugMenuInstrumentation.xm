@@ -1,7 +1,7 @@
 // WAGRDebugMenuInstrumentation.xm
 // Diagnostic owner for WhatsApp's native WADebugViewController menu assembly.
 // New WhatsApp(11) target: the useful choke point is -createSections, not only
-// tableView datasource callbacks. This file is diagnostic-only: no row forcing.
+// tableView datasource callbacks. It also appends a safe WATweaks section via datasource hooks.
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
@@ -9,6 +9,10 @@
 #import <objc/message.h>
 #import <substrate.h>
 #import "../Runtime/WAGRLog.h"
+#import "../Runtime/WAGRGateRegistry.h"
+#import "../Menu/WAGRRuntimeGatesVC.h"
+#import "../Menu/WAGRGateCategoryVC.h"
+#import "../Menu/WAGRLogViewController.h"
 
 typedef void      (*WAGRDMVoidIMP)(id, SEL);
 typedef void      (*WAGRDMVoidBoolIMP)(id, SEL, BOOL);
@@ -17,11 +21,195 @@ typedef NSInteger (*WAGRDMSectionsIMP)(id, SEL, id);
 typedef NSInteger (*WAGRDMRowsIMP)(id, SEL, id, NSInteger);
 typedef id        (*WAGRDMCellIMP)(id, SEL, id, id);
 typedef id        (*WAGRDMTitleIMP)(id, SEL, id, NSInteger);
+typedef void      (*WAGRDMDidSelectIMP)(id, SEL, id, id);
 
 static NSMutableDictionary<NSString *, NSValue *> *gWAGRDMOrig;
 static NSMutableSet<NSString *> *gWAGRDMInstalled;
 static NSMutableSet<NSString *> *gWAGRDMObservedClasses;
 static BOOL gWAGRDMBaseInstalled = NO;
+static IMP WAGRDMOrig(Class cls, SEL sel, NSString *kind);
+
+
+extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
+extern "C" NSString *WAGRCurrentUserContextDiagnostic(void);
+extern "C" NSString *WAGRDebugMenuLauncherDiagnosticText(void);
+extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void);
+extern "C" NSString *WAGRGateHooksDiagnostic(void);
+extern "C" void WAGRGateHooksEnsureInstalled(void);
+
+@interface WAGRDebugMenuBackTarget : NSObject
+@property(nonatomic, weak) UIViewController *viewController;
+- (void)wagrBack:(id)sender;
+@end
+
+@implementation WAGRDebugMenuBackTarget
+- (void)wagrBack:(__unused id)sender {
+    UIViewController *vc = self.viewController;
+    if (!vc) return;
+    UINavigationController *nav = vc.navigationController;
+    if (nav && nav.viewControllers.count > 1) {
+        [nav popViewControllerAnimated:YES];
+        return;
+    }
+    if (vc.presentingViewController) {
+        [vc dismissViewControllerAnimated:YES completion:nil];
+        return;
+    }
+    if (nav.presentingViewController) {
+        [nav dismissViewControllerAnimated:YES completion:nil];
+    }
+}
+@end
+
+static const char *kWAGRDebugBackTargetKey = "watweaks.debug.back.target";
+static const NSInteger kWAGRDMExtraSectionRows = 5;
+
+static BOOL WAGRDMIsNativeDebugClass(Class cls) {
+    NSString *name = cls ? NSStringFromClass(cls) : @"";
+    return [name isEqualToString:@"WADebugViewController"];
+}
+
+static BOOL WAGRDMIsNativeDebugVC(id self) {
+    return self ? WAGRDMIsNativeDebugClass([self class]) : NO;
+}
+
+static NSArray<NSString *> *WAGRDMExtraTitles(void) {
+    return @[ @"Runtime Gates / AB Flags",
+              @"WAAB Feature Keys",
+              @"Private Experimentation",
+              @"Context / PreFlight Inspector",
+              @"Log Controls" ];
+}
+
+static NSArray<NSString *> *WAGRDMExtraSubtitles(void) {
+    return @[ @"Abre a tela de categorias com toggles persistentes.",
+              @"Vai direto para WAAB Properties / AB feature flags.",
+              @"Abre o fluxo Swift PrivateExperimentation com o userContext real.",
+              @"Mostra cache de userContext, launcher e diagnósticos de hooks.",
+              @"Abre o buffer de logs WATweaks desta sessão." ];
+}
+
+static NSInteger WAGRDMOriginalSectionCount(id self, id tableView) {
+    WAGRDMSectionsIMP orig = (WAGRDMSectionsIMP)WAGRDMOrig([self class], NSSelectorFromString(@"numberOfSectionsInTableView:"), @"sections");
+    if (orig) return orig(self, NSSelectorFromString(@"numberOfSectionsInTableView:"), tableView);
+    SEL sectionsSel = NSSelectorFromString(@"sections");
+    if ([self respondsToSelector:sectionsSel]) {
+        id sections = nil;
+        @try { sections = ((id (*)(id, SEL))objc_msgSend)(self, sectionsSel); } @catch (__unused NSException *ex) { sections = nil; }
+        if ([sections respondsToSelector:@selector(count)]) return (NSInteger)[sections count];
+    }
+    return 1;
+}
+
+static BOOL WAGRDMIsExtraSection(id self, id tableView, NSInteger section) {
+    if (!WAGRDMIsNativeDebugVC(self)) return NO;
+    NSInteger nativeSections = WAGRDMOriginalSectionCount(self, tableView);
+    return section == nativeSections;
+}
+
+static void WAGRDMEnsureBackButton(id owner) {
+    if (![owner isKindOfClass:UIViewController.class]) return;
+    UIViewController *vc = (UIViewController *)owner;
+    if (vc.navigationItem.leftBarButtonItem) return;
+    WAGRDebugMenuBackTarget *target = [WAGRDebugMenuBackTarget new];
+    target.viewController = vc;
+    objc_setAssociatedObject(vc, kWAGRDebugBackTargetKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    UIBarButtonItem *back = [[UIBarButtonItem alloc] initWithTitle:@"Voltar"
+                                                             style:UIBarButtonItemStylePlain
+                                                            target:target
+                                                            action:@selector(wagrBack:)];
+    back.accessibilityIdentifier = @"WATweaksDebugBackButton";
+    vc.navigationItem.leftBarButtonItem = back;
+}
+
+static UIViewController *WAGRDMTopControllerFrom(id owner) {
+    if ([owner isKindOfClass:UIViewController.class]) return (UIViewController *)owner;
+    UIViewController *top = nil;
+    for (UIWindow *win in UIApplication.sharedApplication.windows) {
+        if (win.isKeyWindow) { top = win.rootViewController; break; }
+    }
+    while (top.presentedViewController) top = top.presentedViewController;
+    if ([top isKindOfClass:UINavigationController.class]) top = ((UINavigationController *)top).visibleViewController;
+    if ([top isKindOfClass:UITabBarController.class]) top = ((UITabBarController *)top).selectedViewController;
+    return top;
+}
+
+static void WAGRDMPushOrPresentFrom(id owner, UIViewController *vc) {
+    if (!vc) return;
+    UIViewController *top = WAGRDMTopControllerFrom(owner);
+    UINavigationController *nav = top.navigationController;
+    if (nav) {
+        [nav pushViewController:vc animated:YES];
+    } else {
+        UINavigationController *wrap = [[UINavigationController alloc] initWithRootViewController:vc];
+        wrap.modalPresentationStyle = UIModalPresentationFormSheet;
+        [top presentViewController:wrap animated:YES completion:nil];
+    }
+}
+
+static void WAGRDMShowAlert(id owner, NSString *title, NSString *message) {
+    UIViewController *top = WAGRDMTopControllerFrom(owner);
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title ?: @"WATweaks"
+                                                                   message:message ?: @""
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [top presentViewController:alert animated:YES completion:nil];
+}
+
+static UITableViewCell *WAGRDMExtraCell(id tableView, NSInteger row) {
+    UITableViewCell *cell = nil;
+    if ([tableView respondsToSelector:@selector(dequeueReusableCellWithIdentifier:)]) {
+        cell = [tableView dequeueReusableCellWithIdentifier:@"WATweaksDebugExtraCell"];
+    }
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WATweaksDebugExtraCell"];
+    NSArray<NSString *> *titles = WAGRDMExtraTitles();
+    NSArray<NSString *> *subs = WAGRDMExtraSubtitles();
+    if (row >= 0 && row < (NSInteger)titles.count) {
+        cell.textLabel.text = titles[(NSUInteger)row];
+        cell.detailTextLabel.text = subs[(NSUInteger)row];
+    } else {
+        cell.textLabel.text = @"WATweaks";
+        cell.detailTextLabel.text = @"";
+    }
+    cell.detailTextLabel.numberOfLines = 0;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.accessibilityIdentifier = [NSString stringWithFormat:@"WATweaksDebugExtraRow%ld", (long)row];
+    return cell;
+}
+
+static void WAGRDMOpenExtraRow(id owner, NSInteger row) {
+    WAGRLogAppendF(@"[DebugMenuSpy] WATweaks extra row selected=%ld", (long)row);
+    WAGRGateHooksEnsureInstalled();
+    if (row == 0) {
+        WAGRDMPushOrPresentFrom(owner, [WAGRRuntimeGatesVC new]);
+        return;
+    }
+    if (row == 1) {
+        WAGRGateProvider *p = [WAGRGateRegistry providerWithID:@"waab"];
+        if (p) WAGRDMPushOrPresentFrom(owner, [[WAGRGateCategoryVC alloc] initWithProvider:p]);
+        else WAGRDMShowAlert(owner, @"WAAB Feature Keys", @"Provider WAAB não encontrado no registry.");
+        return;
+    }
+    if (row == 2) {
+        NSError *err = nil;
+        BOOL ok = WAGRLaunchPrivateExperimentationDebug(WAGRDMTopControllerFrom(owner), &err);
+        if (!ok) WAGRDMShowAlert(owner, @"Private Experimentation", err.localizedDescription ?: @"Não foi possível abrir.");
+        return;
+    }
+    if (row == 3) {
+        NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@",
+                         WAGRCurrentUserContextDiagnostic() ?: @"UserContext: n/a",
+                         WAGRDebugMenuLauncherDiagnosticText() ?: @"Launcher: n/a",
+                         WAGRDebugMenuInstrumentationDiagnosticText() ?: @"DebugMenuSpy: n/a",
+                         WAGRGateHooksDiagnostic() ?: @"GateHooks: n/a"];
+        WAGRDMShowAlert(owner, @"Context / PreFlight", msg);
+        return;
+    }
+    if (row == 4) {
+        WAGRDMPushOrPresentFrom(owner, [WAGRLogViewController new]);
+        return;
+    }
+}
 
 static NSString *WAGRDMKey(Class cls, SEL sel, NSString *kind) {
     return [NSString stringWithFormat:@"%@|%@|%@", NSStringFromClass(cls), NSStringFromSelector(sel), kind ?: @"?"];
@@ -126,6 +314,14 @@ static NSString *WAGRDMIndexPath(id obj) {
     return [NSString stringWithFormat:@"%ld/%ld", (long)[(id)ip section], (long)[(id)ip row]];
 }
 
+
+static void WAGRDMReloadTablesForOwner(id owner) {
+    if (![owner isKindOfClass:UIViewController.class]) return;
+    for (UITableView *table in WAGRDMFindTables(((UIViewController *)owner).view)) {
+        [table reloadData];
+    }
+}
+
 static NSString *WAGRDMCellText(id obj) {
     if (![obj isKindOfClass:UITableViewCell.class]) return WAGRDMShort(obj);
     UITableViewCell *cell = (UITableViewCell *)obj;
@@ -142,39 +338,87 @@ static void WAGRDebugMenuInstrumentationInstallAssemblyHooksForClass(Class cls, 
 static void WAGRDebugMenuInstrumentationInspectVC(id vc, NSString *stage);
 static void WAGRDebugMenuInstrumentationDumpState(id owner, NSString *stage);
 
+static BOOL WAGRDMShouldLogStable(NSString *key, NSString *value) {
+    static NSMutableDictionary<NSString *, NSString *> *last = nil;
+    if (!last) last = [NSMutableDictionary dictionary];
+    NSString *old = last[key];
+    if (old && [old isEqualToString:value ?: @"nil"]) return NO;
+    last[key] = value ?: @"nil";
+    return YES;
+}
+
 static NSInteger hookDMSections(id self, SEL _cmd, id tableView) {
     WAGRDMSectionsIMP orig = (WAGRDMSectionsIMP)WAGRDMOrig([self class], _cmd, @"sections");
-    NSInteger ret = orig ? orig(self, _cmd, tableView) : 1;
-    WAGRLogAppendF(@"[DebugMenuSpy] %@ numberOfSections -> %ld", NSStringFromClass([self class]), (long)ret);
+    NSInteger native = orig ? orig(self, _cmd, tableView) : 1;
+    NSInteger ret = WAGRDMIsNativeDebugVC(self) ? native + 1 : native;
+    NSString *key = [NSString stringWithFormat:@"sections|%@", NSStringFromClass([self class])];
+    NSString *val = [NSString stringWithFormat:@"%ld", (long)ret];
+    if (WAGRDMShouldLogStable(key, val)) {
+        WAGRLogAppendF(@"[DebugMenuSpy] %@ numberOfSections native=%ld final=%ld", NSStringFromClass([self class]), (long)native, (long)ret);
+    }
     return ret;
 }
 
 static NSInteger hookDMRows(id self, SEL _cmd, id tableView, NSInteger section) {
+    if (WAGRDMIsExtraSection(self, tableView, section)) return kWAGRDMExtraSectionRows;
     WAGRDMRowsIMP orig = (WAGRDMRowsIMP)WAGRDMOrig([self class], _cmd, @"rows");
     NSInteger ret = orig ? orig(self, _cmd, tableView, section) : 0;
-    WAGRLogAppendF(@"[DebugMenuSpy] %@ rows section=%ld -> %ld", NSStringFromClass([self class]), (long)section, (long)ret);
+    NSString *key = [NSString stringWithFormat:@"rows|%@|%ld", NSStringFromClass([self class]), (long)section];
+    NSString *val = [NSString stringWithFormat:@"%ld", (long)ret];
+    if (WAGRDMShouldLogStable(key, val)) {
+        WAGRLogAppendF(@"[DebugMenuSpy] %@ rows section=%ld -> %ld", NSStringFromClass([self class]), (long)section, (long)ret);
+    }
     return ret;
 }
 
 static id hookDMCell(id self, SEL _cmd, id tableView, id indexPath) {
+    if ([indexPath isKindOfClass:NSIndexPath.class] && WAGRDMIsExtraSection(self, tableView, [(NSIndexPath *)indexPath section])) {
+        return WAGRDMExtraCell(tableView, [(NSIndexPath *)indexPath row]);
+    }
     WAGRDMCellIMP orig = (WAGRDMCellIMP)WAGRDMOrig([self class], _cmd, @"cell");
     id ret = orig ? orig(self, _cmd, tableView, indexPath) : nil;
-    WAGRLogAppendF(@"[DebugMenuSpy] %@ cell %@ -> %@", NSStringFromClass([self class]), WAGRDMIndexPath(indexPath), WAGRDMCellText(ret));
+    NSString *key = [NSString stringWithFormat:@"cell|%@|%@", NSStringFromClass([self class]), WAGRDMIndexPath(indexPath)];
+    NSString *val = WAGRDMCellText(ret);
+    if (WAGRDMShouldLogStable(key, val)) {
+        WAGRLogAppendF(@"[DebugMenuSpy] %@ cell %@ -> %@", NSStringFromClass([self class]), WAGRDMIndexPath(indexPath), val);
+    }
     return ret;
 }
 
 static id hookDMHeader(id self, SEL _cmd, id tableView, NSInteger section) {
+    if (WAGRDMIsExtraSection(self, tableView, section)) return @"WATweaks";
     WAGRDMTitleIMP orig = (WAGRDMTitleIMP)WAGRDMOrig([self class], _cmd, @"header");
     id ret = orig ? orig(self, _cmd, tableView, section) : nil;
-    WAGRLogAppendF(@"[DebugMenuSpy] %@ header section=%ld -> %@", NSStringFromClass([self class]), (long)section, ret ?: @"nil");
+    NSString *key = [NSString stringWithFormat:@"header|%@|%ld", NSStringFromClass([self class]), (long)section];
+    NSString *val = [ret description] ?: @"nil";
+    if (WAGRDMShouldLogStable(key, val)) {
+        WAGRLogAppendF(@"[DebugMenuSpy] %@ header section=%ld -> %@", NSStringFromClass([self class]), (long)section, ret ?: @"nil");
+    }
     return ret;
 }
 
 static id hookDMFooter(id self, SEL _cmd, id tableView, NSInteger section) {
+    if (WAGRDMIsExtraSection(self, tableView, section)) return @"Atalhos estáveis do WATweaks sem mexer em WATableSection/WATableRow nativos.";
     WAGRDMTitleIMP orig = (WAGRDMTitleIMP)WAGRDMOrig([self class], _cmd, @"footer");
     id ret = orig ? orig(self, _cmd, tableView, section) : nil;
-    WAGRLogAppendF(@"[DebugMenuSpy] %@ footer section=%ld -> %@", NSStringFromClass([self class]), (long)section, ret ?: @"nil");
+    NSString *key = [NSString stringWithFormat:@"footer|%@|%ld", NSStringFromClass([self class]), (long)section];
+    NSString *val = [ret description] ?: @"nil";
+    if (WAGRDMShouldLogStable(key, val)) {
+        WAGRLogAppendF(@"[DebugMenuSpy] %@ footer section=%ld -> %@", NSStringFromClass([self class]), (long)section, ret ?: @"nil");
+    }
     return ret;
+}
+
+static void hookDMDidSelect(id self, SEL _cmd, id tableView, id indexPath) {
+    if ([indexPath isKindOfClass:NSIndexPath.class] && WAGRDMIsExtraSection(self, tableView, [(NSIndexPath *)indexPath section])) {
+        if ([tableView respondsToSelector:@selector(deselectRowAtIndexPath:animated:)]) {
+            [(UITableView *)tableView deselectRowAtIndexPath:indexPath animated:YES];
+        }
+        WAGRDMOpenExtraRow(self, [(NSIndexPath *)indexPath row]);
+        return;
+    }
+    WAGRDMDidSelectIMP orig = (WAGRDMDidSelectIMP)WAGRDMOrig([self class], _cmd, @"didSelect");
+    if (orig) orig(self, _cmd, tableView, indexPath);
 }
 
 static id hookDMObject(id self, SEL _cmd) {
@@ -184,7 +428,11 @@ static id hookDMObject(id self, SEL _cmd) {
     @catch (NSException *ex) {
         WAGRLogAppendF(@"[DebugMenuSpy] %@.%@ threw %@: %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd), ex.name, ex.reason);
     }
-    WAGRDMPreview(ret, NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    NSString *logKey = [NSString stringWithFormat:@"object|%@|%@", NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    NSString *logVal = WAGRDMShort(ret);
+    if (WAGRDMShouldLogStable(logKey, logVal)) {
+        WAGRDMPreview(ret, NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    }
     if ([ret isKindOfClass:UIViewController.class]) WAGRDebugMenuInstrumentationInspectVC(ret, NSStringFromSelector(_cmd));
     return ret;
 }
@@ -192,6 +440,7 @@ static id hookDMObject(id self, SEL _cmd) {
 static void hookDMViewDidLoad(id self, SEL _cmd) {
     WAGRDMVoidIMP orig = (WAGRDMVoidIMP)WAGRDMOrig([self class], _cmd, @"void");
     if (orig) orig(self, _cmd);
+    if (WAGRDMIsNativeDebugVC(self)) { WAGRDMEnsureBackButton(self); WAGRDMReloadTablesForOwner(self); }
     WAGRLogAppendF(@"[DebugMenuSpy] %@ viewDidLoad", NSStringFromClass([self class]));
     WAGRDebugMenuInstrumentationDumpState(self, @"viewDidLoad");
     WAGRDebugMenuInstrumentationInspectVC(self, @"viewDidLoad");
@@ -200,6 +449,7 @@ static void hookDMViewDidLoad(id self, SEL _cmd) {
 static void hookDMViewWillAppear(id self, SEL _cmd, BOOL animated) {
     WAGRDMVoidBoolIMP orig = (WAGRDMVoidBoolIMP)WAGRDMOrig([self class], _cmd, @"voidBool");
     if (orig) orig(self, _cmd, animated);
+    if (WAGRDMIsNativeDebugVC(self)) { WAGRDMEnsureBackButton(self); WAGRDMReloadTablesForOwner(self); }
     WAGRLogAppendF(@"[DebugMenuSpy] %@ viewWillAppear", NSStringFromClass([self class]));
     WAGRDebugMenuInstrumentationDumpState(self, @"viewWillAppear");
     WAGRDebugMenuInstrumentationInspectVC(self, @"viewWillAppear");
@@ -208,6 +458,7 @@ static void hookDMViewWillAppear(id self, SEL _cmd, BOOL animated) {
 static void hookDMViewDidAppear(id self, SEL _cmd, BOOL animated) {
     WAGRDMVoidBoolIMP orig = (WAGRDMVoidBoolIMP)WAGRDMOrig([self class], _cmd, @"voidBool");
     if (orig) orig(self, _cmd, animated);
+    if (WAGRDMIsNativeDebugVC(self)) { WAGRDMEnsureBackButton(self); WAGRDMReloadTablesForOwner(self); }
     WAGRLogAppendF(@"[DebugMenuSpy] %@ viewDidAppear", NSStringFromClass([self class]));
     WAGRDebugMenuInstrumentationDumpState(self, @"viewDidAppear");
     WAGRDebugMenuInstrumentationInspectVC(self, @"viewDidAppear");
@@ -217,6 +468,7 @@ static void hookDMSetUpTableView(id self, SEL _cmd) {
     WAGRDMVoidIMP orig = (WAGRDMVoidIMP)WAGRDMOrig([self class], _cmd, @"setUpTableView");
     WAGRLogAppendF(@"[DebugMenuSpy] %@ setUpTableView before", NSStringFromClass([self class]));
     if (orig) orig(self, _cmd);
+    if (WAGRDMIsNativeDebugVC(self)) { WAGRDMEnsureBackButton(self); WAGRDMReloadTablesForOwner(self); }
     WAGRLogAppendF(@"[DebugMenuSpy] %@ setUpTableView after", NSStringFromClass([self class]));
     WAGRDebugMenuInstrumentationDumpState(self, @"after setUpTableView");
     WAGRDebugMenuInstrumentationInspectVC(self, @"after setUpTableView");
@@ -300,6 +552,15 @@ static void WAGRDebugMenuInstrumentationInstallTableHooksForClass(Class cls, NSS
     tableHooks += WAGRDMInstall(cls, NSSelectorFromString(@"tableView:cellForRowAtIndexPath:"), (IMP)hookDMCell, @"cell") ? 1 : 0;
     tableHooks += WAGRDMInstall(cls, NSSelectorFromString(@"tableView:titleForHeaderInSection:"), (IMP)hookDMHeader, @"header") ? 1 : 0;
     tableHooks += WAGRDMInstall(cls, NSSelectorFromString(@"tableView:titleForFooterInSection:"), (IMP)hookDMFooter, @"footer") ? 1 : 0;
+    BOOL didSelectHooked = WAGRDMInstall(cls, NSSelectorFromString(@"tableView:didSelectRowAtIndexPath:"), (IMP)hookDMDidSelect, @"didSelect");
+    if (!didSelectHooked && WAGRDMIsNativeDebugClass(cls)) {
+        SEL didSel = NSSelectorFromString(@"tableView:didSelectRowAtIndexPath:");
+        if (class_addMethod(cls, didSel, (IMP)hookDMDidSelect, "v@:@@")) {
+            didSelectHooked = YES;
+            WAGRLogAppendF(@"[DebugMenuSpy] added %@.%@ kind=didSelect", NSStringFromClass(cls), NSStringFromSelector(didSel));
+        }
+    }
+    tableHooks += didSelectHooked ? 1 : 0;
 
     WAGRDebugMenuInstrumentationInstallAssemblyHooksForClass(cls, source);
     WAGRDebugMenuInstrumentationInstallObjectHooksForClass(cls, source);
