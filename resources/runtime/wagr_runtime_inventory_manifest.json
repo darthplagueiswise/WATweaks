@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generated_from": [
     {
       "file": "SharedModules(11)",
@@ -10,6 +10,11 @@
       "file": "WhatsApp(7)",
       "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed",
       "size": 138781904
+    },
+    {
+      "file": "WAABPrefixCategories.json",
+      "sha256": "7a8bda3057590d045634d56c98f243f68c29d5f6eb2e187de29224df7e485c11",
+      "size": 16334
     }
   ],
   "groups": [
@@ -18,6 +23,15 @@
       "file": "WAABProperties.json",
       "classes_total": 273,
       "selectors_total": 6807
+    },
+    {
+      "id": "WAABPrefixCategories",
+      "file": "WAABPrefixCategories.json",
+      "classes_total": 0,
+      "selectors_total": 0,
+      "prefix_groups_total": 22,
+      "subcategories_total": 12,
+      "feature_bundles_total": 10
     },
     {
       "id": "WAContext",
@@ -64,6 +78,18 @@
   ],
   "relationships": [
     {
+      "from": "WAABPrefixCategories",
+      "to": "RuntimeClassifier",
+      "confidence": "high",
+      "reason": "The resource mirrors the prefix/subcategory order used by WAGRRuntimeClassifier so the runtime browser can keep a stable visual taxonomy even as selector inventory changes."
+    },
+    {
+      "from": "WAABPrefixCategories",
+      "to": "WAABProperties",
+      "confidence": "high",
+      "reason": "WAAB selectors are grouped by their own key prefix first, then by negative/positive/debug subcategory, instead of collapsing under the broad WAABProperties owner class."
+    },
+    {
       "from": "WAServerProperties",
       "to": "WAContext/WAContextMain",
       "confidence": "high",
@@ -106,6 +132,28 @@
       "reason": "OnlinePresenceDotView is UI only; actual gates are likely WAAB/WAContextMain services."
     }
   ],
+  "runtime_taxonomy_policy": {
+    "prefix_first": true,
+    "subcategories_first": [
+      "Negative · Kill Switch",
+      "Negative · Disabled",
+      "Negative · Hide / Suppress",
+      "Negative · Block / Deny"
+    ],
+    "important_prefixes": [
+      "GraphQL",
+      "WAMO",
+      "XFAMG",
+      "WAiOS",
+      "MobileConfig",
+      "Private Experimentation",
+      "WDS / LiquidGlass",
+      "WA Plus / Aura",
+      "AI / Meta AI",
+      "Internal / Dogfood"
+    ],
+    "startup_policy": "No runtime scan at startup; scan only when the menu opens and install hooks only for explicit toggles."
+  },
   "backup_import_policy": {
     "export_scope": "NSUserDefaults keys owned by WATweaks only: wagr*, WAGR*, wa_*, selected WA legacy keys already used by the tweak",
     "import_policy": "mirror: apply all JSON preferences and remove existing WATweaks keys absent from the imported JSON",
