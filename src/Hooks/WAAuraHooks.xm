@@ -15,6 +15,7 @@
 extern "C" void WAGRWAABEnsureHooksInstalled(void);
 extern "C" BOOL WAGRAuraSimulationEnabled(void);
 extern "C" BOOL WAGROpenSubscriptionsNative(void);
+extern "C" void WAGRAuraDirectFunctionHooksInstall(void);
 
 static BOOL gAuraHooksInstalled = NO;
 
@@ -180,7 +181,11 @@ static NSArray<NSString *> *WAGRAuraGatingSelectors(void) {
 }
 
 extern "C" void WAGRAuraGatingSwiftHooksInstall(void) {
-    for (NSString *cls in WAGRAuraGatingClassCandidates()) {
+    // WAAuraGating itself is now owned by direct MSHookFunction hooks in
+    // WAGRGlobalGateStub.xm so Swift/direct callsites are covered. Keep this
+    // legacy bridge only for provider classes that expose ObjC BOOL surfaces.
+    for (NSString *cls in @[ @"_TtC12WAAuraGating20GatedBenefitProvider",
+                             @"_TtC12WAAuraGating25GatedSubscriptionProvider" ]) {
         for (NSString *sel in WAGRAuraGatingSelectors()) {
             WAGRHookAuraBoolSelectorOnClass(cls, sel);
         }
@@ -192,6 +197,7 @@ extern "C" void WAGRAuraEnsureHooksInstalled(void) {
         gAuraHooksInstalled = YES;
         NSLog(@"[WATweaks][Aura] Aura fixed selector owner installed (navigation lives in WAGRAuraNavigationHooks)");
     }
+    WAGRAuraDirectFunctionHooksInstall();
     WAGRAuraGatingSwiftHooksInstall();
 }
 
@@ -204,7 +210,7 @@ extern "C" NSString *WAGRAuraDiagnostic(void) {
     NSMutableArray *loaded = [NSMutableArray array];
     for (NSString *cls in WAGRAuraGatingClassCandidates()) if (NSClassFromString(cls)) [loaded addObject:cls];
     return [NSString stringWithFormat:
-            @"simulation=%@\npositive WAAB overrides=%lu/%lu\nnegative gates OFF=%lu/%lu\nsettings row owner=NativeSettingsRows\nrow-present policy=YES when forced\nSwift Aura classes loaded=%@\nSwift Aura bool hooks=%lu\nNative opener=%@\nOpen path: WhatsApp Settings > Subscriptions / WA Plus",
+            @"simulation=%@\npositive WAAB overrides=%lu/%lu\nnegative gates OFF=%lu/%lu\nsettings row owner=NativeSettingsRows\nrow-present policy=YES when forced\nSwift Aura classes loaded=%@\ndirect WAAuraGating hooks owned by GlobalGateStub\nlegacy provider ObjC hooks=%lu\nNative opener=%@\nOpen path: WhatsApp Settings > Subscriptions / WA Plus",
             WAGRAuraSimulationEnabled() ? @"ON" : @"OFF",
             (unsigned long)positiveOn, (unsigned long)WAGRAuraPositiveFlags().count,
             (unsigned long)negativeOff, (unsigned long)WAGRAuraNegativeFlags().count,

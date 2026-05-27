@@ -30,6 +30,9 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
+#import <dispatch/dispatch.h>
+#import <string.h>
 #import "../WAGramPrefix.h"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -49,59 +52,174 @@ static BOOL WAGRGateIsNegativeSel(SEL sel) {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AURA / SUBSCRIPTION
+// AURA / SUBSCRIPTION — direct function hooks, no Logos for WAAuraGating
 // Toggle key: kWAGRAuraSimulation  (@"watweak_bundle_aura_simulation")
+//
+// Why direct MSHookFunction here:
+//   WAAuraGating is Swift-backed and several call paths use direct dispatch to
+//   the IMPs below. Logos / ObjC message hooks only cover objc_msgSend callers.
+//   These hooks patch the function bodies themselves, so both ObjC dispatch and
+//   Swift/direct callsites hit the same forced return when Aura simulation is ON.
+//
+// Confirmed on SharedModules(16), __TEXT vmaddr = 0:
+//   0x189e45c isEnabled
+//   0x189e488 isUserEligible
+//   0x189e4b4 isSettingsRowEnabled
+//   0x189e538 isAppearanceSettingsEnabled
+//   0x189e5c8 isAppIconsEnabled
+//   0x189e680 isAppIconsBenefitActive
+//   0x189e774 isAppThemesEnabled
+//   0x189e844 isAppThemesBenefitActive
+// Also hooked as fallback:
+//   0x1efb764 WADisplayableSubscription.isActive
 // ═══════════════════════════════════════════════════════════════════════════
 
-%hook WAAuraGating
+typedef BOOL (*WAGRAuraDirectBoolFn)(id self, SEL _cmd);
 
-// ── Core gates ────────────────────────────────────────────────────────────
-- (BOOL)isEnabled                       { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isUserEligible                  { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isSettingsRowEnabled            { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isLoggingEnabled                { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isKillSwitchActive              { GATE_BOOL(kWAGRAuraSimulation); return %orig; } // → NO
-- (BOOL)isAppearanceSettingsEnabled     { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
+static WAGRAuraDirectBoolFn orig_WAGRAura_isEnabled = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRAura_isUserEligible = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRAura_isSettingsRowEnabled = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRAura_isAppearanceSettingsEnabled = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRAura_isAppIconsEnabled = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRAura_isAppIconsBenefitActive = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRAura_isAppThemesEnabled = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRAura_isAppThemesBenefitActive = NULL;
+static WAGRAuraDirectBoolFn orig_WAGRSub_isActive = NULL;
 
-// ── App Icons ─────────────────────────────────────────────────────────────
-- (BOOL)isAppIconsEnabled               { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isAppIconsBenefitActive         { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isAppIconMultiAccountSupportEnabled { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
+static BOOL gWAGRAuraDirectHooksInstalled = NO;
+static NSUInteger gWAGRAuraDirectHookCount = 0;
+static uintptr_t gWAGRSharedModulesSlide = 0;
 
-// ── App Themes ────────────────────────────────────────────────────────────
-- (BOOL)isAppThemesEnabled              { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isAppThemesBenefitActive        { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isAppThemesLottieEnabled        { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isAppThemeNewChatPreviewFlowEnabled { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
+static BOOL WAGRAuraDirectShouldForce(void) {
+    return WAGRPref(kWAGRAuraSimulation) ||
+           WAGRIsOn(@"aura_enabled") ||
+           WAGRIsOn(@"aura_settings_row_enabled") ||
+           WAGRIsOn(@"aura_subscription_simulation_enabled");
+}
 
-// ── Ringtones ─────────────────────────────────────────────────────────────
-- (BOOL)isRingtonesEnabled              { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isRingtonesBenefitActive        { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isRingtonesPerChatEnabled       { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
+static BOOL WAGRAuraForcedYES(id self, SEL _cmd, WAGRAuraDirectBoolFn orig) {
+    if (WAGRAuraDirectShouldForce()) return YES;
+    return orig ? orig(self, _cmd) : NO;
+}
 
-// ── Extended Pinned Chats ─────────────────────────────────────────────────
-- (BOOL)isExtendedPinnedChatEnabled     { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isExtendedPinnedChatBenefitActive { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
+static BOOL repl_WAGRAura_isEnabled(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isEnabled);
+}
 
-// ── Enhanced Lists ────────────────────────────────────────────────────────
-- (BOOL)isEnhancedListsEnabled          { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isEnhancedListsBenefitActive    { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
+static BOOL repl_WAGRAura_isUserEligible(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isUserEligible);
+}
 
-// ── Stickers ──────────────────────────────────────────────────────────────
-- (BOOL)isStickersEnabled               { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-- (BOOL)isStickersBenefitActive         { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
+static BOOL repl_WAGRAura_isSettingsRowEnabled(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isSettingsRowEnabled);
+}
 
-%end
+static BOOL repl_WAGRAura_isAppearanceSettingsEnabled(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isAppearanceSettingsEnabled);
+}
 
+static BOOL repl_WAGRAura_isAppIconsEnabled(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isAppIconsEnabled);
+}
 
-// WADisplayableSubscription — "is there an active subscription?"
-// This is the class that the UI queries to decide whether to show premium
-// content vs an upsell. Without this hook, all benefit-active checks return
-// YES but the UI still shows "no subscription" because isActive = NO.
-%hook WADisplayableSubscription
-- (BOOL)isActive { GATE_BOOL(kWAGRAuraSimulation); return %orig; }
-%end
+static BOOL repl_WAGRAura_isAppIconsBenefitActive(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isAppIconsBenefitActive);
+}
 
+static BOOL repl_WAGRAura_isAppThemesEnabled(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isAppThemesEnabled);
+}
+
+static BOOL repl_WAGRAura_isAppThemesBenefitActive(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRAura_isAppThemesBenefitActive);
+}
+
+static BOOL repl_WAGRSub_isActive(id self, SEL _cmd) {
+    return WAGRAuraForcedYES(self, _cmd, orig_WAGRSub_isActive);
+}
+
+static BOOL WAGRImageNameIsSharedModules(const char *name) {
+    if (!name) return NO;
+    return strstr(name, "/SharedModules.framework/SharedModules") ||
+           strstr(name, "/SharedModules") ||
+           strstr(name, "SharedModules");
+}
+
+static uintptr_t WAGRFindSharedModulesSlide(void) {
+    uint32_t count = _dyld_image_count();
+    for (uint32_t i = 0; i < count; i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (WAGRImageNameIsSharedModules(name)) {
+            return (uintptr_t)_dyld_get_image_vmaddr_slide(i);
+        }
+    }
+    return 0;
+}
+
+static BOOL WAGRHookDirectAuraBool(uintptr_t slide, uintptr_t vmaddr, void *replacement, void **orig, const char *label) {
+    if (!slide || !replacement || !orig || *orig) return NO;
+
+    void *target = (void *)(slide + vmaddr);
+    if (!target) return NO;
+
+    MSHookFunction(target, replacement, orig);
+    if (*orig) {
+        gWAGRAuraDirectHookCount++;
+        NSLog(@"[WATweaks][AuraDirect] hooked %s target=%p vm=0x%lx", label, target, (unsigned long)vmaddr);
+        return YES;
+    }
+
+    NSLog(@"[WATweaks][AuraDirect] FAILED %s target=%p vm=0x%lx", label, target, (unsigned long)vmaddr);
+    return NO;
+}
+
+extern "C" void WAGRAuraDirectFunctionHooksInstall(void) {
+    if (gWAGRAuraDirectHooksInstalled) return;
+
+    uintptr_t slide = WAGRFindSharedModulesSlide();
+    if (!slide) return;
+
+    gWAGRSharedModulesSlide = slide;
+
+    WAGRHookDirectAuraBool(slide, 0x189e45c, (void *)repl_WAGRAura_isEnabled, (void **)&orig_WAGRAura_isEnabled, "WAAuraGating.isEnabled");
+    WAGRHookDirectAuraBool(slide, 0x189e488, (void *)repl_WAGRAura_isUserEligible, (void **)&orig_WAGRAura_isUserEligible, "WAAuraGating.isUserEligible");
+    WAGRHookDirectAuraBool(slide, 0x189e4b4, (void *)repl_WAGRAura_isSettingsRowEnabled, (void **)&orig_WAGRAura_isSettingsRowEnabled, "WAAuraGating.isSettingsRowEnabled");
+    WAGRHookDirectAuraBool(slide, 0x189e538, (void *)repl_WAGRAura_isAppearanceSettingsEnabled, (void **)&orig_WAGRAura_isAppearanceSettingsEnabled, "WAAuraGating.isAppearanceSettingsEnabled");
+    WAGRHookDirectAuraBool(slide, 0x189e5c8, (void *)repl_WAGRAura_isAppIconsEnabled, (void **)&orig_WAGRAura_isAppIconsEnabled, "WAAuraGating.isAppIconsEnabled");
+    WAGRHookDirectAuraBool(slide, 0x189e680, (void *)repl_WAGRAura_isAppIconsBenefitActive, (void **)&orig_WAGRAura_isAppIconsBenefitActive, "WAAuraGating.isAppIconsBenefitActive");
+    WAGRHookDirectAuraBool(slide, 0x189e774, (void *)repl_WAGRAura_isAppThemesEnabled, (void **)&orig_WAGRAura_isAppThemesEnabled, "WAAuraGating.isAppThemesEnabled");
+    WAGRHookDirectAuraBool(slide, 0x189e844, (void *)repl_WAGRAura_isAppThemesBenefitActive, (void **)&orig_WAGRAura_isAppThemesBenefitActive, "WAAuraGating.isAppThemesBenefitActive");
+    WAGRHookDirectAuraBool(slide, 0x1efb764, (void *)repl_WAGRSub_isActive, (void **)&orig_WAGRSub_isActive, "WADisplayableSubscription.isActive");
+
+    gWAGRAuraDirectHooksInstalled = (gWAGRAuraDirectHookCount >= 8);
+    NSLog(@"[WATweaks][AuraDirect] install pass count=%lu installed=%@ slide=0x%lx",
+          (unsigned long)gWAGRAuraDirectHookCount,
+          gWAGRAuraDirectHooksInstalled ? @"YES" : @"NO",
+          (unsigned long)gWAGRSharedModulesSlide);
+}
+
+static void WAGRAuraDirectInstallRetry(NSUInteger attempt) {
+    WAGRAuraDirectFunctionHooksInstall();
+    if (gWAGRAuraDirectHooksInstalled || attempt >= 8) return;
+
+    NSTimeInterval delay = attempt < 3 ? 0.35 : 1.0;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        WAGRAuraDirectInstallRetry(attempt + 1);
+    });
+}
+
+static void WAGRAuraDirectImageAdded(const struct mach_header *mh, intptr_t slide) {
+    (void)mh;
+    (void)slide;
+    WAGRAuraDirectFunctionHooksInstall();
+}
+
+%ctor {
+    _dyld_register_func_for_add_image(WAGRAuraDirectImageAdded);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        WAGRAuraDirectInstallRetry(0);
+    });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ACCOUNT ELIGIBILITY
@@ -204,6 +322,7 @@ extern "C" NSString *WAGRGlobalGateStubDiagnostic(void) {
          "  PremiumBcast: %@\n"
          "  WAAuraGating class : %@\n"
          "  WADisplayableSub   : %@\n"
+         "  Aura direct hooks  : %lu / 9 installed=%@ slide=0x%lx\n"
          "  WAAccountEligib    : %@\n"
          "  WAUsernameGating   : %@\n",
         WAGRPref(kWAGRAuraSimulation)     ? @"ON" : @"OFF",
@@ -212,6 +331,9 @@ extern "C" NSString *WAGRGlobalGateStubDiagnostic(void) {
         WAGRPref(kWAGRGatePremiumBroadcast)? @"ON" : @"OFF",
         NSClassFromString(@"WAAuraGating")               ? @"found" : @"MISSING",
         NSClassFromString(@"WADisplayableSubscription")  ? @"found" : @"MISSING",
+        (unsigned long)gWAGRAuraDirectHookCount,
+        gWAGRAuraDirectHooksInstalled ? @"YES" : @"NO",
+        (unsigned long)gWAGRSharedModulesSlide,
         NSClassFromString(@"WAAccountEligibility")       ? @"found" : @"MISSING",
         NSClassFromString(@"WAUsernameGatingService")    ? @"found" : @"MISSING"];
 }
