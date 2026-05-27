@@ -26,6 +26,14 @@
 #define kWAGRDebugMenuNative   @"watweak_gate_isDebugMenuAllowed"
 #define kWAGRAuraSimulation    @"watweak_bundle_aura_simulation"
 
+// ── Per-feature master toggles for WAGRGlobalGateStub.xm ──────────────────
+// Each key maps to a BOOL in NSUserDefaults.
+// When YES, the corresponding %hook returns the gate-open value for ALL BOOL
+// methods of that class so partial enablement doesn't leave dependencies unmet.
+#define kWAGRGateEligibility      @"watweak_gate_eligibility_master"
+#define kWAGRGateUsername         @"watweak_gate_username_master"
+#define kWAGRGatePremiumBroadcast @"watweak_gate_premium_broadcast"
+
 #define kWAGRDogfoodGateMetaEmployee      @"watweak_gate_isMetaEmployeeOrInternalTester"
 #define kWAGRDogfoodGateMetaEmployeeSnake @"watweak_gate_is_meta_employee_or_internal_tester"
 #define kWAGRDogfoodGateInternalUser      @"watweak_gate_isInternalUser"

@@ -213,9 +213,11 @@ extern "C" NSString *WAGRAuraDiagnostic(void) {
             WAGROpenSubscriptionsNative() ? @"found" : @"missing"];
 }
 
-__attribute__((constructor))
-static void WAGRAuraCtor(void) {
-    @autoreleasepool {
-        WAGRAuraEnsureHooksInstalled();
-    }
-}
+// NOTE: WAGRAuraCtor was removed.
+// WAAuraGating BOOL hooks are now installed via Logos %hook in
+// WAGRGlobalGateStub.xm which runs at the correct time (after all ObjC
+// images are initialized). The __attribute__((constructor)) path fired
+// before SharedModules was mapped, so NSClassFromString always returned nil.
+//
+// WAGRAuraEnsureHooksInstalled() is still callable for the legacy
+// MSHookMessageEx path (subclasses / GatedBenefitProvider ObjC surface).
