@@ -319,14 +319,10 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     [ud synchronize];
 
     // Show confirmation with restart reminder
-    NSString *state = sw.on ? @"ON ✓" : @"OFF";
-    NSString *msg   = [NSString stringWithFormat:
-        @"%@ → %@
-
-Force-quit o WhatsApp e reabra para o gate ser reavaliado.
-
-"
-         "Depois abra Configurações NATIVAMENTE no app.",
+    NSString *state = sw.on ? @"ON" : @"OFF";
+    NSString *msg = [NSString stringWithFormat:
+        @"%@ -> %@\n\nForce-quit o WhatsApp e reabra para o gate ser reavaliado."
+         "\n\nDepois abra Configuracoes NATIVAMENTE no app.",
         entry[@"title"], state];
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Feature Gate"
                                                                message:msg
