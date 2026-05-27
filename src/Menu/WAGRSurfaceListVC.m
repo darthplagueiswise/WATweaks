@@ -14,8 +14,12 @@
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
 #import "WAGRMenuTheme.h"
+#import "WAGRABPropsRootVC.h"
 
 extern void WAGRWAABEnsureHooksInstalled(void);
+extern void WAGRAuraActivateAllFlags(void);
+extern void WAGRAuraDeactivateAllFlags(void);
+extern NSString *WAGRGlobalGateStubDiagnostic(void);
 // The native dev-menu launcher lives in src/Hooks/WAGRDebugMenuLauncher.xm.
 // It does the heavy lifting of locating a WAContextMain and instantiating
 // WADebugViewController via initWithUserContext:.
@@ -114,11 +118,68 @@ static void WAGRAlert(NSString *title, NSString *message) {
 }
 @end
 
+// ── Feature-gate toggle data ─────────────────────────────────────────────────
+// Each entry: title / subtitle / prefKey / isNegative(NO=YES means "ON is good")
+static NSArray<NSDictionary *> *WAGRFeatureGateRows(void) {
+    return @[
+        @{ @"title":    @"Aura / WA Plus",
+           @"sub":      @"WAAuraGating + WADisplayableSubscription — simula subscription ativa",
+           @"key":      kWAGRAuraSimulation,
+           @"icon":     @"sparkles",
+           @"color":    @"orange" },
+        @{ @"title":    @"Modo Internal / Employee",
+           @"sub":      @"isInternalUser, isEmployee, dogfood gates, WAAB flags internos",
+           @"key":      kWAGREmployeeMaster,
+           @"icon":     @"person.crop.circle.badge.checkmark",
+           @"color":    @"blue" },
+        @{ @"title":    @"Me-Tab / Contacts Hub / About",
+           @"sub":      @"Tab Me, evolve_about_m1, contacts hub, recently online",
+           @"key":      @"wagr_metab_master_enabled",
+           @"icon":     @"person.2.crop.square.stack.fill",
+           @"color":    @"purple" },
+        @{ @"title":    @"Username",
+           @"sub":      @"WAUsernameGatingService — criação, reserva, experience enabled",
+           @"key":      kWAGRGateUsername,
+           @"icon":     @"at",
+           @"color":    @"teal" },
+        @{ @"title":    @"Account Eligibility",
+           @"sub":      @"WAAccountEligibility — MetaAI, payments, channels, app-lock",
+           @"key":      kWAGRGateEligibility,
+           @"icon":     @"checkmark.shield.fill",
+           @"color":    @"green" },
+        @{ @"title":    @"Premium Broadcast",
+           @"sub":      @"WAPremiumBroadcastGatingManager — channels SMB, send limit",
+           @"key":      kWAGRGatePremiumBroadcast,
+           @"icon":     @"antenna.radiowaves.left.and.right",
+           @"color":    @"indigo" },
+        @{ @"title":    @"Liquid Glass",
+           @"sub":      @"WDSLiquidGlass + IGLiquidGlass + UserDefaults ios_liquid_glass_*",
+           @"key":      kWAGRLiquidGlassMaster,
+           @"icon":     @"drop.fill",
+           @"color":    @"cyan" },
+    ];
+}
+
+static UIColor *WAGRGateRowColor(NSString *colorName) {
+    if ([colorName isEqualToString:@"orange"])  return UIColor.systemOrangeColor;
+    if ([colorName isEqualToString:@"blue"])    return UIColor.systemBlueColor;
+    if ([colorName isEqualToString:@"purple"])  return UIColor.systemPurpleColor;
+    if ([colorName isEqualToString:@"teal"])    return UIColor.systemTealColor;
+    if ([colorName isEqualToString:@"green"])   return UIColor.systemGreenColor;
+    if ([colorName isEqualToString:@"indigo"])  return UIColor.systemIndigoColor;
+    if ([colorName isEqualToString:@"cyan"])    return UIColor.systemCyanColor;
+    return UIColor.systemBlueColor;
+}
+
 typedef NS_ENUM(NSInteger, WAGRRootSection) {
+    // ── Feature gates com UISwitch — sempre visible na raiz ──────────────────
+    // Cada row liga/desliga um feature gate completo (classe + WAAB flags).
+    // Restart do WA depois de ligar para o app re-avaliar os gates.
+    WAGRRootSectionFeatureGates = 0,
     // The native dev-menu launcher sits at the top so it is the very first
     // thing the user sees when the WATweaks sheet opens. It is the headline
     // action — most users only want this one button.
-    WAGRRootSectionDevMenu = 0,
+    WAGRRootSectionDevMenu,
     // Curated list of ~25 hidden WhatsApp debug VCs that ship in the
     // binary but are not exposed in normal UI. One tap = try every known
     // init signature and present the controller modally.
@@ -172,15 +233,16 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (void)done { [self dismissViewControllerAnimated:YES completion:nil]; }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 5; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 6; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
-        case WAGRRootSectionDevMenu: return 2;
-        case WAGRRootSectionSecret: return 1;
-        case WAGRRootSectionAbout: return 1;
+        case WAGRRootSectionFeatureGates: return (NSInteger)WAGRFeatureGateRows().count;
+        case WAGRRootSectionDevMenu:  return 2;
+        case WAGRRootSectionSecret:   return 1;
+        case WAGRRootSectionAbout:    return 1;
         case WAGRRootSectionAdvanced: return 5;
-        case WAGRRootSectionSystem: return 3;
+        case WAGRRootSectionSystem:   return 3;
     }
     return 0;
 }
@@ -194,16 +256,19 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 }
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
-        case WAGRRootSectionDevMenu: return @"Menu Developer Nativo";
-        case WAGRRootSectionSecret: return @"Menus Secretos do App";
-        case WAGRRootSectionAbout: return nil;
+        case WAGRRootSectionFeatureGates: return @"Feature Gates";
+        case WAGRRootSectionDevMenu:  return @"Menu Developer Nativo";
+        case WAGRRootSectionSecret:   return @"Menus Secretos do App";
+        case WAGRRootSectionAbout:    return nil;
         case WAGRRootSectionAdvanced: return @"Avançado";
-        case WAGRRootSectionSystem: return @"Sistema";
+        case WAGRRootSectionSystem:   return @"Sistema";
     }
     return nil;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
+    if (section == WAGRRootSectionFeatureGates)
+        return @"Ligue → force-quit → reabra o WhatsApp → abra nativo via Settings.";
     if (section == WAGRRootSectionAdvanced)
         return @"Use \"Runtime Gates por Categoria\" para a UI legível com categorias. "
                @"Use \"Runtime Browser Bruto\" só para debug técnico de classes/surfaces.";
@@ -213,6 +278,69 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 // The headline action: a single, prominent cell that directly invokes the
 // native WADebugViewController bypassing all gating. The blue tint and the
 // `</>` SF Symbol match the visual contract of WhatsApp's own Developer row.
+- (UITableViewCell *)featureGateCellForRow:(NSInteger)row {
+    NSDictionary *entry = WAGRFeatureGateRows()[row];
+    NSString *key       = entry[@"key"];
+    UITableViewCell *c  = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    WAGRMenuApplyCellStyle(c, row, key);
+    c.textLabel.text          = entry[@"title"];
+    c.textLabel.textColor     = WAGRText();
+    c.detailTextLabel.text    = entry[@"sub"];
+    c.detailTextLabel.textColor = WAGRSub();
+    c.detailTextLabel.numberOfLines = 0;
+    UIColor *accent = WAGRGateRowColor(entry[@"color"]);
+    UIImage *icon = [UIImage systemImageNamed:entry[@"icon"]];
+    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    c.imageView.tintColor = accent;
+
+    UISwitch *sw = [[UISwitch alloc] init];
+    sw.on  = [[NSUserDefaults standardUserDefaults] boolForKey:key];
+    sw.tag = row;
+    [sw addTarget:self action:@selector(toggleGate:) forControlEvents:UIControlEventValueChanged];
+    sw.onTintColor = accent;
+    c.accessoryView = sw;
+    c.selectionStyle = UITableViewCellSelectionStyleNone;
+    return c;
+}
+
+- (void)toggleGate:(UISwitch *)sw {
+    NSDictionary *entry = WAGRFeatureGateRows()[sw.tag];
+    NSString *key       = entry[@"key"];
+    NSUserDefaults *ud  = NSUserDefaults.standardUserDefaults;
+
+    if (sw.on) {
+        [ud setBool:YES forKey:key];
+        // Aura needs extra flag activation (WAAB flags + navigation hooks)
+        if ([key isEqualToString:kWAGRAuraSimulation]) WAGRAuraActivateAllFlags();
+    } else {
+        [ud removeObjectForKey:key];
+        if ([key isEqualToString:kWAGRAuraSimulation]) WAGRAuraDeactivateAllFlags();
+    }
+    [ud synchronize];
+
+    // Show confirmation with restart reminder
+    NSString *state = sw.on ? @"ON ✓" : @"OFF";
+    NSString *msg   = [NSString stringWithFormat:
+        @"%@ → %@
+
+Force-quit o WhatsApp e reabra para o gate ser reavaliado.
+
+"
+         "Depois abra Configurações NATIVAMENTE no app.",
+        entry[@"title"], state];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Feature Gate"
+                                                               message:msg
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Reiniciar agora"
+                                          style:UIAlertActionStyleDestructive
+                                        handler:^(__unused id _) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3*NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{ exit(0); });
+    }]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
 - (UITableViewCell *)devMenuCellForRow:(NSInteger)row {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     WAGRMenuApplyCellStyle(c, row, row == WAGRDevMenuRowPrivateExperimentation ? @"private_experimentation" : @"developer");
@@ -329,8 +457,9 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     switch ((WAGRRootSection)ip.section) {
-        case WAGRRootSectionDevMenu: return [self devMenuCellForRow:ip.row];
-        case WAGRRootSectionSecret:  return [self secretMenusCell];
+        case WAGRRootSectionFeatureGates: return [self featureGateCellForRow:ip.row];
+        case WAGRRootSectionDevMenu:  return [self devMenuCellForRow:ip.row];
+        case WAGRRootSectionSecret:   return [self secretMenusCell];
         case WAGRRootSectionAbout:   return [self aboutCell];
         case WAGRRootSectionAdvanced:return [self advancedCellForRow:ip.row];
         case WAGRRootSectionSystem:  return [self systemCellForRow:ip.row];
@@ -368,6 +497,10 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
+
+    if (ip.section == WAGRRootSectionFeatureGates) {
+        return; // handled by UISwitch directly
+    }
 
     if (ip.section == WAGRRootSectionDevMenu) {
         UIViewController *presentedBy = self.presentingViewController;
