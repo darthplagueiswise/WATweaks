@@ -1,7 +1,7 @@
 // WAGRDebugMenuInstrumentation.xm
 // Diagnostic owner for WhatsApp's native WADebugViewController menu assembly.
 // New WhatsApp(11) target: the useful choke point is -createSections, not only
-// tableView datasource callbacks. It no longer mutates native section counts; only observes and adds a back button.
+// tableView datasource callbacks. It does not mutate native section counts; it only replaces WADebugViewController section 0/row 0 with a stable WATweaks AB Props row and adds navigation affordances.
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
@@ -13,6 +13,7 @@
 #import "../Menu/WAGRRuntimeGatesVC.h"
 #import "../Menu/WAGRGateCategoryVC.h"
 #import "../Menu/WAGRLogViewController.h"
+#import "../Menu/WAGRABPropsRootVC.h"
 
 typedef void      (*WAGRDMVoidIMP)(id, SEL);
 typedef void      (*WAGRDMVoidBoolIMP)(id, SEL, BOOL);
@@ -71,6 +72,12 @@ static BOOL WAGRDMIsNativeDebugClass(Class cls) {
 
 static BOOL WAGRDMIsNativeDebugVC(id self) {
     return self ? WAGRDMIsNativeDebugClass([self class]) : NO;
+}
+
+static BOOL WAGRDMIsABPropsReplacementIndexPath(id self, id indexPath) {
+    if (!WAGRDMIsNativeDebugVC(self) || ![indexPath isKindOfClass:NSIndexPath.class]) return NO;
+    NSIndexPath *ip = (NSIndexPath *)indexPath;
+    return ip.section == 0 && ip.row == 0;
 }
 
 static NSArray<NSString *> *WAGRDMExtraTitles(void) {
@@ -176,6 +183,38 @@ static UITableViewCell *WAGRDMExtraCell(id tableView, NSInteger row) {
     cell.detailTextLabel.numberOfLines = 0;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     cell.accessibilityIdentifier = [NSString stringWithFormat:@"WATweaksDebugExtraRow%ld", (long)row];
+    return cell;
+}
+
+static UITableViewCell *WAGRDMABPropsReplacementCell(id tableView) {
+    UITableViewCell *cell = nil;
+    if ([tableView respondsToSelector:@selector(dequeueReusableCellWithIdentifier:)]) {
+        cell = [tableView dequeueReusableCellWithIdentifier:@"WATweaksDebugABPropsCell"];
+    }
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WATweaksDebugABPropsCell"];
+    }
+
+    cell.textLabel.text = @"WATweaks AB Props Browser";
+    cell.detailTextLabel.text = @"WAAB Feature Keys, Fetch Experiments, Private Experimentation e categorias AB organizadas.";
+    cell.detailTextLabel.numberOfLines = 0;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.accessibilityIdentifier = @"WATweaksDebugABPropsReplacementRow";
+
+    if (@available(iOS 13.0, *)) {
+        cell.backgroundColor = UIColor.secondarySystemGroupedBackgroundColor;
+        cell.contentView.backgroundColor = UIColor.secondarySystemGroupedBackgroundColor;
+        cell.textLabel.textColor = UIColor.labelColor;
+        cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    }
+    cell.textLabel.font = [UIFont systemFontOfSize:16.0 weight:UIFontWeightSemibold];
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
+    cell.imageView.image = [[UIImage systemImageNamed:@"switch.2"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    cell.imageView.tintColor = UIColor.systemCyanColor;
+
+    UIView *selected = [UIView new];
+    selected.backgroundColor = [UIColor.systemCyanColor colorWithAlphaComponent:0.14];
+    cell.selectedBackgroundView = selected;
     return cell;
 }
 
@@ -373,6 +412,9 @@ static NSInteger hookDMRows(id self, SEL _cmd, id tableView, NSInteger section) 
 }
 
 static id hookDMCell(id self, SEL _cmd, id tableView, id indexPath) {
+    if (WAGRDMIsABPropsReplacementIndexPath(self, indexPath)) {
+        return WAGRDMABPropsReplacementCell(tableView);
+    }
     if ([indexPath isKindOfClass:NSIndexPath.class] && WAGRDMIsExtraSection(self, tableView, [(NSIndexPath *)indexPath section])) {
         return WAGRDMExtraCell(tableView, [(NSIndexPath *)indexPath row]);
     }
@@ -399,6 +441,9 @@ static id hookDMHeader(id self, SEL _cmd, id tableView, NSInteger section) {
 }
 
 static id hookDMFooter(id self, SEL _cmd, id tableView, NSInteger section) {
+    if (WAGRDMIsNativeDebugVC(self) && section == 0) {
+        return @"WATweaks substitui esta row por um browser AB Props próprio; a tabela nativa mantém o mesmo número de seções/rows para não desincronizar o cache privado.";
+    }
     if (WAGRDMIsExtraSection(self, tableView, section)) return @"Atalhos estáveis do WATweaks sem mexer em WATableSection/WATableRow nativos.";
     WAGRDMTitleIMP orig = (WAGRDMTitleIMP)WAGRDMOrig([self class], _cmd, @"footer");
     id ret = orig ? orig(self, _cmd, tableView, section) : nil;
@@ -411,6 +456,14 @@ static id hookDMFooter(id self, SEL _cmd, id tableView, NSInteger section) {
 }
 
 static void hookDMDidSelect(id self, SEL _cmd, id tableView, id indexPath) {
+    if (WAGRDMIsABPropsReplacementIndexPath(self, indexPath)) {
+        if ([tableView respondsToSelector:@selector(deselectRowAtIndexPath:animated:)]) {
+            [(UITableView *)tableView deselectRowAtIndexPath:indexPath animated:YES];
+        }
+        WAGRLogAppend(@"[DebugMenuSpy] AB Props replacement row selected");
+        WAGRDMPushOrPresentFrom(self, [WAGRABPropsRootVC new]);
+        return;
+    }
     if ([indexPath isKindOfClass:NSIndexPath.class] && WAGRDMIsExtraSection(self, tableView, [(NSIndexPath *)indexPath section])) {
         if ([tableView respondsToSelector:@selector(deselectRowAtIndexPath:animated:)]) {
             [(UITableView *)tableView deselectRowAtIndexPath:indexPath animated:YES];
