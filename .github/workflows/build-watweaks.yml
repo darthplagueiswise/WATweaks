@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - 'alpha'
+      - 'dev'
+      - 'main'
+      - 'alpha2'
   workflow_dispatch:
 
 concurrency:
