@@ -70,27 +70,20 @@ jobs:
       - name: Set dev package version
         id: version
         run: |
-          RAW_VERSION=$(awk '/Version:/ {print $2}' control)
-          BASE_VERSION=$(printf '%s\n' "$RAW_VERSION" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-          BRANCH_NAME="${GITHUB_REF_NAME////-}"
           RUN_NUMBER="${GITHUB_RUN_NUMBER}"
-          BUILD_VERSION="${BASE_VERSION}.${RUN_NUMBER}"
-          BUILD_LABEL="${BRANCH_NAME}_${BASE_VERSION}_#${RUN_NUMBER}"
-          PACKAGE_NAME="WATweaks_${BUILD_LABEL}.deb"
+          PADDED_RUN=$(printf '%03d' "$RUN_NUMBER")
+          BUILD_VERSION="0.1.${PADDED_RUN}"
+          PACKAGE_NAME="WATweaks-${BUILD_VERSION}.deb"
           sed -i '' "s/^Version:.*/Version: ${BUILD_VERSION}/" control
-          echo "BASE_VERSION=${BASE_VERSION}" >> "$GITHUB_ENV"
           echo "BUILD_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
-          echo "BRANCH_NAME=${BRANCH_NAME}" >> "$GITHUB_ENV"
           echo "RUN_NUMBER=${RUN_NUMBER}" >> "$GITHUB_ENV"
-          echo "BUILD_LABEL=${BUILD_LABEL}" >> "$GITHUB_ENV"
+          echo "PADDED_RUN=${PADDED_RUN}" >> "$GITHUB_ENV"
           echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "$GITHUB_ENV"
-          echo "base_version=${BASE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "build_version=${BUILD_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
           echo "run_number=${RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "build_label=${BUILD_LABEL}" >> "$GITHUB_OUTPUT"
+          echo "padded_run=${PADDED_RUN}" >> "$GITHUB_OUTPUT"
           echo "package_name=${PACKAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Using package version ${BUILD_VERSION} (${BUILD_LABEL})"
+          echo "Using package version ${BUILD_VERSION} (${PACKAGE_NAME})"
           grep '^Version:' control
 
       - name: Build package
@@ -108,6 +101,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "WATweaks_${{ steps.version.outputs.branch_name }}_v${{ steps.version.outputs.base_version }}_#${{ steps.version.outputs.run_number }}"
+          name: "WATweaks-${{ steps.version.outputs.build_version }}"
           path: packages/${{ steps.version.outputs.package_name }}
           if-no-files-found: error
