@@ -73,7 +73,7 @@ jobs:
           RUN_NUMBER="${GITHUB_RUN_NUMBER}"
           PADDED_RUN=$(printf '%03d' "$RUN_NUMBER")
           BUILD_VERSION="0.1.${PADDED_RUN}"
-          PACKAGE_NAME="WATweaks-${BUILD_VERSION}.deb"
+          PACKAGE_NAME="WATweaks${BUILD_VERSION}.deb"
           sed -i '' "s/^Version:.*/Version: ${BUILD_VERSION}/" control
           echo "BUILD_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
           echo "RUN_NUMBER=${RUN_NUMBER}" >> "$GITHUB_ENV"
@@ -103,6 +103,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "WATweaks-${{ steps.version.outputs.build_version }}"
+          name: "WATweaks${{ steps.version.outputs.build_version }}"
           path: packages/${{ steps.version.outputs.package_name }}
           if-no-files-found: error
