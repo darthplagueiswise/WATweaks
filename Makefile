@@ -1,5 +1,4 @@
-TARGET_SDK ?= latest
-TARGET := iphone:clang:$(TARGET_SDK):15.0
+TARGET := iphone:clang:26.2:15.0
 INSTALL_TARGET_PROCESSES = WhatsApp
 ARCHS = arm64
 
@@ -7,12 +6,6 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = WATweaks
 
-# SDK 26.2 / WhatsApp 2026 refresh.
-# Do not hard-code iPhoneOS26.2.sdk here: GitHub Actions/theos images often do
-# not ship that SDK. The tweak uses runtime-resolved iOS 26.2 APIs, so it can
-# compile with the latest SDK available in the runner while still enabling the
-# WhatsApp 26.2 runtime gates in-app. To force a local SDK, run:
-#   make package TARGET_SDK=26.2
 WATWEAKS_SRC_FILES := $(shell find src -type f \( -iname \*.x -o -iname \*.xm -o -iname \*.m \))
 
 $(TWEAK_NAME)_FILES  = $(WATWEAKS_SRC_FILES) modules/fishhook/fishhook.c
