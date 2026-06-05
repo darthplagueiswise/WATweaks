@@ -9,6 +9,7 @@
 #import "../WAGramPrefix.h"
 #import "../WAUtils.h"
 #import "../Runtime/WAGRSurface.h"
+#import "../Runtime/WAGRGateStore.h"
 #import "WAGRMenuTheme.h"
 
 extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
@@ -147,8 +148,8 @@ static NSDictionary *WAGRRow(NSString *title, NSString *sub, NSString *icon) {
     }
     switch ((WAGRSystemRow)ip.row) {
         case WAGRSystemRowRestart: return WAGRRow(@"Reiniciar WhatsApp", @"Fecha o app", @"power");
-        case WAGRSystemRowResetOverrides: return WAGRRow(@"Reset overrides", @"Remove wagr.override.* e wagr.observed.*", @"arrow.counterclockwise");
-        case WAGRSystemRowResetPrefs: return WAGRRow(@"Reset WATweaks prefs", @"Remove preferências wagr*/wa*/WA*", @"trash");
+        case WAGRSystemRowResetOverrides: return WAGRRow(@"Reset overrides", @"Remove valores, índice de overrides e hooks runtime persistidos", @"arrow.counterclockwise");
+        case WAGRSystemRowResetPrefs: return WAGRRow(@"Reset WATweaks prefs", @"Remove preferências watweak*/wagr*/wa*/WA*", @"trash");
     }
     return WAGRRow(@"", @"", @"circle");
 }
@@ -179,12 +180,27 @@ static NSDictionary *WAGRRow(NSString *title, NSString *sub, NSString *icon) {
 }
 
 - (void)showDiagnostics {
-    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\nKeychain=%@",
+    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@\n\nKeychain=%@",
+                     WAGRGateStoreDiagnostic() ?: @"GateStore n/a",
                      WAGRHookRouterDiagnostic() ?: @"Router n/a",
                      WAGRLGDiagnosticText() ?: @"LiquidGlass n/a",
                      WAGRDogfoodDiagnosticText() ?: @"Runtime n/a",
                      WAKeychainAccessGroupDiagnostic() ?: @"n/a"];
     WAGRAlert(@"Diagnóstico", msg);
+}
+
+
+- (void)resetAllRuntimeOverrides {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Reset overrides"
+                                                               message:@"Remove todos os valores watweak_gate_*, watweak_ui_*, o índice de overrides e o índice de hooks runtime persistidos. Reinicie o WhatsApp depois para descarregar hooks já instalados no processo atual."
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
+        NSUInteger n = WAGRGateClearAll();
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
+        WAGRAlert(@"Reset overrides", [NSString stringWithFormat:@"%lu entradas removidas. Reinicie o WhatsApp para descarregar hooks já instalados no processo atual.", (unsigned long)n]);
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)resetKeysMatching:(BOOL (^)(NSString *key))match title:(NSString *)title restart:(BOOL)restart {
@@ -244,8 +260,8 @@ static NSDictionary *WAGRRow(NSString *title, NSString *sub, NSString *icon) {
 
     if (ip.section == WAGRRootSectionSystem) {
         if (ip.row == WAGRSystemRowRestart) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ exit(0); });
-        else if (ip.row == WAGRSystemRowResetOverrides) [self resetKeysMatching:^BOOL(NSString *key) { return [key hasPrefix:@"wagr.override"] || [key hasPrefix:@"wagr.observed"]; } title:@"Reset overrides" restart:NO];
-        else [self resetKeysMatching:^BOOL(NSString *key) { return [key hasPrefix:@"wagr"] || [key hasPrefix:@"wa_"] || [key hasPrefix:@"WA"]; } title:@"Reset WATweaks prefs" restart:YES];
+        else if (ip.row == WAGRSystemRowResetOverrides) [self resetAllRuntimeOverrides];
+        else [self resetKeysMatching:^BOOL(NSString *key) { return [key hasPrefix:@"watweak"] || [key hasPrefix:@"wagr"] || [key hasPrefix:@"wa_"] || [key hasPrefix:@"WA"]; } title:@"Reset WATweaks prefs" restart:YES];
     }
 }
 @end
