@@ -1,0 +1,91 @@
+name: Build WATweaks tweak
+
+on:
+  push:
+    branches: [alpha2]
+  pull_request:
+    branches: [alpha2]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    env:
+      SDK_NAME: iPhoneOS26.2.sdk
+      OUTPUT_BASENAME: WATweaks-sdk26.2.${{ github.run_number }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: main
+
+      - run: brew install ldid dpkg make zip
+
+      - run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@v4
+        with:
+          repository: theos/theos
+          ref: master
+          path: ${{ github.workspace }}/theos
+          submodules: recursive
+
+      - uses: actions/cache@v4
+        id: SDK
+        env:
+          cache-name: iPhoneOS26.2.sdk
+        with:
+          path: ${{ github.workspace }}/theos/sdks/
+          key: ${{ env.cache-name }}
+          restore-keys: ${{ env.cache-name }}
+
+      - if: steps.SDK.outputs.cache-hit != 'true'
+        run: |
+          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/xybp888/iOS-SDKs/
+          cd iOS-SDKs
+          git sparse-checkout set --no-cone "$SDK_NAME"
+          git checkout
+          mkdir -p "$THEOS/sdks"
+          mv *.sdk "$THEOS/sdks"
+        env:
+          THEOS: ${{ github.workspace }}/theos
+
+      - name: Validate SDK 26.2 and build rootless arm64
+        run: |
+          set -euo pipefail
+          cd main
+          export THEOS="${{ github.workspace }}/theos"
+          chmod +x build.sh scripts/*.sh 2>/dev/null || true
+          test -d "$THEOS/sdks/$SDK_NAME"
+          grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
+          grep -q '^ARCHS = arm64$' Makefile
+          if [ -x scripts/validate-sdk262-wa.sh ]; then
+            scripts/validate-sdk262-wa.sh .
+          fi
+          THEOS_PACKAGE_SCHEME=rootless ./build.sh
+          mkdir -p release
+          DEB="$(ls -t packages/*rootless*.deb packages/*.deb 2>/dev/null | head -n 1)"
+          test -n "$DEB"
+          cp "$DEB" "release/${OUTPUT_BASENAME}.deb"
+          (cd release && zip -9 "${OUTPUT_BASENAME}.zip" "${OUTPUT_BASENAME}.deb")
+          ls -la release
+        env:
+          THEOS: ${{ github.workspace }}/theos
+          THEOS_PACKAGE_SCHEME: rootless
+          THEOS_PLATFORM_DEB_COMPRESSION_TYPE: lzma
+          THEOS_PLATFORM_DEB_COMPRESSION_LEVEL: 9
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WATweaks-sdk26.2.${{ github.run_number }}
+          path: |
+            main/release/WATweaks-sdk26.2.${{ github.run_number }}.deb
+            main/release/WATweaks-sdk26.2.${{ github.run_number }}.zip
+          if-no-files-found: error
