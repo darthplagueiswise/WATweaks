@@ -54,7 +54,7 @@ static BOOL WAGRGateGenericBoolTrampoline(id self, SEL _cmd) {
     return WAGRGateValueForSelector(selName, original);
 }
 
-extern "C" BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *selectorName, BOOL isClassMethod) {
+static BOOL WAGRGateInstallHookForSelectorInternal(NSString *className, NSString *selectorName, BOOL isClassMethod, BOOL remember) {
     WAGRGateStorageInit();
     if (!className.length || !selectorName.length) return NO;
     Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
@@ -65,14 +65,22 @@ extern "C" BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *se
     char ret[8] = {0}; method_getReturnType(m, ret, sizeof(ret));
     if (ret[0] != 'B' && ret[0] != 'c') return NO;
     NSString *hookID = WAGRGateHookID(className, isClassMethod, selectorName);
-    if ([gGateInstalled containsObject:hookID]) return YES;
+    if ([gGateInstalled containsObject:hookID]) {
+        if (remember) WAGRGateRememberHook(className, selectorName, isClassMethod);
+        return YES;
+    }
     Class target = isClassMethod ? object_getClass(cls) : cls;
     IMP orig = NULL;
     MSHookMessageEx(target, sel, (IMP)WAGRGateGenericBoolTrampoline, &orig);
     if (!orig) return NO;
     gGateOriginalIMPs[hookID] = [NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
     [gGateInstalled addObject:hookID];
+    if (remember) WAGRGateRememberHook(className, selectorName, isClassMethod);
     return YES;
+}
+
+extern "C" BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *selectorName, BOOL isClassMethod) {
+    return WAGRGateInstallHookForSelectorInternal(className, selectorName, isClassMethod, YES);
 }
 
 typedef BOOL      (*BoolKeyIMP)(id, SEL, NSString *, BOOL);
@@ -175,38 +183,44 @@ static void WAGRGateHooksInstallLightPhase(void) {
         if (cls) WAGRInstallWAABKeyHooksOnClass(cls);
     }
     for (NSDictionary *h in WAGRBootstrapSelectorHooks()) {
-        WAGRGateInstallHookForSelector(h[@"class"], h[@"sel"], [h[@"meta"] boolValue]);
+        WAGRGateInstallHookForSelectorInternal(h[@"class"], h[@"sel"], [h[@"meta"] boolValue], NO);
     }
 }
 
-static void WAGRGateHooksInstallPersistedPhaseOnce(void) {
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        NSArray<NSString *> *keys = WAGRGateAllOverrides();
-        if (!keys.count) return;
-        NSArray<WAGRGateProvider *> *providers = [WAGRGateRegistry allProviders];
-        for (NSString *storedKey in keys) {
-            NSString *sel = WAGRGateDisplayKey(storedKey);
-            for (WAGRGateProvider *p in providers) {
-                BOOL done = NO;
-                for (NSString *cname in p.concreteClassNames) {
-                    if (WAGRGateInstallHookForSelector(cname, sel, NO) || WAGRGateInstallHookForSelector(cname, sel, YES)) { done = YES; break; }
-                }
-                if (done) break;
+static void WAGRGateHooksInstallPersistedPhase(void) {
+    for (NSDictionary *d in WAGRGatePersistedHookSpecs()) {
+        NSString *c = d[@"class"];
+        NSString *s = d[@"selector"];
+        BOOL meta = [d[@"meta"] boolValue];
+        WAGRGateInstallHookForSelectorInternal(c, s, meta, NO);
+    }
+
+    NSArray<NSString *> *keys = WAGRGateAllOverrides();
+    if (!keys.count) return;
+    NSArray<WAGRGateProvider *> *providers = [WAGRGateRegistry allProviders];
+    for (NSString *storedKey in keys) {
+        NSString *sel = WAGRGateDisplayKey(storedKey);
+        for (WAGRGateProvider *p in providers) {
+            BOOL done = NO;
+            for (NSString *cname in p.concreteClassNames) {
+                if (WAGRGateInstallHookForSelectorInternal(cname, sel, NO, NO) ||
+                    WAGRGateInstallHookForSelectorInternal(cname, sel, YES, NO)) { done = YES; break; }
             }
+            if (done) break;
         }
-    });
+    }
 }
 
 extern "C" void WAGRGateHooksEnsureInstalled(void) {
     WAGRGateHooksInstallLightPhase();
-    WAGRGateHooksInstallPersistedPhaseOnce();
+    WAGRGateHooksInstallPersistedPhase();
 }
 
 extern "C" NSString *WAGRGateHooksDiagnostic(void) {
     WAGRGateStorageInit();
-    return [NSString stringWithFormat:@"per-selector hooks=%lu\nboolForKey classes=%lu\nstringForKey classes=%lu\nintegerForKey classes=%lu\ndoubleForKey classes=%lu\noverrides active=%lu",
+    return [NSString stringWithFormat:@"per-selector hooks=%lu\npersisted hook specs=%lu\nboolForKey classes=%lu\nstringForKey classes=%lu\nintegerForKey classes=%lu\ndoubleForKey classes=%lu\noverrides active=%lu",
         (unsigned long)gGateInstalled.count,
+        (unsigned long)WAGRGatePersistedHookSpecs().count,
         (unsigned long)gBoolKeyOriginals.count,
         (unsigned long)gStringKeyOriginals.count,
         (unsigned long)gIntegerKeyOriginals.count,
@@ -218,7 +232,8 @@ __attribute__((constructor))
 static void WAGRGateHooksConstructor(void) {
     @autoreleasepool {
         WAGRGateHooksInstallLightPhase();
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ WAGRGateHooksInstallLightPhase(); });
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ WAGRGateHooksInstallLightPhase(); });
+        WAGRGateHooksInstallPersistedPhase();
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ WAGRGateHooksInstallLightPhase(); WAGRGateHooksInstallPersistedPhase(); });
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ WAGRGateHooksInstallLightPhase(); WAGRGateHooksInstallPersistedPhase(); });
     }
 }
