@@ -88,14 +88,16 @@ jobs:
 
       - name: Build package
         run: |
+          set -euo pipefail
           export THEOS="${{ github.workspace }}/theos"
           test -d "$THEOS/sdks/iPhoneOS26.2.sdk"
           chmod +x ./build.sh || true
           THEOS_PACKAGE_SCHEME=rootless bash ./build.sh
           cd packages
-          DEB="$(ls -t *rootless*.deb *.deb 2>/dev/null | head -n1)"
+          DEB="$(find . -maxdepth 1 -type f -name '*.deb' -print | sort | tail -n 1 | sed 's#^./##')"
           test -n "$DEB"
-          mv "$DEB" "$PACKAGE_NAME"
+          mv -f "$DEB" "$PACKAGE_NAME"
+          test -f "$PACKAGE_NAME"
           ls -la
 
       - name: Upload artifact
