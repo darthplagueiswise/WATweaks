@@ -39,77 +39,24 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
 @implementation WAGRSurfaceSpec
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces {
     return @[
-        WAGRMakeSurface(@"exec", @"Runtime Browser — WhatsApp Exec",
-                        @"Classes e selectors do executável principal. Patches via WAGRGateStore/MSHookMessageEx.",
-                        @"app.dashed",
-                        @[@"WAContextMain", @"WAContext", @"WADebugViewController",
-                          @"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController"],
-                        @[@"WA", @"WAPrivate", @"Debug", @"Developer", @"Internal", @"Dogfood", @"Experiment"],
-                        @[@"debug", @"developer", @"internal", @"dogfood", @"experiment", @"settings", @"aura", @"subscription", @"liquid", @"glass", @"username", @"eligible"],
-                        @[], @[@"/WhatsApp.app/WhatsApp"], YES, YES, YES, YES, YES),
-
-        WAGRMakeSurface(@"sharedmodules", @"Runtime Browser — SharedModules",
-                        @"Framework SharedModules: WAAuraGating, WDSLiquidGlass, FOAWAABPropertiesImpl, WAServerProperties.",
-                        @"shippingbox.fill",
-                        @[@"WAAuraGating", @"WDSLiquidGlass", @"_TtC3WDS14WDSExperiments",
-                          @"FOAWAABPropertiesImpl", @"WAABProperties", @"WAServerProperties"],
-                        @[@"WA", @"WDS", @"FOA", @"Aura", @"Gating", @"Properties", @"Experiment"],
-                        @[@"aura", @"subscription", @"benefit", @"liquid", @"glass", @"wds", @"debug", @"internal", @"eligible", @"enabled"],
-                        @[], @[@"SharedModules.framework/SharedModules"], YES, YES, YES, YES, YES),
-
-        WAGRMakeSurface(@"waab", @"WAABProperties",
-                        @"AB props / feature flags. Hot path real: FOAWAABPropertiesImpl bool/string/integer/doubleForKey:defaultValue:.",
-                        @"switch.2",
-                        @[@"WAABProperties", @"FOAWAABPropertiesImpl"],
-                        @[@"WAABProperties", @"ABProperties"],
-                        @[], @[], @[], YES, YES, YES, NO, YES),
-
-        WAGRMakeSurface(@"context", @"WAContextMain",
-                        @"Context services, feature keepers, properties",
-                        @"cube.transparent",
-                        @[@"WAContextMain", @"WAContext"],
-                        @[@"WAContextMain", @"WAContext"],
-                        @[], @[], @[], YES, YES, YES, NO, YES),
-
-        WAGRMakeSurface(@"gatekeep", @"Feature Gate Keepers",
-                        @"FeatureControlGateKeeper, AccountEligibility and related services",
-                        @"shield",
-                        @[@"WAFeatureControlGateKeeper", @"WAFeatureKeyManagerStore", @"WAAccountEligibility"],
-                        @[@"FeatureControlGateKeeper", @"FeatureKeyManager", @"GateKeeper", @"Gating", @"Eligibility"],
-                        @[], @[], @[], YES, YES, YES, NO, YES),
-
-        WAGRMakeSurface(@"liquidglass", @"LiquidGlass / WDS",
-                        @"WDSLiquidGlass + WDSExperiments + ios_liquid_glass_* WAAB flags",
-                        @"drop.fill",
-                        @[@"WDSLiquidGlass", @"_TtC3WDS14WDSExperiments"],
-                        @[@"WDSLiquidGlass", @"WDSExperiments", @"LiquidGlass"],
-                        @[@"liquid", @"glass", @"wds", @"m0", @"m1", @"m2", @"native", @"unify", @"topbar"],
-                        @[@"Liquid Glass"], @[@"SharedModules.framework/SharedModules"], YES, YES, YES, NO, YES),
-
-        WAGRMakeSurface(@"aura", @"WAAuraGating",
-                        @"SharedModules Swift/ObjC Aura gates, official simulation flags and providers",
-                        @"star",
-                        @[@"WAAuraGating", @"WAAuraGating.AuraGating",
-                          @"_TtC12WAAuraGating20GatedBenefitProvider",
-                          @"_TtC12WAAuraGating25GatedSubscriptionProvider",
-                          @"WAABProperties", @"FOAWAABPropertiesImpl"],
-                        @[@"WAAuraGating", @"AuraGating", @"AuraBenefit", @"AuraSubscription", @"WAAuraFoundation", @"Aura"],
-                        @[@"aura", @"subscription", @"simulation", @"benefit", @"settings", @"eligible", @"active", @"themes", @"icons", @"ringtones"],
-                        @[@"WA Plus / Aura"], @[], YES, YES, YES, NO, YES),
-
-        WAGRMakeSurface(@"settings", @"Settings Navigation",
-                        @"Settings controllers, rows, internal menus",
-                        @"gearshape",
-                        @[@"WASettingsViewController", @"WASettingsNavigationController", @"WANewSettingsViewController", @"WASettingsTableViewController"],
-                        @[@"WASettings", @"WANewSettings", @"WADebugMenu", @"WADeveloper"],
-                        @[], @[], @[], YES, YES, YES, NO, YES),
-
-        WAGRMakeSurface(@"employee", @"Employee / Dogfood",
-                        @"Employee, dogfood, internal and debug gates",
-                        @"person.badge.key",
-                        @[@"WAABProperties", @"WAUserContext", @"WAAccountInfo", @"WAAccountManager", @"WAEmployeeGating", @"WADebugMenuMain", @"WASettingsViewController", @"WAServerProperties"],
-                        @[@"Employee", @"Dogfood", @"Internal", @"DebugMenu", @"Developer"],
-                        @[], @[], @[], YES, YES, YES, NO, YES),
+        WAGRMakeSurface(@"exec", @"Runtime - WhatsApp executable",
+                        @"Scoped only to /WhatsApp.app/WhatsApp. No semantic token filter.",
+                        @"app.dashed", @[], @[], @[], @[], @[@"/WhatsApp.app/WhatsApp"], YES, YES, YES, YES, YES),
+        WAGRMakeSurface(@"sharedmodules", @"Runtime - SharedModules.framework",
+                        @"Scoped only to SharedModules.framework/SharedModules. No semantic token filter.",
+                        @"shippingbox", @[], @[], @[], @[], @[@"SharedModules.framework/SharedModules"], YES, YES, YES, YES, YES),
+        WAGRMakeSurface(@"waab", @"WAAB / MobileConfig",
+                        @"Confirmed classes: WAABProperties and FOAWAABPropertiesImpl. Key based flags use the WAAB catalog/hot-path hooks.",
+                        @"switch.2", @[@"WAABProperties", @"FOAWAABPropertiesImpl"], @[@"WAABProperties", @"FOAWAABProperties", @"MobileConfig"], @[], @[], @[], YES, YES, YES, NO, YES),
+        WAGRMakeSurface(@"liquidglass", @"Liquid Glass / WDS",
+                        @"Confirmed: WDSLiquidGlass, WDSExperiments, ApplyLiquidGlass and ios_liquid_glass_* gates.",
+                        @"drop", @[@"WDSLiquidGlass", @"_TtC3WDS14WDSExperiments"], @[@"LiquidGlass", @"WDSLiquidGlass", @"WDSExperiments", @"ApplyLiquidGlass", @"METALiquidGlass"], @[], @[], @[], YES, YES, YES, NO, YES),
+        WAGRMakeSurface(@"aura", @"Aura / Subscription",
+                        @"Confirmed: WAAuraGating, WAAuraFoundation, SubscriptionFeatureGating and aura_subscription_simulation_enabled.",
+                        @"star", @[@"WAAuraGating", @"WAAuraGating.AuraGating", @"_TtC12WAAuraGating20GatedBenefitProvider", @"_TtC12WAAuraGating25GatedSubscriptionProvider"], @[@"WAAuraGating", @"WAAuraFoundation", @"AuraBenefit", @"AuraSubscription", @"SubscriptionFeatureGating"], @[], @[], @[], YES, YES, YES, NO, YES),
+        WAGRMakeSurface(@"debug", @"Debug / Developer",
+                        @"Confirmed: WADebugViewController, WADebugMenu* and WAPrivateExperimentation.",
+                        @"ladybug", @[@"WADebugViewController", @"WADebugMenuMain", @"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController"], @[@"WADebugMenu", @"PrivateExperimentation", @"Developer"], @[], @[], @[], YES, YES, YES, NO, YES),
     ];
 }
 @end
@@ -125,24 +72,20 @@ NSString *WAGRCleanDisplayName(NSString *name) {
 
 NSString *WAGRCategoryForSelector(NSString *name) {
     NSString *s = name.lowercaseString ?: @"";
-    if ([s containsString:@"aura"] || [s containsString:@"subscri"] || [s containsString:@"premium"] || [s containsString:@"benefit"] || [s containsString:@"plus"]) return @"WA Plus / Aura";
-    if ([s containsString:@"liquid"] || [s containsString:@"glass"] || [s containsString:@"wds"]) return @"Liquid Glass";
-    if ([s containsString:@"waab"] || [s containsString:@"abproperties"] || [s containsString:@"experiment"] || [s containsString:@"mobileconfig"]) return @"WAAB / Experiments";
-    if ([s containsString:@"ai_"] || [s hasPrefix:@"ai"] || [s containsString:@"metaai"] || [s containsString:@"imagine"] || [s containsString:@"hatch"] || [s containsString:@"llama"] || [s containsString:@"bot"] || [s containsString:@"incognito"]) return @"AI / Meta AI";
-    if ([s containsString:@"debug"] || [s containsString:@"developer"] || [s containsString:@"internal"] || [s containsString:@"dogfood"] || [s containsString:@"employee"] || [s containsString:@"tester"]) return @"Debug / Internal";
-    if ([s containsString:@"settings"] || [s containsString:@"row"] || [s containsString:@"cell"] || [s containsString:@"menu"]) return @"Settings Rows";
-    if ([s containsString:@"account"] || [s containsString:@"multi"] || [s containsString:@"eligible"] || [s containsString:@"eligibility"]) return @"Account / Eligibility";
-    if ([s containsString:@"privacy"] || [s containsString:@"username"] || [s containsString:@"passkey"] || [s containsString:@"defense"] || [s containsString:@"block"] || [s containsString:@"contact"] || [s containsString:@"online"]) return @"Privacy / Username";
-    if ([s containsString:@"business"] || [s containsString:@"smb"] || [s containsString:@"commerce"] || [s containsString:@"paid"]) return @"Premium / Business";
-    if ([s containsString:@"call"] || [s containsString:@"voip"] || [s containsString:@"voice"]) return @"Calls";
+    if ([s containsString:@"liquid"] || [s containsString:@"glass"] || [s containsString:@"wds"]) return @"Liquid Glass / WDS";
+    if ([s containsString:@"waab"] || [s containsString:@"abproperties"] || [s containsString:@"mobileconfig"] || [s containsString:@"experiment"]) return @"WAAB / Experiments";
+    if ([s containsString:@"aura"] || [s containsString:@"subscri"] || [s containsString:@"benefit"] || [s containsString:@"premium"] || [s containsString:@"plus"]) return @"Aura / Subscription";
+    if ([s containsString:@"debug"] || [s containsString:@"developer"] || [s containsString:@"tester"]) return @"Debug / Developer";
+    if ([s containsString:@"settings"] || [s containsString:@"row"] || [s containsString:@"cell"] || [s containsString:@"menu"]) return @"Settings";
+    if ([s containsString:@"username"] || [s containsString:@"privacy"] || [s containsString:@"passkey"] || [s containsString:@"contact"] || [s containsString:@"online"]) return @"Privacy / Username";
     if ([s containsString:@"message"] || [s containsString:@"chat"] || [s containsString:@"composer"] || [s containsString:@"thread"] || [s containsString:@"poll"]) return @"Messaging";
-    if ([s containsString:@"status"] || [s containsString:@"sticker"] || [s containsString:@"stamp"] || [s containsString:@"viewer"] || [s containsString:@"story"]) return @"Status";
-    if ([s containsString:@"channel"] || [s containsString:@"newsletter"] || [s containsString:@"broadcast"]) return @"Status / Channels";
+    if ([s containsString:@"status"] || [s containsString:@"sticker"] || [s containsString:@"viewer"] || [s containsString:@"story"] || [s containsString:@"channel"] || [s containsString:@"newsletter"] || [s containsString:@"broadcast"]) return @"Status / Channels";
+    if ([s containsString:@"call"] || [s containsString:@"voip"] || [s containsString:@"voice"]) return @"Calls";
+    if ([s containsString:@"payment"] || [s containsString:@"business"] || [s containsString:@"smb"] || [s containsString:@"commerce"] || [s containsString:@"paid"]) return @"Payments / Business";
     return @"Other";
 }
 
 static BOOL WAGRReturnIsBool(const char *ret) { return ret && (ret[0] == 'B' || ret[0] == 'c'); }
-
 static BOOL WAGRTokenMatch(NSArray<NSString *> *tokens, NSString *haystack) {
     if (!tokens.count) return YES;
     NSString *lo = haystack.lowercaseString ?: @"";

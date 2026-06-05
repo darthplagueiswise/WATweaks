@@ -1,0 +1,2616 @@
+{
+  "exec": {
+    "file": "WhatsApp(15)",
+    "size": 140967936,
+    "strings": 615699,
+    "groups": {
+      "liquidglass": {
+        "unique_count": 4205,
+        "top": [
+          {
+            "s": "WAChatBar",
+            "n": 3
+          },
+          {
+            "s": "WAPaymentsUPRChatBarPlugin",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarProviding",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarTray",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarMain",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarPaymentKeyPlugin",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarPhotoLibraryPlugin",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarCallLinkPlugin",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarCameraPlugin",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarImaginePlugin",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarPaymentQRPlugin",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarShareLocationPlugin",
+            "n": 2
+          },
+          {
+            "s": "WAWDSLogging",
+            "n": 2
+          },
+          {
+            "s": "WAPaymentsRemittancesChatBarPlugin",
+            "n": 2
+          },
+          {
+            "s": "WDSMetricsLogger",
+            "n": 2
+          },
+          {
+            "s": "WDSPerfLoggerMarkerProvider",
+            "n": 2
+          },
+          {
+            "s": "WAChatBarPixPlugin",
+            "n": 2
+          },
+          {
+            "s": "chatBar",
+            "n": 2
+          },
+          {
+            "s": "wdsButton",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSColor",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$__TtC3WDS14WDSExperiments",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSNavigationItemAddonItemConfiguration",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSLiquidGlass",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSNavigationItemCenterItemConfiguration",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSTextLayout",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSTextLayoutConfiguration",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSSheetConfiguration",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSSheetDetent",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSSheetBackground",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WDSSheet",
+            "n": 2
+          },
+          {
+            "s": "_$s7WAUIKit12WDSBaseColorCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s7WAUIKit8WDSColorCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS4FontC7resolveSo6UIFontCyF",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS4FontCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5ImageC7resolve13preferredSizeSo7UIImageCSgAC0E0CSg_tF",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5ImageC10systemName13preferredSize08fallbackB0ACSS_AC0F0CSgSo7UIImageCSgyXAtcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC6configA2C13ConfigurationVSg_tcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC10BackgroundC6customyAESo7UIColorCFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC10BackgroundCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC18DidDismissCallbackC8callbackyAEySbcFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC9CallbacksVN",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC21ShouldDismissCallbackC8callbackyAESbycFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC21ShouldDismissCallbackCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC13ConfigurationVN",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC6DetentC5largeAEyFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC6DetentC6mediumAEyFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC16WDSConfigurationC7content14viewControllerAC13ConfigurationVSo06UIViewF0C_tFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC16WDSConfigurationCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC7present4from8animated10completionySo16UIViewControllerC_SbyycSgtF",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC7dismiss8animated10completionySb_yycSgtF",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC6DetentC6custom10identifier16insetFromTopEdgeAESSSg_12CoreGraphics7CGFloatVAC0C17ResolutionContextCctFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC6DetentC6custom10identifier10heightMode0F0AESSSg_AE06HeightG0O12CoreGraphics7CGFloatVAC0C17ResolutionContextCctFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC6DetentCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS14ActionFeedbackC7dismissyyF",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS14ActionFeedbackC6configA2C13ConfigurationV_tcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS14ActionFeedbackC13ConfigurationV7variant5title4icon5image6actionAeC16WDSConfigurationC7VariantO_SSAA5ImageCSgAqC0B0VSgtcfC",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS20NavigationItemConfigC10AppearanceCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS20NavigationItemConfigC10AppearanceC7defaultAEXDyFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s7WAUIKit8WDSColorC19backgroundWashInsetSo7UIColorCvau",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC13ConfigurationVAA17BridgeableWrapperAAMc",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC9CallbacksVAA17BridgeableWrapperAAMc",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS17BridgeableWrapperPAAE13dynamicMemberqd__s24ReferenceWritableKeyPathCy7WrappedQzqd__G_tcluiM",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5ImageCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC18DidDismissCallbackCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS4IconCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS14ActionFeedbackCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS14ActionFeedbackC7presentyyF",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5ImageC4SizeCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS13BarButtonItemCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS14ActionFeedbackC9WDSActionCMa",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS4IconC23exclamationmarkTriangleAA5ImageCvgZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS4IconC15checkmarkCircleAA5ImageCvgZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5ImageC4SizeC5fixed4side6weightAEXD12CoreGraphics7CGFloatV_So12UIFontWeightatFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS14ActionFeedbackC9WDSActionC6action5title8callbackAC0B0VSS_yAA22AnyContentViewProtocol_So6UIViewCXcctFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS20NavigationItemConfigC10AppearanceC35defaultWithNonTransparentScrollEdgeAEXDyFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC16WDSConfigurationCMn",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC6DetentCMn",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC9CallbacksVMn",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS5SheetC12WDSCallbacksCMn",
+            "n": 2
+          }
+        ]
+      },
+      "waab": {
+        "unique_count": 1203,
+        "top": [
+          {
+            "s": "abProperties",
+            "n": 3
+          },
+          {
+            "s": "WAABProperties",
+            "n": 2
+          },
+          {
+            "s": "WAGroupABProperties",
+            "n": 2
+          },
+          {
+            "s": "abPropertiesDidReload",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_FBMobileConfigStartupConfigsDeprecated",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_WAABProperties",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC19WAGraphQLNetworkingE18getLocaleRemappingSDyS2SGSgyF",
+            "n": 2
+          },
+          {
+            "s": "_$s13WAGraphQLAuth27AuthenticatedGraphQLFetcherC13tokenProvider12abPropertiesAcA0d13QLAccessTokenG0_p_So14WAABPropertiesCSgtcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s5WABiz17BizProfileVersionC12abPropertiesACSo14WAABPropertiesCSg_tcfc",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC12WANativeFlowE31ios_catalog_nfm_logging_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$s5WAQPL28QuickPerformanceLoggerHelperC12abPropertiesACSo14WAABPropertiesCSg_tcfc",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE26catalog_video_view_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo9WAUserJIDC25WAPaymentsTransactionBaseE19jidOrLIDForPayments_14accountServiceABSo14WAABPropertiesCSg_10WAAccounts07AccountK0CSgtF",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC25WAPaymentsTransactionBaseE30payments_lid_migration_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_WAABPropertiesDidReloadNotification",
+            "n": 2
+          },
+          {
+            "s": "_$s16WAPaymentsShared12PaymentsTypeO3jid14accountService12abPropertiesACSo9WAUserJIDCSg_10WAAccounts07AccountG0CSgSo14WAABPropertiesCSgtcfC",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE23india_p2m_magic_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC12WANativeFlowE25payments_p2m_care_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE37payments_native_check_balance_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE37payments_upi_collect_request_disabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE46payments_upi_mapper_vpa_prioritization_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE35india_p2m_magic_disable_hpp_domainsSSvg",
+            "n": 2
+          },
+          {
+            "s": "_WAABPropertiesReady",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE27payments_upi_mapper_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE31india_p2m_magic_alpha_merchantsSSvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE32payments_home_ui_updates_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE36payments_br_dpo_appeal_notif_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$s16WAPaymentsShared27PaymentAlertFieldstatHelperO26logLegacyNotificationEvent3for12abPropertiesySo17XMPPStanzaElementC_So14WAABPropertiesCtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s22WAAIDisclaimerManaging24AIDisclaimerManagerUtilsO16getAITOSNoticeID3for12abProperties13WAAITOSShared0G0OSgAG17AIInteractionTypeO_So14WAABPropertiesCtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s7WAUIKit14EmojiFormatterC12abPropertiesACSo14WAABPropertiesCSg_tcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s19WACrossFamilyShared10FoaAppTypeC03appF03for12abPropertiesACSS_So14WAABPropertiesCSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE29isAuthAgentOffboardingEnabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE47isAuthAgentConsumerOffboardingExperienceEnabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$s18WABanAppealsShared03BanB14UXRevampHelperC11isV2Enabled4with15abPropsPreChatdSbSo14WAABPropertiesCSg_So0omN0CSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAFAQUtilitiesC5WABizE40marketingMessageDisclosureHelpArticleURL12abProperties10Foundation0H0VSo14WAABPropertiesCSg_tFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s10WAContacts23ContactBlocklistManagerC8provider12abPropertiesACSo06WACorebC12Implementing_pyc_So14WAABPropertiesCSgtcfc",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAFAQUtilitiesC5WABizE31ctwaCCIComplianceHelpArticleURL12abProperties10Foundation0G0VSgSo14WAABPropertiesCSg_tFZ",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE23optimizedDeliveryConfigAC09Optimizedd7ABPropsE0Cvg",
+            "n": 2
+          },
+          {
+            "s": "_$s7GraphQL0A19QLHTTPConfigurationC21whatsappConfiguration12abProperties7stripIp15customUserAgentACSo14WAABPropertiesCSg_SbSSSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s18WANetworkResources20DownloadableResourcePAAE24shouldDownloadOnCellular7abPropsSbSo14WAABPropertiesC_tF",
+            "n": 2
+          },
+          {
+            "s": "_$s18WANetworkResources20DownloadableResourcePAAE17shouldPredownload7abPropsSbSo14WAABPropertiesC_tF",
+            "n": 2
+          },
+          {
+            "s": "_$s18WANetworkResources20DownloadableResourcePAAE19downloadDisposition7abPropsAA0cdF0OSo14WAABPropertiesC_tF",
+            "n": 2
+          },
+          {
+            "s": "_$s5WABiz19BizVerifiedNameInfoC017shouldShowDisplayD012abPropertiesSbSo14WAABPropertiesCSg_tF",
+            "n": 2
+          },
+          {
+            "s": "_$s14WAAIRingAssets14AIAssetManagerC12abPropertiesACSo14WAABPropertiesC_tcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS16ChatListItemViewC6config12abPropertiesAcA0bcD9TableCellC13ConfigurationV_So14WAABPropertiesCSgtcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s3WDS26CommunityListItemTableCellC5style15reuseIdentifier6config12abPropertiesACSo011UITableViewF5StyleV_SSSgAC13ConfigurationVSo14WAABPropertiesCSgtcfc",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC33WAMediaSendLiveActivityAttributesE41status_live_activity_improvements_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$s5WABiz23CoexSystemMessageLoggerC7abprops8deviceIdACSo14WAABPropertiesCSg_SdSgtcfc",
+            "n": 2
+          },
+          {
+            "s": "_$s11WAWebShared17ExternalVideoInfoC9videoType13fromSourceURL18canonicalURLString12abPropertiesAA011InlineMediaG0O10Foundation0J0V_SSSgSo14WAABPropertiesCSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s18WAGroupSafetyCheck05GroupbC6LoggerC012logTapOnExitD24FromSuspiciousChatBanner14groupJIDString12abPropertiesySSSg_So14WAABPropertiesCSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s18WAGroupSafetyCheck05GroupbC6LoggerC36logTapOnStayFromSuspiciousChatBanner14groupJIDString12abPropertiesySSSg_So14WAABPropertiesCSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s18WAGroupSafetyCheck05GroupbC6LoggerC45logTapOnExitCommunityFromSuspiciousChatBanner14groupJIDString12abPropertiesySSSg_So14WAABPropertiesCSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$sSo20WAMutableChatSessionC14WAGroupsSharedE32isReportToAdminKillswitchEnabled12abPropertiesSbSo14WAABPropertiesCSg_tFZ",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC10WAPeerDataE42demystifyHistorySyncRotatingAnimationsModeAC09DemystifyefghI0Ovg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC12WASecureLockE42chat_lock_v2_m3_companion_support_receiverSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC12WASecureLockE40chat_lock_v2_m3_companion_support_senderSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC14WAGroupsSharedE47numberOfCommentsIncludedPerParentNonInitialSyncSivg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC20WAAppStateSyncModelsE09isCallLogD38BootstrapSendingEnabledForiOSCompanionSbyF",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC20WAAppStateSyncModelsE09isCallLogD33BootstrapSendingEnabledForWindowsSbyF",
+            "n": 2
+          },
+          {
+            "s": "_$s12WANativeFlow29SharedMessageButtonIconAssetsC03geteF5Image06buttonF4Type12abPropertiesSo7UIImageCSgAC0efK0O_So14WAABPropertiesCSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s10WAMediaQPL19MediaQPLEventMarkerC06createE03for12abPropertiesACSgs5Int32V_So14WAABPropertiesCSgtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s13WAPollsShared22PollAddOptionValidatorO07isValidcdE7Message7message12abPropertiesSbSo012WAPBMessage_cdeI0C_So14WAABPropertiesCtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$s14WAStatusShared30StatusNotificationMessageUtilsC07receiveE04type12abPropertiesSbSo012WAPBMessage_cde1_cD4TypeV_So14WAABPropertiesCtFZ",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE22ordersExpansionEnabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE22orderManagementEnabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE24orderStatusRevampEnabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE21rowOrderRevampEnabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE32funnelIdFieldstatsLoggingEnabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WABizE29orderReceiverCountriesAllowedSaySo13WACountryInfoCGvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC16WAPaymentsSharedE26wa_sg_p2m_lite_kill_switchSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WAPTTE33transcriptUnavailabilityThresholdSfvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC5WAPTTE36transcriptSegmentConfidenceThresholdSfvg",
+            "n": 2
+          },
+          {
+            "s": "_$s13WAPollsShared13PollValidatorC12abProperties11preferencesACSo14WAABPropertiesC_So13WAPreferencesCtcfc",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC13WAPollsSharedE18poll_option_lengthSivg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC13WAPollsSharedE16poll_name_lengthSivg",
+            "n": 2
+          },
+          {
+            "s": "_$s14WAStatusShared16StatusStringUtilC25stringForShareTerminology7abProps08fallbackD003newD0SSSo14WAABPropertiesCSg_S2StFZ",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC12WASecureLockE36chat_lock_v2_m3_companion_support_uiSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC12WASecureLockE30project_turnkey_passcode_setupSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo14WAABPropertiesC12WASecureLockE30chat_lock_human_rights_enabledSbvg",
+            "n": 2
+          },
+          {
+            "s": "_$s14WAStatusShared16StatusStringUtilC019statusCouldntUpdateD07abPropsSSSo14WAABPropertiesCSg_tFZ",
+            "n": 2
+          }
+        ]
+      },
+      "aura": {
+        "unique_count": 3013,
+        "top": [
+          {
+            "s": "benefitType",
+            "n": 5
+          },
+          {
+            "s": "subscriptions",
+            "n": 3
+          },
+          {
+            "s": "subscription_action",
+            "n": 3
+          },
+          {
+            "s": "subscriptions_sync_v2_action",
+            "n": 3
+          },
+          {
+            "s": "activeBenefits",
+            "n": 3
+          },
+          {
+            "s": "NME_ACCOUNT_CENTER_MANAGE_SUBSCRIPTION",
+            "n": 3
+          },
+          {
+            "s": "RENEW_SUBSCRIPTION_BUTTON",
+            "n": 3
+          },
+          {
+            "s": "META_SUBS_BENEFIT_CUSTOM_APP_ICON_UPSELL",
+            "n": 3
+          },
+          {
+            "s": "META_SUBS_BENEFIT_FB_STORY_PREVIEW_MIDCARD_QP",
+            "n": 3
+          },
+          {
+            "s": "META_SUBS_BENEFIT_FB_SUPER_REACTIONS_MIDCARD_QP",
+            "n": 3
+          },
+          {
+            "s": "BENEFIT_ACTIVATION",
+            "n": 3
+          },
+          {
+            "s": "WAAura",
+            "n": 2
+          },
+          {
+            "s": "Subscription",
+            "n": 2
+          },
+          {
+            "s": "SubscriptionInfo",
+            "n": 2
+          },
+          {
+            "s": "WAAISubscription",
+            "n": 2
+          },
+          {
+            "s": "WAPBSubscriptionDetails_SubscriptionSource",
+            "n": 2
+          },
+          {
+            "s": "WASubscription",
+            "n": 2
+          },
+          {
+            "s": "WAPBSubscriptionDetails_SubscriptionStatus",
+            "n": 2
+          },
+          {
+            "s": "WAContextSubscription",
+            "n": 2
+          },
+          {
+            "s": "WASubscriptionAgeGating",
+            "n": 2
+          },
+          {
+            "s": "SUBSBenefitDataProvider",
+            "n": 2
+          },
+          {
+            "s": "WASubscriptionsHubIntegration",
+            "n": 2
+          },
+          {
+            "s": "doCopySubscriptions:paid_feature:unknownFields:",
+            "n": 2
+          },
+          {
+            "s": "subscriptionaction",
+            "n": 2
+          },
+          {
+            "s": "subscriptionssyncv2action",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionAction",
+            "n": 2
+          },
+          {
+            "s": "initWithSubscriptions:paid_feature:unknownFields:",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2Action",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionActionCompanion",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionSubscriptionInfo",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionPaidFeature",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionCompanion",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionSubscriptionInfoCompanion",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionPaidFeatureCompanion",
+            "n": 2
+          },
+          {
+            "s": "WASubscriptionDeepLinks",
+            "n": 2
+          },
+          {
+            "s": "WASubscriptionsGreenDotDidClear",
+            "n": 2
+          },
+          {
+            "s": "shouldShowSubscriptionsGreenDot",
+            "n": 2
+          },
+          {
+            "s": "benefitTotalQuota",
+            "n": 2
+          },
+          {
+            "s": "subscriptionId",
+            "n": 2
+          },
+          {
+            "s": "simulationSupplyRule",
+            "n": 2
+          },
+          {
+            "s": "subscriptionInfo",
+            "n": 2
+          },
+          {
+            "s": "WamoAfsSubscriptionInfoQuery_xwaQueryWamoAfsSubscriptionInfo_subscriptionInfo_billingAmountFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "WamoAfsSubscriptionInfoQuery_xwaQueryWamoAfsSubscriptionInfo_subscriptionInfo_newBillingAmountFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "WamoAfsSubscriptionInfoQuery_xwaQueryWamoAfsSubscriptionInfo_subscriptionInfoFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "WamoAfsSubscriptionInfoQuery_xwaQueryWamoAfsSubscriptionInfoResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "WamoAfsSubscriptionInfoQueryResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "smbBlueSubscriptionNotificationTriggered",
+            "n": 2
+          },
+          {
+            "s": "smbLastSubscriptionSync",
+            "n": 2
+          },
+          {
+            "s": "AiSubscriptionStateQuery_aiSubscriptionStateResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "AiSubscriptionStateQueryResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "aiSubscriptionState",
+            "n": 2
+          },
+          {
+            "s": "affordableBenefitsV2",
+            "n": 2
+          },
+          {
+            "s": "subscriptionTierFriendlyName",
+            "n": 2
+          },
+          {
+            "s": "nextAiSubscriptionTierFriendlyName",
+            "n": 2
+          },
+          {
+            "s": "isSubscribedToAiBenefit",
+            "n": 2
+          },
+          {
+            "s": "subscriptionStartTime",
+            "n": 2
+          },
+          {
+            "s": "GetEligibility_getEligibility_subscriptionPromosFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "subscriptionPromos",
+            "n": 2
+          },
+          {
+            "s": "smb_subscription_config",
+            "n": 2
+          },
+          {
+            "s": "subscriptionEntryPoint",
+            "n": 2
+          },
+          {
+            "s": "subscriptionSurface",
+            "n": 2
+          },
+          {
+            "s": "currentWindowWebViewURLSubscription",
+            "n": 2
+          },
+          {
+            "s": "ai_subscription_enabled",
+            "n": 2
+          },
+          {
+            "s": "WamoSubCancelSubscription_xwaWamoSubCancelSubscriptionResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "WamoSubOverrideSubscriptionStatus_xwaWamoSubOverrideSubscriptionStatusResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "WamoSubQueryStatus_xwaWamoSubQueryStatus_subscriptionDetails_billingAmountFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "WamoSubQueryStatus_xwaWamoSubQueryStatus_subscriptionDetailsFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "asteria_subscription_check_enabled",
+            "n": 2
+          },
+          {
+            "s": "previousBenefits",
+            "n": 2
+          },
+          {
+            "s": "MAIBenefitQuotaCommsQuery_xfbFbMetaSubsBenefitQuotaCommsInfoQuery_metadataFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "MAIBenefitQuotaCommsQuery_xfbFbMetaSubsBenefitQuotaCommsInfoQuery_uiConfig_subtitleFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "MAIBenefitQuotaCommsQuery_xfbFbMetaSubsBenefitQuotaCommsInfoQuery_uiConfig_titleFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "MAIBenefitQuotaCommsQuery_xfbFbMetaSubsBenefitQuotaCommsInfoQuery_uiConfigFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "MAIBenefitQuotaCommsQuery_xfbFbMetaSubsBenefitQuotaCommsInfoQuery_welcomeToastFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "MAIBenefitQuotaCommsQuery_xfbFbMetaSubsBenefitQuotaCommsInfoQueryResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "MAIBenefitQuotaCommsQueryResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "xfbFbMetaSubsBenefitQuotaCommsInfoQuery",
+            "n": 2
+          },
+          {
+            "s": "loggedSyncFailureBenefits",
+            "n": 2
+          },
+          {
+            "s": "pendingSubscriptionPhoneNumber",
+            "n": 2
+          },
+          {
+            "s": "pendingSubscriptionId",
+            "n": 2
+          }
+        ]
+      },
+      "internal": {
+        "unique_count": 2724,
+        "top": [
+          {
+            "s": "patchDebugDataParam",
+            "n": 5
+          },
+          {
+            "s": "debugView",
+            "n": 5
+          },
+          {
+            "s": "debugLogger",
+            "n": 5
+          },
+          {
+            "s": "InternalModel",
+            "n": 4
+          },
+          {
+            "s": "debug",
+            "n": 4
+          },
+          {
+            "s": "debugInfo",
+            "n": 4
+          },
+          {
+            "s": "SessionInternals",
+            "n": 3
+          },
+          {
+            "s": "client_debug_data",
+            "n": 3
+          },
+          {
+            "s": "internalServerError",
+            "n": 3
+          },
+          {
+            "s": "layoutInternalCacheSizeLimit",
+            "n": 3
+          },
+          {
+            "s": "debugLoggingSamplingRate",
+            "n": 3
+          },
+          {
+            "s": "DEBUG",
+            "n": 3
+          },
+          {
+            "s": "WADebugMenuMain",
+            "n": 2
+          },
+          {
+            "s": "WADebugMenuBase",
+            "n": 2
+          },
+          {
+            "s": "WAPrivateExperimentation",
+            "n": 2
+          },
+          {
+            "s": "WADebugMenuYouth",
+            "n": 2
+          },
+          {
+            "s": "WADebugMenuMisc",
+            "n": 2
+          },
+          {
+            "s": "getForInternalSyncdKeyData:completionHandler:",
+            "n": 2
+          },
+          {
+            "s": "getPatchDebugDataParamAndLogCollectionName:mutationIndexToIndexMac:hashesToAdd:newLtHash:completionHandler:",
+            "n": 2
+          },
+          {
+            "s": "doCopyLtHash:patchDebugDataParam:",
+            "n": 2
+          },
+          {
+            "s": "toKmpPatchDebugDataNewLtHash:nextVersion:collectionName:senderPlatform:isSenderPrimary:",
+            "n": 2
+          },
+          {
+            "s": "getForInternalSyncdKeyData:error:",
+            "n": 2
+          },
+          {
+            "s": "createInternalKeyId:operation:unencryptedValueBlob:mutationMac:error:",
+            "n": 2
+          },
+          {
+            "s": "getDebugData",
+            "n": 2
+          },
+          {
+            "s": "isDebugBuild",
+            "n": 2
+          },
+          {
+            "s": "getEnableSyncdDebugDataInPatch",
+            "n": 2
+          },
+          {
+            "s": "getInternalLoggerForTests",
+            "n": 2
+          },
+          {
+            "s": "doCopyVersion:mutations:external_mutations:snapshot_mac:patch_mac:key_id:exit_code:device_index:client_debug_data:unknownFields:",
+            "n": 2
+          },
+          {
+            "s": "WASDEKmpDebugSupportClass",
+            "n": 2
+          },
+          {
+            "s": "WASDEKmpDebugSupportClassCompanion",
+            "n": 2
+          },
+          {
+            "s": "initWithLtHash:patchDebugDataParam:",
+            "n": 2
+          },
+          {
+            "s": "WASDEPatchDebugDataParam",
+            "n": 2
+          },
+          {
+            "s": "initWithDebugData:",
+            "n": 2
+          },
+          {
+            "s": "WASDEKmpPatchDebugData",
+            "n": 2
+          },
+          {
+            "s": "toomanyinternalservererrorsin7d",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoPatchDebugData",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoPatchDebugDataPlatform",
+            "n": 2
+          },
+          {
+            "s": "initWithVersion:mutations:external_mutations:snapshot_mac:patch_mac:key_id:exit_code:device_index:client_debug_data:unknownFields:",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoPatchDebugDataCompanion",
+            "n": 2
+          },
+          {
+            "s": "WASDEInterfaces_protoPatchDebugDataPlatformCompanion",
+            "n": 2
+          },
+          {
+            "s": "WADebugInfo",
+            "n": 2
+          },
+          {
+            "s": "DebugBluetoothMuteHelper",
+            "n": 2
+          },
+          {
+            "s": "WADebugMenuMex",
+            "n": 2
+          },
+          {
+            "s": "NSt3__110__function6__funcIZN8facebook5xplat5falco6fabricL19_purgeExpiredEventsENS5_9FFContextEE3$_0NS_9allocatorIS7_EEFNS5_14FFDebugLogDataEvEEE",
+            "n": 2
+          },
+          {
+            "s": "NSt3__110__function6__funcIZN8facebook5xplat5falco6fabricL19_purgeExpiredEventsENS5_9FFContextEE3$_1NS_9allocatorIS7_EEFNS5_14FFDebugLogDataEvEEE",
+            "n": 2
+          },
+          {
+            "s": "NSt3__110__function6__funcIZN8facebook5xplat5falco6fabricL18_purgeExcessEventsENS5_9FFContextEE3$_0NS_9allocatorIS7_EEFNS5_14FFDebugLogDataEvEEE",
+            "n": 2
+          },
+          {
+            "s": "NSt3__110__function6__funcIZN8facebook5xplat5falco6fabricL18_purgeExcessEventsENS5_9FFContextEE3$_1NS_9allocatorIS7_EEFNS5_14FFDebugLogDataEvEEE",
+            "n": 2
+          },
+          {
+            "s": "debugDescription",
+            "n": 2
+          },
+          {
+            "s": "isDebug",
+            "n": 2
+          },
+          {
+            "s": "debugAIGroupCallingChatList",
+            "n": 2
+          },
+          {
+            "s": "debugCapiCallShowVideoButton",
+            "n": 2
+          },
+          {
+            "s": "chatTransferIsDebugFlow",
+            "n": 2
+          },
+          {
+            "s": "greenAlertDebugSettings",
+            "n": 2
+          },
+          {
+            "s": "isDebugUsyncMonitorEnabled",
+            "n": 2
+          },
+          {
+            "s": "$__lazy_storage_$_debugOverlayContainerView",
+            "n": 2
+          },
+          {
+            "s": "internalTextView",
+            "n": 2
+          },
+          {
+            "s": "ai_rich_response_ur_debug_overlay_enabled",
+            "n": 2
+          },
+          {
+            "s": "internalAutoUpsellCount",
+            "n": 2
+          },
+          {
+            "s": "internalAutoUpsellLastShown",
+            "n": 2
+          },
+          {
+            "s": "waSupportBugReportCreateDogfoodingTask",
+            "n": 2
+          },
+          {
+            "s": "internalSetUpGlobalState",
+            "n": 2
+          },
+          {
+            "s": "debugWaffleFbHost",
+            "n": 2
+          },
+          {
+            "s": "$__lazy_storage_$_internalQueue",
+            "n": 2
+          },
+          {
+            "s": "messageBubbleDebugAdapter",
+            "n": 2
+          },
+          {
+            "s": "isEmployee",
+            "n": 2
+          },
+          {
+            "s": "mv4bDebugLockProfile",
+            "n": 2
+          },
+          {
+            "s": "statusTilesDebugModeEnabled",
+            "n": 2
+          },
+          {
+            "s": "debugLabel",
+            "n": 2
+          },
+          {
+            "s": "paymentsMockedOnboardingCountryISODebugOnly",
+            "n": 2
+          },
+          {
+            "s": "DebugNewsletterRecommended_xwa2NewslettersRecommended_resultFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "DebugNewsletterRecommended_xwa2NewslettersRecommendedResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "DebugNewsletterRecommendedResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "debugEnableLiveLocationNoVoIP",
+            "n": 2
+          },
+          {
+            "s": "enableDebugMenu",
+            "n": 2
+          },
+          {
+            "s": "componentDefinitionDebugStructure",
+            "n": 2
+          },
+          {
+            "s": "$__lazy_storage_$_lazySwiftDebugDescription",
+            "n": 2
+          },
+          {
+            "s": "debugInfoJson",
+            "n": 2
+          },
+          {
+            "s": "GraphQLWACreateDogfoodingTaskMutation_waSupportBugReportCreateDogfoodingTask_inlineWASupportDogfoodingTaskResponsePayloadImpl",
+            "n": 2
+          },
+          {
+            "s": "GraphQLWACreateDogfoodingTaskMutation_waSupportBugReportCreateDogfoodingTaskResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "GraphQLWACreateDogfoodingTaskMutationResponseImpl",
+            "n": 2
+          }
+        ]
+      }
+    }
+  },
+  "shared": {
+    "file": "SharedModules(19)",
+    "size": 70003424,
+    "strings": 388268,
+    "groups": {
+      "liquidglass": {
+        "unique_count": 1388,
+        "top": [
+          {
+            "s": "*6WDSConfigurationC",
+            "n": 8
+          },
+          {
+            "s": ",6WDSConfigurationC",
+            "n": 8
+          },
+          {
+            "s": "-6WDSConfigurationC",
+            "n": 7
+          },
+          {
+            "s": "+6WDSConfigurationC",
+            "n": 5
+          },
+          {
+            "s": "/6WDSConfigurationC",
+            "n": 5
+          },
+          {
+            "s": ")6WDSConfigurationC",
+            "n": 4
+          },
+          {
+            "s": "2WDSCallbacksC",
+            "n": 3
+          },
+          {
+            "s": ".6WDSConfigurationC",
+            "n": 3
+          },
+          {
+            "s": "WDSBaseClass",
+            "n": 2
+          },
+          {
+            "s": "WDSActionConfiguration",
+            "n": 2
+          },
+          {
+            "s": "WDSViewConfiguration",
+            "n": 2
+          },
+          {
+            "s": "WDSBaseColor",
+            "n": 2
+          },
+          {
+            "s": "WDSColor",
+            "n": 2
+          },
+          {
+            "s": "ChatBarCameraMediaStrip",
+            "n": 2
+          },
+          {
+            "s": "ChatBarCameraPhotoAlbum",
+            "n": 2
+          },
+          {
+            "s": "WDSControlConfiguration",
+            "n": 2
+          },
+          {
+            "s": "WDSAccessibilityConfiguration",
+            "n": 2
+          },
+          {
+            "s": "WDSActionGroupConfiguration",
+            "n": 2
+          },
+          {
+            "s": "WDSMenuConfiguration",
+            "n": 2
+          },
+          {
+            "s": "WDSPerfLogger",
+            "n": 2
+          },
+          {
+            "s": "WDSTabBar",
+            "n": 2
+          },
+          {
+            "s": "hasEnteredChatbarGalleryFlow",
+            "n": 2
+          },
+          {
+            "s": "hasSeenChatbarGalleryUsageNUX",
+            "n": 2
+          },
+          {
+            "s": "chatbarGalleryNUXSeen",
+            "n": 2
+          },
+          {
+            "s": "userEnteredChatbarGalleryFlow",
+            "n": 2
+          },
+          {
+            "s": "imageWdsIdentifier",
+            "n": 2
+          },
+          {
+            "s": "_OBJC_CLASS_$_UIGlassEffect",
+            "n": 2
+          },
+          {
+            "s": "8imageWdsIdentifierSSvpWvd",
+            "n": 2
+          },
+          {
+            "s": ",wds",
+            "n": 2
+          },
+          {
+            "s": "-2WDSCallbacksC",
+            "n": 2
+          },
+          {
+            "s": "3WDSE",
+            "n": 2
+          },
+          {
+            "s": "LiquidGlass",
+            "n": 1
+          },
+          {
+            "s": "WDSConfiguration",
+            "n": 1
+          },
+          {
+            "s": "WDSBaseConfiguration",
+            "n": 1
+          },
+          {
+            "s": "WDSButton",
+            "n": 1
+          },
+          {
+            "s": "WDSButtonGroup",
+            "n": 1
+          },
+          {
+            "s": "WDSIndicators",
+            "n": 1
+          },
+          {
+            "s": "WDSPerfLoggingEnabler",
+            "n": 1
+          },
+          {
+            "s": "WDSPerfLoggingEnabling",
+            "n": 1
+          },
+          {
+            "s": "WDSPerfLoggingPoint",
+            "n": 1
+          },
+          {
+            "s": "LiquidGlassProvider",
+            "n": 1
+          },
+          {
+            "s": "WDSIndicatorsHeightProvider",
+            "n": 1
+          },
+          {
+            "s": "WDSEndAddon",
+            "n": 1
+          },
+          {
+            "s": "WDSStartAddon",
+            "n": 1
+          },
+          {
+            "s": "WDSAnimation",
+            "n": 1
+          },
+          {
+            "s": "PaymentKeyChatBarPlugin",
+            "n": 1
+          },
+          {
+            "s": "ChatBarCamera",
+            "n": 1
+          },
+          {
+            "s": "GiffromChatBarCamera",
+            "n": 1
+          },
+          {
+            "s": "IGLiquidGlassExperimentHelper",
+            "n": 1
+          },
+          {
+            "s": "IGLiquidGlassNavigationExperimentHelper",
+            "n": 1
+          },
+          {
+            "s": "WDSCallbacks",
+            "n": 1
+          },
+          {
+            "s": "WDSAction",
+            "n": 1
+          },
+          {
+            "s": "WDSContentViewCallbacks",
+            "n": 1
+          },
+          {
+            "s": "WDSControlCallbacks",
+            "n": 1
+          },
+          {
+            "s": "WDSActionTileButtonStylizer",
+            "n": 1
+          },
+          {
+            "s": "WDSButtonStylizer",
+            "n": 1
+          },
+          {
+            "s": "WDSName",
+            "n": 1
+          },
+          {
+            "s": "WDSHighlightedPart",
+            "n": 1
+          },
+          {
+            "s": "WDSStatus",
+            "n": 1
+          },
+          {
+            "s": "WDSBadgeProvider",
+            "n": 1
+          },
+          {
+            "s": "WDSEncryptionLockProvider",
+            "n": 1
+          },
+          {
+            "s": "WDSLocalizedTime",
+            "n": 1
+          },
+          {
+            "s": "WDSMessagePreview",
+            "n": 1
+          },
+          {
+            "s": "WDSSwipeActionsConfiguration",
+            "n": 1
+          },
+          {
+            "s": "WDSSwipeAction",
+            "n": 1
+          },
+          {
+            "s": "WDSTitle",
+            "n": 1
+          },
+          {
+            "s": "WDSSubtitle",
+            "n": 1
+          },
+          {
+            "s": "DebugWDSToggles",
+            "n": 1
+          },
+          {
+            "s": "WDSExperiments",
+            "n": 1
+          },
+          {
+            "s": "WDSImpressionLoggingData",
+            "n": 1
+          },
+          {
+            "s": "WDSWindowDidUpdateTraitCollectionUserInfoKeys",
+            "n": 1
+          },
+          {
+            "s": "WDSPerfAnnotationKey",
+            "n": 1
+          },
+          {
+            "s": "WDSTabBarItem",
+            "n": 1
+          },
+          {
+            "s": "initWithFrame:newLiquidGlassLayoutEnabled:",
+            "n": 1
+          },
+          {
+            "s": "ios_liquid_glass_media_editor_enabled",
+            "n": 1
+          },
+          {
+            "s": "ios_liquid_glass_media_m0",
+            "n": 1
+          },
+          {
+            "s": "shouldUseLiquidGlassConfiguration",
+            "n": 1
+          },
+          {
+            "s": "ios_wds_done_button_in_media_editor",
+            "n": 1
+          },
+          {
+            "s": "multiMediaChatBarPlaceholder",
+            "n": 1
+          },
+          {
+            "s": "multiSendPreviewViewControllerGetChatBarAttachments",
+            "n": 1
+          }
+        ]
+      },
+      "waab": {
+        "unique_count": 1169,
+        "top": [
+          {
+            "s": "12abPropertiesACSo14WAABPropertiesCSg_tcfc",
+            "n": 4
+          },
+          {
+            "s": "abProperties",
+            "n": 3
+          },
+          {
+            "s": "WAABProperties",
+            "n": 2
+          },
+          {
+            "s": "FOAWAABPropertiesImpl",
+            "n": 2
+          },
+          {
+            "s": "mobileconfig",
+            "n": 2
+          },
+          {
+            "s": "xwa2MobileConfigConsistencyLogging",
+            "n": 2
+          },
+          {
+            "s": "xwa2MobileConfigFetch",
+            "n": 2
+          },
+          {
+            "s": "MobileConfigConsistencyLoggingQuery_xwa2MobileConfigConsistencyLoggingResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "MobileConfigConsistencyLoggingQueryResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "MobileConfigFetchQuery_xwa2MobileConfigFetchResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "MobileConfigFetchQueryResponseImpl",
+            "n": 2
+          },
+          {
+            "s": "abPropertiesACSo14WAABPropertiesCSg_tcfc",
+            "n": 2
+          },
+          {
+            "s": "12abPropertiesACSo14WAABPropertiesC_tcfc",
+            "n": 2
+          },
+          {
+            "s": "InviteToWhatsAppQPLABProperties",
+            "n": 1
+          },
+          {
+            "s": "WAMobileConfigShadowTesting",
+            "n": 1
+          },
+          {
+            "s": "GroupABProperties",
+            "n": 1
+          },
+          {
+            "s": "WAMobileConfigGating",
+            "n": 1
+          },
+          {
+            "s": "?30FBMobileConfigPerfLoggerClient",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig34FBMobileConfigPerfLoggerClientBaseE",
+            "n": 1
+          },
+          {
+            "s": "ZN12mobileconfig5files25deleteAllFilesInDirectoryERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEPNS_25FBMobileConfigErrorLoggerEE3$_0",
+            "n": 1
+          },
+          {
+            "s": "ZN12mobileconfig5files26findPathToLatestFlatbufferERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEE3$_0",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig24FBMobileConfigJSONWriterE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig28FBMobileConfigOverridesTableE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig25FBMobileConfigContextBaseE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig23FBMobileConfigContextV2E",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig32FBMobileConfigContextInternalApiE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig22IFBMobileConfigContextE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig25FBMobileConfigRatelimiterE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig28FBMobileConfigOverridesTableENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig25FBMobileConfigRatelimiterENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig25FBMobileConfigRequestDataENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig40FBMobileConfigStartupConfigDataContainer9Container8MetadataENS_9allocatorIS4_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig23FBMobileConfigContextV2ENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig20FBMobileConfigLoggerENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig45FBMobileConfigStableSpecifierTranslationTableENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig24FBMobileConfigValueStoreENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig44FBMobileConfigStartupConfigConsistencyLoggerE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig38FBMobileConfigConsistencyDataFormatterENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig33FBMobileConfigStartupConfigReaderE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig44FBMobileConfigStartupConfigConsistencyLoggerENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig28FBMobileConfigFileRepositoryE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig32FBMobileConfigFileRepositoryBaseE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig29FBMobileConfigFileBlobInCacheE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig30FBMobileConfigFileBlobInMemoryE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig31FBMobileConfigFileBlobMemoryMapE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig26FBMobileConfigFileBlobBaseE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig24FBMobileConfigValueStoreE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig23FBMobileConfigStoreBaseE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig31FBMobileConfigAggregationLoggerE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig30FBMobileConfigLoggerClientBaseE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig25FBMobileConfigCanaryUtilsE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig20FBMobileConfigLoggerE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig25FBMobileConfigErrorLoggerE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__110shared_ptrIN12mobileconfig37FBMobileConfigSilentPushFallbackTableEE27__shared_ptr_default_deleteIS2_S2_EE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__114default_deleteIN12mobileconfig37FBMobileConfigSilentPushFallbackTableEEE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig45FBMobileConfigStableSpecifierTranslationTableE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig38FBMobileConfigSpecifierTranslationBaseE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig25FBMobileConfigRequestDataE",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig23FBMobileConfigParamsMapE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig18FBMobileConfigListENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN12mobileconfig29FBMobileConfigParamsMapParserENS_9allocatorIS2_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceINS_6vectorIN12mobileconfig13config_meta_tENS_9allocatorIS3_EEEENS4_IS6_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceINS_6vectorIN12mobileconfig27FBMobileConfigMetaListRangeENS_9allocatorIS3_EEEENS4_IS6_EEEE",
+            "n": 1
+          },
+          {
+            "s": "PN12mobileconfig21FBMobileConfigManagerE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceI42FBMobileConfigManagerChangeListenerWrapperNS_9allocatorIS1_EEEE",
+            "n": 1
+          },
+          {
+            "s": "42FBMobileConfigManagerChangeListenerWrapper",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig28FBMobileConfigChangeListenerE",
+            "n": 1
+          },
+          {
+            "s": "21WAMobileConfigFetcher",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig21FBMobileConfigFetcherE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceI21WAMobileConfigFetcherNS_9allocatorIS1_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__110__function6__baseIFNS_10shared_ptrIN12mobileconfig23FBMobileConfigParamsMapEEE14mc_unit_type_tNS3_36FBMobileConfigParamsMapCreateOptionsEEEE",
+            "n": 1
+          },
+          {
+            "s": "PFNSt3__110shared_ptrIN12mobileconfig23FBMobileConfigParamsMapEEE14mc_unit_type_tNS1_36FBMobileConfigParamsMapCreateOptionsEE",
+            "n": 1
+          },
+          {
+            "s": "FNSt3__110shared_ptrIN12mobileconfig23FBMobileConfigParamsMapEEE14mc_unit_type_tNS1_36FBMobileConfigParamsMapCreateOptionsEE",
+            "n": 1
+          },
+          {
+            "s": "U13block_pointerFvRKNSt3__113unordered_mapIjN12mobileconfig27ConfigEmergencyPushMetadataENS_4hashIjEENS_8equal_toIjEENS_9allocatorINS_4pairIKjS2_EEEEEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__110__function6__baseIFvRKN12mobileconfig27FBMobileConfigRequestResultEEEE",
+            "n": 1
+          },
+          {
+            "s": "ZL27updateConfigsWithCompletionPU32objcproto21FBMobileConfigContext11objc_objectP9WAContextbU13block_pointerFv25WAMobileConfigFetchResultEE3$_0",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceI29WAMobileConfigExposureHandlerNS_9allocatorIS1_EEEE",
+            "n": 1
+          },
+          {
+            "s": "29WAMobileConfigExposureHandler",
+            "n": 1
+          },
+          {
+            "s": "N12mobileconfig35FBMobileConfigCustomExposureHandlerE",
+            "n": 1
+          },
+          {
+            "s": "26WAMobileConfigLoggerClient",
+            "n": 1
+          }
+        ]
+      },
+      "aura": {
+        "unique_count": 555,
+        "top": [
+          {
+            "s": "Subscription",
+            "n": 2
+          },
+          {
+            "s": "WAAuraGating",
+            "n": 2
+          },
+          {
+            "s": "WAAuraFoundation",
+            "n": 2
+          },
+          {
+            "s": "WAPBAISubscriptionRequestType",
+            "n": 2
+          },
+          {
+            "s": "WASubscriptionFoundation",
+            "n": 2
+          },
+          {
+            "s": "MetaVerifiedSubscription",
+            "n": 2
+          },
+          {
+            "s": "WAAISubscriptionGating",
+            "n": 2
+          },
+          {
+            "s": "isExtendedPinnedChatBenefitActive",
+            "n": 2
+          },
+          {
+            "s": "subscriptionInfo",
+            "n": 2
+          },
+          {
+            "s": "subscriptionUpsellMetadata",
+            "n": 2
+          },
+          {
+            "s": "GetBillerPlans_fetch_XWAPaymentsUser_upiBillPayGetBillerPlans_groupedPlans_plans_additionalInfo_otherBenefitsFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "subscriptionsSubscriptionArray",
+            "n": 2
+          },
+          {
+            "s": "subscription_end_time",
+            "n": 2
+          },
+          {
+            "s": "subscription_start_time",
+            "n": 2
+          },
+          {
+            "s": "subscriptionTierFriendlyName",
+            "n": 2
+          },
+          {
+            "s": "subscriptionStartTime",
+            "n": 2
+          },
+          {
+            "s": "affordableBenefitsArray",
+            "n": 2
+          },
+          {
+            "s": "isSubscribedToAiBenefit",
+            "n": 2
+          },
+          {
+            "s": "nextAiSubscriptionTierFriendlyName",
+            "n": 2
+          },
+          {
+            "s": "subscriptionAction",
+            "n": 2
+          },
+          {
+            "s": "subscriptionsSyncV2Action",
+            "n": 2
+          },
+          {
+            "s": "subscriptionsArray",
+            "n": 2
+          },
+          {
+            "s": "subscriptionSyncPayload",
+            "n": 2
+          },
+          {
+            "s": "aiSubscriptionGating",
+            "n": 2
+          },
+          {
+            "s": "XmaSubscriptionOneTimeScheduleFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "XmaSubscriptionRecurringScheduleFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "XmaSubscriptionScheduleFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "XmaSubscriptionTemplateData_subscriptionScheduleFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "XmaSubscriptionTemplateDataFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "_$s7Combine10SubscriberP7receive12subscriptionyAA12Subscription_p_tFTj",
+            "n": 2
+          },
+          {
+            "s": "_$s7SwiftUI16SubscriptionViewVyxq_GAA0D0AAMc",
+            "n": 2
+          },
+          {
+            "s": "_$s7SwiftUI16SubscriptionViewVMa",
+            "n": 2
+          },
+          {
+            "s": "_$s7SwiftUI16SubscriptionViewVMn",
+            "n": 2
+          },
+          {
+            "s": "QPSMBAIAgentSubscriptionStatus",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefitId",
+            "n": 1
+          },
+          {
+            "s": "AuraSubscriptionProductType",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionResult",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefitReliabilitySurface",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefitReliabilitySource",
+            "n": 1
+          },
+          {
+            "s": "ExploreBenefitsScreen",
+            "n": 1
+          },
+          {
+            "s": "GatedBenefitProvider",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefitProvider",
+            "n": 1
+          },
+          {
+            "s": "GatedSubscriptionProvider",
+            "n": 1
+          },
+          {
+            "s": "AuraSubscriptionProvider",
+            "n": 1
+          },
+          {
+            "s": "WhatsAppPlusSubscription",
+            "n": 1
+          },
+          {
+            "s": "AuraSubscription",
+            "n": 1
+          },
+          {
+            "s": "ABAuraBenefit",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefit",
+            "n": 1
+          },
+          {
+            "s": "WpbujBenefitStatus",
+            "n": 1
+          },
+          {
+            "s": "NWamEnumWpbujBenefitStatus",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionsByBenefit",
+            "n": 1
+          },
+          {
+            "s": "DisplayableSubscriptionType",
+            "n": 1
+          },
+          {
+            "s": "DisplayableSubscriptionPurchaseOrigin",
+            "n": 1
+          },
+          {
+            "s": "DisplayableSubscription",
+            "n": 1
+          },
+          {
+            "s": "DisplayableSubscriptionProtocol",
+            "n": 1
+          },
+          {
+            "s": "DisplayableSubscriptionUpsellSurface",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionNotificationData",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionNotificationPresenter",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionNotificationPresenting",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionSource",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionNotificationKeyValueStorage",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionNotificationStoring",
+            "n": 1
+          },
+          {
+            "s": "AISubscriptions",
+            "n": 1
+          },
+          {
+            "s": "CallPeerRxSubscriptionInfo",
+            "n": 1
+          },
+          {
+            "s": "QPWhatsAppBizAIHasActiveSubscriptionFilter",
+            "n": 1
+          },
+          {
+            "s": "QPWhatsAppSubscriptionsEligibilityCheckFilter",
+            "n": 1
+          },
+          {
+            "s": "QPWhatsAppSubscriptionsStatusCheckFilter",
+            "n": 1
+          },
+          {
+            "s": "SMBMVSubscriptionPresenter",
+            "n": 1
+          },
+          {
+            "s": "AiSubscriptionEnabled",
+            "n": 1
+          },
+          {
+            "s": "AiSubscriptionMeteringEnabled",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_emplaceIN5pando7graphql27SubscriptionUpdateCallbacksENS_9allocatorIS3_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__120__shared_ptr_pointerIPN5pando7graphql27SubscriptionUpdateCallbacksENS_14default_deleteIS3_EENS_9allocatorIS3_EEEE",
+            "n": 1
+          },
+          {
+            "s": "NSt3__114default_deleteIN5pando7graphql27SubscriptionUpdateCallbacksEEE",
+            "n": 1
+          },
+          {
+            "s": "N5pando7graphql27SubscriptionUpdateCallbacksE",
+            "n": 1
+          },
+          {
+            "s": "SubscriptionAgeEligibilityProviding",
+            "n": 1
+          },
+          {
+            "s": "AuraGating",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefitReliabilityLogger",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefitProviderSocketProtocol",
+            "n": 1
+          },
+          {
+            "s": "AuraBenefitProviderAppExtensionSocketProtocol",
+            "n": 1
+          },
+          {
+            "s": "AuraSubscriptionProviderSocketProtocol",
+            "n": 1
+          }
+        ]
+      },
+      "internal": {
+        "unique_count": 1328,
+        "top": [
+          {
+            "s": "debugInfo",
+            "n": 5
+          },
+          {
+            "s": "Internal",
+            "n": 3
+          },
+          {
+            "s": "internalFilterUpdater",
+            "n": 3
+          },
+          {
+            "s": "audioDebugOptions",
+            "n": 3
+          },
+          {
+            "s": "debug",
+            "n": 3
+          },
+          {
+            "s": "zero-dogfood-device-id",
+            "n": 2
+          },
+          {
+            "s": "WADebugBreadcrumbsObjC",
+            "n": 2
+          },
+          {
+            "s": "debugDescription",
+            "n": 2
+          },
+          {
+            "s": "debugForceCompanionCapable",
+            "n": 2
+          },
+          {
+            "s": "debugInfoArray",
+            "n": 2
+          },
+          {
+            "s": "debugSuggestDBRepair",
+            "n": 2
+          },
+          {
+            "s": "audioDebugCreationSources",
+            "n": 2
+          },
+          {
+            "s": "debugCloseSharingEmoji",
+            "n": 2
+          },
+          {
+            "s": "debugCloseSharingEnabled",
+            "n": 2
+          },
+          {
+            "s": "debugCloseSharingTitle",
+            "n": 2
+          },
+          {
+            "s": "debugDynamicColors",
+            "n": 2
+          },
+          {
+            "s": "debugIgnoreHasShownScreenShareTooltip",
+            "n": 2
+          },
+          {
+            "s": "debugIgnoreMediaSentForShareTooltip",
+            "n": 2
+          },
+          {
+            "s": "debugIgnorePTVSentForPTVTooltip",
+            "n": 2
+          },
+          {
+            "s": "debugIgnoreReactionAndRaiseHandTooltip",
+            "n": 2
+          },
+          {
+            "s": "debugIgnoreSendReactionTooltip",
+            "n": 2
+          },
+          {
+            "s": "debugLowStorageBanner",
+            "n": 2
+          },
+          {
+            "s": "debugPollsOutgoingValidationSkip",
+            "n": 2
+          },
+          {
+            "s": "debugSmaxMessageInjectionUitest",
+            "n": 2
+          },
+          {
+            "s": "debugWebPairAuth",
+            "n": 2
+          },
+          {
+            "s": "graphQLEmployeeC1Disabled",
+            "n": 2
+          },
+          {
+            "s": "mdPairingDebugModeEnabled",
+            "n": 2
+          },
+          {
+            "s": "migrationUseAndroidDebugSignature",
+            "n": 2
+          },
+          {
+            "s": "privateExperimentationLastSyncTimestamp",
+            "n": 2
+          },
+          {
+            "s": "privateExperimentationSalt",
+            "n": 2
+          },
+          {
+            "s": "debugMode",
+            "n": 2
+          },
+          {
+            "s": "debugCtwaSendFakeAdReplyInfo",
+            "n": 2
+          },
+          {
+            "s": "stickerAdvancedDebuggingEnabled",
+            "n": 2
+          },
+          {
+            "s": "internalMetadata",
+            "n": 2
+          },
+          {
+            "s": "debugOverridePassesU18AgeCheck",
+            "n": 2
+          },
+          {
+            "s": "debugAllowed",
+            "n": 2
+          },
+          {
+            "s": "clientDebugData",
+            "n": 2
+          },
+          {
+            "s": "_lastGraphSpecDebugInfo",
+            "n": 2
+          },
+          {
+            "s": "_lastStemCacheDebugInfo",
+            "n": 2
+          },
+          {
+            "s": "stemCacheDebugInfoSnapshot",
+            "n": 2
+          },
+          {
+            "s": "lastForwardFillDebugSnapshot",
+            "n": 2
+          },
+          {
+            "s": "lastFullBackfillDebugSnapshot",
+            "n": 2
+          },
+          {
+            "s": "cachedProviderDebugSnapshot",
+            "n": 2
+          },
+          {
+            "s": "lastProviderDebugSnapshotRefreshUptime",
+            "n": 2
+          },
+          {
+            "s": "latestStartupDebugInfo",
+            "n": 2
+          },
+          {
+            "s": "isAudioLevelDebugEnabled",
+            "n": 2
+          },
+          {
+            "s": "debugViewEnabled",
+            "n": 2
+          },
+          {
+            "s": "debugInfoSizeLimit",
+            "n": 2
+          },
+          {
+            "s": "aiShowMMCStateDebugView",
+            "n": 2
+          },
+          {
+            "s": "teeInternalFeaturesEnabled",
+            "n": 2
+          },
+          {
+            "s": "debugIncognitoUseCaseOverride",
+            "n": 2
+          },
+          {
+            "s": "GenAIDebugDataFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "GenAIUnifiedResponseMetadata_debugDataFragmentImpl",
+            "n": 2
+          },
+          {
+            "s": "debugIncognitoConfigOverrideModel",
+            "n": 2
+          },
+          {
+            "s": "debugIncognitoPersonalizationUIEnabled",
+            "n": 2
+          },
+          {
+            "s": "enableDebugLogging",
+            "n": 2
+          },
+          {
+            "s": "debugInAppNotificationNoMessage",
+            "n": 2
+          },
+          {
+            "s": "backupDebugCloudkit",
+            "n": 2
+          },
+          {
+            "s": "backupDebugPwdProtectBackup",
+            "n": 2
+          },
+          {
+            "s": "debugPttPlaybackSpeed",
+            "n": 2
+          },
+          {
+            "s": "debugPttRecordOnTap",
+            "n": 2
+          },
+          {
+            "s": "previewMediaSourceDebugDescription",
+            "n": 2
+          },
+          {
+            "s": "previewMediaSourceDebugDescriptionSize",
+            "n": 2
+          },
+          {
+            "s": "previewOverlayMediaSourceDebugDescriptions",
+            "n": 2
+          },
+          {
+            "s": "_$ss9CodingKeyPsE16debugDescriptionSSvg",
+            "n": 2
+          },
+          {
+            "s": "_$ss13DecodingErrorO7ContextV10codingPath16debugDescription010underlyingB0ADSays9CodingKey_pG_SSs0B0_pSgtcfC",
+            "n": 2
+          },
+          {
+            "s": "_$ss13DecodingErrorO013dataCorruptedB06forKey2in16debugDescriptionAB0F0Qz_xSSts05KeyedA17ContainerProtocolRzlFZ",
+            "n": 2
+          },
+          {
+            "s": "_$ss13DecodingErrorO013dataCorruptedB02in16debugDescriptionABs011SingleValueA9Container_p_SStFZ",
+            "n": 2
+          },
+          {
+            "s": "_$ss13EncodingErrorO7ContextV10codingPath16debugDescription010underlyingB0ADSays9CodingKey_pG_SSs0B0_pSgtcfC",
+            "n": 2
+          },
+          {
+            "s": "_$sSq16debugDescriptionSSvg",
+            "n": 2
+          },
+          {
+            "s": "_NSDebugDescriptionErrorKey",
+            "n": 2
+          },
+          {
+            "s": "_NSInternalInconsistencyException",
+            "n": 2
+          },
+          {
+            "s": "_$ss10debugPrint_9separator10terminator2toyypd_S2Sxzts16TextOutputStreamRzlF",
+            "n": 2
+          },
+          {
+            "s": "_$ss28CustomDebugStringConvertibleP16debugDescriptionSSvgTj",
+            "n": 2
+          },
+          {
+            "s": "_$sSd16debugDescriptionSSvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSf16debugDescriptionSSvg",
+            "n": 2
+          },
+          {
+            "s": "_$sSo13os_log_type_ta0A0E5debugABvgZ",
+            "n": 2
+          },
+          {
+            "s": "OTPLoggerInternal",
+            "n": 1
+          },
+          {
+            "s": "AWDLDebugEventLogger",
+            "n": 1
+          },
+          {
+            "s": "AWDLDebugEventLogging",
+            "n": 1
+          }
+        ]
+      }
+    }
+  }
+}
