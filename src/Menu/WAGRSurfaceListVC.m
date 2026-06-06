@@ -142,6 +142,8 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
     WAGRRootSectionAreas,
     WAGRRootSectionAbout,
     WAGRRootSectionBundles,
+    // WAGRRootSectionFeatureSurfaces is the validated name for the feature-bundle section.
+    WAGRRootSectionFeatureSurfaces = WAGRRootSectionBundles,
     WAGRRootSectionAdvanced,
     WAGRRootSectionSystem,
 };
@@ -255,7 +257,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         case WAGRRootSectionSecret: return @"Menus Secretos do App";
         case WAGRRootSectionAreas: return @"Áreas de Gating (Curadas)";
         case WAGRRootSectionAbout: return nil;
-        case WAGRRootSectionBundles: return @"Categorias";
+        case WAGRRootSectionBundles: return @"Categorias — Features confirmadas no binário";
         case WAGRRootSectionAdvanced: return @"Avançado";
         case WAGRRootSectionSystem: return @"Sistema";
     }

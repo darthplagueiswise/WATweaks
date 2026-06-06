@@ -35,6 +35,17 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
 
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces {
     return @[
+        WAGRMakeSurface(@"exec", @"Runtime - WhatsApp executable",
+                        @"Scoped only to /WhatsApp.app/WhatsApp. No semantic token filter.",
+                        @"app.dashed",
+                        @[], @[@"WA", @"WDS", @"_TtC"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(@"sharedmodules", @"Runtime - SharedModules.framework",
+                        @"Scoped only to SharedModules.framework/SharedModules. No semantic token filter.",
+                        @"shippingbox",
+                        @[], @[@"WA", @"WDS", @"FOA", @"Aura"],
+                        @[], @[], YES, YES, YES, YES),
         WAGRMakeSurface(kWAGRSurfaceWAAB, @"WAABProperties",
                         @"AB props / feature flags; WAABProperties + FOAWAABPropertiesImpl",
                         @"switch.2",

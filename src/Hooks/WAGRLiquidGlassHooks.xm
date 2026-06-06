@@ -31,7 +31,7 @@ static void WAGRLGApplyNative(void){
         @"ios_liquid_glass_calling_improvement_enabled",@"ios_liquid_glass_workaround_attachment_tray",
         @"ios_liquid_glass_enable_new_chatbar_ux",@"ios_liquid_glass_chat_top_bar_m2_enabled",
         @"ios_liquid_glass_text_layout_m2_enabled",@"ios_liquid_glass_m_2_action_tile",
-        @"ios_liquid_glass_unify_ui_refresh_enabled",@"ios_liquid_glass_unify_navigation_bar_enabled",
+        @"ios_liquid_glass_unify_ui_refresh_enabled",@"ios_liquid_glass_unify_navigation_bar_enabled",@"ios_liquid_glass_unify_hover_actions_enabled",
         @"ios_liquid_glass_native_sidebar_enabled",@"status_viewer_redesign_enabled"];
     for(NSString*k in keys){if(on)[ud setBool:YES forKey:k];else[ud removeObjectForKey:k];}
     [ud synchronize];
@@ -57,7 +57,7 @@ static NSArray<NSString *> *WAGRLGWDSSelectors(void) {
              @"isNewChatbarUXEnabled", @"isChatbarLowerBottomPaddingEnabled", @"isChatTopBarM2Enabled",
              @"isTextLayoutM2Enabled", @"isM1_5ContextMenuEnabled", @"isActionTileM2Enabled",
              @"isUnifyUIRefreshEnabled", @"isCustomToolbarDisabledForLiquidGlass",
-             @"isUnifyNavigationBarEnabled", @"shouldUseNativeSwipeActions", @"isHidingBottomBarWorkaroundEnabled",
+             @"isUnifyNavigationBarEnabled", @"isUnifyHoverActionsEnabled", @"shouldUseNativeSwipeActions", @"isHidingBottomBarWorkaroundEnabled",
              @"isTopBarAppearanceWorkaroundEnabled", @"isFixesForOlderOSEnabled",
              @"isFixTabbarBadgeOffthreadEnabled", @"isContextMenuTransitionSafetyFixEnabled",
              @"isFixContextMenuOnDisappearEnabled", @"isFixUpdatesTableDynamicColorEnabled",

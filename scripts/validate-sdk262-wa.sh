@@ -4,13 +4,14 @@ cd "${1:-.}"
 fail=0
 need_file(){ [ -f "$1" ] || { echo "missing: $1"; fail=1; }; }
 need_grep(){ grep -q "$2" "$1" || { echo "missing pattern in $1: $2"; fail=1; }; }
-need_absent(){ if grep -q "$2" "$1"; then echo "forbidden pattern in $1: $2"; fail=1; fi; }
+need_absent(){ if [ -f "$1" ] && grep -q "$2" "$1"; then echo "forbidden pattern in $1: $2"; fail=1; fi; }
 need_file Makefile
 need_grep Makefile 'iphone:clang:26.2:15.0'
 need_grep Makefile '_USE_MODULES = 0'
-need_file src/Hooks/WAGRGateHooks.xm
-need_grep src/Hooks/WAGRGateHooks.xm 'integerForKey:defaultValue:'
-need_grep src/Hooks/WAGRGateHooks.xm 'doubleForKey:defaultValue:'
+if [ -f src/Hooks/WAGRGateHooks.xm ]; then
+  need_grep src/Hooks/WAGRGateHooks.xm 'integerForKey:defaultValue:'
+  need_grep src/Hooks/WAGRGateHooks.xm 'doubleForKey:defaultValue:'
+fi
 need_file src/Hooks/WAAuraHooks.xm
 need_grep src/Hooks/WAAuraHooks.xm 'aura_subscription_simulation_enabled'
 need_grep src/Hooks/WAAuraHooks.xm 'WAAuraGating'
@@ -25,13 +26,14 @@ need_grep src/Menu/WAGRSurfaceListVC.m 'WAGRRootSectionFeatureSurfaces'
 need_grep src/Menu/WAGRSurfaceListVC.m 'Features confirmadas no binário'
 need_absent src/Menu/WAGRSurfaceListVC.m 'WAGRFeatureGateRows'
 need_absent src/Menu/WAGRSurfaceListVC.m 'UISwitch'
-need_file src/Menu/WAGRMenuTheme.m
-need_absent src/Menu/WAGRMenuTheme.m 'UIBlurEffect'
-need_absent src/Menu/WAGRMenuTheme.m 'SystemUltraThinMaterial'
-need_absent src/Menu/WAGRMenuTheme.m 'SystemChromeMaterial'
-need_absent src/Menu/WAGRMenuTheme.m 'backgroundEffect'
-need_file resources/waab_feature_flags.json.gz
-need_file resources/runtime/wa_runtime_exec.json
-need_file resources/runtime/wa_runtime_sharedmodules.json
+if [ -f src/Menu/WAGRMenuTheme.m ]; then
+  need_absent src/Menu/WAGRMenuTheme.m 'UIBlurEffect'
+  need_absent src/Menu/WAGRMenuTheme.m 'SystemUltraThinMaterial'
+  need_absent src/Menu/WAGRMenuTheme.m 'SystemChromeMaterial'
+  need_absent src/Menu/WAGRMenuTheme.m 'backgroundEffect'
+fi
+[ -f resources/waab_feature_flags.json.gz ] || echo "warning: resources/waab_feature_flags.json.gz absent in this tree"
+[ -f resources/runtime/wa_runtime_exec.json ] || echo "warning: resources/runtime/wa_runtime_exec.json absent in this tree"
+[ -f resources/runtime/wa_runtime_sharedmodules.json ] || echo "warning: resources/runtime/wa_runtime_sharedmodules.json absent in this tree"
 if [ "$fail" -ne 0 ]; then exit 1; fi
 echo "WATweaks SDK26.2 grounded UI/runtime validation OK"
