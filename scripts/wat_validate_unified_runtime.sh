@@ -41,6 +41,13 @@ need_grep src/WAGramPrefix.h 'WAGRIsRuntimeOverridePreferenceKey'
 need_grep src/WAGramPrefix.h 'WAGRClearRuntimeOverridePreferences'
 need_grep src/WAGramPrefix.h 'WAGRClearAllManagedPreferences'
 need_grep src/WAGramPrefix.h 'WAGRIsManagedPreferenceKey'
+need_grep src/WAGramPrefix.h 'kWAGRGateEligibility'
+need_grep src/WAGramPrefix.h 'kWAGRGateUsername'
+need_grep src/WAGramPrefix.h 'kWAGRGatePremiumBroadcast'
+need_file src/Hooks/WAGRGlobalGateStub.xm
+need_grep src/Hooks/WAGRGlobalGateStub.xm 'kWAGRGateEligibility'
+need_grep src/Hooks/WAGRGlobalGateStub.xm 'kWAGRGateUsername'
+need_grep src/Hooks/WAGRGlobalGateStub.xm 'kWAGRGatePremiumBroadcast'
 
 need_grep src/Menu/WAGRSurfaceListVC.m 'WAGRClearRuntimeOverridePreferences'
 need_grep src/Menu/WAGRSurfaceListVC.m 'WAGRClearAllManagedPreferences'

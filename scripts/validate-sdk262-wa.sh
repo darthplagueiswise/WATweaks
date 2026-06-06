@@ -12,6 +12,9 @@ if [ -f src/Hooks/WAGRGateHooks.xm ]; then
   need_grep src/Hooks/WAGRGateHooks.xm 'integerForKey:defaultValue:'
   need_grep src/Hooks/WAGRGateHooks.xm 'doubleForKey:defaultValue:'
 fi
+need_grep src/WAGramPrefix.h 'kWAGRGateEligibility'
+need_grep src/WAGramPrefix.h 'kWAGRGateUsername'
+need_grep src/WAGramPrefix.h 'kWAGRGatePremiumBroadcast'
 need_file src/Hooks/WAAuraHooks.xm
 need_grep src/Hooks/WAAuraHooks.xm 'aura_subscription_simulation_enabled'
 need_grep src/Hooks/WAAuraHooks.xm 'WAAuraGating'

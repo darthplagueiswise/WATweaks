@@ -109,6 +109,9 @@ static inline void WAGRSet(NSString *flag, NSString *val) {
 #define kWAGRDebugMode         @"wagr_debug_mode_enabled"
 #define kWAGRInternalMaster    @"wagr_internal_master_enabled"
 #define kWAGRDebugMenuNative   @"wagr_native_debug_menu_enabled"
+#define kWAGRGateEligibility     @"watweak_gate_eligibility_master"
+#define kWAGRGateUsername        @"watweak_gate_username_master"
+#define kWAGRGatePremiumBroadcast @"watweak_gate_premium_broadcast"
 
 // ── Dogfood gate individual keys ──────────────────────────────────────────────
 #define kWAGRDogfoodGateMetaEmployee      @"wagr.dogfood.gate.isMetaEmployeeOrInternalTester"
