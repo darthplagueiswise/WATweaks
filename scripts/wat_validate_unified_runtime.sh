@@ -17,6 +17,9 @@ need_file src/WAGramPrefix.h
 need_file src/Menu/WAGRSurfaceListVC.m
 need_file src/Menu/WAGRSettingsBackup.m
 need_file src/Hooks/WAGRObjCHookRouter.xm
+[ ! -f src/Hooks/WAGRAuraNavigationHooks.xm ] || err "obsolete duplicate-owner file still present: src/Hooks/WAGRAuraNavigationHooks.xm"
+[ ! -f src/Runtime/WAGRRuntimeCompat.m ] || err "obsolete duplicate-owner file still present: src/Runtime/WAGRRuntimeCompat.m"
+[ ! -f src/Menu/WAGRResetRuntimeOverridesFix.xm ] || err "obsolete duplicate-owner file still present: src/Menu/WAGRResetRuntimeOverridesFix.xm"
 
 need_grep Makefile 'iphone:clang:26.2:15.0'
 need_grep Makefile '_USE_MODULES = 0'
@@ -60,6 +63,8 @@ need_grep src/Menu/WAGRSettingsBackup.m 'WAGRClearAllManagedPreferences'
 python3 scripts/wagr_validate_sources.py >/tmp/wat_validate_wagr.out
 cat /tmp/wat_validate_wagr.out
 
+
+python3 scripts/wat_validate_link_sanity.py .
 
 python3 - "." <<'PY'
 import re, sys

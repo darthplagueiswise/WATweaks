@@ -40,6 +40,8 @@ fi
 [ -f resources/runtime/wa_runtime_exec.json ] || echo "warning: resources/runtime/wa_runtime_exec.json absent in this tree"
 [ -f resources/runtime/wa_runtime_sharedmodules.json ] || echo "warning: resources/runtime/wa_runtime_sharedmodules.json absent in this tree"
 
+python3 scripts/wat_validate_link_sanity.py .
+
 python3 - "." <<'PY'
 import re, sys
 from pathlib import Path

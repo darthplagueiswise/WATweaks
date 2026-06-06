@@ -6,7 +6,8 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = WATweaks
 
-WATWEAKS_SRC_FILES := $(shell find src -type f \( -iname \*.x -o -iname \*.xm -o -iname \*.m \))
+WATWEAKS_SRC_FILES_RAW := $(shell find src -type f \( -iname \*.x -o -iname \*.xm -o -iname \*.m \))
+WATWEAKS_SRC_FILES := $(filter-out %/WAGRAuraNavigationHooks.xm %/WAGRRuntimeCompat.m %/WAGRResetRuntimeOverridesFix.xm,$(WATWEAKS_SRC_FILES_RAW))
 
 $(TWEAK_NAME)_FILES  = $(WATWEAKS_SRC_FILES) modules/fishhook/fishhook.c
 

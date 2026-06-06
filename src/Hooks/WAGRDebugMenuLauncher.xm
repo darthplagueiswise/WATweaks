@@ -306,11 +306,11 @@ extern "C" BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError 
 }
 
 extern "C" NSString *WAGRCurrentUserContextDiagnostic(void) {
+    UIViewController *top = wagr_topViewController();
     id liveCtx = wagr_findUserContextAnywhere();
-    return [NSString stringWithFormat:
-            @"UserContext: %@\nTopVC: %@",
+    return [NSString stringWithFormat:@"UserContext: %@\nTopVC: %@",
             liveCtx ? NSStringFromClass([liveCtx class]) : @"not located",
-            wagr_topViewController() ? NSStringFromClass([wagr_topViewController() class]) : @"not located"];
+            top ? NSStringFromClass([top class]) : @"not located"];
 }
 
 extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError) {
@@ -359,15 +359,12 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
 extern "C" NSString *WAGRDebugMenuLauncherDiagnosticText(void) {
     Class debugCls = NSClassFromString(@"WADebugViewController");
     Class providerCls = NSClassFromString(@"_TtC15WADebugMenuMain17DebugMenuProvider");
-    Class privateExpCls = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
     id liveCtx = wagr_findUserContextAnywhere();
     return [NSString stringWithFormat:
             @"WADebugViewController:  %@\n"
             @"DebugMenuProvider Swift: %@\n"
-            @"PrivateExp Swift:       %@\n"
-            @"Live userContext:       %@",
+            @"Live userContext:        %@",
             debugCls ? @"found" : @"NOT FOUND",
             providerCls ? @"found" : @"NOT FOUND",
-            privateExpCls ? @"found" : @"NOT FOUND",
             liveCtx ? NSStringFromClass([liveCtx class]) : @"not located"];
 }
