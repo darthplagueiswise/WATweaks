@@ -18,6 +18,8 @@ static NSMutableDictionary<NSString *, NSValue *> *gBoolKeyOriginals = nil;
 static NSMutableDictionary<NSString *, NSValue *> *gStringKeyOriginals = nil;
 static NSMutableDictionary<NSString *, NSValue *> *gIntegerKeyOriginals = nil;
 static NSMutableDictionary<NSString *, NSValue *> *gDoubleKeyOriginals = nil;
+static NSMutableSet<NSString *> *gWAABObservedKeys = nil;
+static dispatch_queue_t gWAABObservedQueue = nil;
 
 static void WAGRGateStorageInit(void) {
     dispatch_once(&gGateOnce, ^{
@@ -27,6 +29,8 @@ static void WAGRGateStorageInit(void) {
         gStringKeyOriginals = [NSMutableDictionary dictionary];
         gIntegerKeyOriginals = [NSMutableDictionary dictionary];
         gDoubleKeyOriginals = [NSMutableDictionary dictionary];
+        gWAABObservedKeys = [NSMutableSet setWithCapacity:1024];
+        gWAABObservedQueue = dispatch_queue_create("com.watweaks.waab.observed", DISPATCH_QUEUE_SERIAL);
     });
 }
 
@@ -83,6 +87,26 @@ extern "C" BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *se
     return WAGRGateInstallHookForSelectorInternal(className, selectorName, isClassMethod, YES);
 }
 
+
+static void WAGRWAABRememberObservedKey(NSString *key) {
+    if (!key.length) return;
+    WAGRGateStorageInit();
+    NSString *copy = [key copy];
+    dispatch_async(gWAABObservedQueue, ^{ [gWAABObservedKeys addObject:copy]; });
+}
+
+extern "C" NSArray<NSString *> *WAGRWAABObservedKeys(void) {
+    WAGRGateStorageInit();
+    __block NSArray<NSString *> *snapshot = nil;
+    dispatch_sync(gWAABObservedQueue, ^{ snapshot = [[gWAABObservedKeys allObjects] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)]; });
+    NSMutableOrderedSet<NSString *> *merged = [NSMutableOrderedSet orderedSetWithArray:snapshot ?: @[]];
+    for (NSString *stored in WAGRGateAllOverrides()) {
+        NSString *display = WAGRGateDisplayKey(stored);
+        if (display.length) [merged addObject:display];
+    }
+    return merged.array;
+}
+
 typedef BOOL      (*BoolKeyIMP)(id, SEL, NSString *, BOOL);
 typedef id        (*StringKeyIMP)(id, SEL, NSString *, id);
 typedef long long (*IntegerKeyIMP)(id, SEL, NSString *, long long);
@@ -91,32 +115,36 @@ typedef double    (*DoubleKeyIMP)(id, SEL, NSString *, double);
 static BOOL WAGRBoolForKeyTrampoline(id self, SEL _cmd, NSString *key, BOOL defaultVal) {
     WAGRGateStorageInit();
     NSString *className = NSStringFromClass([self class]);
-    BoolKeyIMP orig = gBoolKeyOriginals[className] ? (BoolKeyIMP)[gBoolKeyOriginals[className] pointerValue] : NULL;
+    BoolKeyIMP orig = gBoolKeyOriginals[className] ? reinterpret_cast<BoolKeyIMP>([gBoolKeyOriginals[className] pointerValue]) : NULL;
     BOOL original = orig ? orig(self, _cmd, key, defaultVal) : defaultVal;
+    WAGRWAABRememberObservedKey(key);
     if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key);
     return original;
 }
 static id WAGRStringForKeyTrampoline(id self, SEL _cmd, NSString *key, id defaultVal) {
     WAGRGateStorageInit();
     NSString *className = NSStringFromClass([self class]);
-    StringKeyIMP orig = gStringKeyOriginals[className] ? (StringKeyIMP)[gStringKeyOriginals[className] pointerValue] : NULL;
+    StringKeyIMP orig = gStringKeyOriginals[className] ? reinterpret_cast<StringKeyIMP>([gStringKeyOriginals[className] pointerValue]) : NULL;
     id original = orig ? orig(self, _cmd, key, defaultVal) : defaultVal;
+    WAGRWAABRememberObservedKey(key);
     if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key) ? @"1" : @"";
     return original;
 }
 static long long WAGRIntegerForKeyTrampoline(id self, SEL _cmd, NSString *key, long long defaultVal) {
     WAGRGateStorageInit();
     NSString *className = NSStringFromClass([self class]);
-    IntegerKeyIMP orig = gIntegerKeyOriginals[className] ? (IntegerKeyIMP)[gIntegerKeyOriginals[className] pointerValue] : NULL;
+    IntegerKeyIMP orig = gIntegerKeyOriginals[className] ? reinterpret_cast<IntegerKeyIMP>([gIntegerKeyOriginals[className] pointerValue]) : NULL;
     long long original = orig ? orig(self, _cmd, key, defaultVal) : defaultVal;
+    WAGRWAABRememberObservedKey(key);
     if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key) ? 1LL : 0LL;
     return original;
 }
 static double WAGRDoubleForKeyTrampoline(id self, SEL _cmd, NSString *key, double defaultVal) {
     WAGRGateStorageInit();
     NSString *className = NSStringFromClass([self class]);
-    DoubleKeyIMP orig = gDoubleKeyOriginals[className] ? (DoubleKeyIMP)[gDoubleKeyOriginals[className] pointerValue] : NULL;
+    DoubleKeyIMP orig = gDoubleKeyOriginals[className] ? reinterpret_cast<DoubleKeyIMP>([gDoubleKeyOriginals[className] pointerValue]) : NULL;
     double original = orig ? orig(self, _cmd, key, defaultVal) : defaultVal;
+    WAGRWAABRememberObservedKey(key);
     if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key) ? 1.0 : 0.0;
     return original;
 }

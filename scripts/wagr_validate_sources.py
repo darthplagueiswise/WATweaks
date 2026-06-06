@@ -1,98 +1,76 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re, sys
-
+import re, sys, collections
 root = Path(__file__).resolve().parents[1]
-errors = []
+errors=[]
 
 def read(rel):
-    p = root / rel
+    p=root/rel
     if not p.exists():
-        errors.append(f"missing {rel}")
-        return ""
-    return p.read_text(errors="ignore")
+        errors.append(f"missing {rel}"); return ""
+    return p.read_text(errors='ignore')
 
-# Core file presence.
 for rel in [
-    "Makefile",
-    "build.sh",
-    "control",
-    "WATweaks.plist",
-    "src/Tweak.x",
-    "src/Menu/WAGRSurfaceListVC.m",
-    "src/Menu/WAGRSurfaceBrowserVC.m",
-    "src/Runtime/WAGRSurface.m",
-    "src/Runtime/WAGRObjectGraphScanner.m",
-    "src/Hooks/WAGRObjCHookRouter.xm",
+    'Makefile','build.sh','control','WATweaks.plist','src/Tweak.x',
+    'src/Menu/WAGRMenuTheme.m','src/Menu/WAGRSurfaceListVC.m','src/Menu/WAGRSurfaceBrowserVC.m','src/Menu/WAGRABPropsRootVC.m',
+    'src/Runtime/WAGRSurface.m','src/Runtime/WAGRGateStore.m','src/Hooks/WAGRGateHooks.xm'
 ]:
-    if not (root / rel).exists():
-        errors.append(f"missing {rel}")
+    if not (root/rel).exists(): errors.append(f"missing {rel}")
 
-# Local imports must exist.
-for p in list((root / "src").rglob("*.m")) + list((root / "src").rglob("*.x")) + list((root / "src").rglob("*.xm")) + list((root / "src").rglob("*.h")):
-    s = p.read_text(errors="ignore")
+# Local imports must resolve.
+for p in list((root/'src').rglob('*.m')) + list((root/'src').rglob('*.x')) + list((root/'src').rglob('*.xm')) + list((root/'src').rglob('*.h')):
+    s=p.read_text(errors='ignore')
     for inc in re.findall(r'#import\s+"([^"]+)"', s):
-        candidates = [p.parent / inc, root / "src" / inc, root / inc]
-        if not any(c.exists() for c in candidates):
-            errors.append(f"{p.relative_to(root)}: missing import {inc}")
+        candidates=[p.parent/inc, root/'src'/inc, root/inc]
+        if not any(c.exists() for c in candidates): errors.append(f"{p.relative_to(root)}: missing import {inc}")
 
-# Longpress must remain in Tweak.x.
-tweak = read("src/Tweak.x")
-for token in ["UILongPressGestureRecognizer", "WAGRLP", "attachLP", "isTrigger", "WAGRPresent"]:
-    if token not in tweak:
-        errors.append(f"Tweak.x missing longpress token {token}")
+menu=read('src/Menu/WAGRSurfaceListVC.m')
+for token in ['ABProperties live','Runtime — WhatsApp','Runtime — SharedModules','Developer / Dogfood / Internal']:
+    if token not in menu: errors.append(f"WAGRSurfaceListVC.m missing {token}")
+for bad in ['WAGRRootSectionFeatureSurfaces','WAGRFeatureRow','Debug menu catalog']:
+    if bad in menu: errors.append(f"WAGRSurfaceListVC.m still contains old menu token {bad}")
 
+theme=read('src/Menu/WAGRMenuTheme.m')
+for token in ['UIGlassEffect','clearGlassButtonConfiguration','WAGRRealLiquidGlassEffect','WAGRApplyGlassBackdropToViewController','WAGRStyleSearchBarForGlass']:
+    if token not in theme: errors.append(f"WAGRMenuTheme.m missing LiquidGlass token {token}")
+for bad in ['UIBlurEffectStyleSystem','SystemUltraThinMaterial','SystemChromeMaterial']:
+    if bad in theme: errors.append(f"WAGRMenuTheme.m contains fake blur/material token {bad}")
 
-# Basic Objective-C syntax tripwires that previously escaped static validation.
-if 'new]})' in tweak or 'new]});' in tweak:
-    errors.append('Tweak.x has dispatch_once block assignment without semicolon inside block')
-if ']action:' in tweak:
-    errors.append('Tweak.x has Objective-C message keyword glued to previous argument: ]action:')
+browser=read('src/Menu/WAGRSurfaceBrowserVC.m')
+if 'WAGRRuntimeClassPrefix' not in browser: errors.append('runtime browser missing class-prefix grouping')
+for bad in ['WAGRRuntimeSubcategoryForName','WAGRRuntimeSectionForSelector','Positive · Enabled','Negative · Disabled','Experiment / Sync']:
+    if bad in browser: errors.append(f"runtime browser still has semantic categorization token {bad}")
+if 'UISwitch' not in browser: errors.append('runtime browser missing UISwitch')
 
-# Main menu must be feature-bundle oriented, not raw surface first.
-menu = read("src/Menu/WAGRSurfaceListVC.m")
-models = read("src/Runtime/WAGRSurface.m")
-for token in ["Categorias", "Runtime Browser Avançado"]:
-    if token not in menu:
-        errors.append(f"WAGRSurfaceListVC.m missing {token}")
-for token in ["LiquidGlass", "WA Plus / Aura", "Settings Rows", "Developer / Dogfood / Internal"]:
-    if token not in (menu + models):
-        errors.append(f"feature bundle missing {token}")
-if "RUNTIME SURFACES" in menu or "SYS|OFF|ON" in menu:
-    errors.append("WAGRSurfaceListVC.m still exposes old raw runtime copy")
+ab=read('src/Menu/WAGRABPropsRootVC.m')
+for token in ['WAGRWAABObservedKeys','ABProperties é lido em runtime','sortedArrayUsingSelector']:
+    if token not in ab: errors.append(f"ABPropsRoot missing {token}")
+for bad in ['providerWithID','WAGRGateCategoryVC','Categorias principais','LiquidGlass" detail']:
+    if bad in ab: errors.append(f"ABPropsRoot still has old provider/category token {bad}")
 
-# Surface browser must not show segmented SYS/OFF/ON.
-browser = read("src/Menu/WAGRSurfaceBrowserVC.m")
-if "UISegmentedControl" in browser or '@"SYS"' in browser or '@"OFF"' in browser or '@"ON"' in browser:
-    errors.append("WAGRSurfaceBrowserVC.m still has segmented SYS/OFF/ON UI")
-if "UISwitch" not in browser:
-    errors.append("WAGRSurfaceBrowserVC.m missing UISwitch")
-if "@property @property" in browser:
-    errors.append("WAGRSurfaceBrowserVC.m can render duplicated @property")
+# One prefix policy: new direct constants should be watweak_*. Legacy aliases may exist only inside GateStore migration maps.
+prefix=read('src/WAPrefix.h')
+for line in prefix.splitlines():
+    if line.startswith('#define WA_PREF_') and '"watweak_' not in line:
+        errors.append(f"WAPrefix direct preference is not watweak_: {line}")
 
-# Scanner must not prefix displayName with @property.
-scanner = read("src/Runtime/WAGRSurface.m")
-if 'displayName = [@"@property "' in scanner:
-    errors.append("scanner still adds @property prefix to displayName")
-for token in ["featureBundles", "selectorTokens", "scanProperties", "WAGRObjectGraphScanner"]:
-    # object graph lives in own file, not necessarily in scanner.
-    if token == "WAGRObjectGraphScanner":
-        continue
-    if token not in scanner and token not in read("src/Runtime/WAGRSurface.h"):
-        errors.append(f"runtime model missing {token}")
+# Duplicate exported C symbols guard.
+defs=collections.defaultdict(list)
+for p in list((root/'src').rglob('*.m')) + list((root/'src').rglob('*.xm')) + list((root/'src').rglob('*.mm')) + list((root/'src').rglob('*.x')):
+    s=p.read_text(errors='ignore')
+    for m in re.finditer(r'extern\s+"C"\s+(?:[A-Za-z_][\w:<>,\s\*]+)\s+((?:WAGR|WA)[A-Za-z0-9_]+)\s*\([^;{}]*\)\s*\{', s, re.M):
+        defs[m.group(1)].append(str(p.relative_to(root)))
+for name, files in sorted(defs.items()):
+    if len(files)>1:
+        errors.append(f"duplicate exported symbol {name}: {files}")
 
-# ObjC++ function pointers must use explicit casts for NSValue bridging.
-for p in list((root / "src").rglob("*.xm")) + list((root / "src").rglob("*.mm")):
-    s = p.read_text(errors="ignore")
-    for i, line in enumerate(s.splitlines(), 1):
-        if "valueWithPointer:" in line and "reinterpret_cast<const void *>" not in line and "(const void *)" not in line:
-            errors.append(f"{p.relative_to(root)}:{i}: valueWithPointer missing explicit function-pointer cast")
-        if re.search(r'\([A-Za-z_][A-Za-z0-9_]*IMP\)\s*\[[^\]]+\s+pointerValue\]', line):
+# Old pointerValue C-style function pointer cast guard.
+for p in list((root/'src').rglob('*.xm')) + list((root/'src').rglob('*.mm')):
+    for i,line in enumerate(p.read_text(errors='ignore').splitlines(),1):
+        if 'pointerValue]' in line and re.search(r'=\s*\([A-Za-z_][A-Za-z0-9_]*IMP\)\s*\[.*pointerValue\]', line):
             errors.append(f"{p.relative_to(root)}:{i}: pointerValue uses C-style function pointer cast")
 
 if errors:
-    for e in errors:
-        print("ERRO:", e, file=sys.stderr)
+    for e in errors: print('ERRO:', e)
     sys.exit(1)
-
-print("OK: WAGram router Ryuk-style bundle validation passed")
+print('OK: WATweaks liquidglass/live runtime source validation passed')

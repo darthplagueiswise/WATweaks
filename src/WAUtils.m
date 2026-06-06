@@ -1,14 +1,22 @@
 #import "WAUtils.h"
 #import "WAPrefix.h"
+#import "Runtime/WAGRGateStore.h"
 #import <objc/runtime.h>
 
 BOOL WAEnabled(NSString *key) {
     if (!key.length) return NO;
+    if ([key hasPrefix:@"watweak_"] || [key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) {
+        return WAGRGateIsSet(key) ? WAGRGateGet(key) : NO;
+    }
     return [NSUserDefaults.standardUserDefaults boolForKey:key];
 }
 
 void WASetEnabled(NSString *key, BOOL enabled) {
     if (!key.length) return;
+    if ([key hasPrefix:@"watweak_"] || [key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) {
+        WAGRGateSet(key, enabled);
+        return;
+    }
     [NSUserDefaults.standardUserDefaults setBool:enabled forKey:key];
     [NSUserDefaults.standardUserDefaults synchronize];
 }
@@ -21,19 +29,7 @@ void WARegisterDefaults(void) {
         WA_PREF_AB_OBSERVER: @NO,
         WA_PREF_LIQUID_GLASS: @NO,
         WA_PREF_LIQUID_GLASS_USERDEFAULTS: @YES,
-        WA_PREF_LIQUID_GLASS_METHOD_HOOKS: @YES,
-        @"wa_lg_ios_liquid_glass_enabled": @NO,
-        @"wa_lg_ios_liquid_glass_launched": @NO,
-        @"wa_lg_ios_liquid_glass_m1": @NO,
-        @"wa_lg_ios_liquid_glass_m_1_5": @NO,
-        @"wa_lg_ios_liquid_glass_m_1_5_context_menu": @NO,
-        @"wa_lg_ios_liquid_glass_chat_top_bar_m2_enabled": @NO,
-        @"wa_lg_ios_liquid_glass_enable_new_chatbar_ux": @NO,
-        @"wa_lg_ios_liquid_glass_larger_composer": @NO,
-        @"wa_lg_ios_liquid_glass_reduce_transparency": @NO,
-        @"wa_lg_ios_liquid_glass_workaround_attachment_tray": @NO,
-        @"wa_lg_ios_liquid_glass_workaround_hides_bottombar": @NO,
-        @"wa_lg_ios_liquid_glass_workaround_topbar_appearance": @NO
+        WA_PREF_LIQUID_GLASS_METHOD_HOOKS: @YES
     }];
 }
 

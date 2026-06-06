@@ -1,284 +1,195 @@
 #import "WAGRABPropsRootVC.h"
-#import "WAGRGateCategoryVC.h"
-#import "WAGRRuntimeGatesVC.h"
-#import "WAGRLogViewController.h"
 #import "WAGRMenuTheme.h"
-#import "../Runtime/WAGRGateRegistry.h"
+#import "WAGRLogViewController.h"
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRLog.h"
 
-extern BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
-extern NSString *WAGRCurrentUserContextDiagnostic(void);
-extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
-extern NSString *WAGRDebugMenuInstrumentationDiagnosticText(void);
-extern NSString *WAGRGateHooksDiagnostic(void);
+extern NSArray<NSString *> *WAGRWAABObservedKeys(void);
 extern void WAGRGateHooksEnsureInstalled(void);
+extern NSString *WAGRGateHooksDiagnostic(void);
+extern NSString *WAGRWAABDiagnosticText(void);
 
-typedef NS_ENUM(NSInteger, WAGRABPropsSection) {
-    WAGRABPropsSectionEntryPoints = 0,
-    WAGRABPropsSectionFeatureBundles,
-    WAGRABPropsSectionInfra,
-    WAGRABPropsSectionCount
-};
-
-@interface WAGRABPropsRow : NSObject
-@property(nonatomic, copy) NSString *title;
-@property(nonatomic, copy) NSString *detail;
-@property(nonatomic, copy) NSString *icon;
-@property(nonatomic, copy) NSString *accentKey;
-@property(nonatomic, copy, nullable) NSString *providerID;
-@property(nonatomic, assign) NSInteger action;
-+ (instancetype)rowWithTitle:(NSString *)title
-                      detail:(NSString *)detail
-                        icon:(NSString *)icon
-                   accentKey:(NSString *)accentKey
-                  providerID:(nullable NSString *)providerID
-                      action:(NSInteger)action;
-@end
-
-@implementation WAGRABPropsRow
-+ (instancetype)rowWithTitle:(NSString *)title
-                      detail:(NSString *)detail
-                        icon:(NSString *)icon
-                   accentKey:(NSString *)accentKey
-                  providerID:(NSString *)providerID
-                      action:(NSInteger)action {
-    WAGRABPropsRow *r = [self new];
-    r.title = title ?: @"";
-    r.detail = detail ?: @"";
-    r.icon = icon ?: @"circle";
-    r.accentKey = accentKey ?: title ?: @"";
-    r.providerID = providerID;
-    r.action = action;
-    return r;
-}
-@end
-
-typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
-    WAGRABPropsActionProvider = 0,
-    WAGRABPropsActionPrivateExperimentation,
-    WAGRABPropsActionRuntimeRoot,
-    WAGRABPropsActionContextDiagnostic,
-    WAGRABPropsActionLogs
-};
-
-@interface WAGRABPropsRootVC ()
-@property(nonatomic, copy) NSArray<NSArray<WAGRABPropsRow *> *> *sections;
+@interface WAGRABPropsRootVC () <UISearchResultsUpdating>
+@property(nonatomic, copy) NSArray<NSString *> *allKeys;
+@property(nonatomic, copy) NSArray<NSString *> *visibleKeys;
+@property(nonatomic, copy) NSArray<NSString *> *sectionKeys;
+@property(nonatomic, copy) NSDictionary<NSString *, NSArray<NSString *> *> *sections;
+@property(nonatomic, strong) UISearchController *searchController;
 @end
 
 @implementation WAGRABPropsRootVC
 
 - (instancetype)init {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = @"AB Props";
+    self.title = @"ABProperties";
+    _allKeys = @[];
+    _visibleKeys = @[];
+    _sectionKeys = @[];
+    _sections = @{};
     return self;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
-    self.sections = [self buildSections];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Aplicar"
-                                                                              style:UIBarButtonItemStyleDone
-                                                                             target:self
-                                                                             action:@selector(applyVisibleOverrides)];
+    self.tableView.estimatedRowHeight = 76.0;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+
+    self.searchController = [[UISearchController alloc] initWithSearchResultsController:nil];
+    self.searchController.searchResultsUpdater = self;
+    self.searchController.obscuresBackgroundDuringPresentation = NO;
+    self.searchController.searchBar.placeholder = @"Buscar ABProperty em runtime";
+    self.navigationItem.searchController = self.searchController;
+    self.navigationItem.hidesSearchBarWhenScrolling = YES;
+    self.definesPresentationContext = YES;
+    WAGRStyleSearchBarForGlass(self.searchController.searchBar);
+
+    UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(reloadRuntimeKeys)];
+    UIBarButtonItem *apply = [[UIBarButtonItem alloc] initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone target:self action:@selector(applyHooks)];
+    self.navigationItem.rightBarButtonItems = @[apply, refresh];
+    [self reloadRuntimeKeys];
 }
 
-- (NSArray<NSArray<WAGRABPropsRow *> *> *)buildSections {
-    NSArray<WAGRABPropsRow *> *entryPoints = @[
-        [WAGRABPropsRow rowWithTitle:@"WAAB Feature Keys"
-                              detail:@"Flags WAAB principais: LiquidGlass, Aura, Contacts, Payments, Companion e chaves AB gerais."
-                                icon:@"switch.2"
-                           accentKey:@"waab"
-                          providerID:@"waab"
-                              action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"Fetch Experiments / Private Experimentation"
-                              detail:@"Abre o fluxo Swift nativo com userContext real. Usa o mesmo caminho do Fetch Experiments."
-                                icon:@"arrow.down.doc.fill"
-                           accentKey:@"private_experimentation"
-                          providerID:nil
-                              action:WAGRABPropsActionPrivateExperimentation],
-        [WAGRABPropsRow rowWithTitle:@"Todas as Categorias"
-                              detail:@"Lista completa por provider, com Runtime Avançado dentro de cada categoria."
-                                icon:@"square.grid.2x2.fill"
-                           accentKey:@"runtime"
-                          providerID:nil
-                              action:WAGRABPropsActionRuntimeRoot]
-    ];
-
-    NSArray<WAGRABPropsRow *> *featureBundles = @[
-        [WAGRABPropsRow rowWithTitle:@"LiquidGlass" detail:@"Milestones, chatbar, top bar, sidebar, media editor e workarounds." icon:@"sparkles" accentKey:@"liquidglass" providerID:@"liquidglass" action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"Aura / WA Plus" detail:@"Aparência, temas, ícones, ringtones, stickers, subscriptions e benefícios." icon:@"wand.and.stars" accentKey:@"aura" providerID:@"aura" action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"About" detail:@"Evolve About M1, receiver, entrypoint e consumo da superfície About." icon:@"person.text.rectangle.fill" accentKey:@"about" providerID:@"about" action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"Tab Me" detail:@"Me tab, status próprio, settings header/title, profile picture entrypoint e account switcher." icon:@"person.crop.circle.fill" accentKey:@"tab_me" providerID:@"tab_me" action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"Evolution" detail:@"Parâmetros visuais modernos, botões de navegação e bridges do Evolve About." icon:@"arrow.triangle.2.circlepath.circle.fill" accentKey:@"evolution" providerID:@"evolution" action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"Username" detail:@"Username privacy, global search, suggestions, migration, calling e companion." icon:@"at.circle.fill" accentKey:@"username" providerID:@"username" action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"Online Contacts" detail:@"Contacts surface, ContactsHub, recently online, LID contacts e status audience." icon:@"person.2.wave.2.fill" accentKey:@"online_contacts" providerID:@"online_contacts" action:WAGRABPropsActionProvider]
-    ];
-
-    NSArray<WAGRABPropsRow *> *infra = @[
-        [WAGRABPropsRow rowWithTitle:@"MobileConfig / Session Based"
-                              detail:@"Session-based MC, stable ID cache, source of truth e rollback gates."
-                                icon:@"slider.horizontal.3"
-                           accentKey:@"mobileconfig"
-                          providerID:@"mobileconfig"
-                              action:WAGRABPropsActionProvider],
-        [WAGRABPropsRow rowWithTitle:@"Context / PreFlight Inspector"
-                              detail:@"Mostra userContext, launcher, DebugMenuSpy e GateHooks sem abrir o console."
-                                icon:@"checklist.checked"
-                           accentKey:@"context"
-                          providerID:nil
-                              action:WAGRABPropsActionContextDiagnostic],
-        [WAGRABPropsRow rowWithTitle:@"WATweaks Log"
-                              detail:@"Buffer desta sessão com botão de voltar, copiar, atualizar e limpar."
-                                icon:@"doc.text.magnifyingglass"
-                           accentKey:@"log"
-                          providerID:nil
-                              action:WAGRABPropsActionLogs]
-    ];
-
-    return @[ entryPoints, featureBundles, infra ];
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    WAGRMenuApplyTableStyle(self.tableView, self);
+    WAGRStyleSearchBarForGlass(self.searchController.searchBar);
+    [self reloadRuntimeKeys];
 }
 
-#pragma mark - Table
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return WAGRABPropsSectionCount;
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    WAGRApplyLiquidGlassToViewTree(self.view);
+    WAGRStyleSearchBarForGlass(self.searchController.searchBar);
 }
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    if (section < 0 || section >= (NSInteger)self.sections.count) return 0;
-    return (NSInteger)self.sections[(NSUInteger)section].count;
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    switch ((WAGRABPropsSection)section) {
-        case WAGRABPropsSectionEntryPoints:    return @"AB Props";
-        case WAGRABPropsSectionFeatureBundles: return @"Categorias principais";
-        case WAGRABPropsSectionInfra:          return @"Infra / Diagnóstico";
-        case WAGRABPropsSectionCount:          return nil;
-    }
-    return nil;
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (section == WAGRABPropsSectionEntryPoints) {
-        return @"Esta tela substitui o yellow card da seção AB Props do Developer Menu sem mexer em WATableSection/WATableRow nativos.";
-    }
-    if (section == WAGRABPropsSectionFeatureBundles) {
-        return @"Cada categoria abre toggles principais e Runtime Avançado. O botão Aplicar instala hooks para overrides já definidos, ignorando negative/kill/disable por segurança.";
-    }
-    return nil;
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    WAGRABPropsRow *row = self.sections[(NSUInteger)indexPath.section][(NSUInteger)indexPath.row];
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"WAGRABPropsRootCell"];
-    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WAGRABPropsRootCell"];
-
-    WAGRMenuApplyCellStyle(cell, indexPath.row, row.accentKey);
-    cell.textLabel.text = row.title;
-    cell.detailTextLabel.text = [self detailForRow:row];
-    cell.detailTextLabel.numberOfLines = 0;
-    UIColor *accent = WAGRMenuAccentForKey(row.accentKey, indexPath.row);
-    cell.imageView.image = WAGRMenuSymbol(row.icon, nil);
-    cell.imageView.tintColor = accent;
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    cell.accessibilityIdentifier = [NSString stringWithFormat:@"WAGRABProps.%@", row.providerID ?: row.title];
-    return cell;
-}
-
-- (NSString *)detailForRow:(WAGRABPropsRow *)row {
-    if (!row.providerID.length) return row.detail;
-    WAGRGateProvider *provider = [WAGRGateRegistry providerWithID:row.providerID];
-    NSUInteger overrides = [self overrideCountForProvider:provider];
-    if (!overrides) return row.detail;
-    return [NSString stringWithFormat:@"%@ · %lu overrides", row.detail, (unsigned long)overrides];
-}
-
-- (NSUInteger)overrideCountForProvider:(WAGRGateProvider *)provider {
-    if (!provider) return 0;
-    NSArray<NSString *> *all = WAGRGateAllOverrides();
-    if (!all.count || !provider.featured.count) return 0;
-    NSMutableSet<NSString *> *keys = [NSMutableSet setWithCapacity:provider.featured.count];
-    for (WAGRGateFeaturedFlag *f in provider.featured) {
-        if (f.selectorName.length) [keys addObject:WAGRGateCanonicalKey(f.selectorName)];
-    }
-    NSUInteger count = 0;
-    for (NSString *key in all) if ([keys containsObject:WAGRGateCanonicalKey(key)]) count++;
-    return count;
-}
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    WAGRABPropsRow *row = self.sections[(NSUInteger)indexPath.section][(NSUInteger)indexPath.row];
-    [self openRow:row];
-}
-
-#pragma mark - Actions
-
-- (void)openRow:(WAGRABPropsRow *)row {
-    switch ((WAGRABPropsAction)row.action) {
-        case WAGRABPropsActionProvider: {
-            WAGRGateProvider *provider = [WAGRGateRegistry providerWithID:row.providerID];
-            if (!provider) {
-                [self showAlert:@"Provider ausente" message:[NSString stringWithFormat:@"Não encontrei providerID=%@.", row.providerID ?: @"nil"]];
-                return;
-            }
-            [self.navigationController pushViewController:[[WAGRGateCategoryVC alloc] initWithProvider:provider] animated:YES];
-            return;
-        }
-        case WAGRABPropsActionPrivateExperimentation: {
-            NSError *err = nil;
-            BOOL ok = WAGRLaunchPrivateExperimentationDebug(self, &err);
-            if (!ok) [self showAlert:@"Private Experimentation" message:err.localizedDescription ?: @"Não foi possível abrir."];
-            return;
-        }
-        case WAGRABPropsActionRuntimeRoot:
-            [self.navigationController pushViewController:[WAGRRuntimeGatesVC new] animated:YES];
-            return;
-        case WAGRABPropsActionContextDiagnostic:
-            [self showContextDiagnostic];
-            return;
-        case WAGRABPropsActionLogs:
-            [self.navigationController pushViewController:[WAGRLogViewController new] animated:YES];
-            return;
-    }
-}
-
-- (void)showContextDiagnostic {
-    NSString *msg = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@",
-                     WAGRCurrentUserContextDiagnostic() ?: @"UserContext: n/a",
-                     WAGRDebugMenuLauncherDiagnosticText() ?: @"Launcher: n/a",
-                     WAGRDebugMenuInstrumentationDiagnosticText() ?: @"DebugMenuSpy: n/a",
-                     WAGRGateHooksDiagnostic() ?: @"GateHooks: n/a"];
-    [self showAlert:@"Context / PreFlight" message:msg];
-}
-
-- (void)applyVisibleOverrides {
+- (void)reloadRuntimeKeys {
     WAGRGateHooksEnsureInstalled();
-    NSArray<NSString *> *overrideKeys = WAGRGateAllOverrides();
-    NSUInteger total = 0;
-    NSUInteger skipped = 0;
-    for (NSString *key in overrideKeys) {
-        total++;
-        if (WAGRMenuIsNegativeGateName(key)) skipped++;
+    NSMutableOrderedSet<NSString *> *set = [NSMutableOrderedSet orderedSet];
+    NSArray *observed = nil;
+    @try { observed = WAGRWAABObservedKeys(); } @catch (__unused NSException *ex) { observed = @[]; }
+    for (id key in observed) if ([key isKindOfClass:NSString.class] && [(NSString *)key length]) [set addObject:key];
+    for (NSString *stored in WAGRGateAllOverrides()) {
+        NSString *display = WAGRGateDisplayKey(stored);
+        if (display.length) [set addObject:display];
     }
-    NSString *msg = [NSString stringWithFormat:@"Overrides ativos: %lu\nIgnorados por segurança: %lu\nHooks centrais foram solicitados. Para hooks diretos, abra a categoria específica e use Aplicar.",
-                     (unsigned long)total, (unsigned long)skipped];
-    [self showAlert:@"Aplicar AB Props" message:msg];
+    self.allKeys = [[set array] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    [self applyFilter:self.searchController.searchBar.text ?: @""];
+}
+
+- (void)applyFilter:(NSString *)query {
+    NSString *q = query.lowercaseString ?: @"";
+    NSArray<NSString *> *base = self.allKeys ?: @[];
+    if (q.length) {
+        base = [base filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *key, NSDictionary *_) {
+            return [[key lowercaseString] containsString:q];
+        }]];
+    }
+    self.visibleKeys = base;
+    NSMutableDictionary<NSString *, NSMutableArray<NSString *> *> *map = [NSMutableDictionary dictionary];
+    for (NSString *key in base) {
+        NSString *first = key.length ? [[key substringToIndex:1] uppercaseString] : @"#";
+        unichar ch = [first characterAtIndex:0];
+        if (![[NSCharacterSet letterCharacterSet] characterIsMember:ch] && ![[NSCharacterSet decimalDigitCharacterSet] characterIsMember:ch]) first = @"#";
+        if (!map[first]) map[first] = [NSMutableArray array];
+        [map[first] addObject:key];
+    }
+    self.sectionKeys = [[map allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    self.sections = map;
     [self.tableView reloadData];
 }
 
-- (void)showAlert:(NSString *)title message:(NSString *)message {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title ?: @"WATweaks"
-                                                                   message:message ?: @""
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Copiar" style:UIAlertActionStyleDefault handler:^(__unused id _) {
-        UIPasteboard.generalPasteboard.string = message ?: @"";
+- (void)updateSearchResultsForSearchController:(UISearchController *)searchController {
+    [self applyFilter:searchController.searchBar.text ?: @""];
+    WAGRStyleSearchBarForGlass(searchController.searchBar);
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return self.sectionKeys.count ?: 1; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    if (!self.sectionKeys.count) return 1;
+    NSString *key = self.sectionKeys[(NSUInteger)section];
+    return self.sections[key].count;
+}
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    if (!self.sectionKeys.count) return nil;
+    NSString *k = self.sectionKeys[(NSUInteger)section];
+    return [NSString stringWithFormat:@"%@  (%lu)", k, (unsigned long)self.sections[k].count];
+}
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (!self.sectionKeys.count) return @"ABProperties é lido em runtime pelo hook central de bool/string/integer/doubleForKey:defaultValue:. Abra telas do WhatsApp e toque em Atualizar para capturar mais chaves.";
+    return nil;
+}
+
+- (UITableViewCell *)emptyCell {
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    WAGRMenuApplyCellStyle(cell, 0, @"empty");
+    cell.textLabel.text = @"Nenhuma ABProperty capturada ainda";
+    cell.detailTextLabel.text = @"Abra áreas do WhatsApp para o app consultar MobileConfig/WAAB e volte aqui. O hook central captura as chaves em runtime; não usa JSON exportado.";
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    return cell;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (!self.sectionKeys.count) return [self emptyCell];
+    NSString *section = self.sectionKeys[(NSUInteger)indexPath.section];
+    NSString *key = self.sections[section][(NSUInteger)indexPath.row];
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    WAGRMenuApplyCellStyle(cell, indexPath.row, key);
+    cell.textLabel.text = key;
+    cell.textLabel.numberOfLines = 3;
+    NSString *canonical = WAGRGateCanonicalKey(key);
+    BOOL isSet = WAGRGateIsSet(canonical);
+    if (isSet) cell.detailTextLabel.text = WAGRGateGet(canonical) ? @"Override ON" : @"Override OFF";
+    else cell.detailTextLabel.text = @"Sem override — usando valor original do WhatsApp";
+
+    UISwitch *sw = [UISwitch new];
+    sw.on = isSet && WAGRGateGet(canonical);
+    sw.accessibilityIdentifier = key;
+    if (@available(iOS 13.0, *)) sw.onTintColor = UIColor.labelColor;
+    [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+    cell.accessoryView = sw;
+
+    UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPress:)];
+    lp.minimumPressDuration = 0.45;
+    [cell addGestureRecognizer:lp];
+    return cell;
+}
+
+- (void)switchChanged:(UISwitch *)sw {
+    NSString *key = sw.accessibilityIdentifier;
+    if (!key.length) return;
+    WAGRGateSet(key, sw.isOn);
+    WAGRGateHooksEnsureInstalled();
+    [self.tableView reloadData];
+}
+
+- (void)longPress:(UILongPressGestureRecognizer *)g {
+    if (g.state != UIGestureRecognizerStateBegan) return;
+    UITableViewCell *cell = (UITableViewCell *)g.view;
+    UISwitch *sw = [cell.accessoryView isKindOfClass:UISwitch.class] ? (UISwitch *)cell.accessoryView : nil;
+    NSString *key = sw.accessibilityIdentifier;
+    if (!key.length) return;
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:key message:@"Limpar override desta ABProperty?" preferredStyle:UIAlertControllerStyleActionSheet];
+    a.popoverPresentationController.sourceView = cell;
+    a.popoverPresentationController.sourceRect = cell.bounds;
+    [a addAction:[UIAlertAction actionWithTitle:@"Limpar override" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
+        WAGRGateClear(key);
+        [self.tableView reloadData];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)applyHooks {
+    WAGRGateHooksEnsureInstalled();
+    NSString *msg = [NSString stringWithFormat:@"ABProperties capturadas: %lu\nOverrides ativos: %lu\n\n%@",
+                     (unsigned long)self.allKeys.count,
+                     (unsigned long)WAGRGateAllOverrides().count,
+                     WAGRGateHooksDiagnostic() ?: @""];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"ABProperties" message:msg preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"Copiar" style:UIAlertActionStyleDefault handler:^(__unused id _) { UIPasteboard.generalPasteboard.string = msg; }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 @end
