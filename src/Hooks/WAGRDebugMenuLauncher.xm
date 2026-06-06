@@ -85,6 +85,29 @@ static id wagr_findUserContextAnywhere(void) {
     return wagr_probeUserContext(appDel);
 }
 
+static UIViewController *wagr_topViewController(void) {
+    UIViewController *top = nil;
+    for (UIWindow *win in UIApplication.sharedApplication.windows) {
+        if (win.isKeyWindow) { top = win.rootViewController; break; }
+    }
+    if (!top) top = UIApplication.sharedApplication.windows.firstObject.rootViewController;
+    UIViewController *prev = nil;
+    while (top && top != prev) {
+        prev = top;
+        if (top.presentedViewController) { top = top.presentedViewController; continue; }
+        if ([top isKindOfClass:UINavigationController.class]) {
+            UIViewController *v = ((UINavigationController *)top).visibleViewController;
+            if (v && v != top) { top = v; continue; }
+        }
+        if ([top isKindOfClass:UITabBarController.class]) {
+            UIViewController *v = ((UITabBarController *)top).selectedViewController;
+            if (v && v != top) { top = v; continue; }
+        }
+        break;
+    }
+    return top;
+}
+
 // ── Strategy 1: DebugMenuProvider.presentDebugControllerIfNeeded ───────────
 // Tries to obtain a DebugMenuProvider instance and invoke its native
 // presentation method. The method is part of the WADebugMenuMain category,
@@ -282,15 +305,69 @@ extern "C" BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError 
     return NO;
 }
 
+extern "C" NSString *WAGRCurrentUserContextDiagnostic(void) {
+    id liveCtx = wagr_findUserContextAnywhere();
+    return [NSString stringWithFormat:
+            @"UserContext: %@\nTopVC: %@",
+            liveCtx ? NSStringFromClass([liveCtx class]) : @"not located",
+            wagr_topViewController() ? NSStringFromClass([wagr_topViewController() class]) : @"not located"];
+}
+
+extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError) {
+    UIViewController *presenter = fromVC ?: wagr_topViewController();
+    id ctx = wagr_findUserContextAnywhere();
+    NSArray<NSString *> *candidates = @[
+        @"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController",
+        @"WAPrivateExperimentationDebugViewController",
+        @"PrivateExperimentationDebugViewController"
+    ];
+
+    for (NSString *name in candidates) {
+        Class cls = NSClassFromString(name);
+        if (!cls) continue;
+        id obj = nil;
+        @try {
+            SEL initCtx = NSSelectorFromString(@"initWithUserContext:");
+            if (ctx && [cls instancesRespondToSelector:initCtx]) {
+                obj = ((id (*)(id, SEL, id))objc_msgSend)([cls alloc], initCtx, ctx);
+            } else {
+                obj = [[cls alloc] init];
+            }
+        } @catch (__unused NSException *ex) { obj = nil; }
+
+        if ([obj isKindOfClass:UIViewController.class] && presenter) {
+            UINavigationController *nav = presenter.navigationController;
+            if (nav) [nav pushViewController:(UIViewController *)obj animated:YES];
+            else {
+                UINavigationController *wrap = [[UINavigationController alloc] initWithRootViewController:(UIViewController *)obj];
+                wrap.modalPresentationStyle = UIModalPresentationFormSheet;
+                [presenter presentViewController:wrap animated:YES completion:nil];
+            }
+            return YES;
+        }
+    }
+
+    NSError *devErr = nil;
+    if (WAGRLaunchNativeDeveloperMenu(presenter, &devErr)) return YES;
+    if (outError) {
+        NSString *msg = [NSString stringWithFormat:@"Private Experimentation controller not found/instantiable. Developer menu fallback: %@", devErr.localizedDescription ?: @"failed"];
+        *outError = [NSError errorWithDomain:@"WATweaks" code:1401 userInfo:@{NSLocalizedDescriptionKey: msg}];
+    }
+    return NO;
+}
+
 extern "C" NSString *WAGRDebugMenuLauncherDiagnosticText(void) {
     Class debugCls = NSClassFromString(@"WADebugViewController");
     Class providerCls = NSClassFromString(@"_TtC15WADebugMenuMain17DebugMenuProvider");
+    Class privateExpCls = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
     id liveCtx = wagr_findUserContextAnywhere();
     return [NSString stringWithFormat:
             @"WADebugViewController:  %@\n"
             @"DebugMenuProvider Swift: %@\n"
-            @"Live userContext:        %@",
+            @"PrivateExp Swift:       %@\n"
+            @"Live userContext:       %@",
             debugCls ? @"found" : @"NOT FOUND",
             providerCls ? @"found" : @"NOT FOUND",
+            privateExpCls ? @"found" : @"NOT FOUND",
             liveCtx ? NSStringFromClass([liveCtx class]) : @"not located"];
 }
