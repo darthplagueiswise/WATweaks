@@ -80,8 +80,8 @@ extern "C" void WAGRAuraEnsureNavigationHooksInstalled(void) {
 }
 
 extern "C" NSString *WAGRAuraNavigationDiagnostic(void) {
-    NSString *aura = WAGRAuraDiagnostic ? WAGRAuraDiagnostic() : @"Aura: n/a";
-    NSString *elig = WAGRAccountEligibilityDiagnostic ? WAGRAccountEligibilityDiagnostic() : @"Eligibility: n/a";
+    NSString *aura = WAGRAuraDiagnostic();
+    NSString *elig = WAGRAccountEligibilityDiagnostic();
     return [NSString stringWithFormat:@"Aura compat exports loaded\nsimulation=%@\n\n%@\n\n%@",
             WAGRAuraSimulationEnabled() ? @"ON" : @"OFF", aura ?: @"Aura: n/a", elig ?: @"Eligibility: n/a"];
 }
