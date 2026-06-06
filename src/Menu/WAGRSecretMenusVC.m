@@ -1,4 +1,4 @@
-// WAGRSecretMenusVC.m  (refactor — schema v2)
+// WAGRSecretMenusVC.m  (rewritten)
 // ─────────────────────────────────────────────────────────────────────────────
 // Why this VC was reshaped
 // ────────────────────────
@@ -6,9 +6,11 @@
 // Debug view controllers directly via `-initWithUserContext:` and similar.
 // Static analysis of the Swift Debug VCs (and the EXC_BREAKPOINT crash
 // report from a 26.19.10 build) showed those controllers expect a fully-
-// wired Swift environment around them. Several controllers also crash on
-// dismissal because their Swift teardown reads ivars that were never
-// populated.
+// wired Swift environment around them — `WAIsLiquidGlassEnabled` and
+// `FBAnalyticsDeleteLegacyLogPathIfExists` get called inside their init
+// and assert when the surrounding state is missing. Several controllers
+// also crash on dismissal because their Swift teardown reads ivars
+// that were never populated.
 //
 // The right model for users is not "instantiate this controller" but
 // "make the app believe you are an internal/employee user". When that
@@ -16,65 +18,84 @@
 // expose their internal cells through WhatsApp's own navigation, which
 // guarantees every cell is wired correctly and nothing crashes.
 //
-// Schema-v2 alignment
-// ───────────────────
-// Every runtime/WAAB override now goes through WAGRGateStore.h. The
-// master toggle for "Internal mode" sets the *master prefs* (which the
-// dogfood hook reads directly) and additionally writes selector-name
-// overrides (so the runtime hook also fires). The runtime hook bootstrap
-// is reinstalled at the end of every master flip in case the toggle is
-// the first thing the user does.
+// What this VC now does
+// ─────────────────────
+// 1) Master toggles for the two upstream concepts:
+//    • Internal/Employee mode → flips WAServerProperties +isInternalUser
+//      override key (kWAGREmployeeMaster) AND the granular dogfood gate
+//      (kWAGRDogfoodGateInternalUser). That single class method is the
+//      confirmed upstream gate for every is-internal check that goes
+//      through the ObjC bridge.
+//    • Aura simulation mode → flips kWAGRAuraSimulationMaster, which is
+//      the shared "is Aura on?" source of truth read by both WAAuraHooks
+//      and WAGRAccountEligibilityHooks. That is what unlocks the
+//      Subscriptions / WA Plus Settings row natively.
+// 2) Live diagnostic — one row per hook subsystem showing whether it is
+//    actually installed and whether its master is currently ON.
+// 3) Informational list of the ~32 debug VCs found in the binary, with a
+//    green/grey indicator for "loaded at this moment". No tap actions.
+// 4) A short "como usar" footer with the precise sequence.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import "WAGRSecretMenusVC.h"
 #import "../WAGramPrefix.h"
-#import "../Runtime/WAGRGateStore.h"
+#import "../Runtime/WAGRSurface.h"
 #import <objc/runtime.h>
-#import "WAGRMenuTheme.h"
 
-// ── External symbols (resolved at link time across files) ────────────────────
 extern NSString *WAGRDogfoodDiagnosticText(void);
 extern NSString *WAGRAccountEligibilityDiagnostic(void);
-extern NSString *WAGRAuraNavigationDiagnostic(void);
-extern NSString *WAGRGateHooksDiagnostic(void);
+extern NSString *WAGRAuraDiagnostic(void);
+extern NSString *WAGRWAABDiagnosticText(void);
 extern NSString *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
-extern void WAGRGateHooksEnsureInstalled(void);
+extern void WAGRWAABEnsureHooksInstalled(void);
 extern void WAGRDogfoodEnsureHooksInstalled(void);
-extern void WAGRAuraEnsureNavigationHooksInstalled(void);
+extern void WAGRAuraEnsureHooksInstalled(void);
 extern void WAGRAuraActivateAllFlags(void);
 extern void WAGRAuraDeactivateAllFlags(void);
 extern void WAGRAccountEligibilityEnsureHooksInstalled(void);
-extern BOOL WAGRGateInstallHookForSelector(NSString *className,
-                                            NSString *selectorName,
-                                            BOOL isClassMethod);
+extern BOOL WAGRInstallHookForEntry(WAGREntry *e);
 
-// ── Runtime override item (a (className, selector, isClassMethod) tuple) ─────
-// We still describe master-toggle runtime overrides as plain dictionaries
-// for clarity. The persisted key, however, is now just the selector name —
-// the (class, isClassMethod) information lives only in code, used to call
-// WAGRGateInstallHookForSelector when we set the override ON.
+
+
 static NSArray<NSDictionary *> *WAGRSecretRuntimeOverrides(NSArray<NSDictionary *> *items) {
     return items ?: @[];
 }
 
+static NSString *WAGRSecretRuntimeKey(NSDictionary *item) {
+    return WAGROverrideKey(@"secret",
+                           item[@"class"] ?: @"",
+                           [item[@"classMethod"] boolValue],
+                           item[@"selector"] ?: @"");
+}
+
 static void WAGRSecretApplyRuntimeOverride(NSDictionary *item, BOOL on) {
     NSString *className = item[@"class"];
-    NSString *selector  = item[@"selector"];
-    if (!selector.length) return;
+    NSString *selector = item[@"selector"];
+    if (!className.length || !selector.length) return;
+
     BOOL isClassMethod = [item[@"classMethod"] boolValue];
+    NSString *key = WAGRSecretRuntimeKey(item);
 
     if (on) {
-        WAGRGateSet(WAGRGateCanonicalKey(selector), YES);
-        if (className.length) {
-            (void)WAGRGateInstallHookForSelector(className, selector, isClassMethod);
-        }
+        WAGRSetOverride(key, YES);
+
+        WAGREntry *e = [WAGREntry new];
+        e.surfaceID = @"secret";
+        e.className = className;
+        e.isClassMethod = isClassMethod;
+        e.isProperty = NO;
+        e.selectorName = selector;
+        e.displayName = selector;
+        e.returnType = @"BOOL";
+        e.category = @"Secret";
+        e.overrideKey = key;
+        WAGRInstallHookForEntry(e);
     } else {
-        WAGRGateClear(WAGRGateCanonicalKey(selector));
+        WAGRClearOverride(key);
     }
 }
 
-// ── Me-Tab / Contacts Hub bundle ─────────────────────────────────────────────
 static NSArray<NSString *> *WAGRSecretMeTabWAABFlags(void) {
     return @[
         @"me_tab_status_creation_enabled",
@@ -100,10 +121,7 @@ static NSArray<NSString *> *WAGRSecretMeTabWAABFlags(void) {
 
 static NSArray<NSDictionary *> *WAGRSecretMeTabRuntimeOverrides(void) {
     NSMutableArray *out = [NSMutableArray array];
-    NSArray<NSString *> *classes = @[
-        @"WAContext", @"WAContextMain",
-        @"WAABProperties", @"FOAWAABPropertiesImpl"
-    ];
+    NSArray<NSString *> *classes = @[@"WAContext", @"WAContextMain", @"WAABProperties", @"FOAWAABPropertiesImpl"];
     NSArray<NSString *> *selectors = @[
         @"isMeTabEnabled",
         @"isEvolveAboutM1Enabled",
@@ -124,67 +142,27 @@ static NSArray<NSDictionary *> *WAGRSecretMeTabRuntimeOverrides(void) {
     return out;
 }
 
-
-// ── Internal / employee / dogfood WAAB flags ───────────────────────────────
-// These are not Objective-C selectors on WAContextMain. They are WAAB/private
-// experimentation keys read through WAABProperties / FOAWAABPropertiesImpl.
-// The previous Internal master only wrote selector overrides, so these keys
-// stayed at server defaults and the app still behaved as non-internal.
-static NSArray<NSString *> *WAGRSecretInternalWAABOnFlags(void) {
-    return @[
-        @"waios_mc_debug_ui_enabled",
-        @"whatsbroken_enabled",
-        @"private_abprop_for_dev_only",
-        @"private_experimentation_should_sync",
-        @"private_experimentation_use_acs_config_id",
-        @"dogfooding_nudge_settings_entrypoint_enabled",
-        @"dogfooding_nudge_banner_home_screen_enabled",
-        @"username_dogfooding_pn_privacy_enabled",
-        @"give_dogfooders_task_id_for_bug_reporting",
-        @"groups_member_recommendations_debug_ui",
-        @"is_internal",
-        @"is_internal_tester",
-        @"_is_employee",
-        @"wamo_is_employee",
-        @"ig_fb_dogfooder",
-        @"hn_dogfooding",
-        @"malibu_dogfooding"
-    ];
-}
-
-static NSArray<NSString *> *WAGRSecretInternalWAABOffFlags(void) {
-    return @[
-        @"serverPropsDisableExperimental",
-        @"graphQLEmployeeC1Disabled",
-        @"ios_contact_suggestions_internal_tool_exclude_employees_enabled"
-    ];
-}
-
-// ── Internal / isInternalUser override bundle ────────────────────────────────
 static NSArray<NSDictionary *> *WAGRSecretInternalRuntimeOverrides(void) {
     return @[
         @{@"class": @"WAServerProperties", @"selector": @"isInternalUser", @"classMethod": @YES},
-        @{@"class": @"WAContextMain",      @"selector": @"isInternalUser", @"classMethod": @NO},
-        @{@"class": @"WAContext",          @"selector": @"isInternalUser", @"classMethod": @NO}
+        @{@"class": @"WAContextMain", @"selector": @"isInternalUser", @"classMethod": @NO},
+        @{@"class": @"WAContext", @"selector": @"isInternalUser", @"classMethod": @NO}
     ];
 }
 
-// ── Me-Tab diagnostic ────────────────────────────────────────────────────────
 static NSString *WAGRSecretMeTabDiagnosticText(void) {
     NSMutableArray<NSString *> *lines = [NSMutableArray array];
     for (NSString *flag in WAGRSecretMeTabWAABFlags()) {
-        NSString *state;
-        if (!WAGRGateIsSet(WAGRGateCanonicalKey(flag))) state = @"unset";
-        else state = WAGRGateGet(WAGRGateCanonicalKey(flag)) ? @"ON" : @"OFF";
-        [lines addObject:[NSString stringWithFormat:@"%@=%@", flag, state]];
+        NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(flag)];
+        [lines addObject:[NSString stringWithFormat:@"%@=%@", flag, stored ?: @"unset"]];
     }
 
     NSUInteger runtimeOn = 0;
     NSUInteger runtimeTotal = 0;
     for (NSDictionary *item in WAGRSecretMeTabRuntimeOverrides()) {
         runtimeTotal++;
-        NSString *sel = item[@"selector"];
-        if (WAGRGateIsSet(WAGRGateCanonicalKey(sel)) && WAGRGateGet(WAGRGateCanonicalKey(sel))) runtimeOn++;
+        NSString *key = WAGRSecretRuntimeKey(item);
+        if (WAGRHasOverride(key) && WAGROverrideBool(key)) runtimeOn++;
     }
     [lines addObject:[NSString stringWithFormat:@"runtimeOverrides=%lu/%lu",
                       (unsigned long)runtimeOn, (unsigned long)runtimeTotal]];
@@ -199,14 +177,14 @@ typedef NS_ENUM(NSInteger, WAGRSecretSection) {
     WAGRSecretSectionCount,
 };
 
-// ── Master toggles ───────────────────────────────────────────────────────────
-// Each master flips a set of underlying pref keys atomically. masterKeys are
-// plain NSUserDefaults bool keys (wagr_*, wagr.dogfood.*). waabOn/waabOff and
-// runtimeOn write schema-v2 gate overrides (selector-name keys).
+// ─── Master toggles ───────────────────────────────────────────────────────
+// Each master flips a set of underlying pref keys atomically. Defining
+// them as plain dictionaries keeps the row handler dumb and lets us add
+// or remove keys later without touching switch handler logic.
 static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
     return @[
         @{ @"title":    @"Modo Internal / Employee",
-           @"subtitle": @"Liga masters + selectors reais + WAAB/private experimentation gates usados pelo Developer.",
+           @"subtitle": @"Liga prefs legadas + runtime override real de WAServerProperties/WAContext isInternalUser.",
            @"icon":     @"person.crop.circle.badge.checkmark",
            @"masterKeys": @[ kWAGREmployeeMaster,
                              kWAGRDogfoodGateInternalUser,
@@ -215,38 +193,35 @@ static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
                              kWAGRDogfoodGateGraphQLEmpC1,
                              kWAGRInternalMaster,
                              kWAGRDebugMode ],
-           @"waabOn":   WAGRSecretInternalWAABOnFlags(),
-           @"waabOff":  WAGRSecretInternalWAABOffFlags(),
            @"runtimeOn": WAGRSecretInternalRuntimeOverrides() },
 
         @{ @"title":    @"Simulação Aura / WA Plus",
-           @"subtitle": @"Aplica o bundle Aura via WAGRAuraActivateAllFlags/DeactivateAllFlags.",
+           @"subtitle": @"Usa WAGRAuraActivateAllFlags/WAGRAuraDeactivateAllFlags + hooks runtime Aura/Eligibility.",
            @"icon":     @"sparkles",
-           @"masterKeys": @[ kWAGRAuraSimulation ],
+           @"masterKeys": @[ @"wagr_aura_simulation_enabled" ],
            @"action":   @"aura" },
 
         @{ @"title":    @"Modo Me-Tab / Contacts Hub / About Evolve",
-           @"subtitle": @"Liga WAAB flags tab_me/about/contacts e overrides runtime em WAContext/WAContextMain/WAABProperties.",
+           @"subtitle": @"Liga WAAB flags tab_me/about/contacts e stubs runtime em WAContext/WAContextMain/WAABProperties.",
            @"icon":     @"person.2.crop.square.stack.fill",
            @"masterKeys": @[ @"wagr_metab_master_enabled" ],
            @"waabOn":   WAGRSecretMeTabWAABFlags(),
            @"runtimeOn": WAGRSecretMeTabRuntimeOverrides() },
     ];
 }
-
 static BOOL WAGRMasterIsOn(NSDictionary *toggle) {
     for (NSString *k in (NSArray *)toggle[@"masterKeys"]) {
         if ([NSUserDefaults.standardUserDefaults boolForKey:k]) return YES;
     }
     for (NSString *flag in (NSArray *)toggle[@"waabOn"]) {
-        if (WAGRGateIsSet(WAGRGateCanonicalKey(flag)) && WAGRGateGet(WAGRGateCanonicalKey(flag))) return YES;
+        if (WAGRIsOn(flag)) return YES;
     }
     for (NSString *flag in (NSArray *)toggle[@"waabOff"]) {
-        if (WAGRGateIsSet(WAGRGateCanonicalKey(flag)) && !WAGRGateGet(WAGRGateCanonicalKey(flag))) return YES;
+        if (WAGRIsOff(flag)) return YES;
     }
     for (NSDictionary *item in WAGRSecretRuntimeOverrides(toggle[@"runtimeOn"])) {
-        NSString *sel = item[@"selector"];
-        if (WAGRGateIsSet(WAGRGateCanonicalKey(sel)) && WAGRGateGet(WAGRGateCanonicalKey(sel))) return YES;
+        NSString *key = WAGRSecretRuntimeKey(item);
+        if (WAGRHasOverride(key) && WAGROverrideBool(key)) return YES;
     }
     return NO;
 }
@@ -266,10 +241,10 @@ static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
     }
 
     for (NSString *flag in (NSArray *)toggle[@"waabOn"]) {
-        if (on) WAGRGateSet(WAGRGateCanonicalKey(flag), YES); else WAGRGateClear(WAGRGateCanonicalKey(flag));
+        WAGRSet(flag, on ? @"on" : nil);
     }
     for (NSString *flag in (NSArray *)toggle[@"waabOff"]) {
-        if (on) WAGRGateSet(WAGRGateCanonicalKey(flag), NO); else WAGRGateClear(WAGRGateCanonicalKey(flag));
+        WAGRSet(flag, on ? @"off" : nil);
     }
     for (NSDictionary *item in WAGRSecretRuntimeOverrides(toggle[@"runtimeOn"])) {
         WAGRSecretApplyRuntimeOverride(item, on);
@@ -277,23 +252,22 @@ static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
 
     [ud synchronize];
 
-    WAGRGateHooksEnsureInstalled();
+    WAGRWAABEnsureHooksInstalled();
     WAGRDogfoodEnsureHooksInstalled();
-    WAGRAuraEnsureNavigationHooksInstalled();
+    WAGRAuraEnsureHooksInstalled();
     WAGRAccountEligibilityEnsureHooksInstalled();
 
     NSLog(@"[WATweaks][SecretPanel] %@ master toggle → %@",
           toggle[@"title"], on ? @"ON" : @"OFF");
 }
-
-// ── Diagnostic rows ──────────────────────────────────────────────────────────
+// ─── Diagnostic rows ──────────────────────────────────────────────────────
 static NSArray<NSDictionary *> *WAGRDiagnosticRows(void) {
     return @[
         @{ @"name": @"Employee / isInternalUser hook", @"fn": @"dogfood" },
         @{ @"name": @"WAAccountEligibility hook",       @"fn": @"elig" },
-        @{ @"name": @"Aura navigation hook",            @"fn": @"aura" },
-        @{ @"name": @"Me-Tab / Contacts Hub",           @"fn": @"metab" },
-        @{ @"name": @"Gate hooks (storage + bootstrap)",@"fn": @"gates" },
+        @{ @"name": @"Aura gating hook",                @"fn": @"aura" },
+        @{ @"name": @"Me-Tab / Contacts Hub hook",      @"fn": @"metab" },
+        @{ @"name": @"WAABProperties observer",         @"fn": @"waab" },
         @{ @"name": @"Native dev-menu hook",            @"fn": @"devmenu" },
         @{ @"name": @"Settings rows native hook",       @"fn": @"settings" },
     ];
@@ -302,15 +276,15 @@ static NSArray<NSDictionary *> *WAGRDiagnosticRows(void) {
 static NSString *WAGRDiagnosticText(NSString *fn) {
     if ([fn isEqualToString:@"dogfood"])  return WAGRDogfoodDiagnosticText();
     if ([fn isEqualToString:@"elig"])     return WAGRAccountEligibilityDiagnostic();
-    if ([fn isEqualToString:@"aura"])     return WAGRAuraNavigationDiagnostic();
+    if ([fn isEqualToString:@"aura"])     return WAGRAuraDiagnostic();
     if ([fn isEqualToString:@"metab"])    return WAGRSecretMeTabDiagnosticText();
-    if ([fn isEqualToString:@"gates"])    return WAGRGateHooksDiagnostic();
+    if ([fn isEqualToString:@"waab"])     return WAGRWAABDiagnosticText();
     if ([fn isEqualToString:@"devmenu"])  return WAGRNativeDevMenuDiagnosticText();
     if ([fn isEqualToString:@"settings"]) return WAGRSettingsRowsNativeDiagnosticText();
     return @"(no diagnostic)";
 }
 
-// ── Debug VC roster (informational only) ─────────────────────────────────────
+// ─── Debug VC roster (informational only) ─────────────────────────────────
 static NSArray<NSString *> *WAGRSecretVCRoster(void) {
     return @[
         @"WADebugViewController",
@@ -349,7 +323,7 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
     ];
 }
 
-// ─── VC ─────────────────────────────────────────────────────────────────────
+// ─── VC ───────────────────────────────────────────────────────────────────
 @implementation WAGRSecretMenusVC
 
 - (instancetype)init {
@@ -360,10 +334,12 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    WAGRMenuApplyTableStyle(self.tableView, self);
+    self.tableView.backgroundColor = [UIColor colorWithRed:.07 green:.07 blue:.08 alpha:1];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return WAGRSecretSectionCount; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
+    return WAGRSecretSectionCount;
+}
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch ((WAGRSecretSection)s) {
@@ -399,15 +375,15 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    WAGRMenuApplyCellStyle(c, ip.row, [NSString stringWithFormat:@"%ld-%ld", (long)ip.section, (long)ip.row]);
+    c.backgroundColor = [UIColor colorWithRed:.13 green:.13 blue:.14 alpha:1];
 
     switch ((WAGRSecretSection)ip.section) {
         case WAGRSecretSectionMasters: {
             NSDictionary *t = WAGRMasterToggles()[ip.row];
             c.textLabel.text = t[@"title"];
-            c.textLabel.textColor = WAGRMenuTextColor();
+            c.textLabel.textColor = UIColor.labelColor;
             c.detailTextLabel.text = t[@"subtitle"];
-            c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
+            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
             c.detailTextLabel.numberOfLines = 0;
             UIImage *icon = [UIImage systemImageNamed:t[@"icon"]];
             c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -424,11 +400,11 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         case WAGRSecretSectionDiagnostic: {
             NSDictionary *d = WAGRDiagnosticRows()[ip.row];
             c.textLabel.text = d[@"name"];
-            c.textLabel.textColor = WAGRMenuTextColor();
+            c.textLabel.textColor = UIColor.labelColor;
             NSString *full = WAGRDiagnosticText(d[@"fn"]) ?: @"";
             NSString *firstLine = [[full componentsSeparatedByString:@"\n"] firstObject] ?: @"";
             c.detailTextLabel.text = firstLine;
-            c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
+            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
             UIImage *icon = [UIImage systemImageNamed:@"stethoscope"];
             c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
             c.imageView.tintColor = UIColor.systemBlueColor;
@@ -438,8 +414,8 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         case WAGRSecretSectionList: {
             NSString *cls = WAGRSecretVCRoster()[ip.row];
             c.textLabel.text = cls;
-            c.textLabel.font = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
-            c.textLabel.textColor = WAGRMenuTextColor();
+            c.textLabel.font = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular];
+            c.textLabel.textColor = UIColor.labelColor;
             c.textLabel.numberOfLines = 0;
             BOOL loaded = NSClassFromString(cls) != nil;
             UIImage *dot = [UIImage systemImageNamed:@"circle.fill"];
@@ -452,12 +428,12 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         }
         case WAGRSecretSectionHowTo: {
             c.textLabel.text = @"Sequência recomendada";
-            c.textLabel.textColor = WAGRMenuTextColor();
+            c.textLabel.textColor = UIColor.labelColor;
             c.detailTextLabel.text = @"1. Ligue \"Modo Internal\" e/ou \"Simulação Aura\" acima.\n"
                                       "2. Force-quit e reabra o WhatsApp uma vez.\n"
                                       "3. Abra Configurações no app. A row Developer aparece abaixo do bloco Meta; Subscriptions / WA Plus aparece com Aura ligado.\n"
                                       "4. Toque NATIVAMENTE — não use o launcher modal do WATweaks para essas células.";
-            c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
+            c.detailTextLabel.textColor = UIColor.secondaryLabelColor;
             c.detailTextLabel.numberOfLines = 0;
             UIImage *icon = [UIImage systemImageNamed:@"list.number"];
             c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -471,7 +447,9 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
 }
 
 - (CGFloat)tableView:(UITableView *)tv estimatedHeightForRowAtIndexPath:(NSIndexPath *)ip { return 66; }
-- (CGFloat)tableView:(UITableView *)tv heightForRowAtIndexPath:(NSIndexPath *)ip { return UITableViewAutomaticDimension; }
+- (CGFloat)tableView:(UITableView *)tv heightForRowAtIndexPath:(NSIndexPath *)ip {
+    return UITableViewAutomaticDimension;
+}
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
@@ -483,11 +461,8 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         alertControllerWithTitle:d[@"name"]
                          message:full
                   preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Copiar"
-                                              style:UIAlertActionStyleDefault
-                                            handler:^(__unused id _) { UIPasteboard.generalPasteboard.string = full; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK"
-                                              style:UIAlertActionStyleCancel
+                                              style:UIAlertActionStyleDefault
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }

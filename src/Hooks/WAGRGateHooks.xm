@@ -49,7 +49,7 @@ static BOOL WAGRGateGenericBoolTrampoline(id self, SEL _cmd) {
     BoolIMP orig = NULL;
     NSString *hookID = WAGRGateHookID(className, isMeta, selName);
     NSValue *v = gGateOriginalIMPs[hookID] ?: gGateOriginalIMPs[WAGRGateHookID(className, !isMeta, selName)];
-    if (v) orig = (BoolIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<BoolIMP>([v pointerValue]);
     BOOL original = orig ? orig(self, _cmd) : NO;
     return WAGRGateValueForSelector(selName, original);
 }

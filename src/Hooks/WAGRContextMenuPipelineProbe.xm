@@ -251,7 +251,9 @@ extern "C" NSString *WAGRContextMenuPipelineProbeDiagnosticText(void) {
 }
 
 __attribute__((constructor)) static void WAGRContextMenuPipelineProbeCtor(void) {
-    // Watusi-aligned policy: constructors may install fixed hooks, but must not
-    // run diagnostic runtime probes. This probe is intentionally inert during
-    // dylib load and remains available on demand from Settings/debug screens.
+    // Diagnostics only: do one constructor-time pass and one short retry.
+    // No 5s/7s tail retries; opening the Debug VC Lab or diagnostics can call
+    // WAGRContextMenuPipelineProbeEnsureInstalled() again if needed.
+    WAGRContextMenuPipelineProbeEnsureInstalled();
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ WAGRContextMenuPipelineProbeEnsureInstalled(); });
 }

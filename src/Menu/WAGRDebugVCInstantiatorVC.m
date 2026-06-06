@@ -20,9 +20,9 @@ extern void WAGRDebugVCStabilitySetActive(BOOL active);
 extern NSString *WAGRDebugVCStabilityDiagnosticText(void);
 extern void WAGRDogfoodEnsureHooksInstalled(void);
 extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
-extern void WAGRAuraEnsureNavigationHooksInstalled(void);
+extern void WAGRAuraEnsureHooksInstalled(void);
 extern void WAGRAccountEligibilityEnsureHooksInstalled(void);
-extern void WAGRGateHooksEnsureInstalled(void);
+extern void WAGRWAABEnsureHooksInstalled(void);
 
 static UIColor *WAGRDbgBG(void) { return UIColor.systemGroupedBackgroundColor; }
 static UIColor *WAGRDbgCell(void) { return UIColor.secondarySystemGroupedBackgroundColor; }
@@ -124,9 +124,9 @@ static void WAGRDebugVCPrimeHooks(void) {
     WAGRDebugVCStabilityEnsureInstalled();
     WAGRDogfoodEnsureHooksInstalled();
     WAGRNativeDevMenuEnsureHooksInstalled();
-    WAGRAuraEnsureNavigationHooksInstalled();
+    WAGRAuraEnsureHooksInstalled();
     WAGRAccountEligibilityEnsureHooksInstalled();
-    WAGRGateHooksEnsureInstalled();
+    WAGRWAABEnsureHooksInstalled();
 }
 
 static id WAGRDebugVCProbeWAUserContext(id obj) {
@@ -364,9 +364,9 @@ static UIViewController *WAGRDebugVCInstantiateExperimental(NSString *className,
 
     WAGRDogfoodEnsureHooksInstalled();
     WAGRNativeDevMenuEnsureHooksInstalled();
-    WAGRAuraEnsureNavigationHooksInstalled();
+    WAGRAuraEnsureHooksInstalled();
     WAGRAccountEligibilityEnsureHooksInstalled();
-    WAGRGateHooksEnsureInstalled();
+    WAGRWAABEnsureHooksInstalled();
     WAGRDebugVCStabilityEnsureInstalled();
 
     Class cls = NSClassFromString(className);

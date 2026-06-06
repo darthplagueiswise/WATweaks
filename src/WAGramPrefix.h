@@ -1,9 +1,6 @@
-// WAGramPrefix.h — single unified prefix for WATweaks.
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared constants and small compatibility helpers. Runtime gate overrides go
-// through WAGRGateStore; legacy WAAB string overrides are kept only for the
-// WAABPropsObserver compatibility path.
-// ─────────────────────────────────────────────────────────────────────────────
+// WAGramPrefix.h — WAGram unified prefix
+// WAAB storage: wagr.waab.<flag_key> = @"on" | @"off"  (absent = system/no override)
+// Runtime ObjC storage: wagr.override|objc|<Class>|inst/class|<selector> = BOOL
 
 #pragma once
 #ifdef __OBJC__
@@ -12,57 +9,238 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
+
+
+// ── Unified ownership / reset helpers ────────────────────────────────────────
+// Every WATweaks menu must agree on which NSUserDefaults keys belong to the
+// tweak. Runtime overrides are only the hook/observed/WAAB state. Managed prefs
+// additionally include feature masters and helper prefs.
+static inline BOOL WAGRIsRuntimeOverridePreferenceKey(NSString *key) {
+    if (![key isKindOfClass:NSString.class] || !key.length) return NO;
+    return [key hasPrefix:@"wagr.override"] ||
+           [key hasPrefix:@"wagr.observed"] ||
+           [key hasPrefix:@"wagr.waab."] ||
+           [key hasPrefix:@"wagr.dogfood.gate."] ||
+           [key hasPrefix:@"wa_lg_ios_liquid_glass_"] ||
+           [key hasPrefix:@"wagr_aura_"] ||
+           [key hasPrefix:@"watweak_gate_"] ||
+           [key hasPrefix:@"watweak_ui_"] ||
+           [key isEqualToString:@"watweak_gate_override_index"] ||
+           [key isEqualToString:@"watweak_gate_hook_index_v1"];
+}
+
+static inline BOOL WAGRIsManagedPreferenceKey(NSString *key) {
+    if (![key isKindOfClass:NSString.class] || !key.length) return NO;
+    return WAGRIsRuntimeOverridePreferenceKey(key) ||
+           [key hasPrefix:@"wagr"] || [key hasPrefix:@"WAGR"] ||
+           [key hasPrefix:@"wa_"] || [key hasPrefix:@"WA"] ||
+           [key hasPrefix:@"watweak"] || [key hasPrefix:@"WATweak"];
+}
+
+static inline NSUInteger WAGRClearPreferencesMatching(BOOL (^match)(NSString *key)) {
+    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+    NSArray<NSString *> *keys = ud.dictionaryRepresentation.allKeys ?: @[];
+    NSUInteger removed = 0;
+    for (NSString *key in keys) {
+        if (match && match(key)) {
+            [ud removeObjectForKey:key];
+            removed++;
+        }
+    }
+    [ud synchronize];
+    return removed;
+}
+
+static inline NSUInteger WAGRClearRuntimeOverridePreferences(void) {
+    return WAGRClearPreferencesMatching(^BOOL(NSString *key) {
+        return WAGRIsRuntimeOverridePreferenceKey(key);
+    });
+}
+
+static inline NSUInteger WAGRClearAllManagedPreferences(void) {
+    return WAGRClearPreferencesMatching(^BOOL(NSString *key) {
+        return WAGRIsManagedPreferenceKey(key);
+    });
+}
+
+static inline NSUInteger WAGRRuntimeOverridePreferenceCount(void) {
+    NSUInteger count = 0;
+    for (NSString *key in [NSUserDefaults standardUserDefaults].dictionaryRepresentation.allKeys) {
+        if (WAGRIsRuntimeOverridePreferenceKey(key)) count++;
+    }
+    return count;
+}
+
+static inline NSUInteger WAGRManagedPreferenceCount(void) {
+    NSUInteger count = 0;
+    for (NSString *key in [NSUserDefaults standardUserDefaults].dictionaryRepresentation.allKeys) {
+        if (WAGRIsManagedPreferenceKey(key)) count++;
+    }
+    return count;
+}
+
 #endif
 #import "WAPrefix.h"
-#import "Runtime/WAGRGateStore.h"
 
+// ── NSUserDefaults storage keys ───────────────────────────────────────────────
+// WAAB flag override: wagr.waab.<flag> = @"on" | @"off"
+static inline NSString *WAGRKey(NSString *flag) {
+    return [NSString stringWithFormat:@"wagr.waab.%@", flag];
+}
+static inline BOOL WAGRIsOn(NSString *flag) {
+    return [[[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(flag)] isEqualToString:@"on"];
+}
+static inline BOOL WAGRIsOff(NSString *flag) {
+    return [[[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(flag)] isEqualToString:@"off"];
+}
+static inline void WAGRSet(NSString *flag, NSString *val) {
+    if (!flag.length) return;
+    if (!val) [[NSUserDefaults standardUserDefaults] removeObjectForKey:WAGRKey(flag)];
+    else      [[NSUserDefaults standardUserDefaults] setObject:val forKey:WAGRKey(flag)];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+// ── Master pref keys ──────────────────────────────────────────────────────────
 #define kWAGRKeychain          WA_PREF_KEYCHAIN_REWRITE
 #define kWAGRKeychainObserver  WA_PREF_KEYCHAIN_OBSERVER
 #define kWAGREmployeeMaster    WA_PREF_EMPLOYEE_MASTER
 #define kWAGRABPropsObserver   WA_PREF_AB_OBSERVER
 #define kWAGRLiquidGlassMaster WA_PREF_LIQUID_GLASS
-#define kWAGRDebugMode         @"watweak_ui_debug_mode_enabled"
-#define kWAGRInternalMaster    @"watweak_bundle_internal_master"
-#define kWAGRDebugMenuNative   @"watweak_gate_isDebugMenuAllowed"
-#define kWAGRAuraSimulation    @"watweak_bundle_aura_simulation"
+#define kWAGRDebugMode         @"wagr_debug_mode_enabled"
+#define kWAGRInternalMaster    @"wagr_internal_master_enabled"
+#define kWAGRDebugMenuNative   @"wagr_native_debug_menu_enabled"
 
-// ── Per-feature master toggles for WAGRGlobalGateStub.xm ──────────────────
-// Each key maps to a BOOL in NSUserDefaults.
-// When YES, the corresponding %hook returns the gate-open value for ALL BOOL
-// methods of that class so partial enablement doesn't leave dependencies unmet.
-#define kWAGRGateEligibility      @"watweak_gate_eligibility_master"
-#define kWAGRGateUsername         @"watweak_gate_username_master"
-#define kWAGRGatePremiumBroadcast @"watweak_gate_premium_broadcast"
+// ── Dogfood gate individual keys ──────────────────────────────────────────────
+#define kWAGRDogfoodGateMetaEmployee      @"wagr.dogfood.gate.isMetaEmployeeOrInternalTester"
+#define kWAGRDogfoodGateMetaEmployeeSnake @"wagr.dogfood.gate.is_meta_employee_or_internal_tester"
+#define kWAGRDogfoodGateInternalUser      @"wagr.dogfood.gate.isInternalUser"
+#define kWAGRDogfoodGateGraphQLEmpC1      @"wagr.dogfood.gate.graphQLEmployeeC1Disabled"
 
-#define kWAGRDogfoodGateMetaEmployee      @"watweak_gate_isMetaEmployeeOrInternalTester"
-#define kWAGRDogfoodGateMetaEmployeeSnake @"watweak_gate_is_meta_employee_or_internal_tester"
-#define kWAGRDogfoodGateInternalUser      @"watweak_gate_isInternalUser"
-#define kWAGRDogfoodGateGraphQLEmpC1      @"watweak_gate_graphQLEmployeeC1Disabled"
-
+// ── LiquidGlass sub-prefs ─────────────────────────────────────────────────────
 #define kWAGRLiquidGlassUserDefaults @"wa_liquid_glass_userdefaults_overrides"
 #define kWAGRLiquidGlassMethodHooks  @"wa_liquid_glass_method_hooks"
+#define kWAGRLG_enabled                      @"wa_lg_ios_liquid_glass_enabled"
+#define kWAGRLG_launched                     @"wa_lg_ios_liquid_glass_launched"
+#define kWAGRLG_m1                           @"wa_lg_ios_liquid_glass_m1"
+#define kWAGRLG_m1_5                         @"wa_lg_ios_liquid_glass_m_1_5"
+#define kWAGRLG_m1_5_context_menu            @"wa_lg_ios_liquid_glass_m_1_5_context_menu"
+#define kWAGRLG_chat_top_bar_m2              @"wa_lg_ios_liquid_glass_chat_top_bar_m2_enabled"
+#define kWAGRLG_new_chatbar_ux               @"wa_lg_ios_liquid_glass_enable_new_chatbar_ux"
+#define kWAGRLG_larger_composer              @"wa_lg_ios_liquid_glass_larger_composer"
+#define kWAGRLG_reduce_transparency          @"wa_lg_ios_liquid_glass_reduce_transparency"
+#define kWAGRLG_workaround_attachment_tray   @"wa_lg_ios_liquid_glass_workaround_attachment_tray"
+#define kWAGRLG_workaround_hides_bottombar   @"wa_lg_ios_liquid_glass_workaround_hides_bottombar"
+#define kWAGRLG_workaround_topbar_appearance @"wa_lg_ios_liquid_glass_workaround_topbar_appearance"
 
-#define WAGRPref(key) WAGRPreferenceEnabled((key))
-static inline BOOL WAGRPreferenceEnabled(NSString *key) {
-    if (!key.length) return NO;
-    if ([key hasPrefix:@"watweak_gate_"] || [key hasPrefix:@"watweak_ui_"] ||
-        [key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) {
-        return WAGRGateIsSet(key) ? WAGRGateGet(key) : NO;
+// ── Quick bool read ───────────────────────────────────────────────────────────
+#define WAGRPref(key) [[NSUserDefaults standardUserDefaults] boolForKey:(key)]
+
+// ── Runtime surface ids ───────────────────────────────────────────────────────
+#ifndef WAGR_GAMA_SURFACE_IDS
+#define WAGR_GAMA_SURFACE_IDS 1
+static NSString * const kWAGRSurfaceWAAB     = @"waab";
+static NSString * const kWAGRSurfaceContext  = @"context";
+static NSString * const kWAGRSurfaceGateKeep = @"gatekeep";
+static NSString * const kWAGRSurfaceAura     = @"aura";
+static NSString * const kWAGRSurfaceSettings = @"settings";
+static NSString * const kWAGRSurfaceEmployee = @"employee";
+static NSString * const kWAGRSurfaceServer = @"serverproperties";
+static NSString * const kWAGRSurfaceMobileConfig = @"mobileconfig";
+static NSString * const kWAGRSurfaceFOA = @"foa";
+static NSString * const kWAGRSurfaceBiz = @"biz";
+#endif
+
+// ── Runtime override helpers ─────────────────────────────────────────────────
+#ifndef WAGR_GAMA_OVERRIDE_HELPERS
+#define WAGR_GAMA_OVERRIDE_HELPERS 1
+
+static inline NSString *WAGROverrideKey(NSString *surfaceID, NSString *className,
+                                         BOOL isClassMethod, NSString *sel) {
+    // Canonical key intentionally ignores surfaceID. The same class/selector can appear
+    // in Geral, Aura, Settings Rows and Runtime Avançado; it must share one override.
+    (void)surfaceID;
+    return [NSString stringWithFormat:@"wagr.override|objc|%@|%@|%@",
+            className ?: @"",
+            isClassMethod ? @"class" : @"inst",
+            sel ?: @""];
+}
+
+static inline NSString *WAGRWAABFlagFromOverrideKey(NSString *key) {
+    if (!key.length || ![key hasPrefix:@"wagr.override|"]) return nil;
+    NSArray<NSString *> *parts = [key componentsSeparatedByString:@"|"];
+    if (parts.count < 5) return nil;
+    NSString *className = parts[2];
+    NSString *selector = [[parts subarrayWithRange:NSMakeRange(4, parts.count - 4)] componentsJoinedByString:@"|"];
+    if (!selector.length) return nil;
+    if ([className isEqualToString:@"WAABProperties"] ||
+        [className isEqualToString:@"FOAWAABPropertiesImpl"] ||
+        [className containsString:@"WAABProperties"] ||
+        [className containsString:@"ABProperties"]) {
+        return selector;
     }
-    return [[NSUserDefaults standardUserDefaults] boolForKey:key];
+    return nil;
 }
 
-// Legacy WAAB string override key used by WAABPropsObserver and WAAuraHooks.
-// Keep it declared while those compatibility hooks still use "on"/"off" string
-// semantics. New runtime BOOL gates should use WAGRGateStore directly.
-static inline NSString *WAGRKey(NSString *key) {
-    if (!key.length) return @"wagr.waab.";
-    return [@"wagr.waab." stringByAppendingString:key];
+static inline NSString *WAGRObservedKey(NSString *overrideKey) {
+    if (!overrideKey.length) return @"";
+    if ([overrideKey hasPrefix:@"wagr.override|"]) {
+        return [overrideKey stringByReplacingOccurrencesOfString:@"wagr.override|"
+                                                      withString:@"wagr.observed|"];
+    }
+    return [overrideKey stringByReplacingOccurrencesOfString:@"wagr.override."
+                                                  withString:@"wagr.observed."];
 }
 
-static inline BOOL WAGRIsOn(NSString *key) {
+static inline BOOL WAGRHasOverride(NSString *key) {
     if (!key.length) return NO;
-    if (WAGRGateIsSet(key)) return WAGRGateGet(key);
-    NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(key)];
-    return [stored isEqualToString:@"on"];
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:key] != nil) return YES;
+    NSString *waabFlag = WAGRWAABFlagFromOverrideKey(key);
+    if (waabFlag.length) {
+        return [[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(waabFlag)].length > 0;
+    }
+    return NO;
 }
+
+static inline BOOL WAGROverrideBool(NSString *key) {
+    if (!key.length) return NO;
+    id obj = [[NSUserDefaults standardUserDefaults] objectForKey:key];
+    if (obj) return [obj boolValue];
+    NSString *waabFlag = WAGRWAABFlagFromOverrideKey(key);
+    if (waabFlag.length) {
+        NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:WAGRKey(waabFlag)];
+        if ([stored isEqualToString:@"on"]) return YES;
+        if ([stored isEqualToString:@"off"]) return NO;
+    }
+    return NO;
+}
+
+static inline void WAGRSetOverride(NSString *key, BOOL value) {
+    if (!key.length) return;
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:key];
+    NSString *waabFlag = WAGRWAABFlagFromOverrideKey(key);
+    if (waabFlag.length) WAGRSet(waabFlag, value ? @"on" : @"off");
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+static inline void WAGRClearOverride(NSString *key) {
+    if (!key.length) return;
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:key];
+    NSString *waabFlag = WAGRWAABFlagFromOverrideKey(key);
+    if (waabFlag.length) WAGRSet(waabFlag, nil);
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+static inline void WAGRRecordObserved(NSString *overrideKey, BOOL value) {
+    NSString *k = WAGRObservedKey(overrideKey);
+    if (!k.length) return;
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:k];
+}
+
+static inline BOOL WAGRObservedValue(NSString *overrideKey, BOOL *known) {
+    NSString *k = WAGRObservedKey(overrideKey);
+    id obj = k.length ? [[NSUserDefaults standardUserDefaults] objectForKey:k] : nil;
+    if (known) *known = obj != nil;
+    return obj ? [obj boolValue] : NO;
+}
+
+#endif

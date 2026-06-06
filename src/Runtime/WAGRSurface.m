@@ -1,5 +1,4 @@
 #import "WAGRSurface.h"
-#import "WAGRRuntimeClassifier.h"
 #import <objc/runtime.h>
 
 @implementation WAGREntry @end
@@ -12,11 +11,9 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
                                         NSArray<NSString *> *frags,
                                         NSArray<NSString *> *tokens,
                                         NSArray<NSString *> *cats,
-                                        NSArray<NSString *> *imageTokens,
                                         BOOL inst,
                                         BOOL cls,
                                         BOOL props,
-                                        BOOL allImage,
                                         BOOL advanced) {
     WAGRSurfaceSpec *s = [WAGRSurfaceSpec new];
     s.surfaceID = sid;
@@ -27,36 +24,225 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
     s.classNameFragments = frags ?: @[];
     s.selectorTokens = tokens ?: @[];
     s.categoryAllowList = cats ?: @[];
-    s.imagePathTokens = imageTokens ?: @[];
     s.scanInstanceMethods = inst;
     s.scanClassMethods = cls;
     s.scanProperties = props;
-    s.scanAllImageClasses = allImage;
     s.advancedOnly = advanced;
     return s;
 }
 
 @implementation WAGRSurfaceSpec
+
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces {
     return @[
-        WAGRMakeSurface(@"exec", @"Runtime - WhatsApp executable",
-                        @"Scoped only to /WhatsApp.app/WhatsApp. No semantic token filter.",
-                        @"app.dashed", @[], @[], @[], @[], @[@"/WhatsApp.app/WhatsApp"], YES, YES, YES, YES, YES),
-        WAGRMakeSurface(@"sharedmodules", @"Runtime - SharedModules.framework",
-                        @"Scoped only to SharedModules.framework/SharedModules. No semantic token filter.",
-                        @"shippingbox", @[], @[], @[], @[], @[@"SharedModules.framework/SharedModules"], YES, YES, YES, YES, YES),
-        WAGRMakeSurface(@"waab", @"WAAB / MobileConfig",
-                        @"Confirmed classes: WAABProperties and FOAWAABPropertiesImpl. Key based flags use the WAAB catalog/hot-path hooks.",
-                        @"switch.2", @[@"WAABProperties", @"FOAWAABPropertiesImpl"], @[@"WAABProperties", @"FOAWAABProperties", @"MobileConfig"], @[], @[], @[], YES, YES, YES, NO, YES),
-        WAGRMakeSurface(@"liquidglass", @"Liquid Glass / WDS",
-                        @"Confirmed: WDSLiquidGlass, WDSExperiments, ApplyLiquidGlass and ios_liquid_glass_* gates.",
-                        @"drop", @[@"WDSLiquidGlass", @"_TtC3WDS14WDSExperiments"], @[@"LiquidGlass", @"WDSLiquidGlass", @"WDSExperiments", @"ApplyLiquidGlass", @"METALiquidGlass"], @[], @[], @[], YES, YES, YES, NO, YES),
-        WAGRMakeSurface(@"aura", @"Aura / Subscription",
-                        @"Confirmed: WAAuraGating, WAAuraFoundation, SubscriptionFeatureGating and aura_subscription_simulation_enabled.",
-                        @"star", @[@"WAAuraGating", @"WAAuraGating.AuraGating", @"_TtC12WAAuraGating20GatedBenefitProvider", @"_TtC12WAAuraGating25GatedSubscriptionProvider"], @[@"WAAuraGating", @"WAAuraFoundation", @"AuraBenefit", @"AuraSubscription", @"SubscriptionFeatureGating"], @[], @[], @[], YES, YES, YES, NO, YES),
-        WAGRMakeSurface(@"debug", @"Debug / Developer",
-                        @"Confirmed: WADebugViewController, WADebugMenu* and WAPrivateExperimentation.",
-                        @"ladybug", @[@"WADebugViewController", @"WADebugMenuMain", @"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController"], @[@"WADebugMenu", @"PrivateExperimentation", @"Developer"], @[], @[], @[], YES, YES, YES, NO, YES),
+        WAGRMakeSurface(kWAGRSurfaceWAAB, @"WAABProperties",
+                        @"AB props / feature flags; WAABProperties + FOAWAABPropertiesImpl",
+                        @"switch.2",
+                        @[@"WAABProperties", @"FOAWAABPropertiesImpl"],
+                        @[@"WAABProperties", @"ABProperties", @"FOAWAABProperties"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceContext, @"WAContext",
+                        @"WAContext gate namespace before WAContextMain expansion",
+                        @"point.3.connected.trianglepath.dotted",
+                        @[@"WAContext"],
+                        @[@"WAContext"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(@"contextmain_graph", @"WAContextMain",
+                        @"Large dependency graph/services behind WAContext; runtime browser",
+                        @"cube.transparent",
+                        @[@"WAContextMain"],
+                        @[@"WAContextMain", @"ContextMain"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceGateKeep, @"Feature Gate Keepers",
+                        @"FeatureControlGateKeeper and related services",
+                        @"shield",
+                        @[@"WAFeatureControlGateKeeper", @"WAFeatureKeyManagerStore"],
+                        @[@"FeatureControlGateKeeper", @"FeatureKeyManager", @"GateKeeper", @"Gating"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceAura, @"WAAuraGating",
+                        @"SharedModules Swift Aura gates, providers and WAAB flags",
+                        @"star",
+                        @[@"WAAuraGating", @"WAAuraGating.AuraGating",
+                          @"_TtC12WAAuraGating20GatedBenefitProvider",
+                          @"_TtC12WAAuraGating25GatedSubscriptionProvider",
+                          @"_TtC12WAAuraGating28AuraBenefitReliabilityLogger",
+                          @"_TtC12WAAuraGating28SubscriptionUserActionLogger",
+                          @"WAABProperties", @"FOAWAABPropertiesImpl"],
+                        @[@"WAAuraGating", @"AuraGating", @"AuraBenefit",
+                          @"AuraSubscription", @"GatedBenefit", @"GatedSubscription",
+                          @"WAAuraFoundation", @"Aura"],
+                        @[@"aura", @"subscription", @"benefit", @"settings",
+                          @"eligible", @"active", @"themes", @"icons", @"ringtones"],
+                        @[@"WA Plus / Aura"], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceSettings, @"Settings Navigation",
+                        @"Settings controllers, rows, internal menus",
+                        @"gearshape",
+                        @[@"WASettingsViewController", @"WASettingsNavigationController",
+                          @"WANewSettingsViewController", @"WASettingsTableViewController"],
+                        @[@"WASettings", @"WANewSettings", @"WADebugMenu", @"WADeveloper"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceEmployee, @"Employee / Dogfood",
+                        @"Employee, dogfood, internal and debug gates",
+                        @"person.badge.key",
+                        @[@"WAABProperties", @"WAUserContext", @"WAAccountInfo",
+                          @"WAAccountManager", @"WAEmployeeGating", @"WADebugMenuMain",
+                          @"WASettingsViewController"],
+                        @[@"Employee", @"Dogfood", @"Internal", @"DebugMenu", @"Developer"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceServer, @"WAServerProperties",
+                        @"Master account/server gates, including isInternalUser and UPI/list/group limits",
+                        @"server.rack",
+                        @[@"WAServerProperties"],
+                        @[@"WAServerProperties", @"ServerProperties"],
+                        @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceMobileConfig, @"WAMobileConfig",
+                        @"Fetch/cache/GraphQL/gating bridge behind WAAB flags",
+                        @"network",
+                        @[@"WAMobileConfigGating", @"_TtC12WAFoundation20WAMobileConfigGating"],
+                        @[@"WAMobileConfig", @"MobileConfig", @"WAMCShadow", @"WAMobileConfigGating"],
+                        @[@"config", @"mobile", @"enabled", @"true", @"false"],
+                        @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceFOA, @"FOA / Meta App Utilities",
+                        @"Family-of-apps utilities: Facebook, Instagram, Threads, Meta AI and bridges",
+                        @"apps.iphone",
+                        @[@"WAFoaAppUtilities", @"FOAWAABPropertiesImpl"],
+                        @[@"FOA", @"WAFoa", @"Foa", @"CrossFamily", @"MetaAI", @"Instagram", @"Threads", @"Facebook"],
+                        @[@"foa", @"facebook", @"instagram", @"threads", @"metaai", @"installed", @"bookmark"],
+                        @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(kWAGRSurfaceBiz, @"WABiz / Business",
+                        @"Business/BizManager/BizProfile/BizRole surfaces and AB-backed business features",
+                        @"briefcase",
+                        @[@"WABizProfileServerConfigs", @"WABizSearchServerConfigs", @"WABizProfileSettings"],
+                        @[@"WABiz", @"BizManager", @"BizProfile", @"BizRole", @"Business", @"SMB", @"Catalog", @"Commerce", @"Merchant"],
+                        @[@"biz", @"business", @"smb", @"merchant", @"commerce", @"catalog", @"profile", @"eligible"],
+                        @[], YES, YES, YES, YES),
+    ];
+}
+
++ (NSArray<WAGRSurfaceSpec *> *)featureBundles {
+    return @[
+        WAGRMakeSurface(@"bundle_general", @"Geral",
+                        @"Feature gates gerais e flags de app",
+                        @"gearshape",
+                        @[@"WAABProperties", @"WAContextMain", @"WAFeatureControlGateKeeper"],
+                        @[@"WAABProperties", @"FeatureControl", @"GateKeeper", @"Gating"],
+                        @[@"feature", @"enabled", @"gate", @"keeper", @"eligible"],
+                        @[], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_liquidglass", @"LiquidGlass",
+                        @"liquid/glass/WDS/visual effects",
+                        @"drop",
+                        @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WDSLiquidGlass"],
+                        @[@"LiquidGlass", @"WDSLiquidGlass", @"WAABProperties", @"MobileConfig"],
+                        @[@"liquid", @"glass", @"wds"],
+                        @[@"Liquid Glass"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_aura", @"WA Plus / Aura",
+                        @"Aura settings row, benefits, themes, icons, ringtones",
+                        @"star",
+                        @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WAAuraGating",
+                          @"WAAuraGating.AuraGating",
+                          @"_TtC12WAAuraGating20GatedBenefitProvider",
+                          @"_TtC12WAAuraGating25GatedSubscriptionProvider"],
+                        @[@"Aura", @"WAAuraGating", @"WAAuraFoundation",
+                          @"Premium", @"Subscription", @"Benefit", @"Plus"],
+                        @[@"aura", @"premium", @"subscription", @"benefit",
+                          @"settings", @"theme", @"icon", @"ringtone", @"sticker"],
+                        @[@"WA Plus / Aura", @"Premium / Business", @"Settings Rows"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_status", @"Status",
+                        @"Status, stickers, stamps and viewer gates",
+                        @"checkmark.circle",
+                        @[@"WAABProperties", @"WAContextMain"],
+                        @[@"Status", @"Sticker", @"Stamp", @"Viewer"],
+                        @[@"status", @"sticker", @"stamp", @"viewer", @"story"],
+                        @[@"Status", @"Status / Channels"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_channels", @"Channels",
+                        @"Channels, newsletters and broadcast",
+                        @"megaphone",
+                        @[@"WAABProperties", @"WAContextMain"],
+                        @[@"Channel", @"Newsletter", @"Broadcast"],
+                        @[@"channel", @"newsletter", @"broadcast"],
+                        @[@"Status / Channels"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_calls", @"Calls",
+                        @"Call, VOIP and voicemail gates",
+                        @"phone",
+                        @[@"WAABProperties", @"WAContextMain"],
+                        @[@"Call", @"Voip", @"VOIP", @"Voice"],
+                        @[@"call", @"voip", @"voice", @"voicemail"],
+                        @[@"Calls"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_messages", @"Mensagens",
+                        @"Messaging, chat, composer, stickers, polls",
+                        @"paperplane",
+                        @[@"WAABProperties", @"WAContextMain"],
+                        @[@"Message", @"Chat", @"Composer", @"Sticker", @"Poll", @"Thread"],
+                        @[@"message", @"chat", @"composer", @"sticker", @"poll", @"thread", @"inline"],
+                        @[@"Messaging", @"Messages"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_ai", @"AI / Meta AI",
+                        @"Meta AI, imagine, bots and incognito AI",
+                        @"sparkles",
+                        @[@"WAABProperties", @"WAContextMain"],
+                        @[@"AI", @"MetaAI", @"Imagine", @"Llama", @"Bot", @"Incognito"],
+                        @[@"ai", @"metaai", @"imagine", @"llama", @"bot", @"incognito", @"hatch"],
+                        @[@"AI / Meta AI"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_privacy", @"Privacy & Username",
+                        @"Privacy, username, passkey and defense gates",
+                        @"lock.shield",
+                        @[@"WAABProperties", @"WAContextMain"],
+                        @[@"Privacy", @"Username", @"Passkey", @"Defense"],
+                        @[@"privacy", @"username", @"passkey", @"defense", @"block", @"contact"],
+                        @[@"Privacy / Username"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_business", @"WABiz / Business",
+                        @"BizManager, BizProfile, commerce, SMB and premium business gates",
+                        @"briefcase",
+                        @[@"WAABProperties", @"WAContextMain", @"WABizProfileServerConfigs", @"WABizSearchServerConfigs"],
+                        @[@"WABiz", @"BizManager", @"BizProfile", @"BizRole", @"Business", @"SMB", @"Commerce", @"Premium"],
+                        @[@"biz", @"business", @"smb", @"commerce", @"premium", @"paid", @"merchant", @"catalog"],
+                        @[@"Premium / Business"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_foa", @"FOA / Meta Apps",
+                        @"Facebook, Instagram, Threads, Meta AI app utilities and FOA bookmarks",
+                        @"apps.iphone",
+                        @[@"WAFoaAppUtilities", @"FOAWAABPropertiesImpl", @"WAContextMain"],
+                        @[@"FOA", @"WAFoa", @"FOABookmarks", @"CrossFamily", @"MetaAI", @"Instagram", @"Threads", @"Facebook"],
+                        @[@"foa", @"facebook", @"instagram", @"threads", @"metaai", @"bookmark", @"bridge"],
+                        @[@"FOA / Meta App Utilities", @"Settings Rows", @"AI / Meta AI"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_settings", @"Settings Rows",
+                        @"Settings rows and hidden native developer entries",
+                        @"rectangle.grid.2x2",
+                        @[@"WASettingsViewController", @"WASettingsNavigationController",
+                          @"WANewSettingsViewController", @"WASettingsTableViewController",
+                          @"WAContextMain", @"WAFeatureControlGateKeeper"],
+                        @[@"WASettings", @"WANewSettings", @"WAContext", @"WAFeatureControl"],
+                        @[@"settings", @"row", @"cell", @"menu", @"developer", @"debug", @"internal"],
+                        @[@"Settings Rows", @"Debug / Internal"], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"bundle_internal", @"Developer / Dogfood / Internal",
+                        @"Employee, dogfood, debug menu, internal gates",
+                        @"person.badge.key",
+                        @[@"WAABProperties", @"WAUserContext", @"WAAccountInfo",
+                          @"WAAccountManager", @"WAEmployeeGating", @"WADebugMenuMain",
+                          @"WASettingsViewController", @"WAContextMain"],
+                        @[@"Employee", @"Dogfood", @"Internal", @"DebugMenu", @"Developer"],
+                        @[@"employee", @"dogfood", @"internal", @"debug", @"developer", @"tester"],
+                        @[@"Debug / Internal"], YES, YES, YES, NO),
     ];
 }
 @end
@@ -72,56 +258,128 @@ NSString *WAGRCleanDisplayName(NSString *name) {
 
 NSString *WAGRCategoryForSelector(NSString *name) {
     NSString *s = name.lowercaseString ?: @"";
-    if ([s containsString:@"liquid"] || [s containsString:@"glass"] || [s containsString:@"wds"]) return @"Liquid Glass / WDS";
-    if ([s containsString:@"waab"] || [s containsString:@"abproperties"] || [s containsString:@"mobileconfig"] || [s containsString:@"experiment"]) return @"WAAB / Experiments";
-    if ([s containsString:@"aura"] || [s containsString:@"subscri"] || [s containsString:@"benefit"] || [s containsString:@"premium"] || [s containsString:@"plus"]) return @"Aura / Subscription";
-    if ([s containsString:@"debug"] || [s containsString:@"developer"] || [s containsString:@"tester"]) return @"Debug / Developer";
-    if ([s containsString:@"settings"] || [s containsString:@"row"] || [s containsString:@"cell"] || [s containsString:@"menu"]) return @"Settings";
-    if ([s containsString:@"username"] || [s containsString:@"privacy"] || [s containsString:@"passkey"] || [s containsString:@"contact"] || [s containsString:@"online"]) return @"Privacy / Username";
-    if ([s containsString:@"message"] || [s containsString:@"chat"] || [s containsString:@"composer"] || [s containsString:@"thread"] || [s containsString:@"poll"]) return @"Messaging";
-    if ([s containsString:@"status"] || [s containsString:@"sticker"] || [s containsString:@"viewer"] || [s containsString:@"story"] || [s containsString:@"channel"] || [s containsString:@"newsletter"] || [s containsString:@"broadcast"]) return @"Status / Channels";
-    if ([s containsString:@"call"] || [s containsString:@"voip"] || [s containsString:@"voice"]) return @"Calls";
-    if ([s containsString:@"payment"] || [s containsString:@"business"] || [s containsString:@"smb"] || [s containsString:@"commerce"] || [s containsString:@"paid"]) return @"Payments / Business";
+    if ([s containsString:@"aura"] || [s containsString:@"subscri"] ||
+        [s containsString:@"premium"] || [s containsString:@"benefit"] ||
+        [s containsString:@"plus"]) return @"WA Plus / Aura";
+
+    if ([s containsString:@"liquid"] || [s containsString:@"glass"] ||
+        [s containsString:@"wds"]) return @"Liquid Glass";
+
+    if ([s containsString:@"ai_"] || [s hasPrefix:@"ai"] ||
+        [s containsString:@"metaai"] || [s containsString:@"imagine"] ||
+        [s containsString:@"hatch"] || [s containsString:@"llama"] ||
+        [s containsString:@"bot"] || [s containsString:@"incognito"]) return @"AI / Meta AI";
+
+    if ([s containsString:@"debug"] || [s containsString:@"developer"] ||
+        [s containsString:@"internal"] || [s containsString:@"dogfood"] ||
+        [s containsString:@"employee"] || [s containsString:@"tester"]) return @"Debug / Internal";
+
+    if ([s containsString:@"settings"] || [s containsString:@"row"] ||
+        [s containsString:@"cell"] || [s containsString:@"menu"]) return @"Settings Rows";
+
+    if ([s containsString:@"account"] || [s containsString:@"multi"]) return @"Multi Account";
+
+    if ([s containsString:@"privacy"] || [s containsString:@"username"] ||
+        [s containsString:@"passkey"] || [s containsString:@"defense"] ||
+        [s containsString:@"block"] || [s containsString:@"contact"]) return @"Privacy / Username";
+
+    if ([s containsString:@"foa"] || [s containsString:@"facebook"] ||
+        [s containsString:@"instagram"] || [s containsString:@"threads"] ||
+        [s containsString:@"metaai"] || [s containsString:@"bookmark"]) return @"FOA / Meta App Utilities";
+
+    if ([s containsString:@"business"] || [s containsString:@"wabiz"] ||
+        [s containsString:@"biz"] || [s containsString:@"smb"] ||
+        [s containsString:@"merchant"] || [s containsString:@"catalog"] ||
+        [s containsString:@"commerce"] || [s containsString:@"paid"]) return @"Premium / Business";
+
+    if ([s containsString:@"call"] || [s containsString:@"voip"] ||
+        [s containsString:@"voice"]) return @"Calls";
+
+    if ([s containsString:@"message"] || [s containsString:@"chat"] ||
+        [s containsString:@"composer"] || [s containsString:@"thread"] ||
+        [s containsString:@"poll"]) return @"Messaging";
+
+    if ([s containsString:@"status"] || [s containsString:@"sticker"] ||
+        [s containsString:@"stamp"] || [s containsString:@"viewer"] ||
+        [s containsString:@"story"]) return @"Status";
+
+    if ([s containsString:@"channel"] || [s containsString:@"newsletter"] ||
+        [s containsString:@"broadcast"]) return @"Status / Channels";
+
     return @"Other";
 }
 
-static BOOL WAGRReturnIsBool(const char *ret) { return ret && (ret[0] == 'B' || ret[0] == 'c'); }
+static BOOL WAGRReturnIsBool(const char *ret) {
+    return ret && (ret[0] == 'B' || ret[0] == 'c');
+}
+
 static BOOL WAGRTokenMatch(NSArray<NSString *> *tokens, NSString *haystack) {
     if (!tokens.count) return YES;
     NSString *lo = haystack.lowercaseString ?: @"";
-    for (NSString *t in tokens) if (t.length && [lo containsString:t.lowercaseString]) return YES;
-    return NO;
-}
-static BOOL WAGRCategoryAllowed(WAGRSurfaceSpec *spec, NSString *cat) {
-    if (!spec.categoryAllowList.count) return YES;
-    for (NSString *c in spec.categoryAllowList) if ([c caseInsensitiveCompare:cat] == NSOrderedSame) return YES;
-    return NO;
-}
-static BOOL WAGRClassMatchesImageTokens(Class cls, NSArray<NSString *> *tokens) {
-    if (!tokens.count) return YES;
-    const char *img = class_getImageName(cls);
-    NSString *path = img ? [NSString stringWithUTF8String:img] : @"";
-    for (NSString *t in tokens) if (t.length && [path rangeOfString:t options:NSCaseInsensitiveSearch].location != NSNotFound) return YES;
-    return NO;
-}
-static BOOL WAGRClassNameMatchesFragments(NSString *n, NSArray<NSString *> *frags) {
-    if (!frags.count) return NO;
-    for (NSString *frag in frags) if (frag.length && [n rangeOfString:frag options:NSCaseInsensitiveSearch].location != NSNotFound) return YES;
+    for (NSString *t in tokens) {
+        if (t.length && [lo containsString:t.lowercaseString]) return YES;
+    }
     return NO;
 }
 
-static void WAGRAddEntry(NSMutableArray *out, NSMutableSet *seen, WAGRSurfaceSpec *spec, Class cls, BOOL meta, NSString *selector, BOOL property, NSString *returnType) {
+static BOOL WAGRCategoryAllowed(WAGRSurfaceSpec *spec, NSString *cat) {
+    if (!spec.categoryAllowList.count) return YES;
+    for (NSString *c in spec.categoryAllowList) {
+        if ([c caseInsensitiveCompare:cat] == NSOrderedSame) return YES;
+    }
+    return NO;
+}
+
+
+static BOOL WAGRIsSystemNoiseSelector(NSString *selector, Class cls) {
+    (void)cls;
+    if (!selector.length) return YES;
+
+    // Important: do NOT reject a method only because the target class inherits
+    // from NSObject. Every WhatsApp ObjC class eventually does, and the previous
+    // implementation filtered the entire WAABProperties / WAContext scan to
+    // zero rows. Only filter known generic UIKit/Foundation selectors by name.
+    static NSSet<NSString *> *noise = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        noise = [NSSet setWithArray:@[
+            @"accessibilityPerformEscape", @"canBecomeFirstResponder",
+            @"prefersStatusBarHidden", @"shouldAutorotate",
+            @"isViewLoaded", @"isBeingPresented", @"isBeingDismissed",
+            @"isMovingFromParentViewController", @"isMovingToParentViewController",
+            @"isEditing", @"isModalInPresentation", @"hidesBottomBarWhenPushed",
+            @"wantsFullScreenLayout", @"automaticallyAdjustsScrollViewInsets",
+            @"isProxy", @"respondsToSelector:", @"conformsToProtocol:",
+            @"isKindOfClass:", @"isMemberOfClass:", @"isEqual:",
+        ]];
+    });
+    return [noise containsObject:selector];
+}
+
+static void WAGRAddEntry(NSMutableArray *out,
+                         NSMutableSet *seen,
+                         WAGRSurfaceSpec *spec,
+                         Class cls,
+                         BOOL meta,
+                         NSString *selector,
+                         BOOL property,
+                         NSString *returnType) {
     if (!selector.length || [selector containsString:@":"]) return;
+    if (WAGRIsSystemNoiseSelector(selector, cls)) return;
     NSString *cname = NSStringFromClass(cls);
     NSString *display = WAGRCleanDisplayName(selector);
-    NSString *semanticCat = WAGRCategoryForSelector([NSString stringWithFormat:@"%@ %@ %@", cname, selector, display]);
-    NSString *runtimeCat = WAGRRuntimeSectionForSelector(selector, cname);
-    NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@", cname, selector, semanticCat, runtimeCat];
+    NSString *cat = WAGRCategoryForSelector([NSString stringWithFormat:@"%@ %@ %@", cname, selector, display]);
+    NSString *hay = [NSString stringWithFormat:@"%@ %@ %@", cname, selector, cat];
+
     if (!WAGRTokenMatch(spec.selectorTokens, hay)) return;
-    if (!WAGRCategoryAllowed(spec, semanticCat)) return;
+    if (!WAGRCategoryAllowed(spec, cat)) return;
+
+    // UID = class + meta + selector. The HOOK level handles subclass lookup.
+    // Avoids cross-class dedup (e.g. WAContextMain.isEnabled ≠ WAABProperties.isEnabled).
     NSString *uid = [NSString stringWithFormat:@"%@.%d.%@", cname, meta, selector];
     if ([seen containsObject:uid]) return;
     [seen addObject:uid];
+
     WAGREntry *e = [WAGREntry new];
     e.surfaceID = spec.surfaceID ?: @"runtime";
     e.className = cname;
@@ -130,8 +388,8 @@ static void WAGRAddEntry(NSMutableArray *out, NSMutableSet *seen, WAGRSurfaceSpe
     e.selectorName = selector;
     e.displayName = display;
     e.returnType = returnType ?: @"BOOL";
-    e.category = runtimeCat ?: semanticCat ?: @"Other";
-    e.overrideKey = selector;
+    e.category = cat ?: @"Other";
+    e.overrideKey = WAGROverrideKey(e.surfaceID, cname, meta, selector);
     [out addObject:e];
 }
 
@@ -140,23 +398,25 @@ static void WAGRAddEntry(NSMutableArray *out, NSMutableSet *seen, WAGRSurfaceSpe
     if (!spec) return @[];
     NSMutableArray *out = [NSMutableArray array];
     NSMutableSet *seen = [NSMutableSet set];
-    NSMutableArray *classesToScan = [NSMutableArray array];
 
+    NSMutableArray *classesToScan = [NSMutableArray array];
     for (NSString *n in spec.classNames) {
-        Class c = NSClassFromString(n) ?: objc_getClass(n.UTF8String);
-        if (c && WAGRClassMatchesImageTokens(c, spec.imagePathTokens) && ![classesToScan containsObject:c]) [classesToScan addObject:c];
+        Class c = NSClassFromString(n);
+        if (c && ![classesToScan containsObject:c]) [classesToScan addObject:c];
     }
 
-    if (spec.classNameFragments.count || spec.scanAllImageClasses) {
+    if (spec.classNameFragments.count) {
         unsigned int total = 0;
         Class *all = objc_copyClassList(&total);
         if (all) {
             for (unsigned int i = 0; i < total; i++) {
-                Class c = all[i];
-                if (!WAGRClassMatchesImageTokens(c, spec.imagePathTokens)) continue;
-                NSString *n = NSStringFromClass(c);
-                if (!spec.scanAllImageClasses && !WAGRClassNameMatchesFragments(n, spec.classNameFragments)) continue;
-                if (![classesToScan containsObject:c]) [classesToScan addObject:c];
+                NSString *n = NSStringFromClass(all[i]);
+                for (NSString *frag in spec.classNameFragments) {
+                    if (frag.length && [n rangeOfString:frag options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                        if (![classesToScan containsObject:all[i]]) [classesToScan addObject:all[i]];
+                        break;
+                    }
+                }
             }
             free(all);
         }
@@ -164,10 +424,12 @@ static void WAGRAddEntry(NSMutableArray *out, NSMutableSet *seen, WAGRSurfaceSpe
 
     for (Class cls in classesToScan) {
         if (spec.scanProperties) {
-            unsigned int pc = 0; objc_property_t *props = class_copyPropertyList(cls, &pc);
+            unsigned int pc = 0;
+            objc_property_t *props = class_copyPropertyList(cls, &pc);
             if (props) {
                 for (unsigned int i = 0; i < pc; i++) {
-                    const char *pn = property_getName(props[i]); const char *attrs = property_getAttributes(props[i]);
+                    const char *pn = property_getName(props[i]);
+                    const char *attrs = property_getAttributes(props[i]);
                     if (!pn || !attrs) continue;
                     NSString *attr = @(attrs);
                     if (![attr hasPrefix:@"TB"] && ![attr hasPrefix:@"Tc"]) continue;
@@ -179,15 +441,18 @@ static void WAGRAddEntry(NSMutableArray *out, NSMutableSet *seen, WAGRSurfaceSpe
                 free(props);
             }
         }
+
         for (int meta = 0; meta <= 1; meta++) {
             if (meta == 0 && !spec.scanInstanceMethods) continue;
             if (meta == 1 && !spec.scanClassMethods) continue;
             Class target = meta ? object_getClass(cls) : cls;
-            unsigned int n = 0; Method *ms = class_copyMethodList(target, &n);
+            unsigned int n = 0;
+            Method *ms = class_copyMethodList(target, &n);
             if (!ms) continue;
             for (unsigned int i = 0; i < n; i++) {
                 if (method_getNumberOfArguments(ms[i]) != 2) continue;
-                char ret[8] = {0}; method_getReturnType(ms[i], ret, sizeof(ret));
+                char ret[8] = {0};
+                method_getReturnType(ms[i], ret, sizeof(ret));
                 if (!WAGRReturnIsBool(ret)) continue;
                 NSString *sel = NSStringFromSelector(method_getName(ms[i]));
                 WAGRAddEntry(out, seen, spec, cls, (BOOL)meta, sel, NO, @"BOOL");
@@ -195,6 +460,7 @@ static void WAGRAddEntry(NSMutableArray *out, NSMutableSet *seen, WAGRSurfaceSpe
             free(ms);
         }
     }
+
     return [out sortedArrayUsingComparator:^NSComparisonResult(WAGREntry *a, WAGREntry *b) {
         NSComparisonResult r = [a.category localizedCaseInsensitiveCompare:b.category];
         if (r != NSOrderedSame) return r;

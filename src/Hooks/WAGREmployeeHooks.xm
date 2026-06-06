@@ -162,8 +162,10 @@ static void installWAServerContextHooks(Class serverProps) {
     hookClassObjectSelector(serverProps, "configureUserContext:",
                             (IMP)h_WAServer_configureContext, (IMP *)&orig_WAServer_configureContext);
 
-    // Do not call WhatsApp getters during constructor. The hook will capture
-    // the userContext lazily the first time WhatsApp calls it itself.
+    if (orig_WAServer_userContext) {
+        @try { WAGRRememberWAServerUserContext(((id (*)(id, SEL))objc_msgSend)(serverProps, sel_registerName("userContext"))); }
+        @catch (__unused id ex) {}
+    }
 }
 
 // ── Deterministic installer ──────────────────────────────────────────────────
@@ -237,12 +239,15 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 }
 
 // ── Constructor ──────────────────────────────────────────────────────────────
-// Watusi pattern: synchronous install. Previously 4 dispatch_after retries
-// (0.2/1.0/3.0/6.0s) — removed because WAServerProperties is in SharedModules
-// which is loaded before our ctor runs.
+// Constructor policy: install immediately, then short bounded retries.
+// No long 6s/7s tail; later UI actions can call WAGRDogfoodEnsureHooksInstalled().
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
-        installEmployeeHooks();
+        double delays[] = { 0.35, 1.0, 2.0 };
+        for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{ installEmployeeHooks(); });
+        }
     }
 }

@@ -73,7 +73,7 @@ static id hook_navInitWithContext(id self, SEL _cmd, id context) {
     NSString *key = WAGRNavHookKey(NSStringFromClass([self class]), NSStringFromSelector(_cmd), NO);
     WAGRNavIDCtxIMP orig = NULL;
     NSValue *v = gNavOrig[key];
-    if (v) orig = (WAGRNavIDCtxIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<WAGRNavIDCtxIMP>([v pointerValue]);
     if (context) gNavLastUserContext = context;
     id result = orig ? orig(self, _cmd, context) : self;
     if (context) WAGRNavInjectUserContextIntoController(result, context);
@@ -84,7 +84,7 @@ static id hook_navMakeControllerWithContext(id cls, SEL _cmd, id context) {
     NSString *key = WAGRNavHookKey(NSStringFromClass((Class)cls), NSStringFromSelector(_cmd), YES);
     WAGRNavIDCtxIMP orig = NULL;
     NSValue *v = gNavOrig[key];
-    if (v) orig = (WAGRNavIDCtxIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<WAGRNavIDCtxIMP>([v pointerValue]);
     id ctx = context ?: WAGRNavCurrentUserContext();
     if (ctx) gNavLastUserContext = ctx;
     id vc = orig ? orig(cls, _cmd, ctx ?: context) : nil;
@@ -98,7 +98,7 @@ static void hook_navControllerViewDidLoad(id self, SEL _cmd) {
     NSString *key = WAGRNavHookKey(NSStringFromClass([self class]), NSStringFromSelector(_cmd), NO);
     WAGRNavVoidIMP orig = NULL;
     NSValue *v = gNavOrig[key];
-    if (v) orig = (WAGRNavVoidIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<WAGRNavVoidIMP>([v pointerValue]);
     if (orig) orig(self, _cmd);
     WAGRNavInjectUserContextIntoController(self, ctx);
 }

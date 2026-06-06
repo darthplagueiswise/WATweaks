@@ -2,15 +2,15 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
-#import "../Runtime/WAGRGateStore.h"
 
 static BOOL gWAGRLGHookInstallAttempted = NO;
 static NSMutableDictionary<NSString *, NSValue *> *gWAGRLGOrigIMPs = nil;
 
 static BOOL WAGRLGSelectorIsNegative(SEL sel) {
     NSString *s = NSStringFromSelector(sel).lowercaseString ?: @"";
-    return [s containsString:@"disabled"] || [s containsString:@"customtoolbardisabled"] || [s containsString:@"reducetransparency"];
+    return [s containsString:@"disabled"];
 }
 
 static BOOL WAGRLGHookedBool(id self, SEL _cmd) {
@@ -21,56 +21,21 @@ static BOOL WAGRLGHookedBool(id self, SEL _cmd) {
     return NO;
 }
 
-static NSArray<NSString *> *WAGRLGWAABKeys(void) {
-    return @[
-        @"ios_liquid_glass_enabled",
-        @"ios_liquid_glass_launched",
-        @"ios_liquid_glass_media_m0",
-        @"ios_liquid_glass_m1",
-        @"ios_liquid_glass_m_1_5",
-        @"ios_liquid_glass_m_1_5_context_menu",
-        @"ios_liquid_glass_chat_top_bar_m2_enabled",
-        @"ios_liquid_glass_chatbar_lower_bottom_padding",
-        @"ios_liquid_glass_enable_new_chatbar_ux",
-        @"ios_liquid_glass_larger_composer",
-        @"ios_liquid_glass_m_2_action_tile",
-        @"ios_liquid_glass_m_2_chips",
-        @"ios_liquid_glass_m_2_lightweight_dialogs",
-        @"ios_liquid_glass_m_2_text_layout",
-        @"ios_liquid_glass_media_editor_enabled",
-        @"ios_liquid_glass_calling_improvement_enabled",
-        @"ios_liquid_glass_ptt_oot",
-        @"ios_liquid_glass_fixes_for_older_ios",
-        @"ios_liquid_glass_fix_context_menu_on_disappear",
-        @"ios_liquid_glass_fix_context_menu_transition_safety",
-        @"ios_liquid_glass_fix_feedback_generator_retain",
-        @"ios_liquid_glass_fix_forward_picker_share_extension_crash",
-        @"ios_liquid_glass_fix_me_tab_profile_render_throttle_enabled",
-        @"ios_liquid_glass_fix_multisend_preview_dealloc",
-        @"ios_liquid_glass_fix_status_dismiss_when_locked",
-        @"ios_liquid_glass_fix_tabbar_badge_offthread",
-        @"ios_liquid_glass_fix_uiimage_trait_collection",
-        @"ios_liquid_glass_fix_updates_table_dynamic_color",
-        @"ios_liquid_glass_fix_voip_mutex_priority_inversion",
-        @"ios_liquid_glass_fix_weak_hashtable_snapshot",
-        @"ios_liquid_glass_unify_ui_refresh_enabled",
-        @"ios_liquid_glass_unify_navigation_bar_enabled",
-        @"ios_liquid_glass_native_sidebar_enabled",
-        @"status_viewer_redesign_enabled"
-    ];
-}
-
 static void WAGRLGApplyNative(void){
     NSUserDefaults*ud=NSUserDefaults.standardUserDefaults;
     BOOL on=WAGRPref(kWAGRLiquidGlassMaster);
-    for(NSString*k in WAGRLGWAABKeys()){
-        if(on){ [ud setBool:YES forKey:k]; WAGRGateSet(k, YES); }
-        else { [ud removeObjectForKey:k]; WAGRGateClear(k); }
-    }
-    for (NSString *k in @[@"liquid_glass_override_enabled", @"WALiquidGlassOverrideEnabled"]) {
-        if(on)[ud setBool:YES forKey:k]; else[ud removeObjectForKey:k];
-    }
+    NSArray*keys=@[@"liquid_glass_override_enabled",@"WALiquidGlassOverrideEnabled",
+        @"ios_liquid_glass_enabled",@"ios_liquid_glass_launched",@"ios_liquid_glass_m1",
+        @"ios_liquid_glass_m_1_5",@"ios_liquid_glass_m_1_5_context_menu",@"ios_liquid_glass_media_m0",
+        @"ios_liquid_glass_larger_composer",@"ios_liquid_glass_media_editor_enabled",
+        @"ios_liquid_glass_calling_improvement_enabled",@"ios_liquid_glass_workaround_attachment_tray",
+        @"ios_liquid_glass_enable_new_chatbar_ux",@"ios_liquid_glass_chat_top_bar_m2_enabled",
+        @"ios_liquid_glass_text_layout_m2_enabled",@"ios_liquid_glass_m_2_action_tile",
+        @"ios_liquid_glass_unify_ui_refresh_enabled",@"ios_liquid_glass_unify_navigation_bar_enabled",
+        @"ios_liquid_glass_native_sidebar_enabled",@"status_viewer_redesign_enabled"];
+    for(NSString*k in keys){if(on)[ud setBool:YES forKey:k];else[ud removeObjectForKey:k];}
     [ud synchronize];
+
     if(!on)return;
 
     Class cls=NSClassFromString(@"WALiquidGlassOverrideMethodUserDefaults");
@@ -91,7 +56,7 @@ static NSArray<NSString *> *WAGRLGWDSSelectors(void) {
     return @[@"hasLiquidGlassLaunched", @"isM0Enabled", @"isM1Enabled", @"isM1_5Enabled",
              @"isNewChatbarUXEnabled", @"isChatbarLowerBottomPaddingEnabled", @"isChatTopBarM2Enabled",
              @"isTextLayoutM2Enabled", @"isM1_5ContextMenuEnabled", @"isActionTileM2Enabled",
-             @"isUnifyUIRefreshEnabled", @"isUnifyHoverActionsEnabled", @"isCustomToolbarDisabledForLiquidGlass",
+             @"isUnifyUIRefreshEnabled", @"isCustomToolbarDisabledForLiquidGlass",
              @"isUnifyNavigationBarEnabled", @"shouldUseNativeSwipeActions", @"isHidingBottomBarWorkaroundEnabled",
              @"isTopBarAppearanceWorkaroundEnabled", @"isFixesForOlderOSEnabled",
              @"isFixTabbarBadgeOffthreadEnabled", @"isContextMenuTransitionSafetyFixEnabled",
@@ -99,43 +64,54 @@ static NSArray<NSString *> *WAGRLGWDSSelectors(void) {
              @"isNativeSidebarEnabled"];
 }
 
-static void WAGRLGHookClass(void){
-    Class cls=NSClassFromString(@"WDSLiquidGlass");if(!cls)return;
-    Class meta=object_getClass(cls);if(!meta)return;
+static NSUInteger WAGRLGHookClass(void){
+    if(!WAGRPref(kWAGRLiquidGlassMaster))return 0;
+    Class cls=NSClassFromString(@"WDSLiquidGlass");if(!cls)return 0;
+    Class meta=object_getClass(cls);if(!meta)return 0;
     if(!gWAGRLGOrigIMPs)gWAGRLGOrigIMPs=[NSMutableDictionary dictionary];
-    gWAGRLGHookInstallAttempted=YES;
+    NSUInteger installed=0;
     for(NSString *name in WAGRLGWDSSelectors()){
         if(gWAGRLGOrigIMPs[name])continue;
         SEL sel=NSSelectorFromString(name);
         Method m=class_getClassMethod(cls,sel);if(!m)continue;
         IMP orig=NULL;
         MSHookMessageEx(meta,sel,(IMP)WAGRLGHookedBool,&orig);
-        if(orig)gWAGRLGOrigIMPs[name]=[NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+        if(orig){
+            gWAGRLGOrigIMPs[name]=[NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
+            installed++;
+            NSLog(@"[WATweaks][LiquidGlass] hooked WDSLiquidGlass +%@", name);
+        }
     }
+    if(gWAGRLGOrigIMPs.count>0)gWAGRLGHookInstallAttempted=YES;
+    return installed;
 }
 
 static void WAGRLGInstallOnlyIfEnabled(void){
-    WAGRLGHookClass();
+    if(!WAGRPref(kWAGRLiquidGlassMaster))return;
     WAGRLGApplyNative();
+    // Always retry. WAGRLGHookClass is idempotent and gWAGRLGOrigIMPs prevents double-hooking.
+    WAGRLGHookClass();
 }
 
-extern "C" void WAGRLGPrefsDidChange(void){ WAGRLGInstallOnlyIfEnabled(); }
+extern "C" void WAGRLGPrefsDidChange(void){WAGRLGInstallOnlyIfEnabled(); if(!WAGRPref(kWAGRLiquidGlassMaster))WAGRLGApplyNative();}
 extern "C" NSString *WAGRLGDiagnosticText(void){
-    return [NSString stringWithFormat:@"master=%@\nWDS=%@\nFOAWAAB=%@\nhookAttempted=%@\nhookedWDS=%lu/%lu\nwaabKeys=%lu",
+    return [NSString stringWithFormat:@"master=%@\nWDS=%@\nWAAB=%@\nhookAttempted=%@\nhookedWDS=%lu/22",
         WAGRPref(kWAGRLiquidGlassMaster)?@"ON":@"OFF",
         NSClassFromString(@"WDSLiquidGlass")?@"found":@"missing",
-        NSClassFromString(@"FOAWAABPropertiesImpl")?@"found":@"missing",
+        NSClassFromString(@"WAABProperties")?@"found":@"missing",
         gWAGRLGHookInstallAttempted?@"YES":@"NO",
-        (unsigned long)gWAGRLGOrigIMPs.count,
-        (unsigned long)WAGRLGWDSSelectors().count,
-        (unsigned long)WAGRLGWAABKeys().count];
+        (unsigned long)gWAGRLGOrigIMPs.count];
+}
+
+static void WAGRLGDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRLGPrefsDidChange(); });
 }
 
 __attribute__((constructor))
-static void WAGRLGConstructor(void){
+static void WAGRLGConstructor(void) {
     @autoreleasepool {
-        WAGRLGHookClass();
-        WAGRLGApplyNative();
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ WAGRLGHookClass(); WAGRLGApplyNative(); });
+        WAGRLGPrefsDidChange();
+        _dyld_register_func_for_add_image(WAGRLGDyldCallback);
     }
 }
