@@ -118,10 +118,9 @@ extern "C" NSString *WAGRContextHooksDiagnostic(void) {
 __attribute__((constructor))
 static void WAGRContextHooksCtor(void) {
     @autoreleasepool {
-        double delays[] = { 0.2, 1.0, 3.0, 6.0 };
-        for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{ installContextHooks(); });
-        }
+        // Watusi pattern: synchronous install. Previously 4 dispatch_after
+        // retries (0.2/1.0/3.0/6.0s) — removed because WAContext is in
+        // SharedModules which is loaded before our ctor runs.
+        installContextHooks();
     }
 }

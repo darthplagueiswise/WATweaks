@@ -3,15 +3,16 @@
 #import "../WAGramPrefix.h"
 #import <CoreFoundation/CoreFoundation.h>
 
-extern NSUInteger WAGRReinstallPersistedHooks(void);
 extern void WAGRLGPrefsDidChange(void);
-extern void WAGRWAABEnsureHooksInstalled(void);
-extern void WAGRAuraEnsureHooksInstalled(void);
+extern void WAGRGateHooksEnsureInstalled(void);
+extern void WAGRAuraEnsureNavigationHooksInstalled(void);
 extern void WAGRSettingsRowsNativeEnsureHooksInstalled(void);
 extern void WAGRAccountEligibilityEnsureHooksInstalled(void);
 
 static BOOL WAGRBackupOwnsKey(NSString *key) {
-    return WAGRIsManagedPreferenceKey(key);
+    if (![key isKindOfClass:NSString.class] || key.length == 0) return NO;
+    return [key hasPrefix:@"wagr"] || [key hasPrefix:@"WAGR"] ||
+           [key hasPrefix:@"wa_"] || [key hasPrefix:@"WA"];
 }
 
 static id WAGRJSONSafeObject(id obj) {
@@ -116,10 +117,15 @@ static void WAGRBackupAlert(NSString *title, NSString *message) {
 
 + (void)presentReset {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Reset WATweaks"
-                                                               message:@"Remove todas as preferências/overrides gerenciados pelo WATweaks do NSUserDefaults."
+                                                               message:@"Remove todas as preferências/overrides do WATweaks do NSUserDefaults."
                                                         preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
-        NSUInteger n = WAGRClearAllManagedPreferences();
+        NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
+        NSUInteger n = 0;
+        for (NSString *k in ud.dictionaryRepresentation.allKeys) {
+            if (WAGRBackupOwnsKey(k)) { [ud removeObjectForKey:k]; n++; }
+        }
+        [ud synchronize];
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
         WAGRBackupAlert(@"Reset", [NSString stringWithFormat:@"%lu chaves removidas.", (unsigned long)n]);
     }]];
@@ -156,14 +162,13 @@ static void WAGRBackupAlert(NSString *title, NSString *message) {
     [ud synchronize];
     CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
 
-    WAGRWAABEnsureHooksInstalled();
-    WAGRAuraEnsureHooksInstalled();
+    WAGRGateHooksEnsureInstalled();
+    WAGRAuraEnsureNavigationHooksInstalled();
     WAGRSettingsRowsNativeEnsureHooksInstalled();
     WAGRAccountEligibilityEnsureHooksInstalled();
     WAGRLGPrefsDidChange();
-    NSUInteger hooks = WAGRReinstallPersistedHooks();
 
-    WAGRBackupAlert(@"Import aplicado", [NSString stringWithFormat:@"%lu chaves aplicadas\n%lu chaves removidas\n%lu hooks reinstalados", (unsigned long)applied, (unsigned long)removed, (unsigned long)hooks]);
+    WAGRBackupAlert(@"Import aplicado", [NSString stringWithFormat:@"%lu chaves aplicadas\n%lu chaves removidas", (unsigned long)applied, (unsigned long)removed]);
 }
 @end
 

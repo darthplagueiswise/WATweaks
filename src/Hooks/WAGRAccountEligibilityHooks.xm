@@ -26,7 +26,6 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
-#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
 
 // The "is Aura simulation on?" predicate is owned by WAAuraHooks.xm. We
@@ -71,10 +70,7 @@ static NSArray<NSString *> *WAGRAccountEligibilityTargetSelectors(void) {
 // Selectors that are deliberately opt-in only — they unlock features that
 // can break account state if forced without the supporting flags.
 static BOOL WAGRAccountEligibilityIsOptIn(NSString *sel) {
-    if ([sel isEqualToString:@"isEligibleForPayments"]) {
-        return !WAGRPref(@"wagr.settingsrows.force_payments");
-    }
-    return NO;
+    return [sel isEqualToString:@"isEligibleForPayments"];
 }
 
 static BOOL hook_eligibilityBool(id self, SEL _cmd) {
@@ -180,20 +176,15 @@ extern "C" NSString *WAGRAccountEligibilityDiagnostic(void) {
             WAGRAuraSimulationEnabled() ? @"YES" : @"NO"];
 }
 
-static void WAGRAccountEligibilityDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh; (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
-}
-
 __attribute__((constructor))
 static void WAGRAccountEligibilityCtor(void) {
     @autoreleasepool {
+        // Watusi pattern: synchronous install in constructor. SharedModules
+        // (which contains WAAccountEligibility) is loaded as a regular
+        // framework dependency, so the class is available by ctor time. Late
+        // Swift bundles are picked up by the menu-open ensure path. The
+        // previous staggered-retry (0.5/1.5/3.5/6.0s) fired four blocks on
+        // the main queue during launch — removed.
         WAGRAccountEligibilityEnsureHooksInstalled();
-        _dyld_register_func_for_add_image(WAGRAccountEligibilityDyldCallback);
-        double delays[] = { 0.25, 0.75, 1.5 };
-        for (int i = 0; i < (int)(sizeof(delays)/sizeof(delays[0])); i++) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[i] * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{ WAGRAccountEligibilityEnsureHooksInstalled(); });
-        }
     }
 }

@@ -35,30 +35,103 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRLog.h"
+
+extern "C" void WAGRContextSpyInstallForContext(id ctx);
+extern "C" void WAGRPrivateExpDumpDynamicFields(id instance, NSString *stage);
+extern "C" void WAGRPrivateExpKickManagerIfAvailable(id instance);
+
+// ── Real userContext cache ──────────────────────────────────────────────────
+// The real context is the object WhatsApp passes into WADebugViewController
+// -initWithUserContext: and later exposes through -userContext. Do not use a
+// guessed WAContextMain singleton when this exists: the PrivateExperimentation
+// manager needs the same account/session-bound userContext or its ivars remain nil.
+static id gWAGRLastUserContext = nil;
+static NSString *gWAGRLastUserContextSource = nil;
+
+extern "C" void WAGRRememberUserContext(id ctx, NSString *source) {
+    if (!ctx) return;
+    NSString *cls = NSStringFromClass([ctx class]);
+    if (![cls containsString:@"Context"] && ![cls containsString:@"User"]) {
+        // Be conservative, but do not reject Swift context classes with long names.
+        if (![cls containsString:@"WA"]) return;
+    }
+    gWAGRLastUserContext = ctx;
+    gWAGRLastUserContextSource = [source copy] ?: @"unknown";
+    WAGRLogAppendF(@"[UserContext] cached %@ from %@", cls, gWAGRLastUserContextSource);
+    WAGRContextSpyInstallForContext(ctx);
+}
+
+extern "C" id WAGRCurrentUserContext(void) {
+    return gWAGRLastUserContext;
+}
+
+extern "C" NSString *WAGRCurrentUserContextDiagnostic(void) {
+    return [NSString stringWithFormat:@"cached=%@\nsource=%@",
+            gWAGRLastUserContext ? NSStringFromClass([gWAGRLastUserContext class]) : @"nil",
+            gWAGRLastUserContextSource ?: @"none"];
+}
 
 // ── Common helpers ──────────────────────────────────────────────────────────
 
-static id wagr_probeWAUserContext(id obj) {
-    if (!obj) return nil;
-    SEL sel = NSSelectorFromString(@"wa_userContext");
+static id wagr_callNoArgObject(id obj, NSString *selectorName) {
+    if (!obj || !selectorName.length) return nil;
+    SEL sel = NSSelectorFromString(selectorName);
     if (![obj respondsToSelector:sel]) return nil;
-    id (*fn)(id, SEL) = (id (*)(id, SEL))[obj methodForSelector:sel];
-    id uc = fn(obj, sel);
-    if (!uc) return nil;
+    id value = nil;
+    @try {
+        id (*fn)(id, SEL) = (id (*)(id, SEL))[obj methodForSelector:sel];
+        value = fn(obj, sel);
+    } @catch (__unused NSException *ex) { value = nil; }
+    return value;
+}
+
+static BOOL wagr_looksLikeUserContext(id uc) {
+    if (!uc) return NO;
     NSString *cls = NSStringFromClass([uc class]);
-    if (![cls containsString:@"Context"]) return nil;
-    return uc;
+    if ([cls containsString:@"UserContext"] || [cls containsString:@"WAUserContext"] ||
+        [cls containsString:@"ContextMain"] || [cls isEqualToString:@"WAContext"] ||
+        [cls containsString:@"WAContext"]) return YES;
+    // A real WhatsApp userContext usually exposes abProperties/debugPropOverrides.
+    if ([uc respondsToSelector:NSSelectorFromString(@"abProperties")]) return YES;
+    if ([uc respondsToSelector:NSSelectorFromString(@"debugPropOverrides")]) return YES;
+    return NO;
 }
 
 static id wagr_userContextIvar(id obj) {
     if (!obj) return nil;
-    Ivar iv = class_getInstanceVariable([obj class], "_userContext");
-    if (!iv) return nil;
-    return object_getIvar(obj, iv);
+    for (NSString *ivarName in @[@"_userContext", @"userContext"]) {
+        Ivar iv = class_getInstanceVariable([obj class], ivarName.UTF8String);
+        if (!iv) continue;
+        id value = nil;
+        @try { value = object_getIvar(obj, iv); } @catch (__unused NSException *ex) { value = nil; }
+        if (wagr_looksLikeUserContext(value)) return value;
+    }
+    return nil;
 }
 
 static id wagr_probeUserContext(id obj) {
-    return wagr_probeWAUserContext(obj) ?: wagr_userContextIvar(obj);
+    if (!obj) return nil;
+    for (NSString *selName in @[@"userContext", @"wa_userContext", @"currentUserContext", @"sharedUserContext", @"mainContext", @"sharedContext", @"context"]) {
+        id uc = wagr_callNoArgObject(obj, selName);
+        if (wagr_looksLikeUserContext(uc)) {
+            WAGRRememberUserContext(uc, [NSString stringWithFormat:@"%@.%@", NSStringFromClass([obj class]), selName]);
+            return uc;
+        }
+    }
+    id iv = wagr_userContextIvar(obj);
+    if (wagr_looksLikeUserContext(iv)) {
+        WAGRRememberUserContext(iv, [NSString stringWithFormat:@"%@._userContext", NSStringFromClass([obj class])]);
+        return iv;
+    }
+    @try {
+        id kvc = [obj valueForKey:@"userContext"];
+        if (wagr_looksLikeUserContext(kvc)) {
+            WAGRRememberUserContext(kvc, [NSString stringWithFormat:@"%@ KVC userContext", NSStringFromClass([obj class])]);
+            return kvc;
+        }
+    } @catch (__unused NSException *ex) {}
+    return nil;
 }
 
 static id wagr_findUserContextInTree(UIViewController *vc, NSInteger depth) {
@@ -83,29 +156,6 @@ static id wagr_findUserContextAnywhere(void) {
     }
     id appDel = (id)UIApplication.sharedApplication.delegate;
     return wagr_probeUserContext(appDel);
-}
-
-static UIViewController *wagr_topViewController(void) {
-    UIViewController *top = nil;
-    for (UIWindow *win in UIApplication.sharedApplication.windows) {
-        if (win.isKeyWindow) { top = win.rootViewController; break; }
-    }
-    if (!top) top = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIViewController *prev = nil;
-    while (top && top != prev) {
-        prev = top;
-        if (top.presentedViewController) { top = top.presentedViewController; continue; }
-        if ([top isKindOfClass:UINavigationController.class]) {
-            UIViewController *v = ((UINavigationController *)top).visibleViewController;
-            if (v && v != top) { top = v; continue; }
-        }
-        if ([top isKindOfClass:UITabBarController.class]) {
-            UIViewController *v = ((UITabBarController *)top).selectedViewController;
-            if (v && v != top) { top = v; continue; }
-        }
-        break;
-    }
-    return top;
 }
 
 // ── Strategy 1: DebugMenuProvider.presentDebugControllerIfNeeded ───────────
@@ -150,8 +200,24 @@ static BOOL wagr_strategy1_presentViaProvider(NSError **outError) {
         return NO;
     }
 
+    // Prefer the provider's already-wired Debug VC when available; it is the
+    // best source for the real userContext used by WhatsApp internally.
+    id debugVC = wagr_callNoArgObject(provider, @"debugViewController");
+    id debugCtx = wagr_probeUserContext(debugVC);
+    if (debugCtx) WAGRRememberUserContext(debugCtx, @"DebugMenuProvider.debugViewController.userContext");
+
     SEL presentSel = NSSelectorFromString(@"presentDebugControllerIfNeeded");
     if (![provider respondsToSelector:presentSel]) {
+        if (debugVC && [debugVC isKindOfClass:UIViewController.class]) {
+            UIViewController *top = nil;
+            for (UIWindow *win in UIApplication.sharedApplication.windows) {
+                if (win.isKeyWindow) { top = win.rootViewController; break; }
+            }
+            while (top.presentedViewController) top = top.presentedViewController;
+            if ([top isKindOfClass:UINavigationController.class]) top = ((UINavigationController *)top).visibleViewController;
+            [(UIViewController *)top presentViewController:(UIViewController *)debugVC animated:YES completion:nil];
+            return YES;
+        }
         if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:13
                                                  userInfo:@{NSLocalizedDescriptionKey:
                                                                 @"strategy1: provider lacks presentDebugControllerIfNeeded"}];
@@ -305,55 +371,178 @@ extern "C" BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError 
     return NO;
 }
 
-extern "C" NSString *WAGRCurrentUserContextDiagnostic(void) {
-    UIViewController *top = wagr_topViewController();
-    id liveCtx = wagr_findUserContextAnywhere();
-    return [NSString stringWithFormat:@"UserContext: %@\nTopVC: %@",
-            liveCtx ? NSStringFromClass([liveCtx class]) : @"not located",
-            top ? NSStringFromClass([top class]) : @"not located"];
+
+
+static id wagr_preflightCallObject(id obj, NSString *selectorName, BOOL *respondsOut) {
+    if (respondsOut) *respondsOut = NO;
+    if (!obj || !selectorName.length) return nil;
+    SEL sel = NSSelectorFromString(selectorName);
+    if (![obj respondsToSelector:sel]) return nil;
+    if (respondsOut) *respondsOut = YES;
+    id ret = nil;
+    @try {
+        id (*fn)(id, SEL) = (id (*)(id, SEL))[obj methodForSelector:sel];
+        ret = fn(obj, sel);
+    } @catch (__unused NSException *ex) { ret = nil; }
+    return ret;
+}
+
+static BOOL wagr_preflightCallBool(id obj, NSString *selectorName, BOOL *respondsOut) {
+    if (respondsOut) *respondsOut = NO;
+    if (!obj || !selectorName.length) return NO;
+    SEL sel = NSSelectorFromString(selectorName);
+    if (![obj respondsToSelector:sel]) return NO;
+    if (respondsOut) *respondsOut = YES;
+    BOOL ret = NO;
+    @try {
+        BOOL (*fn)(id, SEL) = (BOOL (*)(id, SEL))[obj methodForSelector:sel];
+        ret = fn(obj, sel);
+    } @catch (__unused NSException *ex) { ret = NO; }
+    return ret;
+}
+
+
+static NSArray<NSString *> *wagr_privateExpPositiveGateKeys(void) {
+    return @[
+        @"isDebugMenuAllowed",
+        @"isDebugMenuShortcutEnabled",
+        @"waios_mc_debug_ui_enabled",
+        @"whatsbroken_enabled",
+        @"private_abprop_for_dev_only",
+        @"private_experimentation_should_sync",
+        @"private_experimentation_use_acs_config_id",
+        @"dogfooding_nudge_settings_entrypoint_enabled",
+        @"dogfooding_nudge_banner_home_screen_enabled",
+        @"username_dogfooding_pn_privacy_enabled",
+        @"give_dogfooders_task_id_for_bug_reporting",
+        @"groups_member_recommendations_debug_ui",
+        @"is_internal",
+        @"is_internal_tester",
+        @"_is_employee",
+        @"wamo_is_employee",
+        @"ig_fb_dogfooder",
+        @"hn_dogfooding",
+        @"malibu_dogfooding"
+    ];
+}
+
+static NSArray<NSString *> *wagr_privateExpNegativeGateKeys(void) {
+    return @[
+        @"serverPropsDisableExperimental",
+        @"graphQLEmployeeC1Disabled",
+        @"ios_contact_suggestions_internal_tool_exclude_employees_enabled"
+    ];
+}
+
+static void wagr_bootstrapPrivateExpInternalGates(void) {
+    for (NSString *key in wagr_privateExpPositiveGateKeys()) WAGRGateSet(key, YES);
+    for (NSString *key in wagr_privateExpNegativeGateKeys()) WAGRGateSet(key, NO);
+    WAGRLogAppendF(@"[PrivateExp][Gates] bootstrapped positive=%lu negative=%lu",
+                   (unsigned long)wagr_privateExpPositiveGateKeys().count,
+                   (unsigned long)wagr_privateExpNegativeGateKeys().count);
+}
+
+static void wagr_privateExpPreflight(id ctx) {
+    if (!ctx) {
+        WAGRLogAppend(@"[PreFlight] ctx=nil");
+        return;
+    }
+
+    WAGRLogAppendF(@"[PreFlight] ctx=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
+
+    NSArray<NSString *> *objSelectors = @[
+        @"privateABProperties", @"debugPropOverrides", @"abProperties",
+        @"preferences", @"preferencesStore", @"accountProvider",
+        @"mobileConfig", @"mobileConfigManager"
+    ];
+    for (NSString *sel in objSelectors) {
+        BOOL responds = NO;
+        id ret = wagr_preflightCallObject(ctx, sel, &responds);
+        WAGRLogAppendF(@"[PreFlight] ctx.%@ responds=%@ -> %@ (%p)",
+                       sel, responds ? @"YES" : @"NO",
+                       ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
+    }
+
+    for (NSString *sel in @[@"isPrimaryDevice", @"isInternalUser", @"isEmployee", @"isMetaEmployeeOrInternalTester"]) {
+        BOOL responds = NO;
+        BOOL ret = wagr_preflightCallBool(ctx, sel, &responds);
+        WAGRLogAppendF(@"[PreFlight] ctx.%@ responds=%@ -> %@",
+                       sel, responds ? @"YES" : @"NO", ret ? @"YES" : @"NO");
+    }
+
+    BOOL apResponds = NO;
+    id accountProvider = wagr_preflightCallObject(ctx, @"accountProvider", &apResponds);
+    if (accountProvider) {
+        WAGRLogAppendF(@"[PreFlight] accountProvider=%@ (%p)", NSStringFromClass([accountProvider class]), (__bridge void *)accountProvider);
+        for (NSString *sel in @[@"isPrimaryDevice", @"isInternalUser", @"isEmployee", @"isMetaEmployeeOrInternalTester"]) {
+            BOOL responds = NO;
+            BOOL ret = wagr_preflightCallBool(accountProvider, sel, &responds);
+            WAGRLogAppendF(@"[PreFlight] accountProvider.%@ responds=%@ -> %@",
+                           sel, responds ? @"YES" : @"NO", ret ? @"YES" : @"NO");
+        }
+    }
+}
+
+static UIViewController *wagr_topPresenter(UIViewController *fromVC) {
+    UIViewController *top = fromVC;
+    if (!top) {
+        for (UIWindow *win in UIApplication.sharedApplication.windows) {
+            if (win.isKeyWindow) { top = win.rootViewController; break; }
+        }
+    }
+    while (top.presentedViewController) top = top.presentedViewController;
+    if ([top isKindOfClass:UINavigationController.class]) top = ((UINavigationController *)top).visibleViewController;
+    if ([top isKindOfClass:UITabBarController.class]) top = ((UITabBarController *)top).selectedViewController;
+    return top;
 }
 
 extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError) {
-    UIViewController *presenter = fromVC ?: wagr_topViewController();
-    id ctx = wagr_findUserContextAnywhere();
-    NSArray<NSString *> *candidates = @[
-        @"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController",
-        @"WAPrivateExperimentationDebugViewController",
-        @"PrivateExperimentationDebugViewController"
-    ];
-
-    for (NSString *name in candidates) {
-        Class cls = NSClassFromString(name);
-        if (!cls) continue;
-        id obj = nil;
-        @try {
-            SEL initCtx = NSSelectorFromString(@"initWithUserContext:");
-            if (ctx && [cls instancesRespondToSelector:initCtx]) {
-                obj = ((id (*)(id, SEL, id))objc_msgSend)([cls alloc], initCtx, ctx);
-            } else {
-                obj = [[cls alloc] init];
-            }
-        } @catch (__unused NSException *ex) { obj = nil; }
-
-        if ([obj isKindOfClass:UIViewController.class] && presenter) {
-            UINavigationController *nav = presenter.navigationController;
-            if (nav) [nav pushViewController:(UIViewController *)obj animated:YES];
-            else {
-                UINavigationController *wrap = [[UINavigationController alloc] initWithRootViewController:(UIViewController *)obj];
-                wrap.modalPresentationStyle = UIModalPresentationFormSheet;
-                [presenter presentViewController:wrap animated:YES completion:nil];
-            }
-            return YES;
-        }
+    WAGRLogAppend(@"[PrivateExp] launch requested");
+    id ctx = WAGRCurrentUserContext() ?: wagr_findUserContextAnywhere();
+    if (!ctx) {
+        WAGRLogAppend(@"[PrivateExp] failed: no real userContext cached/found");
+        if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:51 userInfo:@{NSLocalizedDescriptionKey:@"PrivateExperimentation: não achei userContext real. Abra o Developer nativo primeiro e tente novamente."}];
+        return NO;
     }
 
-    NSError *devErr = nil;
-    if (WAGRLaunchNativeDeveloperMenu(presenter, &devErr)) return YES;
-    if (outError) {
-        NSString *msg = [NSString stringWithFormat:@"Private Experimentation controller not found/instantiable. Developer menu fallback: %@", devErr.localizedDescription ?: @"failed"];
-        *outError = [NSError errorWithDomain:@"WATweaks" code:1401 userInfo:@{NSLocalizedDescriptionKey: msg}];
+    Class cls = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
+    if (!cls) cls = NSClassFromString(@"WAPrivateExperimentation.PrivateExperimentationDebugViewController");
+    if (!cls) {
+        WAGRLogAppend(@"[PrivateExp] failed: PrivateExperimentationDebugViewController class not loaded");
+        if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:52 userInfo:@{NSLocalizedDescriptionKey:@"PrivateExperimentationDebugViewController não carregou."}];
+        return NO;
     }
-    return NO;
+
+    SEL initSel = NSSelectorFromString(@"initWithUserContext:");
+    if (![cls instancesRespondToSelector:initSel]) {
+        WAGRLogAppend(@"[PrivateExp] failed: VC does not respond to initWithUserContext:");
+        if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:53 userInfo:@{NSLocalizedDescriptionKey:@"PrivateExperimentationDebugViewController não responde initWithUserContext:."}];
+        return NO;
+    }
+
+    wagr_bootstrapPrivateExpInternalGates();
+    WAGRLogAppendF(@"[PrivateExp] opening with ctx=%@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
+    wagr_privateExpPreflight(ctx);
+    id vc = ((id (*)(id, SEL, id))objc_msgSend)([cls alloc], initSel, ctx);
+    if (![vc isKindOfClass:UIViewController.class]) {
+        WAGRLogAppendF(@"[PrivateExp] failed: init returned %@", vc ? NSStringFromClass([vc class]) : @"nil");
+        if (outError) *outError = [NSError errorWithDomain:@"WATweaks" code:54 userInfo:@{NSLocalizedDescriptionKey:@"initWithUserContext: não retornou UIViewController."}];
+        return NO;
+    }
+
+    WAGRPrivateExpDumpDynamicFields(vc, @"after launcher init");
+    WAGRLogAppend(@"[PrivateExp] manager kick deferred to PrivateExpVC viewDidAppear");
+
+    UIViewController *top = wagr_topPresenter(fromVC);
+    UINavigationController *nav = top.navigationController;
+    if (nav) [nav pushViewController:(UIViewController *)vc animated:YES];
+    else {
+        UINavigationController *wrap = [[UINavigationController alloc] initWithRootViewController:(UIViewController *)vc];
+        wrap.modalPresentationStyle = UIModalPresentationFormSheet;
+        [top presentViewController:wrap animated:YES completion:nil];
+    }
+    WAGRLogAppendF(@"[PrivateExp] presented %@", NSStringFromClass([vc class]));
+    return YES;
 }
 
 extern "C" NSString *WAGRDebugMenuLauncherDiagnosticText(void) {
@@ -363,8 +552,10 @@ extern "C" NSString *WAGRDebugMenuLauncherDiagnosticText(void) {
     return [NSString stringWithFormat:
             @"WADebugViewController:  %@\n"
             @"DebugMenuProvider Swift: %@\n"
-            @"Live userContext:        %@",
+            @"Live userContext:        %@\n"
+            @"Cached userContext:\n%@",
             debugCls ? @"found" : @"NOT FOUND",
             providerCls ? @"found" : @"NOT FOUND",
-            liveCtx ? NSStringFromClass([liveCtx class]) : @"not located"];
+            liveCtx ? NSStringFromClass([liveCtx class]) : @"not located",
+            WAGRCurrentUserContextDiagnostic() ?: @"n/a"];
 }

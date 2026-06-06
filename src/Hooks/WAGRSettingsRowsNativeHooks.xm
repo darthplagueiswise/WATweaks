@@ -1,10 +1,18 @@
 // WAGRSettingsRowsNativeHooks.xm
 // ─────────────────────────────────────────────────────────────────────────────
-// Native Settings-row feature hooks.
+// Watusi-style Settings entry for WATweaks.
 //
-// This file no longer adds a WATweaks row/button to WhatsApp Settings or
-// Developer menus. It only keeps the Settings Rows feature hooks that expose
-// WhatsApp's own subscriptions/payments rows when their gates are enabled.
+// The Watusi IPA does not rely on fragile UITableViewCellContentView mutation.
+// It ships its own settings stack (WSSettings / WSSettingsController / sections)
+// and presents that stack from WhatsApp settings. The safe equivalent here is:
+//   • do not mutate WhatsApp's WATableSection rows for our own menu;
+//   • add a retained UIBarButtonItem to WASettingsViewController when that VC is
+//     already visible;
+//   • keep the existing long-press path as the only fallback;
+//   • keep native hidden-row hooks limited to boolean/provider methods.
+//
+// No constructor. No UIKit footer fallback. No broad ivar scan. No WATableRow custom
+// injection for WATweaks/Developer/Payments.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import <Foundation/Foundation.h>
@@ -12,12 +20,14 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
+#import <mach-o/dyld.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGRGateStore.h"
 #import "../Menu/WAGRSurfaceListVC.h"
 
-extern "C" NSUInteger WAGRReinstallPersistedHooks(void);
-extern "C" void WAGRWAABEnsureHooksInstalled(void);
-extern "C" void WAGRAuraEnsureHooksInstalled(void);
+// Single ensure-installed entry point provided by WAGRGateHooks.xm.
+extern "C" void WAGRGateHooksEnsureInstalled(void);
+extern "C" void WAGRAuraEnsureNavigationHooksInstalled(void);
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern "C" void WAGRAccountEligibilityEnsureHooksInstalled(void);
 
@@ -30,6 +40,8 @@ static NSUInteger gWAGRSettingsRowsSubscriptionForces = 0;
 static NSUInteger gWAGRSettingsRowsPaymentsForces = 0;
 static NSString *gWAGRSettingsRowsLastError = nil;
 
+static const void *kWAGRSettingsButtonTargetKey = &kWAGRSettingsButtonTargetKey;
+static const void *kWAGRSettingsButtonInstalledKey = &kWAGRSettingsButtonInstalledKey;
 static const void *kWAGRNativeSettingsRefreshMarker = &kWAGRNativeSettingsRefreshMarker;
 
 static void (*origCheckSubscriptionsEligibility)(id, SEL) = NULL;
@@ -55,11 +67,76 @@ static BOOL WAGRIsWASettingsVC(id obj) {
     return [name isEqualToString:@"WASettingsViewController"] || [name containsString:@"WASettingsViewController"];
 }
 
+static UIViewController *WAGRTopViewController(void) {
+    UIViewController *root = nil;
+    for (UIWindow *win in UIApplication.sharedApplication.windows) {
+        if (!win.isHidden && win.rootViewController) { root = win.rootViewController; break; }
+    }
+    if (!root) root = UIApplication.sharedApplication.keyWindow.rootViewController;
+    UIViewController *p = root;
+    while (p.presentedViewController) p = p.presentedViewController;
+    if ([p isKindOfClass:UINavigationController.class]) {
+        UIViewController *top = ((UINavigationController *)p).topViewController;
+        if (top) p = top;
+    }
+    return p;
+}
 
-/* WATweaks native menu entry intentionally removed. Use long-press/global launcher only. */
+static UIViewController *WAGRPresenterForSettings(id settingsVC) {
+    if ([settingsVC isKindOfClass:UIViewController.class]) {
+        UIViewController *vc = (UIViewController *)settingsVC;
+        UIViewController *p = vc;
+        while (p.presentedViewController) p = p.presentedViewController;
+        return p;
+    }
+    return WAGRTopViewController();
+}
+
+static void WAGRPresentWATweaksMenuFromSettings(id settingsVC) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *host = WAGRPresenterForSettings(settingsVC);
+        if (!host) return;
+        WAGRSurfaceListVC *menu = [[WAGRSurfaceListVC alloc] init];
+        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:menu];
+        nav.modalPresentationStyle = UIModalPresentationFormSheet;
+        if (@available(iOS 15.0, *)) {
+            UISheetPresentationController *sheet = nav.sheetPresentationController;
+            sheet.prefersGrabberVisible = YES;
+            sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
+        }
+        [host presentViewController:nav animated:YES completion:nil];
+    });
+}
+
+@interface WAGRSettingsButtonTarget : NSObject
+@property(nonatomic, assign) id settingsVC;
++ (instancetype)targetForSettingsVC:(id)settingsVC;
+- (void)openWATweaks:(id)sender;
+@end
+
+@implementation WAGRSettingsButtonTarget
++ (instancetype)targetForSettingsVC:(id)settingsVC {
+    WAGRSettingsButtonTarget *target = objc_getAssociatedObject(settingsVC, kWAGRSettingsButtonTargetKey);
+    if (!target) {
+        target = [WAGRSettingsButtonTarget new];
+        target.settingsVC = settingsVC;
+        objc_setAssociatedObject(settingsVC, kWAGRSettingsButtonTargetKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return target;
+}
+- (void)openWATweaks:(id)sender {
+    (void)sender;
+    WAGRPresentWATweaksMenuFromSettings(self.settingsVC);
+}
+@end
 
 static BOOL WAGRWAABAnyOn(NSArray<NSString *> *flags) {
-    for (NSString *flag in flags) if (WAGRIsOn(flag)) return YES;
+    // Schema v2: a flag is "on" when its selector-name key holds NSNumber(YES).
+    // Absent keys mean "no override"; we never count absent as ON here because
+    // forcing a Settings row open requires explicit intent.
+    for (NSString *flag in flags) {
+        if (WAGRGateIsSet(flag) && WAGRGateGet(flag)) return YES;
+    }
     return NO;
 }
 
@@ -104,21 +181,56 @@ static BOOL WAGRSettingsRowsShouldForcePayments(void) {
 static void WAGRSettingsRowsEnsureRuntimeOwners(void) {
     // Settings-only path. Tweak.x calls this only after WASettingsViewController
     // is already visible or when the debug menu explicitly requests diagnostics.
-    WAGRWAABEnsureHooksInstalled();
-    WAGRAuraEnsureHooksInstalled();
+    WAGRGateHooksEnsureInstalled();
+    WAGRAuraEnsureNavigationHooksInstalled();
     WAGRNativeDevMenuEnsureHooksInstalled();
-    WAGRReinstallPersistedHooks();
 }
 
 static void WAGRInstallSettingsBarButton(id settingsVC) {
-    (void)settingsVC;
-    // No injected WATweaks row/bar button in WhatsApp native menus.
-    gWAGRSettingsRowsButtonInserted = NO;
+    if (!WAGRIsWASettingsVC(settingsVC) || ![settingsVC isKindOfClass:UIViewController.class]) return;
+    gWAGRSettingsRowsInjectAttempts++;
+
+    UIViewController *vc = (UIViewController *)settingsVC;
+    UINavigationItem *item = vc.navigationItem;
+    if (!item) return;
+
+    NSMutableArray<UIBarButtonItem *> *items = item.rightBarButtonItems ? [item.rightBarButtonItems mutableCopy] : [NSMutableArray array];
+    for (UIBarButtonItem *existing in items) {
+        if ([existing.accessibilityIdentifier isEqualToString:@"WATweaksSettingsButton"]) {
+            objc_setAssociatedObject(settingsVC, kWAGRSettingsButtonInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            gWAGRSettingsRowsButtonInserted = YES;
+            return;
+        }
+    }
+
+    UIImage *image = nil;
+    if (@available(iOS 13.0, *)) {
+        image = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
+        if (!image) image = [UIImage systemImageNamed:@"curlybraces"];
+        if (!image) image = [UIImage systemImageNamed:@"gearshape"];
+    }
+
+    WAGRSettingsButtonTarget *target = [WAGRSettingsButtonTarget targetForSettingsVC:settingsVC];
+    UIBarButtonItem *button = nil;
+    if (image) button = [[UIBarButtonItem alloc] initWithImage:image style:UIBarButtonItemStylePlain target:target action:@selector(openWATweaks:)];
+    else button = [[UIBarButtonItem alloc] initWithTitle:@"WAT" style:UIBarButtonItemStylePlain target:target action:@selector(openWATweaks:)];
+
+    button.accessibilityIdentifier = @"WATweaksSettingsButton";
+    button.accessibilityLabel = @"WATweaks";
+
+    // Insert before WhatsApp's own QR/search items instead of replacing them.
+    [items insertObject:button atIndex:0];
+    item.rightBarButtonItems = items;
+
+    objc_setAssociatedObject(settingsVC, kWAGRSettingsButtonInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    gWAGRSettingsRowsButtonInserted = YES;
+    WAGRSetLastSettingsRowsError(nil);
+    NSLog(@"[WATweaks][NativeSettingsRows] installed WATweaks settings bar button");
 }
 
 extern "C" void WAGRSettingsRowsNativeInjectIfPossible(id maybeSettingsVC) {
-    (void)maybeSettingsVC;
-    // Compatibility no-op: do not mutate WASettingsViewController for WATweaks entry.
+    if (!WAGRIsWASettingsVC(maybeSettingsVC)) return;
+    WAGRInstallSettingsBarButton(maybeSettingsVC);
 }
 
 static BOOL WAGROrigSubscriptionsRowPresent(id self) {
@@ -269,7 +381,7 @@ extern "C" BOOL WAGRSettingsRowsNativeDidInstallWATweaksRow(void) {
 
 extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void) {
     return [NSString stringWithFormat:
-            @"attempted=%@\nhooksInstalled=%@\ninstalledHookCount=%lu\nsettingsClass=%@\nsettingsButtonInserted=%@ (native WATweaks entry disabled)\ninjectAttempts=%lu\nsubscriptionForceCount=%lu\npaymentsForceCount=%lu\nforceSubscriptions=%@\nforcePayments=%@\nlastError=%@",
+            @"attempted=%@\nhooksInstalled=%@\ninstalledHookCount=%lu\nsettingsClass=%@\nsettingsButtonInserted=%@\ninjectAttempts=%lu\nsubscriptionForceCount=%lu\npaymentsForceCount=%lu\nforceSubscriptions=%@\nforcePayments=%@\nlastError=%@",
             gWAGRSettingsRowsAttempted ? @"YES" : @"NO",
             gWAGRSettingsRowsHooksInstalled ? @"YES" : @"NO",
             (unsigned long)gWAGRSettingsRowsInstalledHookCount,
@@ -282,3 +394,17 @@ extern "C" NSString *WAGRSettingsRowsNativeDiagnosticText(void) {
             WAGRSettingsRowsShouldForcePayments() ? @"YES" : @"NO",
             gWAGRSettingsRowsLastError ?: @"none"];
 }
+
+static void WAGRSettingsRowsDyldCallback(const struct mach_header *mh, intptr_t vmaddr_slide) {
+    (void)mh; (void)vmaddr_slide;
+    dispatch_async(dispatch_get_main_queue(), ^{ WAGRSettingsRowsNativeEnsureHooksInstalled(); });
+}
+
+__attribute__((constructor))
+static void WAGRSettingsRowsNativeCtor(void) {
+    @autoreleasepool {
+        WAGRSettingsRowsNativeEnsureHooksInstalled();
+        _dyld_register_func_for_add_image(WAGRSettingsRowsDyldCallback);
+    }
+}
+

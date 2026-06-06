@@ -2,7 +2,6 @@
 #import <Foundation/Foundation.h>
 #import "../WAGramPrefix.h"
 
-// Runtime entry for a hookable BOOL getter/property.
 @interface WAGREntry : NSObject
 @property (nonatomic, copy)   NSString *surfaceID;
 @property (nonatomic, copy)   NSString *className;
@@ -15,8 +14,6 @@
 @property (nonatomic, copy)   NSString *overrideKey;
 @end
 
-// Surface spec — defines what to scan. A surface can be a raw technical class
-// family or a user-facing feature bundle.
 @interface WAGRSurfaceSpec : NSObject
 @property (nonatomic, copy) NSString *surfaceID;
 @property (nonatomic, copy) NSString *title;
@@ -26,12 +23,13 @@
 @property (nonatomic, strong) NSArray<NSString *> *classNameFragments;
 @property (nonatomic, strong) NSArray<NSString *> *selectorTokens;
 @property (nonatomic, strong) NSArray<NSString *> *categoryAllowList;
+@property (nonatomic, strong) NSArray<NSString *> *imagePathTokens; // e.g. WhatsApp.app/WhatsApp vs SharedModules.framework/SharedModules
 @property (nonatomic, assign) BOOL scanInstanceMethods;
 @property (nonatomic, assign) BOOL scanClassMethods;
 @property (nonatomic, assign) BOOL scanProperties;
+@property (nonatomic, assign) BOOL scanAllImageClasses;
 @property (nonatomic, assign) BOOL advancedOnly;
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces;
-+ (NSArray<WAGRSurfaceSpec *> *)featureBundles;
 @end
 
 #ifdef __cplusplus

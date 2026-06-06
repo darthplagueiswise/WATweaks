@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re, sys
+import re, sys, collections
 root=Path(sys.argv[1] if len(sys.argv)>1 else '.').resolve()
 checks=[
  ('src/Menu/WAGRMenuTheme.m','UIGlassEffect'),
@@ -9,6 +9,8 @@ checks=[
  ('src/Menu/WAGRSurfaceBrowserVC.m','WAGRRuntimeClassPrefix'),
  ('src/Menu/WAGRABPropsRootVC.m','WAGRWAABObservedKeys'),
  ('src/Hooks/WAGRGateHooks.xm','WAGRWAABObservedKeys'),
+ ('src/Runtime/WAGRSurface.m','Runtime - WhatsApp executable'),
+ ('src/Runtime/WAGRSurface.m','Runtime - SharedModules.framework'),
  ('src/WAPrefix.h','watweak_ui_liquid_glass_enabled'),
 ]
 errors=[]
@@ -21,26 +23,20 @@ for rel,bad in [
  ('src/Menu/WAGRSurfaceBrowserVC.m','Positive · Enabled'),
  ('src/Menu/WAGRABPropsRootVC.m','WAGRGateCategoryVC'),
  ('src/Menu/WAGRSurfaceListVC.m','Features confirmadas no binário'),
+ ('src/Runtime/WAGRSurface.m','kWAGRSurfaceWAAB'),
+ ('src/Runtime/WAGRSurface.m','WAGROverrideKey'),
 ]:
     p=root/rel
     if p.exists() and bad in p.read_text(errors='ignore'): errors.append(f'{rel} contains old token {bad}')
-
-# Link sanity: exported C symbols must have exactly one owner. Ignore pure declarations ending with ';'.
-extern_def = re.compile(r'extern\s+"C"\s+[A-Za-z_][\w\s\*<>:]*?\s+(WAGR\w+)\s*\([^;{]*\)\s*\{')
-owners={}
-for p in sorted((root/'src').rglob('*')):
-    if p.suffix not in {'.m','.mm','.x','.xm','.h'}: continue
-    txt=p.read_text(errors='ignore')
-    for m in extern_def.finditer(txt):
-        owners.setdefault(m.group(1), []).append(str(p.relative_to(root)))
-for sym, files in sorted(owners.items()):
-    uniq=sorted(set(files))
-    if len(uniq)>1:
-        errors.append(f'duplicate exported symbol {sym}: {uniq}')
-
-if (root/'src/Hooks/WAGRAuraNavigationHooks.xm').exists() and (root/'src/Hooks/WAAuraHooks.xm').exists():
-    errors.append('WAGRAuraNavigationHooks.xm must not coexist with WAAuraHooks.xm')
-
+for rel in ['src/Hooks/WAGRAuraNavigationHooks.xm','src/Hooks/WAGRObjCHookRouter.xm']:
+    if (root/rel).exists(): errors.append(f'forbidden stale duplicate owner exists: {rel}')
+# duplicate exported C symbols
+pat=re.compile(r'extern\s+"C"\s+(?:[A-Za-z_][\w:<>,\s\*]+)\s+((?:WAGR|WA)[A-Za-z0-9_]+)\s*\([^;{}]*\)\s*\{', re.M)
+d=collections.defaultdict(list)
+for p in list((root/'src').rglob('*.m'))+list((root/'src').rglob('*.xm'))+list((root/'src').rglob('*.mm'))+list((root/'src').rglob('*.x')):
+    for m in pat.finditer(p.read_text(errors='ignore')): d[m.group(1)].append(str(p.relative_to(root)))
+for k,v in sorted(d.items()):
+    if len(v)>1: errors.append(f'duplicate exported symbol {k}: {v}')
 if errors:
     for e in errors: print('ERRO:', e)
     sys.exit(1)
