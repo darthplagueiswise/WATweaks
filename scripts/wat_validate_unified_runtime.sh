@@ -44,6 +44,7 @@ need_grep src/WAGramPrefix.h 'WAGRIsManagedPreferenceKey'
 need_grep src/WAGramPrefix.h 'kWAGRGateEligibility'
 need_grep src/WAGramPrefix.h 'kWAGRGateUsername'
 need_grep src/WAGramPrefix.h 'kWAGRGatePremiumBroadcast'
+need_grep src/WAGramPrefix.h 'kWAGRAuraSimulation'
 need_file src/Hooks/WAGRGlobalGateStub.xm
 need_grep src/Hooks/WAGRGlobalGateStub.xm 'kWAGRGateEligibility'
 need_grep src/Hooks/WAGRGlobalGateStub.xm 'kWAGRGateUsername'
@@ -58,6 +59,30 @@ need_grep src/Menu/WAGRSettingsBackup.m 'WAGRClearAllManagedPreferences'
 # Existing project validation must still pass.
 python3 scripts/wagr_validate_sources.py >/tmp/wat_validate_wagr.out
 cat /tmp/wat_validate_wagr.out
+
+
+python3 - "." <<'PY'
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+used = {}
+texts = []
+for p in root.joinpath('src').rglob('*'):
+    if p.suffix.lower() in {'.h','.m','.x','.xm','.mm'}:
+        data = p.read_text(errors='ignore')
+        texts.append(data)
+        for m in re.finditer(r'\bkWAGR[A-Za-z0-9_]+\b', data):
+            used.setdefault(m.group(), set()).add(str(p.relative_to(root)))
+blob = '\n'.join(texts)
+defs = set(re.findall(r'#\s*define\s+(kWAGR[A-Za-z0-9_]+)\b', blob))
+defs |= set(re.findall(r'(kWAGR[A-Za-z0-9_]+)\s*=', blob))
+missing = {k: sorted(v) for k, v in used.items() if k not in defs}
+if missing:
+    for k, paths in sorted(missing.items()):
+        print('ERRO: undefined pref macro %s used in %s' % (k, ', '.join(paths)), file=sys.stderr)
+    sys.exit(1)
+print('WATweaks pref macro validation OK')
+PY
 
 if [ "$fail" -ne 0 ]; then exit 1; fi
 echo "WATweaks unified runtime/menu validation OK"

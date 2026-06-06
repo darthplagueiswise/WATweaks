@@ -10,6 +10,10 @@
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRGateStore.h"
 
+#ifndef kWAGRAuraSimulation
+#define kWAGRAuraSimulation @"watweak_gate_aura_subscription_simulation_enabled"
+#endif
+
 extern "C" void WAGRGateHooksEnsureInstalled(void);
 
 static NSMutableDictionary<NSString *, NSValue *> *gNavOrig = nil;
