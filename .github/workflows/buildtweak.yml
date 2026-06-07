@@ -2,9 +2,9 @@ name: Build WATweaks tweak
 
 on:
   push:
-    branches: [alpha2]
+    branches: [exp3]
   pull_request:
-    branches: [alpha2]
+    branches: [exp3]
   workflow_dispatch:
 
 concurrency:
