@@ -24,11 +24,8 @@ UIVisualEffect *WAGRRealLiquidGlassEffect(BOOL clearStyle, BOOL interactive, UIC
     if (!cls) return nil;
     id effect = nil;
     SEL withStyle = NSSelectorFromString(@"effectWithStyle:");
-    if ([cls respondsToSelector:withStyle]) {
-        effect = ((id (*)(id, SEL, NSInteger))objc_msgSend)(cls, withStyle, clearStyle ? 0 : 1);
-    } else {
-        effect = [[cls alloc] init];
-    }
+    if ([cls respondsToSelector:withStyle]) effect = ((id (*)(id, SEL, NSInteger))objc_msgSend)(cls, withStyle, clearStyle ? 0 : 1);
+    else effect = [[cls alloc] init];
     if (interactive) {
         SEL setInteractive = NSSelectorFromString(@"setInteractive:");
         if ([effect respondsToSelector:setInteractive]) ((void (*)(id, SEL, BOOL))objc_msgSend)(effect, setInteractive, YES);
@@ -42,20 +39,15 @@ UIVisualEffect *WAGRRealLiquidGlassEffect(BOOL clearStyle, BOOL interactive, UIC
     return [effect isKindOfClass:UIVisualEffect.class] ? (UIVisualEffect *)effect : nil;
 }
 
-UIColor *WAGRGlassBaseSurfaceColor(void) {
-    return WAGRDynamic([UIColor colorWithWhite:0.985 alpha:1.0], [UIColor colorWithWhite:0.0 alpha:1.0]);
-}
-
-UIColor *WAGRGlassReadableFillColor(void) {
-    return WAGRDynamic([UIColor colorWithWhite:1.0 alpha:0.72], [UIColor colorWithWhite:1.0 alpha:0.080]);
-}
-
+UIColor *WAGRGlassBaseSurfaceColor(void) { return WAGRDynamic(UIColor.whiteColor, UIColor.blackColor); }
+UIColor *WAGRGlassCellSurfaceColor(void) { return WAGRDynamic(UIColor.whiteColor, UIColor.blackColor); }
+UIColor *WAGRGlassReadableFillColor(void) { return WAGRGlassCellSurfaceColor(); }
 UIColor *WAGRMenuBackgroundColor(void) { return WAGRGlassBaseSurfaceColor(); }
 UIColor *WAGRMenuCellColor(void) { return WAGRGlassReadableFillColor(); }
 UIColor *WAGRMenuSecondaryCellColor(void) { return WAGRMenuCellColor(); }
 UIColor *WAGRMenuTextColor(void) { return UIColor.labelColor ?: UIColor.whiteColor; }
 UIColor *WAGRMenuSecondaryTextColor(void) { return UIColor.secondaryLabelColor ?: [UIColor colorWithWhite:0.72 alpha:1.0]; }
-UIColor *WAGRMenuSeparatorColor(void) { return UIColor.clearColor; }
+UIColor *WAGRMenuSeparatorColor(void) { return WAGRDynamic([UIColor colorWithWhite:0.0 alpha:0.12], [UIColor colorWithWhite:1.0 alpha:0.16]); }
 UIColor *WAGRMenuAccentForIndex(NSInteger index) { (void)index; return UIColor.labelColor ?: UIColor.whiteColor; }
 UIColor *WAGRMenuAccentForKey(NSString *key, NSInteger fallbackIndex) { (void)key; (void)fallbackIndex; return UIColor.labelColor ?: UIColor.whiteColor; }
 UIFont *WAGRMenuTitleFont(void) { return [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; }
@@ -65,30 +57,16 @@ UIFont *WAGRMenuRuntimeDetailFont(void) { return [UIFont monospacedSystemFontOfS
 
 static void WAGRApplyOfficialContainerGlass(UIViewController *vc) {
     if (!vc || !WAGRIsIOS26OrNewer()) return;
-    NSInteger glassStyle = 1;
     SEL preferred = NSSelectorFromString(@"setPreferredContainerBackgroundStyle:");
     SEL direct = NSSelectorFromString(@"setContainerBackgroundStyle:");
-    if ([vc respondsToSelector:preferred]) ((void (*)(id, SEL, NSInteger))objc_msgSend)(vc, preferred, glassStyle);
-    else if ([vc respondsToSelector:direct]) ((void (*)(id, SEL, NSInteger))objc_msgSend)(vc, direct, glassStyle);
+    if ([vc respondsToSelector:preferred]) ((void (*)(id, SEL, NSInteger))objc_msgSend)(vc, preferred, 1);
+    else if ([vc respondsToSelector:direct]) ((void (*)(id, SEL, NSInteger))objc_msgSend)(vc, direct, 1);
 }
 
 static UIVisualEffectView *WAGREnsureGlassBackground(UIView *view, CGFloat radius, BOOL interactive, BOOL clearStyle) {
     if (!view || !WAGRIsIOS26OrNewer()) return nil;
     UIVisualEffect *effect = WAGRRealLiquidGlassEffect(clearStyle, interactive, nil);
     if (!effect) return nil;
-
-    if ([view isKindOfClass:UIVisualEffectView.class]) {
-        UIVisualEffectView *ev = (UIVisualEffectView *)view;
-        ev.effect = effect;
-        ev.backgroundColor = UIColor.clearColor;
-        ev.contentView.backgroundColor = UIColor.clearColor;
-        ev.layer.cornerRadius = radius;
-        if ([ev.layer respondsToSelector:@selector(setCornerCurve:)]) ev.layer.cornerCurve = kCACornerCurveContinuous;
-        ev.clipsToBounds = YES;
-        ev.layer.masksToBounds = YES;
-        return ev;
-    }
-
     UIVisualEffectView *glass = (UIVisualEffectView *)[view viewWithTag:kWAGRGlassBackgroundTag];
     if (![glass isKindOfClass:UIVisualEffectView.class]) {
         glass = [[UIVisualEffectView alloc] initWithEffect:effect];
@@ -102,35 +80,27 @@ static UIVisualEffectView *WAGREnsureGlassBackground(UIView *view, CGFloat radiu
             [glass.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
             [glass.bottomAnchor constraintEqualToAnchor:view.bottomAnchor],
         ]];
-    } else {
-        glass.effect = effect;
-    }
+    } else glass.effect = effect;
     glass.backgroundColor = UIColor.clearColor;
     glass.contentView.backgroundColor = UIColor.clearColor;
     glass.layer.cornerRadius = radius;
     if ([glass.layer respondsToSelector:@selector(setCornerCurve:)]) glass.layer.cornerCurve = kCACornerCurveContinuous;
     glass.clipsToBounds = YES;
-    glass.layer.masksToBounds = YES;
-    view.backgroundColor = UIColor.clearColor;
-    view.layer.cornerRadius = radius;
-    if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) view.layer.cornerCurve = kCACornerCurveContinuous;
     return glass;
 }
 
 static void WAGRConfigureScrollViewForGlass(UIView *view) {
     if ([view isKindOfClass:UITableView.class]) {
         UITableView *tv = (UITableView *)view;
-        tv.backgroundColor = UIColor.clearColor;
+        tv.backgroundColor = WAGRGlassBaseSurfaceColor();
         tv.backgroundView = nil;
-        tv.separatorStyle = UITableViewCellSeparatorStyleNone;
-        tv.separatorColor = UIColor.clearColor;
-        if (@available(iOS 15.0, *)) tv.sectionHeaderTopPadding = 0.0;
-        if (WAGRIsIOS26OrNewer()) {
-            SEL setBackgroundEffect = NSSelectorFromString(@"setBackgroundEffect:");
-            if ([tv respondsToSelector:setBackgroundEffect]) ((void (*)(id, SEL, id))objc_msgSend)(tv, setBackgroundEffect, WAGRRealLiquidGlassEffect(YES, NO, nil));
-        }
+        tv.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+        tv.separatorColor = WAGRMenuSeparatorColor();
+        tv.sectionIndexBackgroundColor = UIColor.clearColor;
+        tv.sectionIndexTrackingBackgroundColor = UIColor.clearColor;
+        if (@available(iOS 15.0, *)) tv.sectionHeaderTopPadding = 10.0;
     } else if ([view isKindOfClass:UIScrollView.class]) {
-        view.backgroundColor = UIColor.clearColor;
+        view.backgroundColor = WAGRGlassBaseSurfaceColor();
     }
 }
 
@@ -147,16 +117,13 @@ void WAGRStyleSearchBarForGlass(UISearchBar *searchBar) {
     field.background = nil;
     field.disabledBackground = nil;
     field.backgroundColor = UIColor.clearColor;
-    field.layer.backgroundColor = UIColor.clearColor.CGColor;
-    field.layer.cornerRadius = 0.0;
-    field.layer.masksToBounds = NO;
-    field.clipsToBounds = NO;
     field.textColor = UIColor.labelColor;
     field.tintColor = UIColor.labelColor;
     field.leftView.tintColor = UIColor.secondaryLabelColor;
     field.rightView.tintColor = UIColor.secondaryLabelColor;
     NSString *placeholder = field.attributedPlaceholder.string ?: field.placeholder ?: @"";
     field.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeholder attributes:@{ NSForegroundColorAttributeName: UIColor.secondaryLabelColor }];
+    WAGREnsureGlassBackground(field, 18.0, YES, YES);
 }
 
 void WAGRApplyGlassToButton(UIButton *button, BOOL prominent) {
@@ -178,18 +145,7 @@ void WAGRApplyGlassToButton(UIButton *button, BOOL prominent) {
         cfg.background.backgroundColor = UIColor.clearColor;
         cfg.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
         button.configuration = cfg;
-    } else {
-        WAGREnsureGlassBackground(button, 18.0, YES, NO);
-    }
-}
-
-static BOOL WAGRViewShouldReceiveGlass(UIView *v) {
-    if (!v || v.tag == kWAGRGlassBackgroundTag) return NO;
-    if ([v isKindOfClass:UILabel.class] || [v isKindOfClass:UIImageView.class] || [v isKindOfClass:UIStackView.class]) return NO;
-    if ([v isKindOfClass:UITableView.class] || [v isKindOfClass:UICollectionView.class] || [v isKindOfClass:UIScrollView.class]) return NO;
-    if ([v isKindOfClass:UITableViewCell.class] || [v isKindOfClass:UITableViewHeaderFooterView.class]) return NO;
-    if ([v isKindOfClass:UISearchBar.class] || [v isKindOfClass:UISegmentedControl.class] || [v isKindOfClass:UIButton.class]) return YES;
-    return NO;
+    } else WAGREnsureGlassBackground(button, 18.0, YES, YES);
 }
 
 void WAGRApplyLiquidGlassToViewTree(UIView *root) {
@@ -202,7 +158,6 @@ void WAGRApplyLiquidGlassToViewTree(UIView *root) {
         WAGRConfigureScrollViewForGlass(v);
         if ([v isKindOfClass:UISearchBar.class]) WAGRStyleSearchBarForGlass((UISearchBar *)v);
         else if ([v isKindOfClass:UIButton.class]) WAGRApplyGlassToButton((UIButton *)v, NO);
-        else if (WAGRViewShouldReceiveGlass(v)) WAGREnsureGlassBackground(v, v.layer.cornerRadius > 0 ? v.layer.cornerRadius : 16.0, [v isKindOfClass:UIControl.class], NO);
         for (UIView *sub in v.subviews) [stack addObject:sub];
     }
 }
@@ -214,9 +169,7 @@ void WAGRApplyGlassBackdropToViewController(UIViewController *vc) {
     vc.view.backgroundColor = WAGRGlassBaseSurfaceColor();
     vc.view.opaque = YES;
     vc.view.layer.backgroundColor = [WAGRGlassBaseSurfaceColor() resolvedColorWithTraitCollection:vc.view.traitCollection].CGColor;
-    WAGRConfigureScrollViewForGlass(vc.view);
     WAGRApplyLiquidGlassToViewTree(vc.view);
-
     UINavigationBar *bar = vc.navigationController.navigationBar;
     if (bar) {
         bar.tintColor = UIColor.labelColor;
@@ -234,17 +187,6 @@ void WAGRApplyGlassBackdropToViewController(UIViewController *vc) {
             bar.compactAppearance = ap;
         }
     }
-    UIToolbar *tb = vc.navigationController.toolbar;
-    if (tb && @available(iOS 13.0, *)) {
-        UIToolbarAppearance *ap = [UIToolbarAppearance new];
-        [ap configureWithTransparentBackground];
-        ap.backgroundColor = UIColor.clearColor;
-        ap.shadowColor = UIColor.clearColor;
-        tb.standardAppearance = ap;
-        if (@available(iOS 15.0, *)) tb.scrollEdgeAppearance = ap;
-        tb.translucent = YES;
-        tb.backgroundColor = UIColor.clearColor;
-    }
 }
 
 void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
@@ -254,36 +196,35 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
         tableView.indicatorStyle = UIScrollViewIndicatorStyleDefault;
         if (@available(iOS 13.0, *)) tableView.insetsContentViewsToSafeArea = YES;
         tableView.rowHeight = UITableViewAutomaticDimension;
-        tableView.estimatedRowHeight = 74.0;
+        tableView.estimatedRowHeight = 64.0;
+        tableView.sectionHeaderHeight = UITableViewAutomaticDimension;
+        tableView.estimatedSectionHeaderHeight = 34.0;
     }
 }
 
 void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *key) {
     (void)index; (void)key;
     if (!cell) return;
-    cell.backgroundColor = UIColor.clearColor;
-    cell.contentView.backgroundColor = UIColor.clearColor;
+    cell.backgroundColor = WAGRGlassCellSurfaceColor();
+    cell.contentView.backgroundColor = WAGRGlassCellSurfaceColor();
     cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
     cell.textLabel.font = WAGRMenuTitleFont();
     cell.detailTextLabel.font = WAGRMenuDetailFont();
-    cell.textLabel.numberOfLines = 2;
-    cell.detailTextLabel.numberOfLines = 4;
+    cell.textLabel.numberOfLines = 0;
+    cell.detailTextLabel.numberOfLines = 0;
     UIView *selected = [UIView new];
-    selected.backgroundColor = [UIColor.labelColor colorWithAlphaComponent:0.08];
+    selected.backgroundColor = WAGRDynamic([UIColor colorWithWhite:0.0 alpha:0.08], [UIColor colorWithWhite:1.0 alpha:0.14]);
     cell.selectedBackgroundView = selected;
-    cell.imageView.tintColor = WAGRMenuSecondaryTextColor();
     if (@available(iOS 14.0, *)) {
         UIBackgroundConfiguration *bg = [UIBackgroundConfiguration clearConfiguration];
-        bg.backgroundColor = WAGRGlassReadableFillColor();
-        bg.visualEffect = WAGRRealLiquidGlassEffect(NO, YES, nil);
-        bg.cornerRadius = 18.0;
+        bg.backgroundColor = WAGRGlassCellSurfaceColor();
+        bg.cornerRadius = 0.0;
         bg.strokeWidth = 0.0;
         cell.backgroundConfiguration = bg;
         cell.backgroundView = nil;
-    } else {
-        WAGREnsureGlassBackground(cell.contentView, 14.0, YES, NO);
     }
+    cell.imageView.tintColor = WAGRMenuSecondaryTextColor();
 }
 
 UIImage *WAGRMenuSymbol(NSString *name, UIColor *tint) {

@@ -1,0 +1,47 @@
+{
+  "inputs": {
+    "WhatsApp": {
+      "path": "/mnt/data/WhatsApp",
+      "sha256": "b26cf432f2168214e8489ee8733e374fc31d80f7afc095e77ee8b9540d61e70f",
+      "size": 140967936
+    },
+    "SharedModules": {
+      "path": "/mnt/data/SharedModules",
+      "sha256": "7329c79982cc342e9fe4bf9040bb5c6fb0cdbe198c11a2b662f170f484527d77",
+      "size": 70003424
+    }
+  },
+  "objc_parse": {
+    "WhatsApp_classes": 17885,
+    "SharedModules_classes": 9479,
+    "confirmed_WAAB_classes": {
+      "SharedModules": [
+        "WAABProperties",
+        "WAABPropertiesPreChatd",
+        "FOAWAABPropertiesImpl"
+      ],
+      "WhatsApp": [
+        "WAABPropertiesReloadHandler"
+      ]
+    },
+    "FOAWAABPropertiesImpl_methods": [
+      "stringForKey:defaultValue:",
+      "boolForKey:defaultValue:",
+      "integerForKey:defaultValue:",
+      "doubleForKey:defaultValue:"
+    ]
+  },
+  "strings": {
+    "SharedModules_strings": 393725,
+    "WhatsApp_strings": 625244,
+    "SharedModules_contains_id_name_mapping_json": true,
+    "generated_fallback_id_name_candidates": 7333,
+    "sample_mapping": {
+      "10004": "music_interval_selection_music_button",
+      "10005": "cassette_spinners_static",
+      "10020": "disable_ios_autofill"
+    }
+  },
+  "ui_policy": "Black/white dynamic base surface, plain tables, LiquidGlass applied to nav/search/buttons, no gray grouped cells.",
+  "runtime_policy": "WAAB uses live bool/string/integer/doubleForKey hooks; ABProperties UI lists observed runtime keys alphabetically by resolved display name."
+}

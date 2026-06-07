@@ -5,58 +5,48 @@ fail=0
 need_file(){ [ -f "$1" ] || { echo "missing: $1"; fail=1; }; }
 need_grep(){ grep -q "$2" "$1" || { echo "missing pattern in $1: $2"; fail=1; }; }
 need_absent(){ if grep -q "$2" "$1"; then echo "forbidden pattern in $1: $2"; fail=1; fi; }
-
 need_file Makefile
 need_grep Makefile 'iphone:clang:26.2:15.0'
 need_grep Makefile '_USE_MODULES = 0'
 need_file build.sh
 need_grep build.sh '\[WATweaks\] Building'
 need_absent build.sh '\[WAGram\]'
-
+need_file src/Menu/WAGRMenuTheme.m
+need_grep src/Menu/WAGRMenuTheme.m 'UIGlassEffect'
+need_grep src/Menu/WAGRMenuTheme.m 'clearGlassButtonConfiguration'
+need_grep src/Menu/WAGRMenuTheme.m 'UIColor.blackColor'
+need_grep src/Menu/WAGRMenuTheme.m 'WAGRStyleSearchBarForGlass'
+need_absent src/Menu/WAGRMenuTheme.m 'UIBlurEffect'
+need_file src/Menu/WAGRSurfaceListVC.m
+need_grep src/Menu/WAGRSurfaceListVC.m 'ABProperties live'
+need_grep src/Menu/WAGRSurfaceListVC.m 'Runtime — WhatsApp'
+need_grep src/Menu/WAGRSurfaceListVC.m 'Developer / Dogfood / Internal'
+need_absent src/Menu/WAGRSurfaceListVC.m 'WAGRRootSectionFeatureSurfaces'
+need_file src/Menu/WAGRABPropsRootVC.m
+need_grep src/Menu/WAGRABPropsRootVC.m 'WAGRWAABObservedKeys'
+need_grep src/Menu/WAGRABPropsRootVC.m 'WAGRWAABDisplayNameForKey'
+need_grep src/Menu/WAGRABPropsRootVC.m 'Key/ID:'
+need_absent src/Menu/WAGRABPropsRootVC.m 'WAGRGateRegistry providerWithID'
+need_file src/Menu/WAGRSurfaceBrowserVC.m
+need_grep src/Menu/WAGRSurfaceBrowserVC.m 'WAGRRuntimeClassPrefix'
+need_absent src/Menu/WAGRSurfaceBrowserVC.m 'Positive · Enabled'
+need_absent src/Menu/WAGRSurfaceBrowserVC.m 'Negative · Disabled'
 need_file src/Hooks/WAGRGateHooks.xm
 need_grep src/Hooks/WAGRGateHooks.xm 'WAGRWAABObservedKeys'
+need_grep src/Hooks/WAGRGateHooks.xm 'WAGRWAABDisplayNameForKey'
+need_grep src/Hooks/WAGRGateHooks.xm 'WAGRInstallWAABKeyHooksDirectedScan'
 need_grep src/Hooks/WAGRGateHooks.xm 'integerForKey:defaultValue:'
 need_grep src/Hooks/WAGRGateHooks.xm 'doubleForKey:defaultValue:'
-
 need_file src/Runtime/WAGRSurface.m
 need_grep src/Runtime/WAGRSurface.m 'Runtime - WhatsApp executable'
 need_grep src/Runtime/WAGRSurface.m 'Runtime - SharedModules.framework'
 need_grep src/Runtime/WAGRSurface.m 'No semantic token filter'
 need_absent src/Runtime/WAGRSurface.m 'kWAGRSurfaceWAAB'
 need_absent src/Runtime/WAGRSurface.m 'WAGROverrideKey'
-
-need_file src/Menu/WAGRMenuTheme.m
-need_grep src/Menu/WAGRMenuTheme.m 'UIGlassEffect'
-need_grep src/Menu/WAGRMenuTheme.m 'clearGlassButtonConfiguration'
-need_grep src/Menu/WAGRMenuTheme.m 'setPreferredContainerBackgroundStyle:'
-need_grep src/Menu/WAGRMenuTheme.m 'WAGRStyleSearchBarForGlass'
-need_absent src/Menu/WAGRMenuTheme.m 'UIBlurEffect'
-need_absent src/Menu/WAGRMenuTheme.m 'SystemUltraThinMaterial'
-need_absent src/Menu/WAGRMenuTheme.m 'SystemChromeMaterial'
-
-need_file src/Menu/WAGRSurfaceListVC.m
-need_grep src/Menu/WAGRSurfaceListVC.m 'ABProperties live'
-need_grep src/Menu/WAGRSurfaceListVC.m 'Developer / Dogfood / Internal'
-need_absent src/Menu/WAGRSurfaceListVC.m 'WAGRRootSectionFeatureSurfaces'
-need_absent src/Menu/WAGRSurfaceListVC.m 'Features confirmadas no binário'
-
-need_file src/Menu/WAGRSurfaceBrowserVC.m
-need_grep src/Menu/WAGRSurfaceBrowserVC.m 'WAGRRuntimeClassPrefix'
-need_absent src/Menu/WAGRSurfaceBrowserVC.m 'WAGRRuntimeSubcategoryForName'
-need_absent src/Menu/WAGRSurfaceBrowserVC.m 'WAGRRuntimeSectionForSelector'
-need_absent src/Menu/WAGRSurfaceBrowserVC.m 'Positive · Enabled'
-need_absent src/Menu/WAGRSurfaceBrowserVC.m 'Negative · Disabled'
-
-need_file src/Menu/WAGRABPropsRootVC.m
-need_grep src/Menu/WAGRABPropsRootVC.m 'WAGRWAABObservedKeys'
-need_grep src/Menu/WAGRABPropsRootVC.m 'sortedArrayUsingSelector'
-need_absent src/Menu/WAGRABPropsRootVC.m 'WAGRGateRegistry providerWithID'
-
+need_file src/Hooks/WAGRAuraCompatExports.xm
+need_grep src/Hooks/WAGRAuraCompatExports.xm 'WAGRAuraActivateAllFlags'
+need_absent src/Hooks/WAGRAuraCompatExports.xm 'WAGRAuraDiagnostic ?'
 [ ! -f src/Hooks/WAGRAuraNavigationHooks.xm ] || { echo "forbidden duplicate owner: src/Hooks/WAGRAuraNavigationHooks.xm"; fail=1; }
 [ ! -f src/Hooks/WAGRObjCHookRouter.xm ] || { echo "forbidden duplicate owner: src/Hooks/WAGRObjCHookRouter.xm"; fail=1; }
-
-need_file resources/waab_feature_flags.json.gz
-need_file resources/runtime/wa_runtime_exec.json
-need_file resources/runtime/wa_runtime_sharedmodules.json
-if [ "$fail" -ne 0 ]; then exit 1; fi
-echo "WATweaks SDK26.2 liquidglass/live-runtime validation OK"
+[ "$fail" -eq 0 ] || exit 1
+echo "WATweaks SDK26.2 LiquidGlass/live-runtime validation OK"

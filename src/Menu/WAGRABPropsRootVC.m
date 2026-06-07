@@ -5,6 +5,7 @@
 #import "../Runtime/WAGRLog.h"
 
 extern NSArray<NSString *> *WAGRWAABObservedKeys(void);
+extern NSString *WAGRWAABDisplayNameForKey(NSString *key);
 extern void WAGRGateHooksEnsureInstalled(void);
 extern NSString *WAGRGateHooksDiagnostic(void);
 extern NSString *WAGRWAABDiagnosticText(void);
@@ -20,7 +21,7 @@ extern NSString *WAGRWAABDiagnosticText(void);
 @implementation WAGRABPropsRootVC
 
 - (instancetype)init {
-    if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
+    if (!(self = [super initWithStyle:UITableViewStylePlain])) return nil;
     self.title = @"ABProperties";
     _allKeys = @[];
     _visibleKeys = @[];
@@ -40,7 +41,7 @@ extern NSString *WAGRWAABDiagnosticText(void);
     self.searchController.obscuresBackgroundDuringPresentation = NO;
     self.searchController.searchBar.placeholder = @"Buscar ABProperty em runtime";
     self.navigationItem.searchController = self.searchController;
-    self.navigationItem.hidesSearchBarWhenScrolling = YES;
+    self.navigationItem.hidesSearchBarWhenScrolling = NO;
     self.definesPresentationContext = YES;
     WAGRStyleSearchBarForGlass(self.searchController.searchBar);
 
@@ -73,7 +74,12 @@ extern NSString *WAGRWAABDiagnosticText(void);
         NSString *display = WAGRGateDisplayKey(stored);
         if (display.length) [set addObject:display];
     }
-    self.allKeys = [[set array] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    self.allKeys = [[set array] sortedArrayUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+        NSString *da = WAGRWAABDisplayNameForKey(a) ?: a;
+        NSString *db = WAGRWAABDisplayNameForKey(b) ?: b;
+        NSComparisonResult r = [da localizedCaseInsensitiveCompare:db];
+        return r == NSOrderedSame ? [a localizedCaseInsensitiveCompare:b] : r;
+    }];
     [self applyFilter:self.searchController.searchBar.text ?: @""];
 }
 
@@ -82,13 +88,15 @@ extern NSString *WAGRWAABDiagnosticText(void);
     NSArray<NSString *> *base = self.allKeys ?: @[];
     if (q.length) {
         base = [base filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *key, NSDictionary *_) {
-            return [[key lowercaseString] containsString:q];
+            NSString *name = WAGRWAABDisplayNameForKey(key) ?: key;
+            return [[key lowercaseString] containsString:q] || [[name lowercaseString] containsString:q];
         }]];
     }
     self.visibleKeys = base;
     NSMutableDictionary<NSString *, NSMutableArray<NSString *> *> *map = [NSMutableDictionary dictionary];
     for (NSString *key in base) {
-        NSString *first = key.length ? [[key substringToIndex:1] uppercaseString] : @"#";
+        NSString *display = WAGRWAABDisplayNameForKey(key) ?: key;
+        NSString *first = display.length ? [[display substringToIndex:1] uppercaseString] : @"#";
         unichar ch = [first characterAtIndex:0];
         if (![[NSCharacterSet letterCharacterSet] characterIsMember:ch] && ![[NSCharacterSet decimalDigitCharacterSet] characterIsMember:ch]) first = @"#";
         if (!map[first]) map[first] = [NSMutableArray array];
@@ -135,12 +143,15 @@ extern NSString *WAGRWAABDiagnosticText(void);
     NSString *key = self.sections[section][(NSUInteger)indexPath.row];
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     WAGRMenuApplyCellStyle(cell, indexPath.row, key);
-    cell.textLabel.text = key;
-    cell.textLabel.numberOfLines = 3;
+    NSString *displayName = WAGRWAABDisplayNameForKey(key) ?: key;
+    cell.textLabel.text = displayName.length ? displayName : key;
+    cell.textLabel.numberOfLines = 0;
     NSString *canonical = WAGRGateCanonicalKey(key);
     BOOL isSet = WAGRGateIsSet(canonical);
-    if (isSet) cell.detailTextLabel.text = WAGRGateGet(canonical) ? @"Override ON" : @"Override OFF";
-    else cell.detailTextLabel.text = @"Sem override — usando valor original do WhatsApp";
+    NSString *state = isSet ? (WAGRGateGet(canonical) ? @"Override ON" : @"Override OFF") : @"Sem override — usando valor original do WhatsApp";
+    if (![displayName isEqualToString:key]) cell.detailTextLabel.text = [NSString stringWithFormat:@"Key/ID: %@\n%@", key, state];
+    else cell.detailTextLabel.text = state;
+    cell.detailTextLabel.numberOfLines = 0;
 
     UISwitch *sw = [UISwitch new];
     sw.on = isSet && WAGRGateGet(canonical);

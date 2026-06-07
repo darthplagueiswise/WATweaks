@@ -59,7 +59,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) { WAGRSystemRowReset = 0, WAGRSystemRo
 @implementation WAGRSurfaceListVC
 
 - (instancetype)init {
-    if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
+    if (!(self = [super initWithStyle:UITableViewStylePlain])) return nil;
     self.title = @"WATweaks";
     return self;
 }
@@ -100,7 +100,7 @@ static NSDictionary *WAGRRow(NSString *title, NSString *sub, NSString *icon) {
 - (NSDictionary *)rowForIndexPath:(NSIndexPath *)ip {
     if (ip.section == WAGRRootSectionMain) {
         switch ((WAGRMainRow)ip.row) {
-            case WAGRMainRowAB: return WAGRRow(@"ABProperties live", @"Lido em runtime pelo hook central WAAB; alfabético, sem JSON exportado.", @"switch.2");
+            case WAGRMainRowAB: return WAGRRow(@"ABProperties live", @"Lido em runtime pelo hook central WAAB; nomes resolvidos por mapeamento do próprio app quando disponível.", @"switch.2");
             case WAGRMainRowExec: return WAGRRow(@"Runtime — WhatsApp", @"Classes do executável principal, agrupadas só por prefixo de classe.", @"app.dashed");
             case WAGRMainRowShared: return WAGRRow(@"Runtime — SharedModules", @"Classes do framework, agrupadas só por prefixo de classe.", @"shippingbox");
             case WAGRMainRowInternal: return WAGRRow(@"Developer / Dogfood / Internal", @"Abre o caminho nativo sem inserir row da tweak dentro do WhatsApp.", @"ladybug");
@@ -128,7 +128,7 @@ static NSDictionary *WAGRRow(NSString *title, NSString *sub, NSString *icon) {
     cell.detailTextLabel.text = row[@"sub"];
     cell.imageView.image = WAGRMenuSymbol(row[@"icon"], nil);
     cell.imageView.tintColor = WAGRMenuSecondaryTextColor();
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.accessoryType = UITableViewCellAccessoryNone;
     if (ip.section == WAGRRootSectionSystem && ip.row == WAGRSystemRowRestart) cell.textLabel.textColor = UIColor.systemRedColor;
     return cell;
 }

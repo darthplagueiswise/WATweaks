@@ -17,7 +17,7 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *select
 @implementation WAGRSurfaceBrowserVC
 
 - (instancetype)initWithSpec:(WAGRSurfaceSpec *)spec {
-    if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
+    if (!(self = [super initWithStyle:UITableViewStylePlain])) return nil;
     _spec = spec;
     _allEntries = @[];
     _sectionKeys = @[];

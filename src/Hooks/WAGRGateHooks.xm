@@ -107,6 +107,138 @@ extern "C" NSArray<NSString *> *WAGRWAABObservedKeys(void) {
     return merged.array;
 }
 
+
+static NSString *WAGRWAABFirstReadableToken(NSArray *tokens) {
+    for (id obj in tokens) {
+        if (![obj isKindOfClass:NSString.class]) continue;
+        NSString *t = (NSString *)obj;
+        if (t.length < 3) continue;
+        if ([t rangeOfCharacterFromSet:[NSCharacterSet letterCharacterSet]].location == NSNotFound) continue;
+        if ([t hasPrefix:@"_"] || [t hasPrefix:@"{"] || [t hasPrefix:@"["]) continue;
+        return t;
+    }
+    return nil;
+}
+
+static void WAGRWAABIngestNameMapJSON(id json, NSMutableDictionary<NSString *, NSString *> *map) {
+    if (!json || !map) return;
+    if ([json isKindOfClass:NSDictionary.class]) {
+        NSDictionary *d = (NSDictionary *)json;
+        id nested = d[@"id_name_mapping"] ?: d[@"idNameMapping"] ?: d[@"mapping"] ?: d[@"params"] ?: d[@"features"];
+        if (nested && nested != json) WAGRWAABIngestNameMapJSON(nested, map);
+        [d enumerateKeysAndObjectsUsingBlock:^(id k, id v, BOOL *stop) {
+            NSString *ks = [k description]; NSString *vs = [v description];
+            BOOL kNum = [ks rangeOfString:@"^[0-9]+$" options:NSRegularExpressionSearch].location != NSNotFound;
+            BOOL vNum = [vs rangeOfString:@"^[0-9]+$" options:NSRegularExpressionSearch].location != NSNotFound;
+            if (kNum && vs.length && ![vs isEqualToString:ks]) map[ks] = vs;
+            else if (vNum && ks.length && ![ks isEqualToString:vs]) map[vs] = ks;
+        }];
+    } else if ([json isKindOfClass:NSArray.class]) {
+        for (id obj in (NSArray *)json) {
+            if ([obj isKindOfClass:NSDictionary.class]) {
+                NSDictionary *d = (NSDictionary *)obj;
+                NSString *num = nil;
+                NSString *name = nil;
+                for (NSString *k in @[@"id", @"param_id", @"paramId", @"key", @"abid", @"ab_id"]) {
+                    id v = d[k];
+                    if (v && [[v description] rangeOfString:@"^[0-9]+$" options:NSRegularExpressionSearch].location != NSNotFound) { num = [v description]; break; }
+                }
+                for (NSString *k in @[@"name", @"feature", @"feature_name", @"featureName", @"param_name", @"paramName", @"display_name", @"displayName"]) {
+                    id v = d[k];
+                    if ([v isKindOfClass:NSString.class] && [(NSString *)v length]) { name = (NSString *)v; break; }
+                }
+                if (num.length && name.length) map[num] = name;
+                else WAGRWAABIngestNameMapJSON(d, map);
+            }
+        }
+    }
+}
+
+static void WAGRWAABLoadNameMapFile(NSString *path, NSMutableDictionary<NSString *, NSString *> *map) {
+    if (!path.length || !map) return;
+    NSData *data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
+    if (!data.length || data.length > 12*1024*1024) return;
+    NSString *last = path.lastPathComponent.lowercaseString ?: @"";
+    if ([last hasSuffix:@".json"]) {
+        id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        WAGRWAABIngestNameMapJSON(json, map);
+        return;
+    }
+    NSString *txt = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    if (!txt.length) return;
+    [txt enumerateLinesUsingBlock:^(NSString *line, BOOL *stop) {
+        if (line.length < 3 || [line hasPrefix:@"#"]) return;
+        NSArray *parts = [line componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" \t,;:=|\""]];
+        NSMutableArray *tokens = [NSMutableArray array];
+        for (NSString *p in parts) if (p.length) [tokens addObject:p];
+        NSString *num = nil;
+        for (NSString *t in tokens) if ([t rangeOfString:@"^[0-9]+$" options:NSRegularExpressionSearch].location != NSNotFound) { num = t; break; }
+        if (!num.length) return;
+        NSString *name = WAGRWAABFirstReadableToken(tokens);
+        if (name.length && ![name isEqualToString:num]) map[num] = name;
+    }];
+}
+
+static NSDictionary<NSString *, NSString *> *WAGRWAABLoadRuntimeNameMap(void) {
+    static NSDictionary *cached = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSMutableDictionary *map = [NSMutableDictionary dictionary];
+        NSMutableArray<NSString *> *candidateFiles = [NSMutableArray array];
+        NSMutableOrderedSet<NSString *> *roots = [NSMutableOrderedSet orderedSet];
+
+        NSArray<NSBundle *> *bundles = [[NSBundle allBundles] arrayByAddingObjectsFromArray:[NSBundle allFrameworks]];
+        for (NSBundle *b in bundles) {
+            NSString *p = [b pathForResource:@"id_name_mapping" ofType:@"json"];
+            if (p.length) [candidateFiles addObject:p];
+            p = [b pathForResource:@"waab_id_name_mapping" ofType:@"json"];
+            if (p.length) [candidateFiles addObject:p];
+            if (b.resourcePath.length) [roots addObject:b.resourcePath];
+            if (b.bundlePath.length) [roots addObject:b.bundlePath];
+        }
+        for (NSString *clsName in @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WAABPropertiesPreChatd"]) {
+            Class cls = NSClassFromString(clsName) ?: objc_getClass(clsName.UTF8String);
+            if (!cls) continue;
+            NSBundle *b = [NSBundle bundleForClass:cls];
+            if (b.resourcePath.length) [roots addObject:b.resourcePath];
+            if (b.bundlePath.length) [roots addObject:b.bundlePath];
+        }
+        NSArray *lib = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES);
+        if (lib.firstObject) [roots addObject:lib.firstObject];
+        [roots addObject:@"/Library/Application Support/WATweaks/runtime"];
+        [roots addObject:@"/var/jb/Library/Application Support/WATweaks/runtime"];
+        [roots addObject:@"/var/mobile/Library/Application Support/WATweaks/runtime"];
+
+        for (NSString *path in candidateFiles) WAGRWAABLoadNameMapFile(path, map);
+
+        NSFileManager *fm = NSFileManager.defaultManager;
+        NSUInteger scanned = 0;
+        for (NSString *root in roots) {
+            BOOL isDir = NO;
+            if (![fm fileExistsAtPath:root isDirectory:&isDir] || !isDir) continue;
+            NSDirectoryEnumerator *e = [fm enumeratorAtPath:root];
+            NSString *rel = nil;
+            while ((rel = [e nextObject])) {
+                if (++scanned > 16000) break;
+                NSString *last = rel.lastPathComponent.lowercaseString ?: @"";
+                if (!([last containsString:@"id_name_mapping"] || [last containsString:@"waab_id_name_mapping"] || [last containsString:@"params_map"] || [last containsString:@"params_names"])) continue;
+                WAGRWAABLoadNameMapFile([root stringByAppendingPathComponent:rel], map);
+            }
+        }
+        cached = [map copy];
+    });
+    return cached ?: @{};
+}
+
+extern "C" NSString *WAGRWAABDisplayNameForKey(NSString *key) {
+    if (!key.length) return @"";
+    NSDictionary *map = WAGRWAABLoadRuntimeNameMap();
+    NSString *mapped = map[key];
+    if (mapped.length) return mapped;
+    if ([key rangeOfString:@"^[0-9]+$" options:NSRegularExpressionSearch].location != NSNotFound) return [NSString stringWithFormat:@"ABProperty %@", key];
+    return key;
+}
+
 typedef BOOL      (*BoolKeyIMP)(id, SEL, NSString *, BOOL);
 typedef id        (*StringKeyIMP)(id, SEL, NSString *, id);
 typedef long long (*IntegerKeyIMP)(id, SEL, NSString *, long long);
@@ -204,12 +336,35 @@ static NSArray<NSDictionary *> *WAGRBootstrapSelectorHooks(void) {
     ];
 }
 
-static void WAGRGateHooksInstallLightPhase(void) {
-    WAGRGateStorageInit();
-    for (NSString *cname in @[ @"FOAWAABPropertiesImpl", @"WAABProperties" ]) {
+static BOOL WAGRClassLooksLikeWAABProvider(Class cls) {
+    if (!cls) return NO;
+    NSString *name = NSStringFromClass(cls) ?: @"";
+    if (!([name containsString:@"ABProperties"] || [name containsString:@"MobileConfig"] || [name containsString:@"FOAWAAB"])) return NO;
+    return class_getInstanceMethod(cls, NSSelectorFromString(@"boolForKey:defaultValue:")) ||
+           class_getInstanceMethod(cls, NSSelectorFromString(@"integerForKey:defaultValue:")) ||
+           class_getInstanceMethod(cls, NSSelectorFromString(@"doubleForKey:defaultValue:")) ||
+           class_getInstanceMethod(cls, NSSelectorFromString(@"stringForKey:defaultValue:"));
+}
+
+static void WAGRInstallWAABKeyHooksDirectedScan(void) {
+    NSArray *direct = @[ @"FOAWAABPropertiesImpl", @"WAFoundation.FOAWAABPropertiesImpl", @"WAABProperties", @"WAABPropertiesPreChatd" ];
+    for (NSString *cname in direct) {
         Class cls = NSClassFromString(cname) ?: objc_getClass(cname.UTF8String);
         if (cls) WAGRInstallWAABKeyHooksOnClass(cls);
     }
+    unsigned int count = 0;
+    Class *classes = objc_copyClassList(&count);
+    if (!classes) return;
+    for (unsigned int i = 0; i < count; i++) {
+        Class cls = classes[i];
+        if (WAGRClassLooksLikeWAABProvider(cls)) WAGRInstallWAABKeyHooksOnClass(cls);
+    }
+    free(classes);
+}
+
+static void WAGRGateHooksInstallLightPhase(void) {
+    WAGRGateStorageInit();
+    WAGRInstallWAABKeyHooksDirectedScan();
     for (NSDictionary *h in WAGRBootstrapSelectorHooks()) {
         WAGRGateInstallHookForSelectorInternal(h[@"class"], h[@"sel"], [h[@"meta"] boolValue], NO);
     }
@@ -246,13 +401,15 @@ extern "C" void WAGRGateHooksEnsureInstalled(void) {
 
 extern "C" NSString *WAGRGateHooksDiagnostic(void) {
     WAGRGateStorageInit();
-    return [NSString stringWithFormat:@"per-selector hooks=%lu\npersisted hook specs=%lu\nboolForKey classes=%lu\nstringForKey classes=%lu\nintegerForKey classes=%lu\ndoubleForKey classes=%lu\noverrides active=%lu",
+    return [NSString stringWithFormat:@"per-selector hooks=%lu\npersisted hook specs=%lu\nboolForKey classes=%lu\nstringForKey classes=%lu\nintegerForKey classes=%lu\ndoubleForKey classes=%lu\nobserved WAAB keys=%lu\nname map entries=%lu\noverrides active=%lu",
         (unsigned long)gGateInstalled.count,
         (unsigned long)WAGRGatePersistedHookSpecs().count,
         (unsigned long)gBoolKeyOriginals.count,
         (unsigned long)gStringKeyOriginals.count,
         (unsigned long)gIntegerKeyOriginals.count,
         (unsigned long)gDoubleKeyOriginals.count,
+        (unsigned long)WAGRWAABObservedKeys().count,
+        (unsigned long)WAGRWAABLoadRuntimeNameMap().count,
         (unsigned long)WAGRGateAllOverrides().count];
 }
 

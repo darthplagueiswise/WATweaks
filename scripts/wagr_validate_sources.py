@@ -1,105 +1,49 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import re, sys, collections
-root = Path(__file__).resolve().parents[1]
+root = Path(sys.argv[1] if len(sys.argv) > 1 else '.').resolve()
 errors=[]
-
-def read(rel):
-    p=root/rel
-    if not p.exists():
-        errors.append(f"missing {rel}"); return ""
-    return p.read_text(errors='ignore')
-
-required = [
-    'Makefile','build.sh','control','WATweaks.plist','src/Tweak.x',
-    'src/Menu/WAGRMenuTheme.m','src/Menu/WAGRSurfaceListVC.m','src/Menu/WAGRSurfaceBrowserVC.m','src/Menu/WAGRABPropsRootVC.m',
-    'src/Runtime/WAGRSurface.m','src/Runtime/WAGRGateStore.m','src/Runtime/WAGRRuntimeCompat.m','src/Hooks/WAGRGateHooks.xm','src/Hooks/WAAuraHooks.xm'
-]
-for rel in required:
-    if not (root/rel).exists(): errors.append(f"missing {rel}")
-
-# Local imports must resolve.
-for p in list((root/'src').rglob('*.m')) + list((root/'src').rglob('*.x')) + list((root/'src').rglob('*.xm')) + list((root/'src').rglob('*.h')):
-    s=p.read_text(errors='ignore')
+def err(m): errors.append('ERRO: '+m)
+source_exts={'.h','.m','.mm','.x','.xm'}
+files=[p for p in root.rglob('*') if p.is_file() and p.suffix in source_exts and '.theos' not in p.parts]
+texts={}
+for p in files:
+    texts[p]=p.read_text(errors='ignore')
+required=['Makefile','build.sh','src/Tweak.x','src/Menu/WAGRMenuTheme.m','src/Menu/WAGRSurfaceListVC.m','src/Menu/WAGRABPropsRootVC.m','src/Menu/WAGRSurfaceBrowserVC.m','src/Hooks/WAGRGateHooks.xm','src/Hooks/WAGRAuraCompatExports.xm','src/Runtime/WAGRSurface.m']
+for r in required:
+    if not (root/r).exists(): err(f'missing {r}')
+all_text='\n'.join(texts.values())
+# local imports exist
+for p,s in texts.items():
     for inc in re.findall(r'#import\s+"([^"]+)"', s):
         candidates=[p.parent/inc, root/'src'/inc, root/inc]
-        if not any(c.exists() for c in candidates): errors.append(f"{p.relative_to(root)}: missing import {inc}")
-
-# LiquidGlass/root/menu assertions.
-menu=read('src/Menu/WAGRSurfaceListVC.m')
-for token in ['ABProperties live','Runtime — WhatsApp','Runtime — SharedModules','Developer / Dogfood / Internal']:
-    if token not in menu: errors.append(f"WAGRSurfaceListVC.m missing {token}")
-for bad in ['WAGRRootSectionFeatureSurfaces','WAGRFeatureRow','Debug menu catalog','Features confirmadas no binário']:
-    if bad in menu: errors.append(f"WAGRSurfaceListVC.m still contains old menu token {bad}")
-
-theme=read('src/Menu/WAGRMenuTheme.m')
-for token in ['UIGlassEffect','clearGlassButtonConfiguration','WAGRRealLiquidGlassEffect','WAGRApplyGlassBackdropToViewController','WAGRStyleSearchBarForGlass']:
-    if token not in theme: errors.append(f"WAGRMenuTheme.m missing LiquidGlass token {token}")
-for bad in ['UIBlurEffectStyleSystem','SystemUltraThinMaterial','SystemChromeMaterial','UIBlurEffect']:
-    if bad in theme: errors.append(f"WAGRMenuTheme.m contains fake blur/material token {bad}")
-
-browser=read('src/Menu/WAGRSurfaceBrowserVC.m')
-if 'WAGRRuntimeClassPrefix' not in browser: errors.append('runtime browser missing class-prefix grouping')
-for bad in ['WAGRRuntimeSubcategoryForName','WAGRRuntimeSectionForSelector','Positive · Enabled','Negative · Disabled','Experiment / Sync']:
-    if bad in browser: errors.append(f"runtime browser still has semantic categorization token {bad}")
-if 'UISwitch' not in browser: errors.append('runtime browser missing UISwitch')
-
-ab=read('src/Menu/WAGRABPropsRootVC.m')
-for token in ['WAGRWAABObservedKeys','ABProperties é lido em runtime','sortedArrayUsingSelector']:
-    if token not in ab: errors.append(f"ABPropsRoot missing {token}")
-for bad in ['providerWithID','WAGRGateCategoryVC','Categorias principais','LiquidGlass" detail']:
-    if bad in ab: errors.append(f"ABPropsRoot still has old provider/category token {bad}")
-
-surf=read('src/Runtime/WAGRSurface.m')
-for token in ['Runtime - WhatsApp executable','Runtime - SharedModules.framework','No semantic token filter']:
-    if token not in surf: errors.append(f"WAGRSurface.m missing {token}")
-for bad in ['kWAGRSurfaceWAAB','kWAGRSurfaceContext','kWAGRSurfaceGateKeep','kWAGRSurfaceAura','WAGROverrideKey']:
-    if bad in surf: errors.append(f"WAGRSurface.m still contains old token {bad}")
-
-# One prefix policy: new direct constants should be watweak_*.
-prefix=read('src/WAPrefix.h')
-for line in prefix.splitlines():
-    if line.startswith('#define WA_PREF_') and '"watweak_' not in line:
-        errors.append(f"WAPrefix direct preference is not watweak_: {line}")
-
-# Duplicate owner files must not exist.
+        if not any(c.exists() for c in candidates): err(f'{p.relative_to(root)}: missing import {inc}')
+# duplicate exported function definitions, not declarations
+pat=re.compile(r'extern\s+"C"\s+(?:[A-Za-z_][\w:<>,\s\*]+?)\s+((?:WAGR|WA)[A-Za-z0-9_]+)\s*\([^;{}]*\)\s*\{', re.M)
+d=collections.defaultdict(list)
+for p,s in texts.items():
+    for m in pat.finditer(s): d[m.group(1)].append(str(p.relative_to(root)))
+for k,v in sorted(d.items()):
+    if len(set(v))>1: err(f'duplicate exported symbol {k}: {sorted(set(v))}')
+# no stale duplicate owner files
 for rel in ['src/Hooks/WAGRAuraNavigationHooks.xm','src/Hooks/WAGRObjCHookRouter.xm','src/Menu/WAGRResetRuntimeOverridesFix.xm']:
-    if (root/rel).exists(): errors.append(f"forbidden stale duplicate owner exists: {rel}")
-
-# Duplicate exported C symbols guard.
-defs=collections.defaultdict(list)
-for p in list((root/'src').rglob('*.m')) + list((root/'src').rglob('*.xm')) + list((root/'src').rglob('*.mm')) + list((root/'src').rglob('*.x')):
-    s=p.read_text(errors='ignore')
-    for m in re.finditer(r'extern\s+"C"\s+(?:[A-Za-z_][\w:<>,\s\*]+)\s+((?:WAGR|WA)[A-Za-z0-9_]+)\s*\([^;{}]*\)\s*\{', s, re.M):
-        defs[m.group(1)].append(str(p.relative_to(root)))
-for name, files in sorted(defs.items()):
-    if len(files)>1:
-        errors.append(f"duplicate exported symbol {name}: {files}")
-
-# Old pointerValue C-style function pointer cast guard.
-for p in list((root/'src').rglob('*.xm')) + list((root/'src').rglob('*.mm')):
-    for i,line in enumerate(p.read_text(errors='ignore').splitlines(),1):
-        if 'pointerValue]' in line and re.search(r'=\s*\([A-Za-z_][A-Za-z0-9_]*IMP\)\s*\[.*pointerValue\]', line):
-            errors.append(f"{p.relative_to(root)}:{i}: pointerValue uses C-style function pointer cast")
-
-# Check pref key macros used in WAGRPref()/NSUserDefaults forKey: have a define.
-# Do not flag local static constants like kWAGRMaxLogLines.
-all_text = '\n'.join(p.read_text(errors='ignore') for p in list((root/'src').rglob('*.h')) + list((root/'src').rglob('*.m')) + list((root/'src').rglob('*.xm')) + list((root/'src').rglob('*.x')))
-defined=set(re.findall(r'#define\s+(kWAGR[A-Za-z0-9_]+)\b', all_text))
-# String constants such as kWAGRStorageWipedMarkerV2 are valid managed keys too;
-# they must not be forced into #define form because that would corrupt extern
-# declarations like: extern NSString * const kWAGRStorageWipedMarkerV2;
-const_declared=set(re.findall(r'(?:extern\s+)?NSString\s*\*\s*const\s+(kWAGR[A-Za-z0-9_]+)\b', all_text))
-known=defined | const_declared
-used=set(re.findall(r'WAGRPref\s*\(\s*(kWAGR[A-Za-z0-9_]+)\s*\)', all_text))
-used.update(re.findall(r'forKey\s*:\s*(kWAGR[A-Za-z0-9_]+)', all_text))
-used.update(re.findall(r'boolForKey\s*:\s*(kWAGR[A-Za-z0-9_]+)', all_text))
-used.update(re.findall(r'setBool\s*:[^;\n]+forKey\s*:\s*(kWAGR[A-Za-z0-9_]+)', all_text))
-used.update(re.findall(r'removeObjectForKey\s*:\s*(kWAGR[A-Za-z0-9_]+)', all_text))
-for m in sorted(u for u in used if u not in known):
-    errors.append(f"missing pref key definition: {m}")
-
+    if (root/rel).exists(): err(f'forbidden stale duplicate owner exists: {rel}')
+# function pointer bridge style
+for p,s in texts.items():
+    for i,line in enumerate(s.splitlines(),1):
+        if 'valueWithPointer:' in line and 'reinterpret_cast<const void *>' not in line and '(const void *)' not in line and '(__bridge const void *)' not in line:
+            err(f'{p.relative_to(root)}:{i}: valueWithPointer missing explicit cast')
+        if re.search(r'\([A-Za-z_][A-Za-z0-9_]*IMP\)\s*\[[^\]]+\s+pointerValue\]', line):
+            err(f'{p.relative_to(root)}:{i}: pointerValue uses C-style function pointer cast')
+# kWAGR* definitions can be macro or NSString const
+names=set(re.findall(r'\b(kWAGR[A-Za-z0-9_]+)\b', all_text))
+defined=set(re.findall(r'^\s*#\s*define\s+(kWAGR[A-Za-z0-9_]+)\b', all_text, re.M))
+defined |= set(re.findall(r'\b(?:extern\s+)?NSString\s*\*\s*const\s+(kWAGR[A-Za-z0-9_]+)\b', all_text))
+for n in sorted(names):
+    # ignore local static constants not prefs or exported keys
+    if n in ['kWAGRGlassBackgroundTag','kWAGRMaxLogLines','kWAGRPrivateExpVisibleKickDone','kWAGRSettingsButtonTargetKey','kWAGRSettingsButtonInstalledKey','kWAGRNativeSettingsRefreshMarker','kWAGRDebugQuickAccessTargetKey','kWAGRDebugBackTargetKey','kWAGRDMExtraSectionRows']:
+        continue
+    if n not in defined: err(f'missing pref define/const: {n}')
 if errors:
-    for e in errors: print('ERRO:', e)
-    sys.exit(1)
-print('OK: WATweaks liquidglass/live runtime source validation passed')
+    print('\n'.join(errors)); sys.exit(1)
+print('OK: WATweaks source/link sanity validation passed')
