@@ -377,13 +377,8 @@ static NSUInteger WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageMode
     NSArray *direct = @[ @"FOAWAABPropertiesImpl", @"WAFoundation.FOAWAABPropertiesImpl", @"WAABProperties", @"WAABPropertiesPreChatd" ];
     for (NSString *cname in direct) {
         Class cls = NSClassFromString(cname) ?: objc_getClass(cname.UTF8String);
-        if (cls && WAGRWAABClassMatchesRuntimeImage(cls, mode) && WAGRClassLooksLikeWAABProvider(cls)) {
-            NSUInteger before = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-            WAGRInstallWAABKeyHooksOnClass(cls);
-            NSUInteger after = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-            if (after > before) installed += (after - before);
-        }
-    }
+
+}
 
     // Broad WAAB provider scan is intentionally here, not in any constructor.
     // It runs only when ABProperties UI asks for it. It is split by Mach-O image
@@ -415,64 +410,6 @@ extern "C" NSUInteger WAGRWAABInstallHooksForSharedModules(void) {
 extern "C" NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void) {
     return WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageWhatsAppExecutable) +
            WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageSharedModules);
-}
-
-typedef NS_ENUM(NSInteger, WAGRWAABRuntimeImageMode) {
-    WAGRWAABRuntimeImageAll = 0,
-    WAGRWAABRuntimeImageWhatsAppExecutable = 1,
-    WAGRWAABRuntimeImageSharedModules = 2,
-};
-
-static BOOL WAGRWAABClassMatchesRuntimeImage(Class cls, WAGRWAABRuntimeImageMode mode) {
-    if (!cls) return NO;
-    if (mode == WAGRWAABRuntimeImageAll) return YES;
-    const char *img = class_getImageName(cls);
-    NSString *path = img ? [NSString stringWithUTF8String:img] : @"";
-    if (!path.length) return NO;
-    if (mode == WAGRWAABRuntimeImageSharedModules) {
-        return [path rangeOfString:@"SharedModules.framework/SharedModules" options:NSCaseInsensitiveSearch].location != NSNotFound;
-    }
-    if (mode == WAGRWAABRuntimeImageWhatsAppExecutable) {
-        BOOL isWAExec = [path rangeOfString:@"/WhatsApp.app/WhatsApp" options:NSCaseInsensitiveSearch].location != NSNotFound ||
-                        [path hasSuffix:@"/WhatsApp"] || [path isEqualToString:@"WhatsApp"];
-        BOOL isFramework = [path rangeOfString:@".framework/" options:NSCaseInsensitiveSearch].location != NSNotFound;
-        return isWAExec && !isFramework;
-    }
-    return NO;
-}
-
-static NSUInteger WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageMode mode) {
-    WAGRGateStorageInit();
-    NSUInteger installed = 0;
-
-    NSArray *direct = @[ @"FOAWAABPropertiesImpl", @"WAFoundation.FOAWAABPropertiesImpl", @"WAABProperties", @"WAABPropertiesPreChatd" ];
-    for (NSString *cname in direct) {
-        Class cls = NSClassFromString(cname) ?: objc_getClass(cname.UTF8String);
-        if (cls && WAGRWAABClassMatchesRuntimeImage(cls, mode) && WAGRClassLooksLikeWAABProvider(cls)) {
-            NSUInteger before = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-            WAGRInstallWAABKeyHooksOnClass(cls);
-            NSUInteger after = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-            if (after > before) installed += (after - before);
-        }
-    }
-
-    // Broad WAAB provider scan is intentionally here, not in any constructor.
-    // It runs only when ABProperties UI asks for it. It is split by Mach-O image
-    // so Exec and SharedModules can be scanned independently.
-    unsigned int count = 0;
-    Class *classes = objc_copyClassList(&count);
-    if (!classes) return installed;
-    for (unsigned int i = 0; i < count; i++) {
-        Class cls = classes[i];
-        if (!WAGRWAABClassMatchesRuntimeImage(cls, mode)) continue;
-        if (!WAGRClassLooksLikeWAABProvider(cls)) continue;
-        NSUInteger before = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-        WAGRInstallWAABKeyHooksOnClass(cls);
-        NSUInteger after = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-        if (after > before) installed += (after - before);
-    }
-    free(classes);
-    return installed;
 }
 
 static void WAGRInstallWAABKeyHooksDirectedScan(void) {
