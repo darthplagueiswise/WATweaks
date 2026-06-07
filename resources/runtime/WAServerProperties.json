@@ -1,0 +1,2361 @@
+{
+  "target": "WAServerProperties",
+  "schema_version": 1,
+  "generated_from": [
+    {
+      "file": "SharedModules(11)",
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8"
+    },
+    {
+      "file": "WhatsApp(7)",
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed"
+    }
+  ],
+  "validation": "static strings + Swift demangle + known ObjC runtime naming; runtime scanner still validates method signatures before hook install",
+  "class_filters": [
+    "WAServerProperties",
+    "ServerProperties"
+  ],
+  "classes_total": 13,
+  "selectors_total": 2237,
+  "classes": [
+    {
+      "name": "WAServerProperties",
+      "raw": "WAServerProperties",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "XMPPRequestServerProperties",
+      "raw": "XMPPRequestServerProperties",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAServerProperties",
+      "raw": "_OBJC_CLASS_$_WAServerProperties",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "XMPPRequestServerProperties",
+      "raw": "_OBJC_CLASS_$_XMPPRequestServerProperties",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC020multiDeviceCompanionF5LimitSivgZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC020multiDeviceCompanionF5LimitSivgZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC11maxListSizeSivgZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC11maxListSizeSivgZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC14isInternalUserSbvgZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC14isInternalUserSbvgZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC21maxGroupSubjectLengthSivgZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC21maxGroupSubjectLengthSivgZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC34paymentsUPIOverdraftAccountEnabledSbvgZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC34paymentsUPIOverdraftAccountEnabledSbvgZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC38paymentsUPIFirstDayMaxTransactionLimitSSvgZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC38paymentsUPIFirstDayMaxTransactionLimitSSvgZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC40criticalPayloadDownloadAndAppliedTimeoutSivgZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC40criticalPayloadDownloadAndAppliedTimeoutSivgZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesC5resetyyFZ",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesC5resetyyFZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s17DeprecatedABProps16ServerPropertiesCMa",
+      "raw": "_$s17DeprecatedABProps16ServerPropertiesCMa",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    }
+  ],
+  "selectors": [
+    {
+      "name": "allow_lid_contacts_add_to_group",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "allowed_biz_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowed_biz_listArray",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowedMaxDimension",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "allowGroupActionsForBlockedUser",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "allowliscontactsdenylist",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowlist_fetched",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowlist_type",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowListCount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowListGroupJIDs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list",
+        "group"
+      ]
+    },
+    {
+      "name": "allowListGroupJids",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list",
+        "group"
+      ]
+    },
+    {
+      "name": "allowListJIDs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowlists",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "allowNonAdminSubGroupCreation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "announcementGroupSendReactionsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "AsidInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "name": "attachedMessagesInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "name": "BadgeModeGroupStatusCreationPlusIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "broadcastListIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "business_broadcast_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "business_profileServer_configs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "businessBroadcastListAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "callHistoryListItemMigrationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "canBeForwarded",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "canBeForwardedToMetaAI",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "canBeForwardedToNewsletter",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "canCurrentUserPostGroupStatus",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "canEverBeForwarded",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "canListMessageBeForwarded",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list",
+        "forwarded"
+      ]
+    },
+    {
+      "name": "canListMessageShowHightlightOnTouch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "canonical_ent_companion_server_cached_nonce_enabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "canRecoverPaymentAccountIndiaPayments",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "canShowGroupSearchResults",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "chatListItemCommunityCellMigrationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "chatListItemMigrationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "ClassOrNilUnsafeInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "name": "connectedInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "name": "contactsListItemMigrationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "contactsListItemMigrationPart2Enabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "ddGroupIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "DecryptedMessagePayloadProcessorGroupStatusPAAEligibility",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "dependentGroupCreationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "disable_auto_download_in_archived_groups",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "disable_fuzzy_for_groups_in_common",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "disable_server_mqtt_typing_indicator",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "disableParentGroupArchiveNotifcation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "disableServerMqttTypingIndicator",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "EditGroupIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_active_linked_group_call_add_participants",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_channel_image_server_thumbnail",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "enable_channel_video_server_thumbnail",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "enable_chat_list_sticker_emojis",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "enable_client_linked_group_call_notification_mute",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_client_linked_group_call_notification_push_config",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_crash_log_call_test_bucket_id_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "enable_events_v2_entry_points_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "enable_group_call_invite_close_the_loop",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_in_call_picker_merged_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "enable_join_group_context",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_join_group_context_non_auto_expose",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_killswitch_list",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "enable_scams_group_engagment_logging",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enable_server_auth_response_timer",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "enable_vc_chat_list_reorder",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "enableForwardingLimitToGroups",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enableGroupCallOnCatalyst",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enableGroupProfileEditor",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "enableReadReceipts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "readReceipts"
+      ]
+    },
+    {
+      "name": "enableTaskGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "exitGroupIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "FilterGraph.renderInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_max_check_count",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "frequently_forwarded_max",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded",
+        "max"
+      ]
+    },
+    {
+      "name": "frequently_forwarded_ok",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "frequentlyForwardedGroupSettingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded",
+        "group"
+      ]
+    },
+    {
+      "name": "frequentlyForwardedLearnMoreURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "frequentlyForwardedRestricted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "frequentlyForwardedRestrictedTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "frequentlyForwardedSetting",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "frequentlyForwardedThreshold",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "GetFeaturesInternal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "name": "GroupChangeIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "GroupComposerView_EditGroupNameIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "groupMessageAlertsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "groupReactionAlertsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "groupSettingsDisabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "groupSettingsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "has_payments_cta",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasAiWaitListState",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasAllowNonAdminSubGroupCreation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasAnyStashedDeviceListChangesFromNSE",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasBizBroadcastInsightsContactListRequest",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasBizBroadcastInsightsContactListResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasBotForwardedMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasBotGroupMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasBusinessBroadcastListAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasCapiCreatedGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasChangeListeners",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasCountGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasCountryBlocklist",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasDeviceBindingForIndiaPayments",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasDeviceListMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasDeviceListMetadataVersion",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasEnabledMetadataGroups",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasEnableReadReceipts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "readReceipts"
+      ]
+    },
+    {
+      "name": "hasEphemeralAllowGroupMembers",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasExistingBroadcastLists",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasExistingGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasExperimentGroupId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasExpiringGroupTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasFirstGroupHistoryMessageTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasForwardedAiBotMessageInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasForwardedNewsletterInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasForwardedNewsletterMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasForwardedNewsletterMessageInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasFrequentlyForwardedRestricted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasFrequentlyForwardedRestrictedTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasFrequentlyForwardedSetting",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasGroupChatTimesOpened",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupDefaultNotificationToneId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupDescription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupDescriptionValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupDiscoveries",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupExpirationNotificationTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupHistoryBundleInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupHistoryBundleProcessState",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupHistoryIndividualMessageInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupHistoryMessageSort",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupHistoryMinMessageSort",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupHistorySentState",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupInfoExtension",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupingKey",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupInviteMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupInviteType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupIsMeJoined",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupJid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupJoins",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupMarkedForSafetyCheck",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupMentionedMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupMessageNotifications",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupMessageNotificationTaps",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupNavigations",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupNotificationSettings",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupParticipationResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupRootKey",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupRootKeyShare",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupSize",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupStatusMention",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupStatusMentionMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupStatusMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupStatusMessageV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupSubject",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupSubjectLastChangedTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupsV3",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupsV3Create",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupsV4JoinPermission",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasGroupUiiCleanup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasHasNonTrivialEditList",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasImportListEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasInitialGroupSyncIsNeeded",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasInitialSyncMaxMessagesPerChat",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasInitiatedServerErrorReceipt",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasInternalMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "name": "hasInviteLinkGroupType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasInviteLinkGroupTypeV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasInviteLinkParentGroupSubjectV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasInviteLinkParentGroupThumbnailV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsAGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsAnnouncementGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsDefaultSubgroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsEmptyGroupBannerDismissed",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsForwarded",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasIsFutureproofGroupStatusMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsGroupCall",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsGroupMessageNotificationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsGroupNameUpsellBannerDismissed",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsGroupReactionsNotificationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsGroupStatus",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsGroupStatusItem",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsHiddenSubGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsInternationalPaymentsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasIsLastGroupHistoryMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsParentGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasIsSubscribedToMaxTier",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasKeyIndexListRawId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasKeyIndexListTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasKicGroupNotifications",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasKicGroupNotificationTaps",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasLastExposureValueLoggedToServer",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasLastFilledStatusServerId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasLastStatusServerId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasLastUnjoinedSubgroupParticipantCountTimestampSeconds",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasList",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListEmoji",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListeners",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListReplyIdHash",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListResponseMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListResponseMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasListType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasMapperAliasForIndiaPayments",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasMarkedForGroupSafetyCheck",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasMaxAmount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxBodyLength",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxButtonPayloadLength",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxButtonURLLength",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxCount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxEntries",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxFromSender",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxHeaderLength",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxImpressions",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxInstallmentCount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxRelevant",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxRelevantPerQuery",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxSeenNonce",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxTokens",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxTotal",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMaxVersion",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasMemberShareGroupHistoryMode",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasNewestGroupJoinTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasNewsletterServerMessageId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasNewsletterServerNewestMessageSort",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasNewsletterServerOldestMessageSort",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasNonTrivialEditList",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasOriginalSenderJidStringForForwardedMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    },
+    {
+      "name": "hasParentGroupAnnouncementGroup",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasParentGroupId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasParentGroupInviteLink",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasParentGroupJid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasPaymentMethodsIndiaPayments",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasPayments",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasPaymentService",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasProductListInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasRemainingIncentiveInvitesForIndiaPayments",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasRemoveKeyIndexListTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasResponseServerId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasRevocationList",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasSeenAllPayments2FANudges",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasServerCampaignId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerForcePass",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerHello",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerMessageId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerPhashV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerPhashV3",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerProcessedVideos",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerQuestionId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerSignature",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerThumbnail",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerTimestampMs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasServerType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "server"
+      ]
+    },
+    {
+      "name": "hasShowGroupNotificationsPreview",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasShowInfoList",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasSignedRevocationList",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasSmax_Id23134",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_Id95012",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt13",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt14",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt21",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt23",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt24",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt25",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt60",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt7",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasSmax_IdInt8",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "max"
+      ]
+    },
+    {
+      "name": "hasStartedOnboardingOntoIndiaPayments",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "payments"
+      ]
+    },
+    {
+      "name": "hasStatusCustomListEmoji",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasStatusCustomListName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "list"
+      ]
+    },
+    {
+      "name": "hasSupportGroupHistory",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasSupportHostedGroupMsg",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "group"
+      ]
+    },
+    {
+      "name": "hasTotalForwardedMessagesCount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "forwarded"
+      ]
+    }
+  ]
+}
