@@ -33,18 +33,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: theos/theos
-          ref: master
+          ref: alpha2
           path: ${{ github.workspace }}/theos
           submodules: recursive
 
-      - uses: actions/cache@v4
+      - name: Cache iOS SDKs
+        uses: actions/cache@v4
         id: SDK
-        env:
-          cache-name: iPhoneOS26.2.sdk
         with:
           path: ${{ github.workspace }}/theos/sdks/
-          key: ${{ env.cache-name }}
-          restore-keys: ${{ env.cache-name }}
+          key: ${{ runner.os }}-theos-sdks-${{ env.SDK_NAME }}
+          restore-keys: |
+            ${{ runner.os }}-theos-sdks-
 
       - if: steps.SDK.outputs.cache-hit != 'true'
         run: |
