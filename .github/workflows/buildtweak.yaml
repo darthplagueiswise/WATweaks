@@ -1,0 +1,27 @@
+name: Build WATweaks
+
+on:
+  push:
+    branches:
+      - exp2
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build WATweaks
+    runs-on: macos-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: main
+
+      - name: Install dependencies
+        run: brew install ldid dp
