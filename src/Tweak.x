@@ -1,9 +1,8 @@
 // Tweak.x — entry point.
 //
 // Startup rule: do not hook global UIKit surfaces during app launch. The
-// native Settings row/bar-button path is owned by WAGRSettingsRowsNativeHooks.
-// The UITableView long-press hook is retained only as a fallback and is not
-// installed from %ctor.
+// Entry is long-press only. Do not inject a WATweaks row into WhatsApp Settings.
+// The UITableView long-press hook is installed at startup with a Settings-only guard.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -15,12 +14,9 @@
 extern NSString  *WAGRHookRouterDiagnostic(void);
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
-extern void       WAGRSettingsRowsNativeEnsureHooksInstalled(void);
 extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
-extern void       WAGRSettingsRowsNativeInjectIfPossible(id settingsVC);
 
 static const char *kLP = "wagr.lp.ok";
-static const char *kSettingsInjected = "wagr.settings.injected.ok";
 
 static void (*orig_tableDidMoveToWindow)(id, SEL) = NULL;
 static BOOL gTableHooked = NO;
@@ -134,11 +130,6 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
 
     attachLP(tv);
 
-    if (![objc_getAssociatedObject(settingsVC, kSettingsInjected) boolValue]) {
-        objc_setAssociatedObject(settingsVC, kSettingsInjected, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        WAGRSettingsRowsNativeEnsureHooksInstalled();
-        WAGRSettingsRowsNativeInjectIfPossible(settingsVC);
-    }
 }
 
 static void installLongPressTableHook(void) {
@@ -155,7 +146,6 @@ void WAGRDebugMenuEnsureHooksInstalled(void) {
     // Do not call this from startup. It is a manual/fallback ensure path.
     installLongPressTableHook();
     WAGRNativeDevMenuEnsureHooksInstalled();
-    WAGRSettingsRowsNativeEnsureHooksInstalled();
 }
 
 NSString *WAGRDebugMenuDiagnosticText(void) {
@@ -170,10 +160,8 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 
 static void startup(void) {
     @autoreleasepool {
-        // Watusi-style hot path: Tweak.x does not install the global
-        // UITableView hook at launch. Native settings hooks own the visible
-        // entry; UITableView long-press remains available only through the
-        // explicit fallback ensure path above.
+        // Long-press entrypoint only. No native Settings row injection.
+        installLongPressTableHook();
     }
 }
 
