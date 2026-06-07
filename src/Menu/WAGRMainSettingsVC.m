@@ -270,6 +270,7 @@ static WATSection *secTools(void) {
                     for(NSString*k in ud.dictionaryRepresentation.allKeys)
                         if([k hasPrefix:@"watweak_"]||[k hasPrefix:@"watweak."]){[ud removeObjectForKey:k];n++;}
                     [ud synchronize];
+                    NSLog(@"[WATweaks] reset removed %lu managed keys", (unsigned long)n);
                     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.8*NSEC_PER_SEC)),
                                    dispatch_get_main_queue(),^{exit(0);});
                 }]];
