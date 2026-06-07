@@ -37,9 +37,30 @@
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRLog.h"
 
-extern "C" void WAGRContextSpyInstallForContext(id ctx);
-extern "C" void WAGRPrivateExpDumpDynamicFields(id instance, NSString *stage);
-extern "C" void WAGRPrivateExpKickManagerIfAvailable(id instance);
+
+extern "C" void WAGRContextSpyInstallForContext(id ctx) {
+    if (!ctx) return;
+    WAGRLogAppendF(@"[ContextSpy] context observed %@ (%p)", NSStringFromClass([ctx class]), (__bridge void *)ctx);
+}
+
+extern "C" void WAGRPrivateExpDumpDynamicFields(id instance, NSString *stage) {
+    if (!instance) { WAGRLogAppendF(@"[PrivateExp] %@: nil instance", stage ?: @"dump"); return; }
+    NSMutableArray *lines = [NSMutableArray array];
+    Class cls = [instance class];
+    unsigned int count = 0;
+    Ivar *ivars = class_copyIvarList(cls, &count);
+    for (unsigned int i = 0; ivars && i < count && i < 48; i++) {
+        const char *nm = ivar_getName(ivars[i]);
+        if (!nm) continue;
+        NSString *name = [NSString stringWithUTF8String:nm];
+        id value = nil;
+        @try { value = object_getIvar(instance, ivars[i]); } @catch (__unused NSException *ex) { value = @"<unreadable>"; }
+        [lines addObject:[NSString stringWithFormat:@"%@: %@", name, value ? NSStringFromClass([value class]) : @"nil"]];
+    }
+    if (ivars) free(ivars);
+    WAGRLogAppendF(@"[PrivateExp] %@ %@ ivars:\n%@", stage ?: @"dump", NSStringFromClass(cls), lines.count ? [lines componentsJoinedByString:@"\n"] : @"(none)");
+}
+
 
 // ── Real userContext cache ──────────────────────────────────────────────────
 // The real context is the object WhatsApp passes into WADebugViewController
