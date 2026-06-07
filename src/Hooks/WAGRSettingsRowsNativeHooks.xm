@@ -20,7 +20,6 @@
 #import "../WAGramPrefix.h"
 #import "../Menu/WAGRMainSettingsVC.h"
 
-static const char *kWAGRInjected = "wagr.settings.row.injected";
 static NSUInteger gInjectAttempts = 0;
 static BOOL gRowInjected = NO;
 
