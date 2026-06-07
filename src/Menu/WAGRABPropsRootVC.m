@@ -3,6 +3,7 @@
 #import "WAGRLogViewController.h"
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRLog.h"
+#import <objc/runtime.h>
 
 extern NSArray<NSString *> *WAGRWAABObservedKeys(void);
 extern NSString *WAGRWAABDisplayNameForKey(NSString *key);
