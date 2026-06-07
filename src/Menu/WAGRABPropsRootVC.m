@@ -204,3 +204,77 @@ extern NSString *WAGRWAABDiagnosticText(void);
 }
 
 @end
+
+
+// MARK: - WAAB on-demand runtime hook install
+// This is intentionally triggered only when ABProperties UI is opened.
+// It must not run from tweak startup/constructor against WhatsApp runtime classes.
+
+extern NSUInteger WAGRWAABInstallHooksForExecutable(void);
+extern NSUInteger WAGRWAABInstallHooksForSharedModules(void);
+extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
+
+@interface WAGRABPropsRootVC (WAGRWAABOnDemandRuntime)
+- (void)applyHooks;
+- (void)applyHooksForExecutable;
+- (void)applyHooksForSharedModules;
+- (void)applyHooksForAllRuntimeImages;
+- (void)wagr_waab_onDemand_viewDidAppear:(BOOL)animated;
+@end
+
+@implementation WAGRABPropsRootVC (WAGRWAABOnDemandRuntime)
+
+- (void)wagr_waab_reloadVisibleTableIfPossible {
+    id tv = nil;
+    @try { tv = [self valueForKey:@"tableView"]; } @catch (__unused NSException *ex) { tv = nil; }
+    if ([tv respondsToSelector:@selector(reloadData)]) {
+        [tv reloadData];
+    }
+}
+
+- (void)applyHooks {
+    [self applyHooksForAllRuntimeImages];
+}
+
+- (void)applyHooksForExecutable {
+    @try { (void)WAGRWAABInstallHooksForExecutable(); } @catch (__unused NSException *ex) {}
+    [self wagr_waab_reloadVisibleTableIfPossible];
+}
+
+- (void)applyHooksForSharedModules {
+    @try { (void)WAGRWAABInstallHooksForSharedModules(); } @catch (__unused NSException *ex) {}
+    [self wagr_waab_reloadVisibleTableIfPossible];
+}
+
+- (void)applyHooksForAllRuntimeImages {
+    @try { (void)WAGRWAABInstallHooksForAllRuntimeImages(); } @catch (__unused NSException *ex) {}
+    [self wagr_waab_reloadVisibleTableIfPossible];
+}
+
+- (void)wagr_waab_onDemand_viewDidAppear:(BOOL)animated {
+    [self wagr_waab_onDemand_viewDidAppear:animated];
+    [self applyHooks];
+}
+
+@end
+
+__attribute__((constructor))
+static void WAGRABPropsRootVCInstallOnDemandWAABScan(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        Class cls = NSClassFromString(@"WAGRABPropsRootVC");
+        if (!cls) return;
+
+        SEL origSel = @selector(viewDidAppear:);
+        SEL replSel = @selector(wagr_waab_onDemand_viewDidAppear:);
+
+        Method orig = class_getInstanceMethod(cls, origSel);
+        Method repl = class_getInstanceMethod(cls, replSel);
+        if (!orig || !repl) return;
+
+        static BOOL didSwap = NO;
+        if (didSwap) return;
+        didSwap = YES;
+
+        method_exchangeImplementations(orig, repl);
+    });
+}
