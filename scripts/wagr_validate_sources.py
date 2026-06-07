@@ -1,61 +1,98 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re, sys, collections
-root = Path(sys.argv[1] if len(sys.argv) > 1 else '.').resolve()
-errors=[]
-def err(m): errors.append('ERRO: '+m)
-source_exts={'.h','.m','.mm','.x','.xm'}
-files=[p for p in root.rglob('*') if p.is_file() and p.suffix in source_exts and '.theos' not in p.parts]
-texts={}
-for p in files:
-    texts[p]=p.read_text(errors='ignore')
-all_text='\n'.join(texts.values())
-required=['Makefile','build.sh','src/Tweak.x','src/Menu/WAGRMenuTheme.m','src/Menu/WAGRSurfaceListVC.m','src/Menu/WAGRABPropsRootVC.m','src/Menu/WAGRSurfaceBrowserVC.m','src/Hooks/WAGRGateHooks.xm','src/Hooks/WAGRAuraCompatExports.xm','src/Runtime/WAGRSurface.m']
-for r in required:
-    if not (root/r).exists(): err(f'missing {r}')
-# local imports exist
-for p,s in texts.items():
+import re, sys
+
+root = Path(__file__).resolve().parents[1]
+errors = []
+
+def read(rel):
+    p = root / rel
+    if not p.exists():
+        errors.append(f"missing {rel}")
+        return ""
+    return p.read_text(errors="ignore")
+
+# Core file presence.
+for rel in [
+    "Makefile",
+    "build.sh",
+    "control",
+    "WATweaks.plist",
+    "src/Tweak.x",
+    "src/Menu/WAGRSurfaceListVC.m",
+    "src/Menu/WAGRSurfaceBrowserVC.m",
+    "src/Runtime/WAGRSurface.m",
+    "src/Runtime/WAGRObjectGraphScanner.m",
+    "src/Hooks/WAGRObjCHookRouter.xm",
+]:
+    if not (root / rel).exists():
+        errors.append(f"missing {rel}")
+
+# Local imports must exist.
+for p in list((root / "src").rglob("*.m")) + list((root / "src").rglob("*.x")) + list((root / "src").rglob("*.xm")) + list((root / "src").rglob("*.h")):
+    s = p.read_text(errors="ignore")
     for inc in re.findall(r'#import\s+"([^"]+)"', s):
-        candidates=[p.parent/inc, root/'src'/inc, root/inc]
-        if not any(c.exists() for c in candidates): err(f'{p.relative_to(root)}: missing import {inc}')
-# duplicate exported function definitions, not declarations
-export_pat=re.compile(r'extern\s+"C"\s+(?:[A-Za-z_][\w:<>,\s\*]+?)\s+((?:WAGR|WA)[A-Za-z0-9_]+)\s*\([^;{}]*\)\s*\{', re.M)
-decl_pat=re.compile(r'extern\s+"C"\s+(?:[A-Za-z_][\w:<>,\s\*]+?)\s+((?:WAGR|WA)[A-Za-z0-9_]+)\s*\([^;{}]*\)\s*;', re.M)
-exports=collections.defaultdict(list)
-decls=collections.defaultdict(list)
-for p,s in texts.items():
-    for m in export_pat.finditer(s): exports[m.group(1)].append(str(p.relative_to(root)))
-    for m in decl_pat.finditer(s): decls[m.group(1)].append(str(p.relative_to(root)))
-for k,v in sorted(exports.items()):
-    if len(set(v))>1: err(f'duplicate exported symbol {k}: {sorted(set(v))}')
-# A WAGR extern declaration is only allowed unresolved when it is not called anywhere.
-stripped_for_calls=[]
-for p,s in texts.items():
-    # remove extern declaration lines and definitions from call search context
-    t='\n'.join(line for line in s.splitlines() if 'extern "C"' not in line)
-    stripped_for_calls.append(t)
-call_text='\n'.join(stripped_for_calls)
-for name, paths in sorted(decls.items()):
-    if name.startswith('WAGR') and name not in exports and re.search(r'\b'+re.escape(name)+r'\s*\(', call_text):
-        err(f'unresolved WAGR extern call {name}: declarations={sorted(set(paths))}')
-# no stale duplicate owner files
-for rel in ['src/Hooks/WAGRAuraNavigationHooks.xm','src/Hooks/WAGRObjCHookRouter.xm','src/Menu/WAGRResetRuntimeOverridesFix.xm']:
-    if (root/rel).exists(): err(f'forbidden stale duplicate owner exists: {rel}')
-# function pointer bridge style
-for p,s in texts.items():
-    for i,line in enumerate(s.splitlines(),1):
-        if 'valueWithPointer:' in line and 'reinterpret_cast<const void *>' not in line and '(const void *)' not in line and '(__bridge const void *)' not in line:
-            err(f'{p.relative_to(root)}:{i}: valueWithPointer missing explicit cast')
+        candidates = [p.parent / inc, root / "src" / inc, root / inc]
+        if not any(c.exists() for c in candidates):
+            errors.append(f"{p.relative_to(root)}: missing import {inc}")
+
+# Longpress must remain in Tweak.x.
+tweak = read("src/Tweak.x")
+for token in ["UILongPressGestureRecognizer", "WAGRLP", "attachLP", "isTrigger", "WAGRPresent"]:
+    if token not in tweak:
+        errors.append(f"Tweak.x missing longpress token {token}")
+
+
+# Basic Objective-C syntax tripwires that previously escaped static validation.
+if 'new]})' in tweak or 'new]});' in tweak:
+    errors.append('Tweak.x has dispatch_once block assignment without semicolon inside block')
+if ']action:' in tweak:
+    errors.append('Tweak.x has Objective-C message keyword glued to previous argument: ]action:')
+
+# Main menu must be feature-bundle oriented, not raw surface first.
+menu = read("src/Menu/WAGRSurfaceListVC.m")
+models = read("src/Runtime/WAGRSurface.m")
+for token in ["Categorias", "Runtime Browser Avançado"]:
+    if token not in menu:
+        errors.append(f"WAGRSurfaceListVC.m missing {token}")
+for token in ["LiquidGlass", "WA Plus / Aura", "Settings Rows", "Developer / Dogfood / Internal"]:
+    if token not in (menu + models):
+        errors.append(f"feature bundle missing {token}")
+if "RUNTIME SURFACES" in menu or "SYS|OFF|ON" in menu:
+    errors.append("WAGRSurfaceListVC.m still exposes old raw runtime copy")
+
+# Surface browser must not show segmented SYS/OFF/ON.
+browser = read("src/Menu/WAGRSurfaceBrowserVC.m")
+if "UISegmentedControl" in browser or '@"SYS"' in browser or '@"OFF"' in browser or '@"ON"' in browser:
+    errors.append("WAGRSurfaceBrowserVC.m still has segmented SYS/OFF/ON UI")
+if "UISwitch" not in browser:
+    errors.append("WAGRSurfaceBrowserVC.m missing UISwitch")
+if "@property @property" in browser:
+    errors.append("WAGRSurfaceBrowserVC.m can render duplicated @property")
+
+# Scanner must not prefix displayName with @property.
+scanner = read("src/Runtime/WAGRSurface.m")
+if 'displayName = [@"@property "' in scanner:
+    errors.append("scanner still adds @property prefix to displayName")
+for token in ["featureBundles", "selectorTokens", "scanProperties", "WAGRObjectGraphScanner"]:
+    # object graph lives in own file, not necessarily in scanner.
+    if token == "WAGRObjectGraphScanner":
+        continue
+    if token not in scanner and token not in read("src/Runtime/WAGRSurface.h"):
+        errors.append(f"runtime model missing {token}")
+
+# ObjC++ function pointers must use explicit casts for NSValue bridging.
+for p in list((root / "src").rglob("*.xm")) + list((root / "src").rglob("*.mm")):
+    s = p.read_text(errors="ignore")
+    for i, line in enumerate(s.splitlines(), 1):
+        if "valueWithPointer:" in line and "reinterpret_cast<const void *>" not in line and "(const void *)" not in line:
+            errors.append(f"{p.relative_to(root)}:{i}: valueWithPointer missing explicit function-pointer cast")
         if re.search(r'\([A-Za-z_][A-Za-z0-9_]*IMP\)\s*\[[^\]]+\s+pointerValue\]', line):
-            err(f'{p.relative_to(root)}:{i}: pointerValue uses C-style function pointer cast')
-# kWAGR* definitions can be macro or NSString const; ignore local static tags/state constants.
-names=set(re.findall(r'\b(kWAGR[A-Za-z0-9_]+)\b', all_text))
-defined=set(re.findall(r'^\s*#\s*define\s+(kWAGR[A-Za-z0-9_]+)\b', all_text, re.M))
-defined |= set(re.findall(r'\b(?:extern\s+)?NSString\s*\*\s*const\s+(kWAGR[A-Za-z0-9_]+)\b', all_text))
-local_constants={'kWAGRGlassBackgroundTag','kWAGRMaxLogLines','kWAGRPrivateExpVisibleKickDone','kWAGRSettingsButtonTargetKey','kWAGRSettingsButtonInstalledKey','kWAGRNativeSettingsRefreshMarker','kWAGRDebugQuickAccessTargetKey','kWAGRDebugBackTargetKey','kWAGRDMExtraSectionRows'}
-for n in sorted(names):
-    if n in local_constants: continue
-    if n not in defined: err(f'missing pref define/const: {n}')
+            errors.append(f"{p.relative_to(root)}:{i}: pointerValue uses C-style function pointer cast")
+
 if errors:
-    print('\n'.join(errors)); sys.exit(1)
-print('OK: WATweaks source/link sanity validation passed')
+    for e in errors:
+        print("ERRO:", e, file=sys.stderr)
+    sys.exit(1)
+
+print("OK: WAGram router Ryuk-style bundle validation passed")

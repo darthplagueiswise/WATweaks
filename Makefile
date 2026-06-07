@@ -1,4 +1,4 @@
-TARGET := iphone:clang:26.2:15.0
+TARGET := iphone:clang:16.2:15.0
 INSTALL_TARGET_PROCESSES = WhatsApp
 ARCHS = arm64
 
@@ -6,10 +6,12 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = WATweaks
 
+# ── Source discovery (mirrors RyukGram-Fork/dev2 pattern) ─────────────────────
 WATWEAKS_SRC_FILES := $(shell find src -type f \( -iname \*.x -o -iname \*.xm -o -iname \*.m \))
 
 $(TWEAK_NAME)_FILES  = $(WATWEAKS_SRC_FILES) modules/fishhook/fishhook.c
 
+# SideStore-only: sideload keychain / app-group compat patch (fishhook-based).
 ifdef SIDESTORE
 $(TWEAK_NAME)_FILES += modules/SideloadPatch/WASideloadPatch.xm
 endif
@@ -23,14 +25,9 @@ $(TWEAK_NAME)_FRAMEWORKS = \
 
 $(TWEAK_NAME)_PRIVATE_FRAMEWORKS = Preferences
 $(TWEAK_NAME)_LIBRARIES = substrate
-$(TWEAK_NAME)_USE_MODULES = 0
-
-SDK26_TARGET_FLAGS = -DTARGET_OS_MAC=1 -DTARGET_OS_OSX=0 -DTARGET_OS_IPHONE=1 -DTARGET_OS_IOS=1 -DTARGET_OS_EMBEDDED=1 -DTARGET_OS_SIMULATOR=0 -DTARGET_OS_MACCATALYST=0 -DTARGET_OS_UIKITFORMAC=0 -DTARGET_OS_TV=0 -DTARGET_OS_WATCH=0 -DTARGET_OS_VISION=0 -DTARGET_OS_BRIDGE=0 -DTARGET_OS_DRIVERKIT=0
 
 $(TWEAK_NAME)_CFLAGS = \
 	-fobjc-arc \
-	-DWATWEAKS_SDK_26_2=1 \
-	$(SDK26_TARGET_FLAGS) \
 	-Wno-unsupported-availability-guard \
 	-Wno-unused-value \
 	-Wno-deprecated-declarations \
@@ -39,11 +36,14 @@ $(TWEAK_NAME)_CFLAGS = \
 	-Wno-incompatible-pointer-types \
 	-Imodules/fishhook
 
+
 $(TWEAK_NAME)_LOGOSFLAGS = --c warnings=none
+
 CCFLAGS += -std=c++11
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
+# ── Stage: copy WAAB catalog + docs into deb ─────────────────────────────────
 after-stage::
 	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks"
 	@for f in resources/*.json.gz; do \

@@ -5,7 +5,7 @@
 
 BOOL WAEnabled(NSString *key) {
     if (!key.length) return NO;
-    if ([key hasPrefix:@"watweak_"] || [key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) {
+    if ([key hasPrefix:@"watweak_gate_"] || [key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) {
         return WAGRGateIsSet(key) ? WAGRGateGet(key) : NO;
     }
     return [NSUserDefaults.standardUserDefaults boolForKey:key];
@@ -13,7 +13,7 @@ BOOL WAEnabled(NSString *key) {
 
 void WASetEnabled(NSString *key, BOOL enabled) {
     if (!key.length) return;
-    if ([key hasPrefix:@"watweak_"] || [key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) {
+    if ([key hasPrefix:@"watweak_gate_"] || [key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) {
         WAGRGateSet(key, enabled);
         return;
     }

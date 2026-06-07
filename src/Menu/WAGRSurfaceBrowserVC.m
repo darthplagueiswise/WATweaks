@@ -1,9 +1,24 @@
+// WAGRSurfaceBrowserVC.m — single Runtime Avançado gate editor.
+// Uses WAGRGateStore + WAGRGateInstallHookForSelector. It does not restore
+// the removed WAGRGatingCatalog / WAGRGatingAreaMenuVC UI paths.
+
 #import "WAGRSurfaceBrowserVC.h"
 #import "../Runtime/WAGRGateStore.h"
+#import "../Runtime/WAGRRuntimeClassifier.h"
 #import <objc/runtime.h>
 #import "WAGRMenuTheme.h"
 
-extern BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *selectorName, BOOL isClassMethod);
+extern BOOL WAGRGateInstallHookForSelector(NSString *className,
+                                            NSString *selectorName,
+                                            BOOL isClassMethod);
+
+static const void *kWAGRSurfaceEntryKey = &kWAGRSurfaceEntryKey;
+
+static UIColor *WAGRRTBG(void)   { return WAGRMenuBackgroundColor(); }
+static UIColor *WAGRRTCell(void) { return WAGRMenuCellColor(); }
+static UIColor *WAGRRTAcc(void)  { return UIColor.systemCyanColor; }
+static UIColor *WAGRRTSub(void)  { return WAGRMenuSecondaryTextColor(); }
+static UIColor *WAGRRTOff(void)  { return UIColor.systemRedColor; }
 
 @interface WAGRSurfaceBrowserVC ()
 @property(nonatomic, strong) WAGRSurfaceSpec *spec;
@@ -17,7 +32,7 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *select
 @implementation WAGRSurfaceBrowserVC
 
 - (instancetype)initWithSpec:(WAGRSurfaceSpec *)spec {
-    if (!(self = [super initWithStyle:UITableViewStylePlain])) return nil;
+    if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
     _spec = spec;
     _allEntries = @[];
     _sectionKeys = @[];
@@ -29,56 +44,36 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className, NSString *select
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
-    self.tableView.estimatedRowHeight = 86.0;
+    self.tableView.estimatedRowHeight = 72;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
 
-    self.search = [[UISearchController alloc] initWithSearchResultsController:nil];
-    self.search.searchResultsUpdater = self;
-    self.search.obscuresBackgroundDuringPresentation = NO;
-    self.search.searchBar.placeholder = @"Buscar classe ou selector";
-    self.navigationItem.searchController = self.search;
-    self.navigationItem.hidesSearchBarWhenScrolling = YES;
-    self.definesPresentationContext = YES;
-    WAGRStyleSearchBarForGlass(self.search.searchBar);
+    _search = [[UISearchController alloc] initWithSearchResultsController:nil];
+    _search.searchResultsUpdater = self;
+    _search.obscuresBackgroundDuringPresentation = NO;
+    _search.searchBar.placeholder = @"Buscar selector ou classe";
+    self.navigationItem.searchController = _search;
+    self.navigationItem.hidesSearchBarWhenScrolling = NO;
 
-    UIBarButtonItem *scan = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(scanNow)];
-    UIBarButtonItem *apply = [[UIBarButtonItem alloc] initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone target:self action:@selector(applyVisibleOverrides)];
+    UIBarButtonItem *scan = [[UIBarButtonItem alloc]
+        initWithTitle:@"Scan" style:UIBarButtonItemStylePlain target:self action:@selector(scanNow)];
+    UIBarButtonItem *apply = [[UIBarButtonItem alloc]
+        initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone target:self action:@selector(applyVisibleOverrides)];
     self.navigationItem.rightBarButtonItems = @[apply, scan];
 }
 
-- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; WAGRMenuApplyTableStyle(self.tableView, self); WAGRStyleSearchBarForGlass(self.search.searchBar); }
-- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; if (!self.didScan) [self scanNow]; }
-- (void)viewDidLayoutSubviews { [super viewDidLayoutSubviews]; WAGRApplyLiquidGlassToViewTree(self.view); WAGRStyleSearchBarForGlass(self.search.searchBar); }
-
-static NSString *WAGRRuntimeClassPrefix(NSString *className) {
-    if (!className.length) return @"Unknown";
-    NSString *s = className;
-    NSRange dot = [s rangeOfString:@"."];
-    if (dot.location != NSNotFound && dot.location > 0) return [s substringToIndex:dot.location];
-    if ([s hasPrefix:@"_TtC"]) {
-        NSScanner *scanner = [NSScanner scannerWithString:[s substringFromIndex:4]];
-        NSInteger moduleLen = 0;
-        if ([scanner scanInteger:&moduleLen]) {
-            NSUInteger start = 4 + scanner.scanLocation;
-            if (start < s.length && start + (NSUInteger)moduleLen <= s.length) return [s substringWithRange:NSMakeRange(start, (NSUInteger)moduleLen)];
-        }
-    }
-    NSCharacterSet *uppercase = [NSCharacterSet uppercaseLetterCharacterSet];
-    NSMutableString *prefix = [NSMutableString string];
-    for (NSUInteger i = 0; i < s.length; i++) {
-        unichar c = [s characterAtIndex:i];
-        [prefix appendFormat:@"%C", c];
-        if (i > 1 && [uppercase characterIsMember:c]) {
-            NSString *p = prefix.copy;
-            if (p.length >= 3) return p;
-        }
-        if (prefix.length >= 24) break;
-    }
-    return prefix.length ? prefix : s;
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    if (!self.didScan) [self scanNow];
 }
 
-static NSString *WAGRRuntimeMethodPrefix(WAGREntry *e) {
-    return [NSString stringWithFormat:@"%@%@", e.isClassMethod ? @"+" : @"-", e.isProperty ? @" property" : @" method"];
+static NSString *WAGRRTFeatureName(WAGREntry *e) {
+    NSString *name = e.displayName.length ? e.displayName : e.selectorName;
+    return name.length ? name : @"(sem selector)";
+}
+
+static NSString *WAGRRTSectionForEntry(WAGREntry *e) {
+    if (e.category.length) return e.category;
+    return WAGRRuntimeSectionForSelector(e.selectorName, e.className);
 }
 
 - (void)scanNow {
@@ -86,142 +81,161 @@ static NSString *WAGRRuntimeMethodPrefix(WAGREntry *e) {
     WAGRSurfaceSpec *spec = self.spec;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSArray<WAGREntry *> *entries = [WAGRScanner scanSurface:spec];
-        dispatch_async(dispatch_get_main_queue(), ^{ self.allEntries = entries ?: @[]; [self applyFilter:self.search.searchBar.text ?: @""]; });
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.allEntries = entries ?: @[];
+            [self applyFilter:self.search.searchBar.text ?: @""];
+        });
     });
 }
 
 - (void)applyFilter:(NSString *)query {
     NSString *q = query.lowercaseString ?: @"";
-    NSArray<WAGREntry *> *base = self.allEntries ?: @[];
+    NSArray<WAGREntry *> *base = self.allEntries;
     if (q.length) {
         base = [base filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(WAGREntry *e, NSDictionary *_) {
-            NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@", e.className ?: @"", e.selectorName ?: @"", e.displayName ?: @"", WAGRRuntimeClassPrefix(e.className)].lowercaseString;
+            NSString *prefix = WAGRRuntimePrefixForName(e.selectorName ?: e.displayName ?: @"");
+            NSString *subcat = WAGRRuntimeSubcategoryForName(e.selectorName ?: e.displayName ?: @"");
+            NSString *hay = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@",
+                             e.className ?: @"", e.selectorName ?: @"", e.displayName ?: @"", e.category ?: @"", prefix ?: @"", subcat ?: @""].lowercaseString;
             return [hay containsString:q];
         }]];
     }
 
     NSMutableDictionary<NSString *, NSMutableArray<WAGREntry *> *> *map = [NSMutableDictionary dictionary];
     for (WAGREntry *e in base) {
-        NSString *section = WAGRRuntimeClassPrefix(e.className);
+        NSString *section = WAGRRTSectionForEntry(e);
         if (!map[section]) map[section] = [NSMutableArray array];
         [map[section] addObject:e];
     }
-    NSMutableDictionary *sortedMap = [NSMutableDictionary dictionary];
-    for (NSString *k in map) {
-        sortedMap[k] = [map[k] sortedArrayUsingComparator:^NSComparisonResult(WAGREntry *a, WAGREntry *b) {
-            NSComparisonResult r = [a.className localizedCaseInsensitiveCompare:b.className];
-            if (r != NSOrderedSame) return r;
-            return [a.selectorName localizedCaseInsensitiveCompare:b.selectorName];
-        }];
-    }
-    self.sections = sortedMap;
-    self.sectionKeys = [[sortedMap allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+
+    self.sectionKeys = [map.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    self.sections = map;
+
+    NSUInteger overrides = 0;
+    for (WAGREntry *e in base) if (WAGRGateIsSet(e.selectorName)) overrides++;
+    self.title = overrides ? [NSString stringWithFormat:@"%@ (%lu)", self.spec.title ?: @"Runtime", (unsigned long)overrides]
+                           : (self.spec.title ?: @"Runtime");
     [self.tableView reloadData];
 }
 
-- (void)updateSearchResultsForSearchController:(UISearchController *)searchController { [self applyFilter:searchController.searchBar.text ?: @""]; WAGRStyleSearchBarForGlass(searchController.searchBar); }
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return self.sectionKeys.count ?: 1; }
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
-    if (!self.sectionKeys.count) return 1;
-    NSString *k = self.sectionKeys[(NSUInteger)section];
-    return self.sections[k].count;
-}
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
-    if (!self.sectionKeys.count) return nil;
-    NSString *k = self.sectionKeys[(NSUInteger)section];
-    return [NSString stringWithFormat:@"%@  (%lu)", k, (unsigned long)self.sections[k].count];
-}
-- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
-    if (!self.sectionKeys.count) return @"Nenhum selector BOOL encontrado ainda. Toque em Atualizar depois de abrir mais telas do WhatsApp.";
-    return nil;
+- (void)updateSearchResultsForSearchController:(UISearchController *)searchController {
+    [self applyFilter:searchController.searchBar.text ?: @""];
 }
 
-- (UITableViewCell *)emptyCell {
-    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    WAGRMenuApplyCellStyle(cell, 0, @"empty");
-    cell.textLabel.text = @"Nada encontrado";
-    cell.detailTextLabel.text = @"O runtime browser agrupa somente por prefixo de classe. Sem subcategoria semântica inventada.";
-    cell.selectionStyle = UITableViewCellSelectionStyleNone;
-    return cell;
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return (NSInteger)self.sectionKeys.count; }
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    NSString *key = self.sectionKeys[(NSUInteger)section];
+    NSUInteger count = self.sections[key].count;
+    return [NSString stringWithFormat:@"%@  (%lu)", key, (unsigned long)count];
 }
 
-- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    if (!self.sectionKeys.count) return [self emptyCell];
-    NSString *section = self.sectionKeys[(NSUInteger)ip.section];
-    WAGREntry *e = self.sections[section][(NSUInteger)ip.row];
-    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    WAGRMenuApplyCellStyle(cell, ip.row, e.selectorName);
-    NSString *sel = e.selectorName.length ? e.selectorName : e.displayName;
-    cell.textLabel.text = sel ?: @"(sem selector)";
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    NSString *key = self.sectionKeys[(NSUInteger)section];
+    return (NSInteger)self.sections[key].count;
+}
+
+- (WAGREntry *)entryAtIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath.section >= (NSInteger)self.sectionKeys.count) return nil;
+    NSArray<WAGREntry *> *rows = self.sections[self.sectionKeys[(NSUInteger)indexPath.section]];
+    if (indexPath.row >= (NSInteger)rows.count) return nil;
+    return rows[(NSUInteger)indexPath.row];
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"WAGRSurfaceBrowserCell"];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WAGRSurfaceBrowserCell"];
+
+    WAGREntry *e = [self entryAtIndexPath:indexPath];
+    WAGRMenuApplyCellStyle(cell, indexPath.row, e.selectorName ?: e.displayName);
     cell.textLabel.font = WAGRMenuRuntimeTitleFont();
-    cell.textLabel.numberOfLines = 3;
-    NSString *key = WAGRGateCanonicalKey(sel);
-    BOOL isSet = WAGRGateIsSet(key);
-    NSString *state = isSet ? (WAGRGateGet(key) ? @"Override ON" : @"Override OFF") : @"Original";
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\n%@", WAGRRuntimeMethodPrefix(e), state, e.className ?: @""];
     cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
-    cell.detailTextLabel.numberOfLines = 4;
+    cell.textLabel.textColor = WAGRMenuTextColor();
+    cell.detailTextLabel.textColor = WAGRRTSub();
+    cell.textLabel.numberOfLines = 0;
+    cell.detailTextLabel.numberOfLines = 2;
 
-    UISwitch *sw = [UISwitch new];
-    sw.on = isSet && WAGRGateGet(key);
-    sw.accessibilityIdentifier = [NSString stringWithFormat:@"%@|%@|%@", e.className ?: @"", e.isClassMethod ? @"1" : @"0", sel ?: @""];
-    if (@available(iOS 13.0, *)) sw.onTintColor = UIColor.labelColor;
-    [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
-    cell.accessoryView = sw;
+    if (!e) return cell;
 
-    UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPress:)];
-    lp.minimumPressDuration = 0.45;
-    [cell addGestureRecognizer:lp];
+    BOOL isSet = WAGRGateIsSet(e.selectorName);
+    BOOL value = isSet && WAGRGateGet(e.selectorName);
+    cell.textLabel.text = WAGRRTFeatureName(e);
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · %@",
+                                 e.isClassMethod ? @"+" : @"-",
+                                 e.className ?: @"",
+                                 e.selectorName ?: @"",
+                                 isSet ? (value ? @"override ON" : @"override OFF") : @"system"];
+    cell.detailTextLabel.textColor = WAGRMenuIsNegativeGateName(e.selectorName) ? WAGRRTOff() : (isSet ? (value ? WAGRRTAcc() : WAGRRTOff()) : WAGRRTSub());
+
+    UISwitch *sw = (UISwitch *)objc_getAssociatedObject(cell, kWAGRSurfaceEntryKey);
+    if (!sw) {
+        sw = [[UISwitch alloc] init];
+        sw.onTintColor = WAGRRTAcc();
+        [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+        objc_setAssociatedObject(cell, kWAGRSurfaceEntryKey, sw, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        cell.accessoryView = sw;
+    }
+    sw.on = value;
+    sw.tag = indexPath.section * 100000 + indexPath.row;
     return cell;
-}
-
-- (WAGREntry *)entryForSwitch:(UISwitch *)sw {
-    NSArray *parts = [sw.accessibilityIdentifier componentsSeparatedByString:@"|"];
-    if (parts.count < 3) return nil;
-    NSString *className = parts[0];
-    BOOL meta = [parts[1] boolValue];
-    NSString *sel = parts[2];
-    for (WAGREntry *e in self.allEntries) if ([e.className isEqualToString:className] && e.isClassMethod == meta && [e.selectorName isEqualToString:sel]) return e;
-    return nil;
-}
-
-- (void)switchChanged:(UISwitch *)sw {
-    WAGREntry *e = [self entryForSwitch:sw];
-    if (!e.selectorName.length) return;
-    WAGRGateSet(e.selectorName, sw.isOn);
-    WAGRGateInstallHookForSelector(e.className, e.selectorName, e.isClassMethod);
-    [self.tableView reloadData];
-}
-
-- (void)longPress:(UILongPressGestureRecognizer *)g {
-    if (g.state != UIGestureRecognizerStateBegan) return;
-    UITableViewCell *cell = (UITableViewCell *)g.view;
-    UISwitch *sw = [cell.accessoryView isKindOfClass:UISwitch.class] ? (UISwitch *)cell.accessoryView : nil;
-    WAGREntry *e = [self entryForSwitch:sw];
-    if (!e.selectorName.length) return;
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:e.selectorName message:@"Limpar override e esquecer hook persistido?" preferredStyle:UIAlertControllerStyleActionSheet];
-    a.popoverPresentationController.sourceView = cell;
-    a.popoverPresentationController.sourceRect = cell.bounds;
-    [a addAction:[UIAlertAction actionWithTitle:@"Limpar" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
-        WAGRGateClear(e.selectorName);
-        WAGRGateForgetHook(e.className, e.selectorName, e.isClassMethod);
-        [self.tableView reloadData];
-    }]];
-    [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)applyVisibleOverrides {
-    NSUInteger installed = 0;
-    for (WAGREntry *e in self.allEntries) {
-        if (!WAGRGateIsSet(e.selectorName)) continue;
-        if (WAGRGateInstallHookForSelector(e.className, e.selectorName, e.isClassMethod)) installed++;
+    NSUInteger setCount = 0, installed = 0, skipped = 0;
+    for (NSString *key in self.sectionKeys) {
+        for (WAGREntry *e in self.sections[key]) {
+            if (!WAGRGateIsSet(e.selectorName)) continue;
+            setCount++;
+            if (WAGRMenuIsNegativeGateName(e.selectorName) || WAGRMenuIsNegativeGateName(key)) { skipped++; continue; }
+            if (WAGRGateInstallHookForSelector(e.className, e.selectorName, e.isClassMethod)) installed++;
+        }
     }
-    NSString *msg = [NSString stringWithFormat:@"Overrides no browser: %lu\nHooks instalados/relembrados: %lu", (unsigned long)WAGRGateAllOverrides().count, (unsigned long)installed];
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Runtime" message:msg preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Aplicar Runtime"
+                                                               message:[NSString stringWithFormat:@"Overrides: %lu\nHooks: %lu\nIgnorados negative/kill: %lu", (unsigned long)setCount, (unsigned long)installed, (unsigned long)skipped]
+                                                        preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)switchChanged:(UISwitch *)sw {
+    NSIndexPath *ip = [NSIndexPath indexPathForRow:(sw.tag % 100000) inSection:(sw.tag / 100000)];
+    WAGREntry *e = [self entryAtIndexPath:ip];
+    if (!e.selectorName.length) return;
+
+    if (sw.isOn) {
+        WAGRGateSet(e.selectorName, YES);
+        (void)WAGRGateInstallHookForSelector(e.className, e.selectorName, e.isClassMethod);
+    } else {
+        WAGRGateClear(e.selectorName);
+    }
+    [self applyFilter:self.search.searchBar.text ?: @""];
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    WAGREntry *e = [self entryAtIndexPath:indexPath];
+    if (!e.selectorName.length) return;
+
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:WAGRRTFeatureName(e)
+                                                                   message:e.className
+                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    sheet.popoverPresentationController.sourceView = [tableView cellForRowAtIndexPath:indexPath];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Force TRUE" style:UIAlertActionStyleDefault handler:^(__unused id _) {
+        WAGRGateSet(e.selectorName, YES);
+        (void)WAGRGateInstallHookForSelector(e.className, e.selectorName, e.isClassMethod);
+        [self applyFilter:self.search.searchBar.text ?: @""];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Force FALSE" style:UIAlertActionStyleDefault handler:^(__unused id _) {
+        WAGRGateSet(e.selectorName, NO);
+        (void)WAGRGateInstallHookForSelector(e.className, e.selectorName, e.isClassMethod);
+        [self applyFilter:self.search.searchBar.text ?: @""];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Clear / System" style:UIAlertActionStyleDestructive handler:^(__unused id _) {
+        WAGRGateClear(e.selectorName);
+        [self applyFilter:self.search.searchBar.text ?: @""];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:sheet animated:YES completion:nil];
 }
 
 @end

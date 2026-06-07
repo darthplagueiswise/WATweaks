@@ -1,14 +1,8 @@
 #pragma once
 #import <UIKit/UIKit.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+NS_ASSUME_NONNULL_BEGIN
 
-BOOL WAGRIsIOS26OrNewer(void);
-UIVisualEffect *WAGRRealLiquidGlassEffect(BOOL clearStyle, BOOL interactive, UIColor *tintColor);
-UIColor *WAGRGlassBaseSurfaceColor(void);
-UIColor *WAGRGlassReadableFillColor(void);
 UIColor *WAGRMenuBackgroundColor(void);
 UIColor *WAGRMenuCellColor(void);
 UIColor *WAGRMenuSecondaryCellColor(void);
@@ -16,20 +10,14 @@ UIColor *WAGRMenuTextColor(void);
 UIColor *WAGRMenuSecondaryTextColor(void);
 UIColor *WAGRMenuSeparatorColor(void);
 UIColor *WAGRMenuAccentForIndex(NSInteger index);
-UIColor *WAGRMenuAccentForKey(NSString *key, NSInteger fallbackIndex);
+UIColor *WAGRMenuAccentForKey(NSString * _Nullable key, NSInteger fallbackIndex);
 UIFont *WAGRMenuTitleFont(void);
 UIFont *WAGRMenuDetailFont(void);
 UIFont *WAGRMenuRuntimeTitleFont(void);
 UIFont *WAGRMenuRuntimeDetailFont(void);
-void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner);
-void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *key);
-void WAGRApplyGlassBackdropToViewController(UIViewController *vc);
-void WAGRApplyLiquidGlassToViewTree(UIView *root);
-void WAGRStyleSearchBarForGlass(UISearchBar *searchBar);
-void WAGRApplyGlassToButton(UIButton *button, BOOL prominent);
-UIImage *WAGRMenuSymbol(NSString *name, UIColor *tint);
-BOOL WAGRMenuIsNegativeGateName(NSString *name);
+void WAGRMenuApplyTableStyle(UITableView * _Nullable tableView, UIViewController * _Nullable owner);
+void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString * _Nullable key);
+UIImage * _Nullable WAGRMenuSymbol(NSString * _Nullable name, UIColor * _Nullable tint);
+BOOL WAGRMenuIsNegativeGateName(NSString * _Nullable name);
 
-#ifdef __cplusplus
-}
-#endif
+NS_ASSUME_NONNULL_END

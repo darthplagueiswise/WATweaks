@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <substrate.h>
-#import "Menu/WAGRSurfaceListVC.h"
+#import "Menu/WAGRMainSettingsVC.h"
 #import "WAGramPrefix.h"
 
 extern NSString  *WAGRHookRouterDiagnostic(void);
@@ -35,7 +35,7 @@ static void WAGRPresent(UIViewController *from) {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *p = from;
         while (p.presentedViewController) p = p.presentedViewController;
-        WAGRSurfaceListVC *menu = [[WAGRSurfaceListVC alloc] init];
+        WAGRMainSettingsVC *menu = [[WAGRMainSettingsVC alloc] init];
         UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:menu];
         nav.modalPresentationStyle = UIModalPresentationFormSheet;
         if (@available(iOS 15.0, *)) {
