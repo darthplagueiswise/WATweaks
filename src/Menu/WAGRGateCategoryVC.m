@@ -10,6 +10,7 @@ extern BOOL WAGRGateInstallHookForSelector(NSString *className,
                                             NSString *selectorName,
                                             BOOL isClassMethod);
 extern void WAGRGateHooksEnsureInstalled(void);
+extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 
 typedef NS_ENUM(NSInteger, WAGRCategorySection) {
     WAGRCategorySectionFeatured = 0,
@@ -194,6 +195,7 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
     NSUInteger setCount = 0;
 
     WAGRGateHooksEnsureInstalled();
+    NSUInteger waabInstalled = WAGRWAABInstallHooksForAllRuntimeImages();
     for (WAGRGateFeaturedFlag *f in self.provider.featured) {
         NSString *sel = WAGRGateCanonicalKey(f.selectorName);
         if (!WAGRGateIsSet(sel)) continue;
@@ -202,8 +204,8 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
         if (WAGRTryInstallFeaturedHook(self.provider, f.selectorName)) installed++;
     }
 
-    NSString *msg = [NSString stringWithFormat:@"Overrides nesta categoria: %lu\nHooks diretos instalados: %lu\nIgnorados por segurança (negative/kill/disable/block): %lu\nWAAB boolForKey: fica coberto pelo hook central.",
-                     (unsigned long)setCount, (unsigned long)installed, (unsigned long)skipped];
+    NSString *msg = [NSString stringWithFormat:@"Overrides nesta categoria: %lu\nHooks diretos instalados: %lu\nHooks WAAB centrais instalados: %lu\nIgnorados por segurança (negative/kill/disable/block): %lu",
+                     (unsigned long)setCount, (unsigned long)installed, (unsigned long)waabInstalled, (unsigned long)skipped];
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Aplicar categoria"
                                                                message:msg
                                                         preferredStyle:UIAlertControllerStyleAlert];
@@ -222,6 +224,7 @@ static BOOL WAGRTryInstallFeaturedHook(WAGRGateProvider *provider, NSString *sel
         // Install for both ON and OFF overrides; explicit OFF needs a hook too.
         (void)WAGRTryInstallFeaturedHook(_provider, selectorName);
         WAGRGateHooksEnsureInstalled();
+        (void)WAGRWAABInstallHooksForAllRuntimeImages();
     }
     // Rebuild the row so the badge updates.
     NSUInteger row = NSNotFound;

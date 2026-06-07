@@ -40,6 +40,7 @@ extern NSString *WAGRGateHooksDiagnostic(void);
 extern NSString *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString *WAGRSettingsRowsNativeDiagnosticText(void);
 extern void WAGRGateHooksEnsureInstalled(void);
+extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern void WAGRDogfoodEnsureHooksInstalled(void);
 extern void WAGRAuraEnsureNavigationHooksInstalled(void);
 extern void WAGRAuraActivateAllFlags(void);
@@ -277,6 +278,7 @@ static void WAGRMasterApply(NSDictionary *toggle, BOOL on) {
 
     [ud synchronize];
 
+    (void)WAGRWAABInstallHooksForAllRuntimeImages();
     WAGRGateHooksEnsureInstalled();
     WAGRDogfoodEnsureHooksInstalled();
     WAGRAuraEnsureNavigationHooksInstalled();

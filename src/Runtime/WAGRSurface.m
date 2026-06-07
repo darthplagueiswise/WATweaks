@@ -36,6 +36,16 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
 
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces {
     return @[
+        WAGRMakeSurface(@"exec", @"WhatsApp Executable",
+                        @"Classes carregadas do executável principal WhatsApp.app/WhatsApp",
+                        @"app.dashed",
+                        @[], @[], @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(@"shared", @"SharedModules.framework",
+                        @"Classes carregadas de Frameworks/SharedModules.framework/SharedModules",
+                        @"shippingbox",
+                        @[], @[], @[], @[], YES, YES, YES, YES),
+
         WAGRMakeSurface(@"waab", @"WAABProperties",
                         @"AB props / feature flags",
                         @"switch.2",
@@ -203,6 +213,30 @@ static void WAGRAddEntry(NSMutableArray *out,
     [out addObject:e];
 }
 
+
+static BOOL WAGRSurfaceClassMatchesImage(WAGRSurfaceSpec *spec, Class cls) {
+    if (!spec || !cls) return NO;
+    NSString *sid = spec.surfaceID.lowercaseString ?: @"";
+    if (![sid isEqualToString:@"exec"] && ![sid isEqualToString:@"shared"]) return NO;
+
+    const char *img = class_getImageName(cls);
+    NSString *path = img ? [NSString stringWithUTF8String:img] : @"";
+    if (!path.length) return NO;
+
+    if ([sid isEqualToString:@"shared"]) {
+        return [path rangeOfString:@"SharedModules.framework/SharedModules"
+                            options:NSCaseInsensitiveSearch].location != NSNotFound;
+    }
+
+    BOOL isWAExec = [path rangeOfString:@"/WhatsApp.app/WhatsApp"
+                                options:NSCaseInsensitiveSearch].location != NSNotFound ||
+                    [path hasSuffix:@"/WhatsApp"] ||
+                    [path isEqualToString:@"WhatsApp"];
+    BOOL isFramework = [path rangeOfString:@".framework/"
+                                   options:NSCaseInsensitiveSearch].location != NSNotFound;
+    return isWAExec && !isFramework;
+}
+
 @implementation WAGRScanner
 + (NSArray<WAGREntry *> *)scanSurface:(WAGRSurfaceSpec *)spec {
     if (!spec) return @[];
@@ -213,6 +247,21 @@ static void WAGRAddEntry(NSMutableArray *out,
     for (NSString *n in spec.classNames) {
         Class c = NSClassFromString(n);
         if (c && ![classesToScan containsObject:c]) [classesToScan addObject:c];
+    }
+
+    if ([spec.surfaceID.lowercaseString isEqualToString:@"exec"] ||
+        [spec.surfaceID.lowercaseString isEqualToString:@"shared"]) {
+        unsigned int total = 0;
+        Class *all = objc_copyClassList(&total);
+        if (all) {
+            for (unsigned int i = 0; i < total; i++) {
+                if (WAGRSurfaceClassMatchesImage(spec, all[i]) &&
+                    ![classesToScan containsObject:all[i]]) {
+                    [classesToScan addObject:all[i]];
+                }
+            }
+            free(all);
+        }
     }
 
     if (spec.classNameFragments.count) {
