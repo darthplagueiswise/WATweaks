@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: theos/theos
-          ref: alpha2
+          ref: master
           path: ${{ github.workspace }}/theos
           submodules: recursive
 
