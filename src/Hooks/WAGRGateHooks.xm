@@ -377,6 +377,9 @@ static NSUInteger WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageMode
     NSArray *direct = @[ @"FOAWAABPropertiesImpl", @"WAFoundation.FOAWAABPropertiesImpl", @"WAABProperties", @"WAABPropertiesPreChatd" ];
     for (NSString *cname in direct) {
         Class cls = NSClassFromString(cname) ?: objc_getClass(cname.UTF8String);
+        if (cls && WAGRWAABClassMatchesRuntimeImage(cls, mode)) {
+            installed += WAGRInstallWAABKeyHooksOnClass(cls);
+        }
 
 }
 
