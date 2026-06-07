@@ -10,6 +10,7 @@
 
 NSString * const kWAGRStorageWipedMarkerV2 = @"watweak.storage.wiped.v3";
 NSString * const kWATGateOverrideIndexKey = @"watweak_gate_override_index";
+NSString * const kWATGateHookIndexKey = @"watweak_gate_hook_index_v1";
 
 static NSMutableDictionary<NSString *, NSNumber *> *gWATGateCache = nil;
 static BOOL gWATGateCacheLoaded = NO;
@@ -146,7 +147,7 @@ static NSArray<NSString *> *WAGRLegacyKeyPrefixes(void) {
 
 static BOOL WAGRGateStoreShouldRemoveOverrideKey(NSString *key) {
     if (![key isKindOfClass:NSString.class] || !key.length) return NO;
-    if ([key isEqualToString:kWATGateOverrideIndexKey]) return YES;
+    if ([key isEqualToString:kWATGateOverrideIndexKey] || [key isEqualToString:kWATGateHookIndexKey]) return YES;
     if ([key hasPrefix:@"watweak_gate_"] || [key hasPrefix:@"watweak_ui_"]) return YES;
     if ([key hasPrefix:@"wagr.dogfood.gate."] || [key hasPrefix:@"wa_lg_ios_liquid_glass_"]) return YES;
     if ([key isEqualToString:@"wagr_native_debug_menu_enabled"] || [key isEqualToString:@"wagr_internal_master_enabled"]) return YES;
@@ -196,6 +197,62 @@ NSArray<NSString *> *WAGRGateAllOverrides(void) {
     return [gWATGateCache.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 }
 
+
+static NSString *WAGRGateHookUID(NSString *className, NSString *selectorName, BOOL isClassMethod) {
+    if (!className.length || !selectorName.length) return @"";
+    return [NSString stringWithFormat:@"%@|%@|%@", className, isClassMethod ? @"class" : @"inst", selectorName];
+}
+
+static NSArray<NSDictionary<NSString *, id> *> *WAGRGateHookIndex(NSUserDefaults *ud) {
+    id obj = [ud objectForKey:kWATGateHookIndexKey];
+    if (![obj isKindOfClass:NSArray.class]) return @[];
+    NSMutableArray *out = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
+    for (id item in (NSArray *)obj) {
+        if (![item isKindOfClass:NSDictionary.class]) continue;
+        NSDictionary *d = (NSDictionary *)item;
+        NSString *c = d[@"class"];
+        NSString *s = d[@"selector"];
+        id metaObj = d[@"meta"];
+        if (![c isKindOfClass:NSString.class] || ![s isKindOfClass:NSString.class]) continue;
+        BOOL meta = [metaObj respondsToSelector:@selector(boolValue)] ? [metaObj boolValue] : NO;
+        NSString *uid = WAGRGateHookUID(c, s, meta);
+        if (!uid.length || [seen containsObject:uid]) continue;
+        [seen addObject:uid];
+        [out addObject:@{ @"class": c, @"selector": s, @"meta": @(meta) }];
+    }
+    return out;
+}
+
+void WAGRGateRememberHook(NSString *className, NSString *selectorName, BOOL isClassMethod) {
+    if (!className.length || !selectorName.length) return;
+    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+    NSMutableArray *idx = [WAGRGateHookIndex(ud) mutableCopy];
+    NSString *uid = WAGRGateHookUID(className, selectorName, isClassMethod);
+    for (NSDictionary *d in idx) {
+        if ([WAGRGateHookUID(d[@"class"], d[@"selector"], [d[@"meta"] boolValue]) isEqualToString:uid]) return;
+    }
+    [idx addObject:@{ @"class": className, @"selector": selectorName, @"meta": @(isClassMethod) }];
+    [ud setObject:idx forKey:kWATGateHookIndexKey];
+    [ud synchronize];
+}
+
+void WAGRGateForgetHook(NSString *className, NSString *selectorName, BOOL isClassMethod) {
+    if (!className.length || !selectorName.length) return;
+    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+    NSString *uid = WAGRGateHookUID(className, selectorName, isClassMethod);
+    NSMutableArray *idx = [NSMutableArray array];
+    for (NSDictionary *d in WAGRGateHookIndex(ud)) {
+        if (![WAGRGateHookUID(d[@"class"], d[@"selector"], [d[@"meta"] boolValue]) isEqualToString:uid]) [idx addObject:d];
+    }
+    [ud setObject:idx forKey:kWATGateHookIndexKey];
+    [ud synchronize];
+}
+
+NSArray<NSDictionary<NSString *, id> *> *WAGRGatePersistedHookSpecs(void) {
+    return WAGRGateHookIndex([NSUserDefaults standardUserDefaults]);
+}
+
 NSUInteger WAGRGateClearAll(void) {
     WATEnsureGateCacheLoaded();
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
@@ -206,10 +263,11 @@ NSUInteger WAGRGateClearAll(void) {
 
     NSUInteger removed = 0;
     for (NSString *key in keys) {
-        if (![key isEqualToString:kWATGateOverrideIndexKey] && [ud objectForKey:key] != nil) removed++;
+        if (![key isEqualToString:kWATGateOverrideIndexKey] && ![key isEqualToString:kWATGateHookIndexKey] && [ud objectForKey:key] != nil) removed++;
         [ud removeObjectForKey:key];
     }
     [ud removeObjectForKey:kWATGateOverrideIndexKey];
+    [ud removeObjectForKey:kWATGateHookIndexKey];
     @synchronized (gWATGateCacheLock) { [gWATGateCache removeAllObjects]; }
     [ud synchronize];
     return removed;
@@ -251,7 +309,8 @@ void WAGRWipeLegacyStorageIfNeeded(void) {
 
 NSString *WAGRGateStoreDiagnostic(void) {
     return [NSString stringWithFormat:
-        @"schema=v3 cached\nactive overrides=%lu\nlegacy wipe=%@",
+        @"schema=v3 cached\nactive overrides=%lu\npersisted hook specs=%lu\nlegacy wipe=%@",
         (unsigned long)WAGRGateAllOverrides().count,
+        (unsigned long)WAGRGatePersistedHookSpecs().count,
         [[NSUserDefaults standardUserDefaults] boolForKey:kWAGRStorageWipedMarkerV2] ? @"done" : @"pending"];
 }

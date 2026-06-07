@@ -11,6 +11,8 @@
 #import "../Runtime/WAGRGateStore.h"
 
 extern "C" void WAGRGateHooksEnsureInstalled(void);
+extern "C" BOOL WAGROpenSubscriptionsNative(void);
+extern "C" BOOL WAGRAuraSimulationEnabled(void);
 
 static NSMutableDictionary<NSString *, NSValue *> *gNavOrig = nil;
 static NSMutableSet<NSString *> *gNavHooked = nil;
@@ -73,7 +75,7 @@ static id hook_navInitWithContext(id self, SEL _cmd, id context) {
     NSString *key = WAGRNavHookKey(NSStringFromClass([self class]), NSStringFromSelector(_cmd), NO);
     WAGRNavIDCtxIMP orig = NULL;
     NSValue *v = gNavOrig[key];
-    if (v) orig = (WAGRNavIDCtxIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<WAGRNavIDCtxIMP>([v pointerValue]);
     if (context) gNavLastUserContext = context;
     id result = orig ? orig(self, _cmd, context) : self;
     if (context) WAGRNavInjectUserContextIntoController(result, context);
@@ -84,7 +86,7 @@ static id hook_navMakeControllerWithContext(id cls, SEL _cmd, id context) {
     NSString *key = WAGRNavHookKey(NSStringFromClass((Class)cls), NSStringFromSelector(_cmd), YES);
     WAGRNavIDCtxIMP orig = NULL;
     NSValue *v = gNavOrig[key];
-    if (v) orig = (WAGRNavIDCtxIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<WAGRNavIDCtxIMP>([v pointerValue]);
     id ctx = context ?: WAGRNavCurrentUserContext();
     if (ctx) gNavLastUserContext = ctx;
     id vc = orig ? orig(cls, _cmd, ctx ?: context) : nil;
@@ -98,7 +100,7 @@ static void hook_navControllerViewDidLoad(id self, SEL _cmd) {
     NSString *key = WAGRNavHookKey(NSStringFromClass([self class]), NSStringFromSelector(_cmd), NO);
     WAGRNavVoidIMP orig = NULL;
     NSValue *v = gNavOrig[key];
-    if (v) orig = (WAGRNavVoidIMP)[v pointerValue];
+    if (v) orig = reinterpret_cast<WAGRNavVoidIMP>([v pointerValue]);
     if (orig) orig(self, _cmd);
     WAGRNavInjectUserContextIntoController(self, ctx);
 }
@@ -182,22 +184,6 @@ static BOOL WAGRPushAuraFactoryController(UIViewController *from, NSString *fact
 extern "C" BOOL WAGRPushAuraThemesVC(UIViewController *from) { return WAGRPushAuraFactoryController(from, @"makeAppThemeViewControllerWithContext:"); }
 extern "C" BOOL WAGRPushAuraIconsVC(UIViewController *from) { return WAGRPushAuraFactoryController(from, @"makeAppIconViewControllerWithContext:"); }
 extern "C" BOOL WAGRPushAuraRingtonesVC(UIViewController *from) { (void)from; return NO; }
-
-extern "C" BOOL WAGROpenSubscriptionsNative(void) {
-    SEL sel = NSSelectorFromString(@"openSettingsAndSubscriptionManagementWithUserInfo:");
-    unsigned int n = 0;
-    Class *all = objc_copyClassList(&n);
-    if (!all) return NO;
-    for (unsigned int i = 0; i < n; i++) {
-        if (!class_getInstanceMethod(all[i], sel)) continue;
-        free(all);
-        return YES;
-    }
-    free(all);
-    return NO;
-}
-
-extern "C" BOOL WAGRAuraSimulationEnabled(void) { return WAGRPref(kWAGRAuraSimulation); }
 
 static NSArray<NSString *> *WAGRAuraPositiveFlags(void) {
     return @[ @"aura_enabled", @"aura_settings_row_enabled", @"aura_subscription_simulation_enabled", @"aura_logging_enabled", @"aura_app_icon_enabled", @"aura_app_icon_benefit_active", @"aura_app_icon_multi_account_support", @"aura_app_themes_enabled", @"aura_app_themes_benefit_active", @"aura_app_themes_chat_checkmark_themed_enabled", @"aura_app_themes_new_selection_flow_enabled", @"aura_app_themes_share_extension_themed_enabled", @"aura_app_themes_status_ring_enabled", @"aura_app_themes_illustration_lottie_enabled", @"aura_apple_watch_app_theme_enabled", @"aura_apple_watch_app_themes_enabled", @"aura_pinned_chats_enabled", @"aura_pinned_chats_benefit_active", @"aura_pinned_chats_targeted_nux_force", @"aura_enhanced_lists_enabled", @"aura_enhanced_lists_benefit_active", @"aura_ringtones_enabled", @"aura_ringtones_benefit_active", @"aura_ringtones_per_chat_enabled", @"aura_stickers_enabled", @"aura_stickers_benefit_active", @"aura_stickers_overlay_animation_enabled", @"aura_painted_door_stickers_enabled", @"ai_subscription_enabled", @"ai_subscription_imagine_intent_enabled", @"isExpandedFormattingPlusEnabled", @"isEligibleForSubscriptions", @"isAppIconsBenefitActive", @"isAppThemesBenefitActive", @"isEnhancedListsBenefitActive", @"isExtendedPinnedChatBenefitActive", @"isRingtonesBenefitActive", @"isStickersBenefitActive", @"isSubscribedToAiBenefit", @"isAISubscriptionEnabled", @"wa_subscriptions_entry_point_settings_enabled", @"wa_subscriptions_settings_green_dot_enabled", @"premium_blue_enabled" ];

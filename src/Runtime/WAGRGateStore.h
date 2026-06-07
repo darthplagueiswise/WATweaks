@@ -24,6 +24,7 @@ extern "C" {
 // Visible publicly so diagnostics can show whether the wipe already ran.
 extern NSString * const kWAGRStorageWipedMarkerV2;
 extern NSString * const kWATGateOverrideIndexKey;
+extern NSString * const kWATGateHookIndexKey;
 
 NSString *WATCanonicalPreferenceKey(NSString *domain, NSString *target);
 NSString *WAGRGateCanonicalKey(NSString *key);
@@ -52,6 +53,16 @@ NSArray<NSString *> *WAGRGateAllOverrides(void);
 /// Removes every gate override (useful for the "reset overrides" menu item).
 /// Returns the number of keys removed.
 NSUInteger WAGRGateClearAll(void);
+
+// ── Runtime hook spec persistence ────────────────────────────────────────────
+/// Records the exact class/selector/metaclass tuple for runtime browser hooks.
+void WAGRGateRememberHook(NSString *className, NSString *selectorName, BOOL isClassMethod);
+
+/// Removes a persisted hook spec.
+void WAGRGateForgetHook(NSString *className, NSString *selectorName, BOOL isClassMethod);
+
+/// Returns dictionaries: { class, selector, meta }.
+NSArray<NSDictionary<NSString *, id> *> *WAGRGatePersistedHookSpecs(void);
 
 // ── Legacy migration / wipe ──────────────────────────────────────────────────
 /// Idempotent. Runs on first launch of schema v2 and removes every legacy

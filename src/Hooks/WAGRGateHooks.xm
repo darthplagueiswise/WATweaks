@@ -384,7 +384,10 @@ static NSUInteger WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageMode
     for (NSString *cname in direct) {
         Class cls = NSClassFromString(cname) ?: objc_getClass(cname.UTF8String);
         if (cls && WAGRWAABClassMatchesRuntimeImage(cls, mode)) {
-            installed += WAGRInstallWAABKeyHooksOnClass(cls);
+            NSUInteger before = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
+            WAGRInstallWAABKeyHooksOnClass(cls);
+            NSUInteger after = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
+            if (after > before) installed += (after - before);
         }
 
 }
