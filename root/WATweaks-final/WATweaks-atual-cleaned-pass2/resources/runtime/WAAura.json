@@ -1,0 +1,5250 @@
+{
+  "target": "WAAura",
+  "schema_version": 1,
+  "generated_from": [
+    {
+      "file": "SharedModules(11)",
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8"
+    },
+    {
+      "file": "WhatsApp(7)",
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed"
+    }
+  ],
+  "validation": "static strings + Swift demangle + known ObjC runtime naming; runtime scanner still validates method signatures before hook install",
+  "class_filters": [
+    "WAAura",
+    "AuraGating",
+    "WAAuraFoundation",
+    "AuraStrings",
+    "AuraProviding",
+    "AuraPreferences",
+    "AuraButton",
+    "AuraSheet",
+    "AppTheme",
+    "AppIcon",
+    "Ringtone",
+    "Benefit",
+    "Subscription"
+  ],
+  "classes_total": 498,
+  "selectors_total": 2120,
+  "classes": [
+    {
+      "name": "WAAISubscriptionGating",
+      "raw": "WAAISubscriptionGating",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAppThemeManager",
+      "raw": "WAAppThemeManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraFoundation",
+      "raw": "WAAuraFoundation",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraFoundation.AppThemeManager",
+      "raw": "WAAuraFoundation.AppThemeManager",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraGating",
+      "raw": "WAAuraGating",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraGating.AuraGating",
+      "raw": "WAAuraGating.AuraGating",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraGating1",
+      "raw": "WAAuraGating1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WACallPeerRxSubscriptionInfo",
+      "raw": "WACallPeerRxSubscriptionInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WACallingBaseShared.CallPeerRxSubscriptionInfo",
+      "raw": "WACallingBaseShared.CallPeerRxSubscriptionInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SubscriptionEndedBanner_1",
+      "raw": "WAColor._custom_SubscriptionEndedBanner_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SubscriptionEndedBanner_2",
+      "raw": "WAColor._custom_SubscriptionEndedBanner_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SubscriptionEndedBanner_3",
+      "raw": "WAColor._custom_SubscriptionEndedBanner_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WADisplayableSubscription",
+      "raw": "WADisplayableSubscription",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAISubscriptionCacheProto",
+      "raw": "WAPBAISubscriptionCacheProto",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAISubscriptionRequestType",
+      "raw": "WAPBAISubscriptionRequestType",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAISubscriptionUpsellMetadata",
+      "raw": "WAPBAISubscriptionUpsellMetadata",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAISubscriptionUsageStateProto",
+      "raw": "WAPBAISubscriptionUsageStateProto",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_SubscriptionAction",
+      "raw": "WAPBAppStateSyncActionValue_SubscriptionAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action",
+      "raw": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_PaidFeature",
+      "raw": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_PaidFeature",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_SubscriptionInfo",
+      "raw": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_SubscriptionInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionAgeGatingCacheProto",
+      "raw": "WAPBSubscriptionAgeGatingCacheProto",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionNotificationData",
+      "raw": "WAPBSubscriptionNotificationData",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionNotificationDataRoot",
+      "raw": "WAPBSubscriptionNotificationDataRoot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionNotificationData_Level",
+      "raw": "WAPBSubscriptionNotificationData_Level",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionNotificationData_UseCase",
+      "raw": "WAPBSubscriptionNotificationData_UseCase",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBWamoAFSSubscriptionCacheEntry",
+      "raw": "WAPBWamoAFSSubscriptionCacheEntry",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBWamoAFSSubscriptionInfo",
+      "raw": "WAPBWamoAFSSubscriptionInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBWamoAfsSubscriptionCacheRoot",
+      "raw": "WAPBWamoAfsSubscriptionCacheRoot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppBizAIHasActiveSubscriptionFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppBizAIHasActiveSubscriptionFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppSubscriptionsEligibilityCheckFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppSubscriptionsEligibilityCheckFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppSubscriptionsStatusCheckFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppSubscriptionsStatusCheckFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAStorageEntityChangeSubscription",
+      "raw": "WAStorageEntityChangeSubscription",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionFoundation",
+      "raw": "WASubscriptionFoundation",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionFoundation.DisplayableSubscription",
+      "raw": "WASubscriptionFoundation.DisplayableSubscription",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionFoundation.SubscriptionNotificationUserInfo",
+      "raw": "WASubscriptionFoundation.SubscriptionNotificationUserInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionNotificationUserInfo",
+      "raw": "WASubscriptionNotificationUserInfo",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsStrings",
+      "raw": "WASubscriptionsStrings",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaElementWaPremiumBillingIAPSubscriptionsQueryResponseSuccess_FeatureFlags",
+      "raw": "WAXIncomingStanzaElementWaPremiumBillingIAPSubscriptionsQueryResponseSuccess_FeatureFlags",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaElementWaPremiumBillingIAPSubscriptionsQueryResponseSuccess_FeatureFlags_FeatureFlag",
+      "raw": "WAXIncomingStanzaElementWaPremiumBillingIAPSubscriptionsQueryResponseSuccess_FeatureFlags_FeatureFlag",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaElementWaPremiumBillingIAPSubscriptionsQueryResponseSuccess_Subscriptions_Subscription",
+      "raw": "WAXIncomingStanzaElementWaPremiumBillingIAPSubscriptionsQueryResponseSuccess_Subscriptions_Subscription",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaElementWaPremiumBillingIAPVerifyPurchaseResponseSuccess_Subscription",
+      "raw": "WAXIncomingStanzaElementWaPremiumBillingIAPVerifyPurchaseResponseSuccess_Subscription",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaWaPremiumBillingIAPSubscriptionsQueryResponseError",
+      "raw": "WAXIncomingStanzaWaPremiumBillingIAPSubscriptionsQueryResponseError",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaWaPremiumBillingIAPSubscriptionsQueryResponseSuccess",
+      "raw": "WAXIncomingStanzaWaPremiumBillingIAPSubscriptionsQueryResponseSuccess",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaWaPremiumBillingMixinSubscriptionCommon",
+      "raw": "WAXIncomingStanzaWaPremiumBillingMixinSubscriptionCommon",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaWaPremiumBillingMixinSubscriptionID",
+      "raw": "WAXIncomingStanzaWaPremiumBillingMixinSubscriptionID",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXOutgoingStanzaWaPremiumBillingIAPSubscriptionsQueryRequest",
+      "raw": "WAXOutgoingStanzaWaPremiumBillingIAPSubscriptionsQueryRequest",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXOutgoingStanzaWaPremiumBillingMixinSubscriptionID",
+      "raw": "WAXOutgoingStanzaWaPremiumBillingMixinSubscriptionID",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAiSubsBenefitUj",
+      "raw": "_OBJC_CLASS_$_WamEventAiSubsBenefitUj",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAppIconsScreen",
+      "raw": "_OBJC_CLASS_$_WamEventAppIconsScreen",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAppThemesScreen",
+      "raw": "_OBJC_CLASS_$_WamEventAppThemesScreen",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventRingtoneScreen",
+      "raw": "_OBJC_CLASS_$_WamEventRingtoneScreen",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventSubscriptionAndBenefitsAction",
+      "raw": "_OBJC_CLASS_$_WamEventSubscriptionAndBenefitsAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventSubscriptionUserAction",
+      "raw": "_OBJC_CLASS_$_WamEventSubscriptionUserAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "_$s7Combine10SubscriberP7receive12subscriptionyAA12Subscription_p_tFTj",
+      "raw": "_$s7Combine10SubscriberP7receive12subscriptionyAA12Subscription_p_tFTj",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s7Combine12SubscriptionMp",
+      "raw": "_$s7Combine12SubscriptionMp",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s7Combine12SubscriptionP7requestyyAA11SubscribersO6DemandVFTq",
+      "raw": "_$s7Combine12SubscriptionP7requestyyAA11SubscribersO6DemandVFTq",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s7Combine12SubscriptionPAA06CustomA21IdentifierConvertibleTb",
+      "raw": "_$s7Combine12SubscriptionPAA06CustomA21IdentifierConvertibleTb",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s7Combine12SubscriptionPAA11CancellableTb",
+      "raw": "_$s7Combine12SubscriptionPAA11CancellableTb",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s7SwiftUI16SubscriptionViewVMa",
+      "raw": "_$s7SwiftUI16SubscriptionViewVMa",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s7SwiftUI16SubscriptionViewVMn",
+      "raw": "_$s7SwiftUI16SubscriptionViewVMn",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s7SwiftUI16SubscriptionViewVyxq_GAA0D0AAMc",
+      "raw": "_$s7SwiftUI16SubscriptionViewVyxq_GAA0D0AAMc",
+      "source": "SharedModules(11)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_TtC12WAAuraGating20GatedBenefitProvider",
+      "raw": "_TtC12WAAuraGating20GatedBenefitProvider",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC12WAAuraGating25GatedSubscriptionProvider",
+      "raw": "_TtC12WAAuraGating25GatedSubscriptionProvider",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC12WAAuraGating28AuraBenefitReliabilityLogger",
+      "raw": "_TtC12WAAuraGating28AuraBenefitReliabilityLogger",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC12WAAuraGating28SubscriptionUserActionLogger",
+      "raw": "_TtC12WAAuraGating28SubscriptionUserActionLogger",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC12WAAuraGatingP33_0D07078F59E779AF4000BCB9D2AD4C5C24WhatsAppPlusSubscription",
+      "raw": "_TtC12WAAuraGatingP33_0D07078F59E779AF4000BCB9D2AD4C5C24WhatsAppPlusSubscription",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC16WAAuraFoundation19ThemeColoringHelper",
+      "raw": "_TtC16WAAuraFoundation19ThemeColoringHelper",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC22WAQuickPromotionClient40QPWhatsAppSubscriptionsStatusCheckFilter",
+      "raw": "_TtC22WAQuickPromotionClient40QPWhatsAppSubscriptionsStatusCheckFilter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC22WAQuickPromotionClient42QPWhatsAppBizAIHasActiveSubscriptionFilter",
+      "raw": "_TtC22WAQuickPromotionClient42QPWhatsAppBizAIHasActiveSubscriptionFilter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC22WAQuickPromotionClient45QPWhatsAppSubscriptionsEligibilityCheckFilter",
+      "raw": "_TtC22WAQuickPromotionClient45QPWhatsAppSubscriptionsEligibilityCheckFilter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC24WASubscriptionFoundation33SubscriptionNotificationPresenter",
+      "raw": "_TtC24WASubscriptionFoundation33SubscriptionNotificationPresenter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC24WASubscriptionFoundation39SubscriptionNotificationKeyValueStorage",
+      "raw": "_TtC24WASubscriptionFoundation39SubscriptionNotificationKeyValueStorage",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAISubscription",
+      "raw": "WAAISubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAISubscription.AISubscriptionManager",
+      "raw": "WAAISubscription.AISubscriptionManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAISubscription.usageDataDidUpdate",
+      "raw": "WAAISubscription.usageDataDidUpdate",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAISubscriptionBloksPresenter",
+      "raw": "WAAISubscriptionBloksPresenter",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAISubscriptionGating",
+      "raw": "WAAISubscriptionGating",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAppIconBadgeSettingsViewController",
+      "raw": "WAAppIconBadgeSettingsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAppIconProviding",
+      "raw": "WAAppIconProviding",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAsteria.AISubscriptionBloksPresenter",
+      "raw": "WAAsteria.AISubscriptionBloksPresenter",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAura",
+      "raw": "WAAura",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAura.AppIcon",
+      "raw": "WAAura.AppIcon",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAura.AppIconsViewController",
+      "raw": "WAAura.AppIconsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAura.AppThemesViewController",
+      "raw": "WAAura.AppThemesViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAura.CallRingtonePickerViewController",
+      "raw": "WAAura.CallRingtonePickerViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAura1",
+      "raw": "WAAura1",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraAppearanceSettingsString",
+      "raw": "WAAuraAppearanceSettingsString",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraChatListTooltipPresenting",
+      "raw": "WAAuraChatListTooltipPresenting",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraCommonStrings",
+      "raw": "WAAuraCommonStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraFooterStrings",
+      "raw": "WAAuraFooterStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraMain",
+      "raw": "WAAuraMain",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraProviding",
+      "raw": "WAAuraProviding",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraProvidingPlugin",
+      "raw": "WAAuraProvidingPlugin",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraRingtoneStrings",
+      "raw": "WAAuraRingtoneStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraSectionHeaderFooterFactory",
+      "raw": "WAAuraSectionHeaderFooterFactory",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraSettingsStrings",
+      "raw": "WAAuraSettingsStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraStrings",
+      "raw": "WAAuraStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraSubscriptionStrings",
+      "raw": "WAAuraSubscriptionStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAuraUpsellBannerStrings",
+      "raw": "WAAuraUpsellBannerStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABloksSubscriptionHubPresenter",
+      "raw": "WABloksSubscriptionHubPresenter",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABlueSubscriptionNotification",
+      "raw": "WABlueSubscriptionNotification",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WACallRingtonePickerViewController",
+      "raw": "WACallRingtonePickerViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WACompanionLoggedOutSubscriptionExpiredNotification",
+      "raw": "WACompanionLoggedOutSubscriptionExpiredNotification",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAConsentFrameworkImpl.WCFSubscriptionManagedDisclosureListener",
+      "raw": "WAConsentFrameworkImpl.WCFSubscriptionManagedDisclosureListener",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactInfoViewControllers.AISubscriptionSection",
+      "raw": "WAContactInfoViewControllers.AISubscriptionSection",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContextSubscription",
+      "raw": "WAContextSubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContextSubscription1",
+      "raw": "WAContextSubscription1",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContextSubscription2",
+      "raw": "WAContextSubscription2",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WADisplayableSubscription",
+      "raw": "_OBJC_CLASS_$_WADisplayableSubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WALocationSubscription",
+      "raw": "WALocationSubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO.WamoAFSSubscriptionService",
+      "raw": "WAMO.WamoAFSSubscriptionService",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOAFS.WAMOAfsSubscriptionInfoGraphQLFetcher",
+      "raw": "WAMOAFS.WAMOAfsSubscriptionInfoGraphQLFetcher",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOAFSUnlinkYouthCancelSubscriptionDeepLink",
+      "raw": "WAMOAFSUnlinkYouthCancelSubscriptionDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOAFSUnlinkYouthCancelSubscriptionPresenter",
+      "raw": "WAMOAFSUnlinkYouthCancelSubscriptionPresenter",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOAdsSubscriptionListItemCell",
+      "raw": "WAMOAdsSubscriptionListItemCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOAfsSubscriptionInfoGraphQLFetcher",
+      "raw": "WAMOAfsSubscriptionInfoGraphQLFetcher",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOMain.WAMOAFSUnlinkYouthCancelSubscriptionPresenter",
+      "raw": "WAMOMain.WAMOAFSUnlinkYouthCancelSubscriptionPresenter",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOMain.WAMOAdsSubscriptionListItemCell",
+      "raw": "WAMOMain.WAMOAdsSubscriptionListItemCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOMain.WAMOUnlinkYouthCancelSubscriptionViewController",
+      "raw": "WAMOMain.WAMOUnlinkYouthCancelSubscriptionViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOPreferences_PremiumAdsSubscriptionCell",
+      "raw": "WAMOPreferences_PremiumAdsSubscriptionCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOPreferences_SubscriptionCell",
+      "raw": "WAMOPreferences_SubscriptionCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSUB_BENEFIT_NO_COMMITMENT_CONTENT",
+      "raw": "WAMOSUB_BENEFIT_NO_COMMITMENT_CONTENT",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSUB_BENEFIT_PREMIUM_CONTENT",
+      "raw": "WAMOSUB_BENEFIT_PREMIUM_CONTENT",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSUB_CHANNEL_INFO_MANAGE_SUBSCRIPTION_EXPIRY_SUBTITLE",
+      "raw": "WAMOSUB_CHANNEL_INFO_MANAGE_SUBSCRIPTION_EXPIRY_SUBTITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSUB_CHANNEL_INFO_MANAGE_SUBSCRIPTION_RENEW_SUBTITLE",
+      "raw": "WAMOSUB_CHANNEL_INFO_MANAGE_SUBSCRIPTION_RENEW_SUBTITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSUB_MANAGE_SUBSCRIPTION",
+      "raw": "WAMOSUB_MANAGE_SUBSCRIPTION",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSub.WAMOSubCancelSubscriptionGraphQLRequester",
+      "raw": "WAMOSub.WAMOSubCancelSubscriptionGraphQLRequester",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSubCancelSubscriptionGraphQLRequester",
+      "raw": "WAMOSubCancelSubscriptionGraphQLRequester",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOSubSubscriptionNotificationHandler",
+      "raw": "WAMOSubSubscriptionNotificationHandler",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOUnlinkYouthCancelSubscriptionViewController",
+      "raw": "WAMOUnlinkYouthCancelSubscriptionViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMOUnlinkYouthCancelSubscriptionViewControllerDelegate",
+      "raw": "WAMOUnlinkYouthCancelSubscriptionViewControllerDelegate",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_EU_PREFERENCES_NO_ADS_SUBSCRIPTION_SUBTITLE",
+      "raw": "WAMO_AFS_EU_PREFERENCES_NO_ADS_SUBSCRIPTION_SUBTITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_EU_PREFERENCES_NO_ADS_SUBSCRIPTION_TITLE",
+      "raw": "WAMO_AFS_EU_PREFERENCES_NO_ADS_SUBSCRIPTION_TITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_EU_PREFERENCES_PREMIUM_ADS_SUBSCRIPTION_SUBTITLE",
+      "raw": "WAMO_AFS_EU_PREFERENCES_PREMIUM_ADS_SUBSCRIPTION_SUBTITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_EU_PREFERENCES_PREMIUM_ADS_SUBSCRIPTION_TITLE",
+      "raw": "WAMO_AFS_EU_PREFERENCES_PREMIUM_ADS_SUBSCRIPTION_TITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_BODY",
+      "raw": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_BODY",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_GO_TO_APP_STORE_BUTTON",
+      "raw": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_GO_TO_APP_STORE_BUTTON",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_SECONDARY_BODY",
+      "raw": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_SECONDARY_BODY",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_TERTIARY_BODY",
+      "raw": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_TERTIARY_BODY",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_TITLE",
+      "raw": "WAMO_AFS_UNLINK_YOUTH_CANCEL_SUBSCRIPTION_TITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMediaPicker.Subscription",
+      "raw": "WAMediaPicker.Subscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WANotificationSubscriptionToken",
+      "raw": "WANotificationSubscriptionToken",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAOneTimeLocationSubscription",
+      "raw": "WAOneTimeLocationSubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAISubscriptionCacheProto",
+      "raw": "_OBJC_CLASS_$_WAPBAISubscriptionCacheProto",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAISubscriptionRequestType",
+      "raw": "WAPBAISubscriptionRequestType",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAISubscriptionUsageStateProto",
+      "raw": "_OBJC_CLASS_$_WAPBAISubscriptionUsageStateProto",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action",
+      "raw": "_OBJC_CLASS_$_WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_PaidFeature",
+      "raw": "_OBJC_CLASS_$_WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_PaidFeature",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_SubscriptionInfo",
+      "raw": "_OBJC_CLASS_$_WAPBAppStateSyncActionValue_SubscriptionsSyncV2Action_SubscriptionInfo",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionAgeGatingCacheProto",
+      "raw": "_OBJC_CLASS_$_WAPBSubscriptionAgeGatingCacheProto",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionDetails",
+      "raw": "WAPBSubscriptionDetails",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionDetailsRoot",
+      "raw": "WAPBSubscriptionDetailsRoot",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionDetails_SubscriptionSource",
+      "raw": "WAPBSubscriptionDetails_SubscriptionSource",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionDetails_SubscriptionStatus",
+      "raw": "WAPBSubscriptionDetails_SubscriptionStatus",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBSubscriptionDeviceConfig",
+      "raw": "WAPBSubscriptionDeviceConfig",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBWamoAFSSubscriptionCacheEntry",
+      "raw": "_OBJC_CLASS_$_WAPBWamoAFSSubscriptionCacheEntry",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBWamoAFSSubscriptionInfo",
+      "raw": "_OBJC_CLASS_$_WAPBWamoAFSSubscriptionInfo",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPaidFeatureSubscriptionSync",
+      "raw": "WAPaidFeatureSubscriptionSync",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPaymentsAccounts.XMPPUPIBillerPlanOtherBenefit",
+      "raw": "WAPaymentsAccounts.XMPPUPIBillerPlanOtherBenefit",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPremiumRingtoneStorage",
+      "raw": "WAPremiumRingtoneStorage",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARingtoneManager",
+      "raw": "WARingtoneManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARingtoneStorageManager",
+      "raw": "WARingtoneStorageManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionAction",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionAction",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionActionCompanion",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionActionCompanion",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2Action",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2Action",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionCompanion",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionCompanion",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionPaidFeature",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionPaidFeature",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionPaidFeatureCompanion",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionPaidFeatureCompanion",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionSubscriptionInfo",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionSubscriptionInfo",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionSubscriptionInfoCompanion",
+      "raw": "WASDEInterfaces_protoSyncActionValueSubscriptionsSyncV2ActionSubscriptionInfoCompanion",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBAIAgentSubscriptionObjCWrapper",
+      "raw": "WASMBAIAgentSubscriptionObjCWrapper",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBOnTokenReceivedSubscriptionHandler",
+      "raw": "WASMBOnTokenReceivedSubscriptionHandler",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASMBSubscriptionMetaVerifiedStrings",
+      "raw": "WASMBSubscriptionMetaVerifiedStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASignificantLocationChangeSubscription",
+      "raw": "WASignificantLocationChangeSubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAStickerBenefitLogger",
+      "raw": "WAStickerBenefitLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAStorageEntityChangeSubscription",
+      "raw": "_OBJC_CLASS_$_WAStorageEntityChangeSubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscription",
+      "raw": "WASubscription",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscription.SubscriptionConfigImpl",
+      "raw": "WASubscription.SubscriptionConfigImpl",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscription.SubscriptionDigitalCommerceNotificationProcessor",
+      "raw": "WASubscription.SubscriptionDigitalCommerceNotificationProcessor",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscription.SubscriptionGraphQLRequester",
+      "raw": "WASubscription.SubscriptionGraphQLRequester",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscription.SubscriptionHandler",
+      "raw": "WASubscription.SubscriptionHandler",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionAgeGating",
+      "raw": "WASubscriptionAgeGating",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionAgeGating.SubscriptionAgeGatingManager",
+      "raw": "WASubscriptionAgeGating.SubscriptionAgeGatingManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionBloksIntegration",
+      "raw": "WASubscriptionBloksIntegration",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionBloksPresenting",
+      "raw": "WASubscriptionBloksPresenting",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionDeepLinks",
+      "raw": "WASubscriptionDeepLinks",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionDeepLinks.PendingInAppSignupObserver",
+      "raw": "WASubscriptionDeepLinks.PendingInAppSignupObserver",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionGating",
+      "raw": "WASubscriptionGating",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionHubDeepLink",
+      "raw": "WASubscriptionHubDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionHubPresenterBridge",
+      "raw": "WASubscriptionHubPresenterBridge",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionIntegration",
+      "raw": "WASubscriptionIntegration",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionObjCABProps",
+      "raw": "WASubscriptionObjCABProps",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionPresentation",
+      "raw": "WASubscriptionPresentation",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionPresentation.SubscriptionBloksTokenResolutionListener",
+      "raw": "WASubscriptionPresentation.SubscriptionBloksTokenResolutionListener",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionStrings",
+      "raw": "WASubscriptionStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionSyncPairingPayloadBridge",
+      "raw": "WASubscriptionSyncPairingPayloadBridge",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionUpdate",
+      "raw": "WASubscriptionUpdate",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionUpdateError",
+      "raw": "WASubscriptionUpdateError",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionUpdateStatus",
+      "raw": "WASubscriptionUpdateStatus",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsDeepLink",
+      "raw": "WASubscriptionsDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsGreenDotDidClear",
+      "raw": "WASubscriptionsGreenDotDidClear",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsHub",
+      "raw": "WASubscriptionsHub",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsHub.SubscriptionsHubBloksPresenter",
+      "raw": "WASubscriptionsHub.SubscriptionsHubBloksPresenter",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsHub.SubscriptionsHubManager",
+      "raw": "WASubscriptionsHub.SubscriptionsHubManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsHubBloksPresenter",
+      "raw": "WASubscriptionsHubBloksPresenter",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsHubIntegration",
+      "raw": "WASubscriptionsHubIntegration",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASubscriptionsStrings",
+      "raw": "_OBJC_CLASS_$_WASubscriptionsStrings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAWAMOAFSUnlinkYouthCancelSubscriptionDeepLink",
+      "raw": "WAWAMOAFSUnlinkYouthCancelSubscriptionDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAWaMeSubscriptionDeepLink",
+      "raw": "WAWaMeSubscriptionDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXFBNMESubscriptionApplicationBenefitTypeEnum",
+      "raw": "WAXFBNMESubscriptionApplicationBenefitTypeEnum",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXWAWamoSubCancelSubscriptionRequest",
+      "raw": "WAXWAWamoSubCancelSubscriptionRequest",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA_DC_PBS_PUSH_BENEFITS",
+      "raw": "WA_DC_PBS_PUSH_BENEFITS",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA_SUBSCRIPTION_CANCELLATION_NOTIF",
+      "raw": "WA_SUBSCRIPTION_CANCELLATION_NOTIF",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA_SUBSCRIPTION_COMPLETION_NOTIF",
+      "raw": "WA_SUBSCRIPTION_COMPLETION_NOTIF",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA_SUBSCRIPTION_EXPIRATION_NOTIF",
+      "raw": "WA_SUBSCRIPTION_EXPIRATION_NOTIF",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA_SUBSCRIPTION_RENEWAL_NOTIF",
+      "raw": "WA_SUBSCRIPTION_RENEWAL_NOTIF",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__DEFAULT",
+      "raw": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__DEFAULT",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__HD",
+      "raw": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__HD",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__HIGH",
+      "raw": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__HIGH",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__LOW",
+      "raw": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__LOW",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__MEDIUM",
+      "raw": "WA__VOIP__RX_VID_SUBSCRIPTION_INFO__VIDEO_QUALITY__MEDIUM",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA__VOIP__SENDER_SUBSCRIPTION_EXT__TEMPORAL_LAYER__BASE",
+      "raw": "WA__VOIP__SENDER_SUBSCRIPTION_EXT__TEMPORAL_LAYER__BASE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WA__VOIP__SENDER_SUBSCRIPTION_EXT__TEMPORAL_LAYER__ENHANCEMENT",
+      "raw": "WA__VOIP__SENDER_SUBSCRIPTION_EXT__TEMPORAL_LAYER__ENHANCEMENT",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAiSubsBenefitUj",
+      "raw": "_OBJC_CLASS_$_WamEventAiSubsBenefitUj",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAppIconsScreen",
+      "raw": "_OBJC_CLASS_$_WamEventAppIconsScreen",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAppThemesScreen",
+      "raw": "_OBJC_CLASS_$_WamEventAppThemesScreen",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventRingtoneScreen",
+      "raw": "_OBJC_CLASS_$_WamEventRingtoneScreen",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventSubscriptionAndBenefitsAction",
+      "raw": "_OBJC_CLASS_$_WamEventSubscriptionAndBenefitsAction",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventSubscriptionUserAction",
+      "raw": "_OBJC_CLASS_$_WamEventSubscriptionUserAction",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "XMPPUPIBillerPlanOtherBenefit",
+      "raw": "XMPPUPIBillerPlanOtherBenefit",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAIManaging0A4ObjcPAAE18solidMetaAIAppIconSo7UIImageCSgyF",
+      "raw": "_$s12WAAIManaging0A4ObjcPAAE18solidMetaAIAppIconSo7UIImageCSgyF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C14isUserEligible3forSbAA0C9BenefitIdO_tF",
+      "raw": "_$s12WAAuraGating04AuraB0C14isUserEligible3forSbAA0C9BenefitIdO_tF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C14isUserEligibleSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C14isUserEligibleSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C14makeFooterView3for9presenter16subscriptionName13featureScreenSo07UITablef6HeadereF0CSgAA0C9BenefitIdO_So16UIViewControllerCSSAA07FeatureL0OSgtF",
+      "raw": "_$s12WAAuraGating04AuraB0C14makeFooterView3for9presenter16subscriptionName13featureScreenSo07UITablef6HeadereF0CSgAA0C9BenefitIdO_So16UIViewControllerCSSAA07FeatureL0OSgtF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C14observeBenefit3for8observer7Combine14AnyCancellableCSgAA0cE2IdO_yAA0cE0_pSgctF",
+      "raw": "_$s12WAAuraGating04AuraB0C14observeBenefit3for8observer7Combine14AnyCancellableCSgAA0cE2IdO_yAA0cE0_pSgctF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C15isBenefitActive3forSbAA0cE2IdO_tF",
+      "raw": "_$s12WAAuraGating04AuraB0C15isBenefitActive3forSbAA0cE2IdO_tF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C16isLoggingEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C16isLoggingEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C17isAppIconsEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C17isAppIconsEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C17isStickersEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C17isStickersEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C17prefetchPromotion3foryAA0C9BenefitIdO_tF",
+      "raw": "_$s12WAAuraGating04AuraB0C17prefetchPromotion3foryAA0C9BenefitIdO_tF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C18isAppThemesEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C18isAppThemesEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C18isRingtonesEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C18isRingtonesEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C18upsellSubscription3forAA0cE0_pSgAA0C9BenefitIdO_tF",
+      "raw": "_$s12WAAuraGating04AuraB0C18upsellSubscription3forAA0cE0_pSgAA0C9BenefitIdO_tF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C20premiumStickerAccessAA07PremiumeF0Ovg",
+      "raw": "_$s12WAAuraGating04AuraB0C20premiumStickerAccessAA07PremiumeF0Ovg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C22isEnhancedListsEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C22isEnhancedListsEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C22upsellSubscriptionName3forSSAA0C9BenefitIdO_tF",
+      "raw": "_$s12WAAuraGating04AuraB0C22upsellSubscriptionName3forSSAA0C9BenefitIdO_tF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C23isAppIconsBenefitActiveSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C23isAppIconsBenefitActiveSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C23makePrimaryButtonConfig7feature9presenter0H6Screen11onBeforeTapypSgAA0C9BenefitIdO_So16UIViewControllerCAA07FeatureJ0OSgyycSgtF",
+      "raw": "_$s12WAAuraGating04AuraB0C23makePrimaryButtonConfig7feature9presenter0H6Screen11onBeforeTapypSgAA0C9BenefitIdO_So16UIViewControllerCAA07FeatureJ0OSgyycSgtF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C24isAppThemesBenefitActiveSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C24isAppThemesBenefitActiveSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C24isRingtonesBenefitActiveSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C24isRingtonesBenefitActiveSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C25isRingtonesPerChatEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C25isRingtonesPerChatEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C25presentSubscriptionUpsell14subscriptionId07benefitH007sessionH09presenter10completionySS_AA0c7BenefitH0OSSSo16UIViewControllerCyAA0E6ResultOctF",
+      "raw": "_$s12WAAuraGating04AuraB0C25presentSubscriptionUpsell14subscriptionId07benefitH007sessionH09presenter10completionySS_AA0c7BenefitH0OSSSo16UIViewControllerCyAA0E6ResultOctF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C27isExtendedPinnedChatEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C27isExtendedPinnedChatEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C28isEnhancedListsBenefitActiveSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C28isEnhancedListsBenefitActiveSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C29presentSubscriptionManagement14subscriptionId07benefitH007sessionH09presenter10completionySS_AA0c7BenefitH0OSSSo16UIViewControllerCyAA0E6ResultOctF",
+      "raw": "_$s12WAAuraGating04AuraB0C29presentSubscriptionManagement14subscriptionId07benefitH007sessionH09presenter10completionySS_AA0c7BenefitH0OSSSo16UIViewControllerCyAA0E6ResultOctF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C33isExtendedPinnedChatBenefitActiveSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C33isExtendedPinnedChatBenefitActiveSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C35isAppIconMultiAccountSupportEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C35isAppIconMultiAccountSupportEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C35isAppThemeNewChatPreviewFlowEnabledSbvg",
+      "raw": "_$s12WAAuraGating04AuraB0C35isAppThemeNewChatPreviewFlowEnabledSbvg",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s12WAAuraGating04AuraB0C37isAppThemesChatCheckmarkThemedEnabledSbvau",
+      "raw": "_$s12WAAuraGating04AuraB0C37isAppThemesChatCheckmarkThemedEnabledSbvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    }
+  ],
+  "selectors": [
+    {
+      "name": "+2chatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "ABAuraBenefit",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "aura",
+        "benefit"
+      ]
+    },
+    {
+      "name": "accountEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "Active",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "addContactIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "addIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "addingStickerEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "AddMemberActionIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "addQuickReplyIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "AddReactionsIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "addStatusIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "addToCalendarIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "ageCollectionEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "AIBizIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiManageInterestsIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiPremiumIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiRingIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiSparkleIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "AiSubscriptionEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "aiSubscriptionGating",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "aiSummaryIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "AIVoiceChatSettingIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceDismissIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceMicrophoneIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceMicrophoneMutedIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceRetryIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceSpeakerIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceSpeakerMutedIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceWaveformIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "aiVoiceWaveformLightIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "AnimationColorTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "appIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "appTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "archiveFilledIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "archiveIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "areMinimalChatThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "areNewStickerPacksAvailable",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "areStickerPackUpdatesAvailable",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "arrowForwardIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "arrowUpRightSquareIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "atIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "attributionIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "AttributionIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "AuraBenefit",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "aura",
+        "benefit"
+      ]
+    },
+    {
+      "name": "AuraGating",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "aura"
+      ]
+    },
+    {
+      "name": "auraGating",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "aura"
+      ]
+    },
+    {
+      "name": "AuraSubscription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "aura",
+        "subscription"
+      ]
+    },
+    {
+      "name": "autoPlaySettingsStickerDisabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "AVAudioSessionErrorCodeSessionNotActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "BadgeModeGroupStatusCreationPlusIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon",
+        "plus"
+      ]
+    },
+    {
+      "name": "bellFillIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "bellIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "bellSlashFillIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "bellSlashIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "blockNosignIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "blockRecordingIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "BlueSubscription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "BotLearnMoreMainIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "broadcastListIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "buildNoneSubscription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "business_calling_User_initiated_calling_Call_icon_visibility_Limit_to_user_countries__elementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "business_calling_User_initiated_calling_Call_icon_visibility_Limit_to_user_countriesStringValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "business_calling_User_initiated_calling_Call_icon_visibilityVisibility",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "BusinessProfileV3FacebookIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "BusinessProfileV3InstagramIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "cachedGenAIChatThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "cachedGenAIChatThemesWallpaperEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "CallDidBecomeActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "cancelAllDownloadingStickerPacks",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "cancelInteractiveTransition",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "cannotSendSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "cannotSendStickerSSyFZ",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "CFBundlePrimaryIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "ChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeColoredStrokeEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeImmersiveEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemesPreviouslySetChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "chatThemesUpsellBannerEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "chatThemeToolAdvancedEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeToolEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeWallpaperLoggingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "checkMarkCircleFilledIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "checkmarkCircleFillIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "checkmarkCircleIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "clearTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "coexBackfillIIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "colorThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "composeIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "contactsIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "contactTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "copyIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "crosspostingFBIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "crosspostingIGIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "crosspostingSelectedFBIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "crosspostingSelectedIGIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "ddGroupIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "dedPinnedChatBenefitActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit",
+        "active"
+      ]
+    },
+    {
+      "name": "deleteIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "DigitalCommerceSubscription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "disableThirdPartyAnimatedStickerAnimation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "DisplayableSubscription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "documentIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "eatureIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "EditGroupIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "Eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "enable1PStickerPackForwardButton",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_active_linked_group_call_add_participants",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "enable_avatar_sticker_tray_revised_edit_button",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_chat_list_sticker_emojis",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_generating_new_syncd_key_proactively_if_missing_on_primary",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "enable_giphy_sticker_search",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_media_sharing_optic_camera_ios_sticker_creation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_image_reader_in_chat_thread",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_lottie_reader_in_chat_thread",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_lottie_reader_in_tray",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_pack_message_channels_logging",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_pack_message_sending_channels",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_pack_messages",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_pack_preview_refresh",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_recent_searches",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_sticker_sharing_user_journey_logging",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "enable_tenor_sticker_search",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "EphemeralIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "EventEnumSubscription",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "exclamationBubbleIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "exclamationTriangleIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "exitGroupIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "ExpiredInviteEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "failureIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "faviconLsIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "fbIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "fbOutLineIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "FeatureIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "filledRatingStarIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "filterSortFillIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "filterSortIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "flagIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "footerIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "forwardIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "gearBadgeIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "genAIChatThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "genAIChatThemesWallpaperEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "graduationCapIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "GroupChangeIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "GroupComposerView_EditGroupNameIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "handleApplicationDidBecomeActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "handleApplicationWillResignActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "has_active_ctwa_ad",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "has_active_iglu_adjustment_filter",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "has_active_iglu_filter",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "has_active_subject_effect",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "has_active_video_effect",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "has_ads_eligible_for_recreation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasActiveCameraInstances",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasActiveConversation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasActiveDeliveryTimestampOffset",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasActiveDependencies",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasActiveNativeDesktopCompanionRecently",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasActiveThemeMessageStanzaId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "active"
+      ]
+    },
+    {
+      "name": "hasAddYoursResponseSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasAddYoursSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasAdsEligibleStatus",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasAgeCollectionEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasAiConversationContext",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasAiProactiveMessageControlEverSent",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasAppTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasAvatarStickers",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasBotPluginFaviconURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasChatThemeId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasChatThemeSetting",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "hasClearTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasCoexBackfillIicon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasDarkThemeWallpaper",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasFaviconCdnURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasFaviconImageData",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasFaviconMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasFaviconMmsmetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasFaviconUploadStatus",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasFavIconURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasHighPriStickerContent",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasIconURLString",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasIncentiveEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasInteractiveMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveMessageAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveMessageAdditionalMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveMessageFromRootOrTemplate",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveMessageMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveResponseMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveResponseMessageMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveTemplateMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveText",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveTextOrThumbnailMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasInteractiveType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasIsActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasIsAiSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasIsAvatarSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasIsBotProactiveMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasIsComplaintEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasIsFirstPartySticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasIsLottieSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasIsOtp0TapEligibleMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasIsProactiveMessagingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasIsPushEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasIsSubscribedToAiBenefit",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit"
+      ]
+    },
+    {
+      "name": "hasIsUserCreatedSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasLastStickerSentTs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasLightThemeWallpaper",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasLinkSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasLocationSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasLottieStickerMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasMerchantPaymentEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasMmsFaviconPath",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasMusicSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasNewsletterSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasNextAiSubscriptionTierFriendlyName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasPeerPaymentEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasPendingMusicSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasProfileIconURL",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasPromptIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasQuestionAnswerShareSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasQuestionSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasQuotedStickerData",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasReactionSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasRecentStickers",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasRecentStickersV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasRecentStickersV3",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasRemoveRecentStickerAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasSharedChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasStarredStickers",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStatusStickerInteraction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStatusStickerInteractionMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStatusStickerInteractions",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerKey",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerPackId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerPackMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerPackMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerPackOrigin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerPackQuery",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerPackSize",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickers",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerSentTs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasStickerUuid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasSubscriptionAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasSubscriptionInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasSubscriptionsSyncV2Action",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasSubscriptionStartTime",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasSubscriptionSyncPayload",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasSubscriptionTierFriendlyName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasSubscriptionUpsellMetadata",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "hasSupportedInteractiveNFMHeaderType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "hasTEEEligibleContent",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasThirdPartyStickers",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasTrayIconFileName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hasUpiConsumerStatusHash",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon",
+        "icons"
+      ]
+    },
+    {
+      "name": "hasUsedPhotoStickersBefore",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasUsedQuestionStickersBefore",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hasUserHasSeenPaymentIneligibleOfferKilledBlurbTs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasUserHasSeenPaymentIneligibleSenderMaxedBlurbTs",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "hasUserHasTriggeredInteractiveSync",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "heartFilledIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "heartIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "heartSlashIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "HiddenSubGroupIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hideAvocadoStickersUpSell",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "hideIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "hideMediaThumbnailDecorativeIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "icChannelIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "Icon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "igIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "IIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "immersiveThreadTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "incentiveEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "inderStringNotificationIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "individualChatMentionReceiverEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "infoFillIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "infoIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "instagramAppIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "InteropIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "iosStickersDiscoveryEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_active",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "is_active_subfunnel_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_fetch_error_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_fetch_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_fetch_origin_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_send_message_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_send_origin_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_ai_sticker_send_orign_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_ai_sub_benefit_trigger_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit"
+      ]
+    },
+    {
+      "name": "is_app_theme_appearance_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_avatar_sticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_avatar_sticker_send_message_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_avatar_sticker_send_origin_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_chat_theme_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_chat_themes_banner_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "is_complaint_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible__elementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_for_udd",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_linked_fb",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_linked_ig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_linked_rl",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_unlinked_fb",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_unlinked_ig",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligible_to_link_to_unlinked_rl",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligibleElementValue",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_eligibleResult",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_extended_fep_window_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_header_image_favicon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "is_message_iicon_v2_reason_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "is_offerings_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_onboarding_theme_selection_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_ringtone_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "ringtone"
+      ]
+    },
+    {
+      "name": "is_sender_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_sticker_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_add_to_favorite_origin_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_error_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_latency_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_maker_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_maker_media_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_maker_source_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_pack_action_surface_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_pack_download_origin_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_pack_latency_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_provider_on_send_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_provider_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_search_origin_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_send_message_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_send_origin_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_store_opened_origin_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_suggestion_actions_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_sticker_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "is_subscription_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "is_subscription_app_store_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "is_subscription_benefits_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription",
+        "benefit"
+      ]
+    },
+    {
+      "name": "is_subscription_benefits_error_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription",
+        "benefit"
+      ]
+    },
+    {
+      "name": "is_subscription_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "is_subscription_error_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "is_subscription_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "is_survey_active",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "is_user_interop_eligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_wamo_nux_ineligible_reason_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "is_wamosub_subscription_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "is_wpbuj_benefit_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit"
+      ]
+    },
+    {
+      "name": "is_wpbuj_benefit_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit"
+      ]
+    },
+    {
+      "name": "isAccelerometerActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isAccessTokenMigrationStickersEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "isAccountEligibleForCallLink",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAccountEligibleForDependentFTXBanner",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAccountEligibleForDependentFTXInfo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAccountEligibleForGroupAddAllowlist",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAccountEligibleForGroupCreation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAccountEligibleForPrivacySettingsCreateGroups",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAccountEligibleForSettingsSponsorControls",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isActiveAccount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isActiveForCall",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isActiveLiveLocation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isActiveLiveLocationMessageFromMe",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isActiveLiveLocationMessageFromSomeoneElse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isAFSStateEligibleForNuxBanner",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAiSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "isAISubscriptionEntryPointsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "isAISubscriptionMeteringAndFetchingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "subscription"
+      ]
+    },
+    {
+      "name": "isAIVideoEditActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isAnimatedSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "isAppIconMultiAccountSupportEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon"
+      ]
+    },
+    {
+      "name": "isAppIconsBenefitActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit",
+        "icon",
+        "icons",
+        "active"
+      ]
+    },
+    {
+      "name": "isAppIconsBenefitActiveSbvg",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit",
+        "icon",
+        "icons",
+        "active"
+      ]
+    },
+    {
+      "name": "isAppIconsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "icon",
+        "icons"
+      ]
+    },
+    {
+      "name": "isApplicationActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isAppThemeNewChatPreviewFlowEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isAppThemesBenefitActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "benefit",
+        "theme",
+        "themes",
+        "active"
+      ]
+    },
+    {
+      "name": "isAppThemesChatCheckmarkThemedEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "isAppThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "isAppThemesLottieEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "isAppThemesStatusRingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "isAutoCrosspostEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isAvatarSocialSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "isAvatarSticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "isBatchActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isBizMvFrictionEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isBotProactiveMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isCellularCallActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isChatListBannerEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isChatThemesSelectionInRegFlowEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme",
+        "themes"
+      ]
+    },
+    {
+      "name": "isColorSelectorActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isComplaintEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isCouldBeThirdPartySticker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "isDefaultOrAnyStickerPackDownloaded",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "sticker"
+      ]
+    },
+    {
+      "name": "isEditingInteractively",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isEditSelectorActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "name": "isEligible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAccountAssociation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAdResolvePayment",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAlbum",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAlbums",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAllContentRatings",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAppLock",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForArchiving",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAvatarAutogen",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForAvatarUpsell",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForBusinessSearch",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForCatalogLinking",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForCatchUp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForChannels",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForChatLock",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForCompanionSupport",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForContactManagement",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForDataCounter",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForDeepLinks",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForFirstOrderPromotion",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForFOABookmarks",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    },
+    {
+      "name": "isEligibleForForwardWithCaptionOrAppendMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "eligible"
+      ]
+    }
+  ]
+}

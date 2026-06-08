@@ -1,0 +1,4351 @@
+{
+  "target": "ContactsAboutPresence",
+  "schema_version": 1,
+  "generated_from": [
+    {
+      "file": "SharedModules(11)",
+      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8"
+    },
+    {
+      "file": "WhatsApp(7)",
+      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed"
+    }
+  ],
+  "validation": "static strings + Swift demangle + known ObjC runtime naming; runtime scanner still validates method signatures before hook install",
+  "class_filters": [
+    "WAContactTheme",
+    "WAInfoTopHeaderView",
+    "OnlinePresence",
+    "ContactsHub",
+    "EvolveAbout",
+    "Username",
+    "About"
+  ],
+  "classes_total": 352,
+  "selectors_total": 858,
+  "classes": [
+    {
+      "name": "WAAccounts.Username",
+      "raw": "WAAccounts.Username",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAChatSessionOriginUsernameDidSet",
+      "raw": "WAChatSessionOriginUsernameDidSet",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_SMBShortLinkAboutTableViewHeader_1",
+      "raw": "WAColor._custom_SMBShortLinkAboutTableViewHeader_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WAAboutViewController_1",
+      "raw": "WAColor._custom_WAAboutViewController_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WAAboutViewController_2",
+      "raw": "WAColor._custom_WAAboutViewController_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WAAboutViewController_3",
+      "raw": "WAColor._custom_WAAboutViewController_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WAContactTheme_1",
+      "raw": "WAColor._custom_WAContactTheme_1",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WAContactTheme_2",
+      "raw": "WAColor._custom_WAContactTheme_2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WAContactTheme_3",
+      "raw": "WAColor._custom_WAContactTheme_3",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAColor._custom_WAContactTheme_4",
+      "raw": "WAColor._custom_WAContactTheme_4",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactTheme",
+      "raw": "WAContactTheme",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactThemeV2",
+      "raw": "WAContactThemeV2",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAJIDMappingManager.DidUpdateDisplayNames.newUsernamesMappingKey",
+      "raw": "WAJIDMappingManager.DidUpdateDisplayNames.newUsernamesMappingKey",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAJIDMappingManager.DidUpdateDisplayNames.oldUsernamesMappingKey",
+      "raw": "WAJIDMappingManager.DidUpdateDisplayNames.oldUsernamesMappingKey",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAJIDMappingManager.DidUpdateUsernames",
+      "raw": "WAJIDMappingManager.DidUpdateUsernames",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAJIDMappingManagerDidUpdateUsernames",
+      "raw": "WAJIDMappingManagerDidUpdateUsernames",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_UsernameChatStartModeAction",
+      "raw": "WAPBAppStateSyncActionValue_UsernameChatStartModeAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBAppStateSyncActionValue_UsernameChatStartModeAction_ChatStartMode",
+      "raw": "WAPBAppStateSyncActionValue_UsernameChatStartModeAction_ChatStartMode",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBUsernameRecommendation",
+      "raw": "WAPBUsernameRecommendation",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBUsernameRecommendation_Source",
+      "raw": "WAPBUsernameRecommendation_Source",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBUsernameRecommendationsList",
+      "raw": "WAPBUsernameRecommendationsList",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAPBUsernameRecommendationsRoot",
+      "raw": "WAPBUsernameRecommendationsRoot",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppUserUsernameActivatedFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppUserUsernameActivatedFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppUserUsernameCreationEligibleNotCreatedFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppUserUsernameCreationEligibleNotCreatedFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuickPromotionClient.QPWhatsAppUserUsernameReservationEligibleNotReservedFilter",
+      "raw": "WAQuickPromotionClient.QPWhatsAppUserUsernameReservationEligibleNotReservedFilter",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuotedEvolveAbout",
+      "raw": "WAQuotedEvolveAbout",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsername",
+      "raw": "WAUsername",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameAdoptionLoggingHelper",
+      "raw": "WAUsernameAdoptionLoggingHelper",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameAvailabilityCache.usernames",
+      "raw": "WAUsernameAvailabilityCache.usernames",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameKeyView",
+      "raw": "WAUsernameKeyView",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernames",
+      "raw": "WAUsernames",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernames.UsernameStorage",
+      "raw": "WAUsernames.UsernameStorage",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsyncUsernameBackoffUntilDate",
+      "raw": "WAUsyncUsernameBackoffUntilDate",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsyncUsernameNextFullSyncDate",
+      "raw": "WAUsyncUsernameNextFullSyncDate",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAVCardUsernameSharingUnit",
+      "raw": "WAVCardUsernameSharingUnit",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXIncomingStanzaPrivacyMixinUsername",
+      "raw": "WAXIncomingStanzaPrivacyMixinUsername",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXOutgoingStanzaPrivacyMixinUsername",
+      "raw": "WAXOutgoingStanzaPrivacyMixinUsername",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutConsumption",
+      "raw": "_OBJC_CLASS_$_WamEventAboutConsumption",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutConsumptionDaily",
+      "raw": "_OBJC_CLASS_$_WamEventAboutConsumptionDaily",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutCreation",
+      "raw": "_OBJC_CLASS_$_WamEventAboutCreation",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutCreationDaily",
+      "raw": "_OBJC_CLASS_$_WamEventAboutCreationDaily",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutInteraction",
+      "raw": "_OBJC_CLASS_$_WamEventAboutInteraction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventProfileAboutClick",
+      "raw": "_OBJC_CLASS_$_WamEventProfileAboutClick",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventUsernameCreationAction",
+      "raw": "_OBJC_CLASS_$_WamEventUsernameCreationAction",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventUsernameIntegrityEvent",
+      "raw": "_OBJC_CLASS_$_WamEventUsernameIntegrityEvent",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "XMPPUnifiedSyncItemUsername",
+      "raw": "XMPPUnifiedSyncItemUsername",
+      "source": "SharedModules(11)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC11WAUsernames15UsernameStorage",
+      "raw": "_TtC11WAUsernames15UsernameStorage",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC11WAUsernames23UsernameExposedReporter",
+      "raw": "_TtC11WAUsernames23UsernameExposedReporter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC22WAQuickPromotionClient37QPWhatsAppUserUsernameActivatedFilter",
+      "raw": "_TtC22WAQuickPromotionClient37QPWhatsAppUserUsernameActivatedFilter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC22WAQuickPromotionClient54QPWhatsAppUserUsernameCreationEligibleNotCreatedFilter",
+      "raw": "_TtC22WAQuickPromotionClient54QPWhatsAppUserUsernameCreationEligibleNotCreatedFilter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtC22WAQuickPromotionClient58QPWhatsAppUserUsernameReservationEligibleNotReservedFilter",
+      "raw": "_TtC22WAQuickPromotionClient58QPWhatsAppUserUsernameReservationEligibleNotReservedFilter",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtP11WAUsernames15UsernameStoring_",
+      "raw": "_TtP11WAUsernames15UsernameStoring_",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtP11WAUsernames23UsernameStorageManaging_",
+      "raw": "_TtP11WAUsernames23UsernameStorageManaging_",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "_TtP15UILibraryShared34EvolveAboutUtilityProviderProtocol_",
+      "raw": "_TtP15UILibraryShared34EvolveAboutUtilityProviderProtocol_",
+      "source": "SharedModules(11)",
+      "kind": "swift-objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAboutListViewController",
+      "raw": "WAAboutListViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAboutPrivateProcessingDeepLink",
+      "raw": "WAAboutPrivateProcessingDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAboutTextEditController",
+      "raw": "WAAboutTextEditController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAboutTextEditControllerDelegate",
+      "raw": "WAAboutTextEditControllerDelegate",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAboutToLogoutBanner",
+      "raw": "WAAboutToLogoutBanner",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAboutViewController",
+      "raw": "WAAboutViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAboutViewControllerRow",
+      "raw": "WAAboutViewControllerRow",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAAccountSyncUsernameNotificationProcessor",
+      "raw": "WAAccountSyncUsernameNotificationProcessor",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABanners.AboutToLogoutBanner",
+      "raw": "WABanners.AboutToLogoutBanner",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WABizUsernameDeepLink",
+      "raw": "WABizUsernameDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAChatMessagesViewControllerVCardDidUpdateUsernameNotification",
+      "raw": "WAChatMessagesViewControllerVCardDidUpdateUsernameNotification",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAChatViewControllers.EvolveAboutStatusOverlay",
+      "raw": "WAChatViewControllers.EvolveAboutStatusOverlay",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactEditorUsernameCell",
+      "raw": "WAContactEditorUsernameCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactEditorUsernameViewModel",
+      "raw": "WAContactEditorUsernameViewModel",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactInfoViewControllers.AboutSection",
+      "raw": "WAContactInfoViewControllers.AboutSection",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactInfoViewControllers.ContactEditorUsernameViewModel",
+      "raw": "WAContactInfoViewControllers.ContactEditorUsernameViewModel",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactInfoViewControllers.EvolveAboutNonMeTabTextStatusRow",
+      "raw": "WAContactInfoViewControllers.EvolveAboutNonMeTabTextStatusRow",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactInfoViewControllers.UsernameCellResult",
+      "raw": "WAContactInfoViewControllers.UsernameCellResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactThemeV2",
+      "raw": "_OBJC_CLASS_$_WAContactThemeV2",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactUsernameCellProvider",
+      "raw": "WAContactUsernameCellProvider",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub",
+      "raw": "WAContactsHub",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub.ContactsHubEmptyStateView",
+      "raw": "WAContactsHub.ContactsHubEmptyStateView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub.ContactsHubStatusViewerDelegate",
+      "raw": "WAContactsHub.ContactsHubStatusViewerDelegate",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub.ContactsHubViewController",
+      "raw": "WAContactsHub.ContactsHubViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub.FavoriteContactsCarouselView",
+      "raw": "WAContactsHub.FavoriteContactsCarouselView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub.InviteContactsViewController",
+      "raw": "WAContactsHub.InviteContactsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub.SelectedContactsBar",
+      "raw": "WAContactsHub.SelectedContactsBar",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub.SuggestedContactsViewController",
+      "raw": "WAContactsHub.SuggestedContactsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub1",
+      "raw": "WAContactsHub1",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub2",
+      "raw": "WAContactsHub2",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHub3",
+      "raw": "WAContactsHub3",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsHubVPVLogger",
+      "raw": "WAContactsHubVPVLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsMain.UsernameKeyVerificationViewController",
+      "raw": "WAContactsMain.UsernameKeyVerificationViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAContactsMain.UsernameQueryResult",
+      "raw": "WAContactsMain.UsernameQueryResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WADecryptedMessagePayloadMessageProcessorUsername",
+      "raw": "WADecryptedMessagePayloadMessageProcessorUsername",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WADecryptedMessagePayloads.DecryptedMessagePayloadMessageProcessorUsername",
+      "raw": "WADecryptedMessagePayloads.DecryptedMessagePayloadMessageProcessorUsername",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutBase",
+      "raw": "WAEvolveAboutBase",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutBase.EvolveAboutBubbleView",
+      "raw": "WAEvolveAboutBase.EvolveAboutBubbleView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutBase.EvolveAboutCreationPreviewBubbleView",
+      "raw": "WAEvolveAboutBase.EvolveAboutCreationPreviewBubbleView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutBubbleHostView",
+      "raw": "WAEvolveAboutBubbleHostView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutConsumptionEventLogger",
+      "raw": "WAEvolveAboutConsumptionEventLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutDailyConsumptionLogger",
+      "raw": "WAEvolveAboutDailyConsumptionLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutDailyCreationLogger",
+      "raw": "WAEvolveAboutDailyCreationLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutDataManager",
+      "raw": "WAEvolveAboutDataManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutDataManagerProviding",
+      "raw": "WAEvolveAboutDataManagerProviding",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutGraphQLHelper",
+      "raw": "WAEvolveAboutGraphQLHelper",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutLogging",
+      "raw": "WAEvolveAboutLogging",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutLogging.EvolveAboutConsumptionEventLogger",
+      "raw": "WAEvolveAboutLogging.EvolveAboutConsumptionEventLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutNonMeTabTextStatusRow",
+      "raw": "WAEvolveAboutNonMeTabTextStatusRow",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacyMEX",
+      "raw": "WAEvolveAboutPrivacyMEX",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings",
+      "raw": "WAEvolveAboutPrivacySettings",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.AboutPrivacyContactPickerViewController",
+      "raw": "WAEvolveAboutPrivacySettings.AboutPrivacyContactPickerViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.EvolveAboutCreationEventLogger",
+      "raw": "WAEvolveAboutPrivacySettings.EvolveAboutCreationEventLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.EvolveAboutCreationViewController",
+      "raw": "WAEvolveAboutPrivacySettings.EvolveAboutCreationViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.EvolveAboutDailyConsumptionLogger",
+      "raw": "WAEvolveAboutPrivacySettings.EvolveAboutDailyConsumptionLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.EvolveAboutDailyCreationLogger",
+      "raw": "WAEvolveAboutPrivacySettings.EvolveAboutDailyCreationLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.EvolveAboutDataManager",
+      "raw": "WAEvolveAboutPrivacySettings.EvolveAboutDataManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.EvolveAboutInteractionEventLogger",
+      "raw": "WAEvolveAboutPrivacySettings.EvolveAboutInteractionEventLogger",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings.EvolveAboutMessageCreationHandler",
+      "raw": "WAEvolveAboutPrivacySettings.EvolveAboutMessageCreationHandler",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettings1",
+      "raw": "WAEvolveAboutPrivacySettings1",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutPrivacySettingsObjCABProps",
+      "raw": "WAEvolveAboutPrivacySettingsObjCABProps",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutProfileTapToCreateTracker",
+      "raw": "WAEvolveAboutProfileTapToCreateTracker",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutReplyUpsellPlugin",
+      "raw": "WAEvolveAboutReplyUpsellPlugin",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAEvolveAboutUtility",
+      "raw": "WAEvolveAboutUtility",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAFOALinkingGrowthMain.ImportProfileUsernameManager",
+      "raw": "WAFOALinkingGrowthMain.ImportProfileUsernameManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView",
+      "raw": "WAInfoTopHeaderView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView.ActionButtonsView",
+      "raw": "WAInfoTopHeaderView.ActionButtonsView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView.HeaderView",
+      "raw": "WAInfoTopHeaderView.HeaderView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView.InfoTopHeaderProfileLinkView",
+      "raw": "WAInfoTopHeaderView.InfoTopHeaderProfileLinkView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView.InfoTopHeaderView",
+      "raw": "WAInfoTopHeaderView.InfoTopHeaderView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView.InfoTopHeaderViewModel",
+      "raw": "WAInfoTopHeaderView.InfoTopHeaderViewModel",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView.OnlinePresenceDotView",
+      "raw": "WAInfoTopHeaderView.OnlinePresenceDotView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderView.TextWithIconView",
+      "raw": "WAInfoTopHeaderView.TextWithIconView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAInfoTopHeaderViewModel",
+      "raw": "WAInfoTopHeaderViewModel",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAJIDMappingManagerDidUpdateUsernames",
+      "raw": "WAJIDMappingManagerDidUpdateUsernames",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_CONTROLS_ABOUT_CHANNELS_BUTTON_TITLE",
+      "raw": "WAMO_CONTROLS_ABOUT_CHANNELS_BUTTON_TITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_CONTROLS_ABOUT_STATUS_BUTTON_TITLE",
+      "raw": "WAMO_CONTROLS_ABOUT_STATUS_BUTTON_TITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAMO_PREFERENCES_DETAILS_ABOUT_PAGE_SECTION_TITLE",
+      "raw": "WAMO_PREFERENCES_DETAILS_ABOUT_PAGE_SECTION_TITLE",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WANewContactInteropUsernameCell",
+      "raw": "WANewContactInteropUsernameCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WANewContactUsernameLegacyCell",
+      "raw": "WANewContactUsernameLegacyCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileMyAboutTableRow",
+      "raw": "WAProfileMyAboutTableRow",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.ReserveFOAUsernameManager",
+      "raw": "WAProfileViewControllers.ReserveFOAUsernameManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameActivationInfoViewController",
+      "raw": "WAProfileViewControllers.UsernameActivationInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameActivationManager",
+      "raw": "WAProfileViewControllers.UsernameActivationManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameActivationObserver",
+      "raw": "WAProfileViewControllers.UsernameActivationObserver",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameCreationConfirmationViewController",
+      "raw": "WAProfileViewControllers.UsernameCreationConfirmationViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameDeleteConfirmationAlertController",
+      "raw": "WAProfileViewControllers.UsernameDeleteConfirmationAlertController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameGatingService",
+      "raw": "WAProfileViewControllers.UsernameGatingService",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameInfoViewController",
+      "raw": "WAProfileViewControllers.UsernameInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameKeyInfoViewController",
+      "raw": "WAProfileViewControllers.UsernameKeyInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameKeySettingsViewController",
+      "raw": "WAProfileViewControllers.UsernameKeySettingsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameKeyViewController",
+      "raw": "WAProfileViewControllers.UsernameKeyViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameReservationsInfoViewController",
+      "raw": "WAProfileViewControllers.UsernameReservationsInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameService",
+      "raw": "WAProfileViewControllers.UsernameService",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameSettingsViewController",
+      "raw": "WAProfileViewControllers.UsernameSettingsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAProfileViewControllers.UsernameViewController",
+      "raw": "WAProfileViewControllers.UsernameViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAQuotedEvolveAbout",
+      "raw": "_OBJC_CLASS_$_WAQuotedEvolveAbout",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARegistration.AccountSyncUsernameNotificationProcessor",
+      "raw": "WARegistration.AccountSyncUsernameNotificationProcessor",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARegistration.UsernamePINRequestResult",
+      "raw": "WARegistration.UsernamePINRequestResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARegistration.UsernameRejectionReasons",
+      "raw": "WARegistration.UsernameRejectionReasons",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARegistration.UsernameRequestResult",
+      "raw": "WARegistration.UsernameRequestResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARegistration.UsernameStatus",
+      "raw": "WARegistration.UsernameStatus",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WARegistration.UsernameSuggestionData",
+      "raw": "WARegistration.UsernameSuggestionData",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAReserveFOAUsernameManager",
+      "raw": "WAReserveFOAUsernameManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeAction",
+      "raw": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeAction",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeActionChatStartMode",
+      "raw": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeActionChatStartMode",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeActionChatStartModeCompanion",
+      "raw": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeActionChatStartModeCompanion",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeActionCompanion",
+      "raw": "WASDEInterfaces_protoSyncActionValueUsernameChatStartModeActionCompanion",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WASetAboutDeepLink",
+      "raw": "WASetAboutDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsername",
+      "raw": "_OBJC_CLASS_$_WAUsername",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameAccountRowHelper",
+      "raw": "WAUsernameAccountRowHelper",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameActivation",
+      "raw": "WAUsernameActivation",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameActivationInfoViewController",
+      "raw": "WAUsernameActivationInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameActivationManager",
+      "raw": "WAUsernameActivationManager",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameActivationObserver",
+      "raw": "WAUsernameActivationObserver",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameActivationQueryBridge",
+      "raw": "WAUsernameActivationQueryBridge",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameAvailabilityCache",
+      "raw": "WAUsernameAvailabilityCache",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameCellResult",
+      "raw": "WAUsernameCellResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameCreation",
+      "raw": "WAUsernameCreation",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameCreationDeepLink",
+      "raw": "WAUsernameCreationDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameCreationQueryBridge",
+      "raw": "WAUsernameCreationQueryBridge",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameDeepLink",
+      "raw": "WAUsernameDeepLink",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameFieldCell",
+      "raw": "WAUsernameFieldCell",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameFieldCellDelegate",
+      "raw": "WAUsernameFieldCellDelegate",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameGatingService",
+      "raw": "WAUsernameGatingService",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameInfoViewController",
+      "raw": "WAUsernameInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameIntegrity",
+      "raw": "WAUsernameIntegrity",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameIntegrity.UsernameIntegrityNotificationsHandler",
+      "raw": "WAUsernameIntegrity.UsernameIntegrityNotificationsHandler",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameIntegrityNotificationsHandler",
+      "raw": "WAUsernameIntegrityNotificationsHandler",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameKeyInfoViewController",
+      "raw": "WAUsernameKeyInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameKeySettingsViewController",
+      "raw": "WAUsernameKeySettingsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameKeyVerificationViewController",
+      "raw": "WAUsernameKeyVerificationViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameKeyView",
+      "raw": "_OBJC_CLASS_$_WAUsernameKeyView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameKeyViewController",
+      "raw": "WAUsernameKeyViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernamePINRequestResult",
+      "raw": "WAUsernamePINRequestResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameQueryResult",
+      "raw": "WAUsernameQueryResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameRejectionReasonsProtocol",
+      "raw": "WAUsernameRejectionReasonsProtocol",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameRequestResult",
+      "raw": "WAUsernameRequestResult",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameReservation",
+      "raw": "WAUsernameReservation",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameReservationQueryBridge",
+      "raw": "WAUsernameReservationQueryBridge",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameReservationsInfoViewController",
+      "raw": "WAUsernameReservationsInfoViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameService",
+      "raw": "WAUsernameService",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameSettingsViewController",
+      "raw": "WAUsernameSettingsViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameStateEnum",
+      "raw": "WAUsernameStateEnum",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameStatus",
+      "raw": "WAUsernameStatus",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameSuggestionData",
+      "raw": "WAUsernameSuggestionData",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameUpsellGating",
+      "raw": "WAUsernameUpsellGating",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameViewController",
+      "raw": "WAUsernameViewController",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameViewState",
+      "raw": "WAUsernameViewState",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAUsernameViewStateFactory",
+      "raw": "WAUsernameViewStateFactory",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXWA2AboutStatusUserInput",
+      "raw": "WAXWA2AboutStatusUserInput",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXWA2UsernameCheckRejectionReasonEnum",
+      "raw": "WAXWA2UsernameCheckRejectionReasonEnum",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WAXWA2UsernameCheckResultEnum",
+      "raw": "WAXWA2UsernameCheckResultEnum",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "FOAUsernameNotAvailableView",
+      "raw": "FOAUsernameNotAvailableView",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WDSSettingsAboutIcon",
+      "raw": "WDSSettingsAboutIcon",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutConsumption",
+      "raw": "_OBJC_CLASS_$_WamEventAboutConsumption",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutConsumptionDaily",
+      "raw": "_OBJC_CLASS_$_WamEventAboutConsumptionDaily",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutCreation",
+      "raw": "_OBJC_CLASS_$_WamEventAboutCreation",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutCreationDaily",
+      "raw": "_OBJC_CLASS_$_WamEventAboutCreationDaily",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventAboutInteraction",
+      "raw": "_OBJC_CLASS_$_WamEventAboutInteraction",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventProfileAboutClick",
+      "raw": "_OBJC_CLASS_$_WamEventProfileAboutClick",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventUsernameCreationAction",
+      "raw": "_OBJC_CLASS_$_WamEventUsernameCreationAction",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "WamEventUsernameIntegrityEvent",
+      "raw": "_OBJC_CLASS_$_WamEventUsernameIntegrityEvent",
+      "source": "WhatsApp(7)",
+      "kind": "objc",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAAccounts8UsernameC18usernamesSeparatorSSvau",
+      "raw": "_$s10WAAccounts8UsernameC18usernamesSeparatorSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAAccounts8UsernameC20usernamePINSeparatorSSvau",
+      "raw": "_$s10WAAccounts8UsernameC20usernamePINSeparatorSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAAccounts8UsernameC8username13withURLStringACSgSSSg_tFZ",
+      "raw": "_$s10WAAccounts8UsernameC8username13withURLStringACSgSSSg_tFZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAAccounts8UsernameCMa",
+      "raw": "_$s10WAAccounts8UsernameCMa",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAAccounts8UsernameC_14shouldParsePinACSgSSSg_Sbtcfc",
+      "raw": "_$s10WAAccounts8UsernameC_14shouldParsePinACSgSSSg_Sbtcfc",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAAccounts8UsernameCyACSgSSSgcfC",
+      "raw": "_$s10WAAccounts8UsernameCyACSgSSSgcfC",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAContacts29UsernameAdoptionLoggingHelperC36getOppositeVisibleIdentificationType7chatJID11userContextSo07WamEnumghiJ0VSo06WAChatL0C_So9WAContextCtFZ",
+      "raw": "_$s10WAContacts29UsernameAdoptionLoggingHelperC36getOppositeVisibleIdentificationType7chatJID11userContextSo07WamEnumghiJ0VSo06WAChatL0C_So9WAContextCtFZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAContacts29UsernameAdoptionLoggingHelperC36getOppositeVisibleIdentificationType7chatJID13nameDirectorySo07WamEnumghiJ0VSo06WAChatL0C_So06WANameN0CSgtFZ",
+      "raw": "_$s10WAContacts29UsernameAdoptionLoggingHelperC36getOppositeVisibleIdentificationType7chatJID13nameDirectorySo07WamEnumghiJ0VSo06WAChatL0C_So06WANameN0CSgtFZ",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s10WAContacts29UsernameAdoptionLoggingHelperCMa",
+      "raw": "_$s10WAContacts29UsernameAdoptionLoggingHelperCMa",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s11WAUsernames23UsernameExposedReporterC06reportbC07contextyAA0B15ExposureContextO_tF",
+      "raw": "_$s11WAUsernames23UsernameExposedReporterC06reportbC07contextyAA0B15ExposureContextO_tF",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s11WAUsernames23UsernameExposedReporterC12abPropertiesACSo14WAABPropertiesCSg_tcfc",
+      "raw": "_$s11WAUsernames23UsernameExposedReporterC12abPropertiesACSo14WAABPropertiesCSg_tcfc",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s11WAUsernames23UsernameExposedReporterCMa",
+      "raw": "_$s11WAUsernames23UsernameExposedReporterCMa",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s11WAUsernames25UsernameCustomURLProviderMp",
+      "raw": "_$s11WAUsernames25UsernameCustomURLProviderMp",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s11WAUsernames31UsernameCustomUrlLoggerProviderMp",
+      "raw": "_$s11WAUsernames31UsernameCustomUrlLoggerProviderMp",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s19WACrossFamilyShared29WaffleNotificationUserInfoKeyO9usernamesSSvau",
+      "raw": "_$s19WACrossFamilyShared29WaffleNotificationUserInfoKeyO9usernamesSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s19WAWaffleIntegration34UsernameReservationFromFOAResponseV8usernameACSSSg_tcfC",
+      "raw": "_$s19WAWaffleIntegration34UsernameReservationFromFOAResponseV8usernameACSSSg_tcfC",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s19WAWaffleIntegration34UsernameReservationFromFOAResponseVMn",
+      "raw": "_$s19WAWaffleIntegration34UsernameReservationFromFOAResponseVMn",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s19WAWaffleIntegration34UsernameReservationFromFOAResponseVN",
+      "raw": "_$s19WAWaffleIntegration34UsernameReservationFromFOAResponseVN",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO13usernameIsSetSSvau",
+      "raw": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO13usernameIsSetSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO17usernameSupportedSSvau",
+      "raw": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO17usernameSupportedSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO18usernameChatsExistSSvau",
+      "raw": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO18usernameChatsExistSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO20evolveAboutM1EnabledSSvau",
+      "raw": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO20evolveAboutM1EnabledSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    },
+    {
+      "name": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO27usernameReservationOnlyModeSSvau",
+      "raw": "_$s20WAAppStateSyncModels014PrimaryFeatureC11ActionFlagsO27usernameReservationOnlyModeSSvau",
+      "source": "WhatsApp(7)",
+      "kind": "swift-symbol",
+      "demangled": null
+    }
+  ],
+  "selectors": [
+    {
+      "name": "+2chatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "addContactIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "allow_contact_picker_to_load_in_lid_mode",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "allow_lid_contacts_add_to_group",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allow_lid_contacts_broadcast",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allow_lid_contacts_calling",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allow_lid_contacts_new_1on1_chat",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allow_lid_contacts_privacy_settings",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allow_lid_contacts_status",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allow_lid_contacts_storage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allow_share_lid_contacts_vcard",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "allowliscontactsdenylist",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "AnimationColorTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "appTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "areMinimalChatThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "cachedGenAIChatThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "cachedGenAIChatThemesWallpaperEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "canShowContactPermissionBannerInChat",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "canShowUnknownContactSearchResults",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "canShowUsernameCreationBanner",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "ChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeColoredStrokeEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeImmersiveEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemesPreviouslySetChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemesUpsellBannerEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeToolAdvancedEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeToolEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "chatThemeWallpaperLoggingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "clearTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "colorThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "contactsIcon",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "contactsListItemMigrationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "contactsListItemMigrationPart2Enabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "contactsStorageAvailable",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "contactTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "theme"
+      ]
+    },
+    {
+      "name": "disable_ddm_cache_for_non_contacts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "enable_calling_username",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "enable_sticker_recent_searches",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "fbs_contactUpdateAvailable",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_batch_timeout_seconds",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_cache_enabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_check_delay_ms",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_cron_interval_hours",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_max_check_count",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_staleness_hours",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "foa_linking_growth_ios_username_availability_use_batch_api",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "frequentlyContactedGridItemsPerRow",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "frequentlyContactedGridRowWidth",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "frequentlyContactedProvider",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "frequentlyContactedSuggestionSection",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "genAIChatThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "genAIChatThemesWallpaperEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasActiveNativeDesktopCompanionRecently",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasActiveThemeMessageStanzaId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasAddFavoriteClickCount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "hasAppTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasBeenShownCallingUpsellBottomSheetRecently",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasBizBroadcastInsightsContactListRequest",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasBizBroadcastInsightsContactListResponse",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasChatThemeId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasChatThemeSetting",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasClearTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasContactAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactId",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactJid",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactMetadataEncrypted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactPickerChanges",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactPrimaryIdentityKey",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactsArrayMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "hasContactSuggestionSurface",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "hasContactType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContactVcard",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasContainsContactInfoCard",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasDarkThemeWallpaper",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasDeactivatedContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasEndOfRecent",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasFavoritesAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "hasHasMigratedFromRecentsV1",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasHideContactInfoCardButtons",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasIsFavorite",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "hasIsSelfContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasIsUnknownContactReachout",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasIsUsernameDeleted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "hasLidContactAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasLightThemeWallpaper",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasMigratedFromRecentsV1",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasNoOrLimitedContactPermissions",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasOutContactAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasProviderContactWebsite",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasRecentEmojiWeightsAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRecentHistorySharingEnabledTimestamp",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRecentlyIncrementedForwardCount",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRecentStickers",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRecentStickersV2",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRecentStickersV3",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRecentSyncDaysLimit",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRecentSyncUploadedBytes",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRegisteredMostRecentTransformationForUndo",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRegisteredRecently",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasRemoveRecentStickerAction",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasSelectedContacts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "hasSharedChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "hasStatusPosterContactType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasStatusSenderContactType",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hasSupportInlineContacts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "hasSupportRecentSyncChunkMessageCountTuning",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "hasUsername",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "hasUserName",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "hasUsernameChatStartMode",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "hide_non_contact_status_if_poster_and_chat_deleted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hideContactInfoCardButtons",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "hidePositionLines",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "online"
+      ]
+    },
+    {
+      "name": "hideRotationLine",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "online"
+      ]
+    },
+    {
+      "name": "immersiveThreadTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_about_consumption_surface_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "is_about_entrypoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "is_about_item_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "is_about_prompt_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "is_about_request_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "is_add_non_contact_to_group_key_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_app_theme_appearance_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_bulk_add_contacts_banner_interaction_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_chat_theme_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_chat_themes_banner_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_companion_add_contact_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_companion_add_contact_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_companion_add_contact_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_companion_contact_save_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_companion_whatsapp_contact_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_context_action_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_context_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_info_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_notification_setting_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_permissions_dialog_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_permissions_entrypoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_picker_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_picker_section_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_picker_ui_variant_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_picker_user_journey_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_search_entrypoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_suggestion_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contact_us_exit_state_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_contacts_backup_on",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_details_item_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_list_item_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_permission_authorization_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_permission_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_upload_download_error_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_upload_download_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_upload_download_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_contacts_upload_download_trigger_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_favorite",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "is_favorites_update_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "is_group_bulk_add_contacts_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_group_presence_sub_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "presence"
+      ]
+    },
+    {
+      "name": "is_hsm_key_generation_triggering_contacts_operation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_ios_contact_sync_context_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_ios_contact_sync_mode_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_ios_contact_sync_result_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_ios_contact_sync_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_add_contact_action_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_add_contact_duplicate_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_add_contact_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_add_contact_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_contact_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_contact_error_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_contact_list_start_new_chat_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_contact_surface_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_iphone_whatsapp_contact_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_is_hsm_key_generation_triggering_contacts_operation_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_known_contact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_native_contacts_ato_banner_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_native_contacts_ato_banner_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_native_contacts_cleanup_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_native_contacts_cleanup_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_native_contacts_nux_entry_point_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_native_contacts_nux_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_native_contacts_settings_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_onboarding_theme_selection_action_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "is_payments_contacts_bucket_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_privacy_settings_about_except_num_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "is_privacy_settings_about_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "is_registration_contacts_permission_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_restore_contacts_event_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_status_poster_contact_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_sticker_add_to_favorite_origin_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "is_suggested_contacts_section_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "is_update_native_contact_settings_status_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "is_username_creation_action_name_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_creation_current_screen_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_creation_entrypoint_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_creation_error_message_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_creation_flow_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_integrity_click_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_integrity_error_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_integrity_source_name_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_integrity_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_integrity_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_link_origin_surface_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_link_type_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_rejection_reasons_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_source_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "is_username_state_set",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "isAnyContactPending",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isAppThemeNewChatPreviewFlowEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isAppThemesBenefitActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isAppThemesChatCheckmarkThemedEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isAppThemesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isAppThemesLottieEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isAppThemesStatusRingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isBackgroundContactSearchEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isChatThemesSelectionInRegFlowEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isCompanionContactManagementEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isContactDataPrefetchEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isContactDisabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isContactDownloadComplete",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isContactManagementEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isContactPostRestoreUploadComplete",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isContactsAccessRequestInProgress",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactsBackupDisabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactsBackupOn",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactsBackupSettingsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactSearchPrewarmEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactSettingJ8BackupOnSSvau",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactsMetadataDownloadEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactsMetadataUploadEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactsRestoringFinished",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isContactVCard",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isDisplayingAllDeviceContactsDeduped",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isDisplayingFavorites",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "isEligibleForContactManagement",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isEligibleForSearchingNonContacts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isEvolveAboutReceiverAndNewSurfacesEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "isFavorite",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "isFavoriteStickersV2Enabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "favorite"
+      ]
+    },
+    {
+      "name": "isGenAIImagineChatThemeEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isGroupContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isImportingContactsPermitted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isIncludedContactsHeaderVisible",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isInteropContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isLastActiveSharedThemeMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isLIDContactStorageEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isMultiContactSelectionMode",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isNativeContactsBackupOn",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isNativeContactsServerSyncingEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isNativeContactsUIEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isNonWAContactSuggestionsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isOutOfNetworkContactCreationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isSelfContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isSelfContactMessage",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isSharedChatThemesOneToOneReceiveEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isSharedChatThemesOneToOneSendEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isSingleContactSelectionMode",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isSingleContactSelectionModeCheckmark",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isSupportedNonContactStatus",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "isThemeActive",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "isUnknownContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isUnknownContactReachout",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isUsernameDeleted",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "isUsernameRequestPending",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "isUsernameReservationEligibleAndNotReserved",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "isValidContactVCardIgnoringFileSize",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "isValidUsername",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "listCategoryNamesForContactAllowlist",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "listCategoryNamesForContactAllowlistMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "listCategoryNamesForContactBlacklist",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "listCategoryNamesForContactBlacklistMixin",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "loadAndActivateSavedTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "meta_ai_contact_search",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "metaAIContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "metaAIRemembersAboutYou",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "metaAIRemembersAboutYouSSvau",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "metaPayTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "newAddContactFlowEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "Online",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "online"
+      ]
+    },
+    {
+      "name": "OrderDetailsTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "paaChatAndContactNotificationEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "payment_contact_picker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "PaymentMetaPayServiceTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "payments_contacts_bucket",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "PaymentsBubbleTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "PaymentsCurrencyExchangeTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "PaymentServiceTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "PaymentsPaymentDetailsCellTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "PaymentsSendPaymentTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "PaymentsTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "Presence",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "presence"
+      ]
+    },
+    {
+      "name": "presentContactsPickerForCustomAudienceCreation",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "presentExceptedContactsPicker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "presentOnlyShareWithContactsPicker",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "QPWhatsAppUserContactPartialPermissionsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "QPWhatsAppUserContactPermissionsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "resetSavedTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "sharedChatTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "shareSheetAlphabetizedContactsEnabled",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "should_prioritize_os_addressbook_contacts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "shouldContactListSyncWhenConnected",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "shouldContinueFetchingRecents",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "recent"
+      ]
+    },
+    {
+      "name": "shouldEnforceDarkTheme",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "shouldHidePhoneNumber11hasUsername10bizProfileS2b_AC03BizJ0CSgtF",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "shouldIncludeUnknownContactsInSearchResults",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "shouldShowContactsRestoreUISpinner",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "shouldShowFailedRestoringContactsBanner",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "shouldShowNUXForInvokeContact",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "shouldShowUnifiedContactListForGroups",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact"
+      ]
+    },
+    {
+      "name": "shouldShowUsernameActivationBanner",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    },
+    {
+      "name": "shouldWarnUserAboutLeakyClients",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "about"
+      ]
+    },
+    {
+      "name": "showConfirmationIfNeededAndFinishWithSelectedContacts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "showContactsSelectionLimitWarning",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "showHighlightedContactsSection",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "showNoContactsLandingScreenFor4thUFI",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "showPositionLines",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "online"
+      ]
+    },
+    {
+      "name": "showPushNamesForUnknownContacts",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "contact",
+        "contacts"
+      ]
+    },
+    {
+      "name": "smb_chat_themes_fix",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "theme"
+      ]
+    },
+    {
+      "name": "smb_enable_usernames_suggestions",
+      "source": "SharedModules(11)",
+      "hookable_guess": "BOOL no-arg candidate",
+      "tags": [
+        "username"
+      ]
+    }
+  ]
+}

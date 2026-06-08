@@ -1,0 +1,693 @@
+{
+  "target": "WAABPrefixCategories",
+  "schema_version": 2,
+  "purpose": "Curated prefix/subcategory taxonomy for the single Runtime browser. Used to keep WAABProperties and related runtime gates visually grouped by feature-family prefix, with negative gates split out first.",
+  "generated_from": [
+    {
+      "source": "runtime logs",
+      "notes": "WAContextMain/WAABProperties/PrivateExperimentation/DebugMenuSpy sessions"
+    },
+    {
+      "source": "static review",
+      "notes": "latest WhatsApp/SharedModules analysis notes; no binary hashes embedded in this taxonomy file"
+    }
+  ],
+  "prefix_groups": [
+    {
+      "id": "waios",
+      "title": "WAiOS",
+      "match": [
+        "waios_",
+        "waio_",
+        "maios_"
+      ],
+      "meaning": "WhatsApp iOS-specific experiments and platform toggles"
+    },
+    {
+      "id": "wamo",
+      "title": "WAMO",
+      "match": [
+        "wamo_"
+      ],
+      "meaning": "WhatsApp mobile / modular product experiments"
+    },
+    {
+      "id": "xfamg",
+      "title": "XFAMG",
+      "match": [
+        "xfamg_"
+      ],
+      "meaning": "Cross-family Meta graph/gating experiments"
+    },
+    {
+      "id": "xwa",
+      "title": "XWA",
+      "match": [
+        "xwa_"
+      ],
+      "meaning": "Cross-WhatsApp GraphQL/API model and feature gates"
+    },
+    {
+      "id": "xma",
+      "title": "XMA",
+      "match": [
+        "xma_"
+      ],
+      "meaning": "Cross-Meta app or Meta AI adjacent gates"
+    },
+    {
+      "id": "graphql",
+      "title": "GraphQL",
+      "match": [
+        "graphql",
+        "graph_ql",
+        "gql_"
+      ],
+      "meaning": "GraphQL query/model/schema surfaces"
+    },
+    {
+      "id": "mobileconfig",
+      "title": "MobileConfig",
+      "match": [
+        "mobile_config",
+        "mobileconfig",
+        "mcbased",
+        "mc_",
+        "fbmc_"
+      ],
+      "meaning": "MobileConfig, session-based config, shadow testing and server config gates"
+    },
+    {
+      "id": "private_experimentation",
+      "title": "Private Experimentation",
+      "match": [
+        "private_",
+        "private_experiment",
+        "privateab",
+        "debugpropoverride"
+      ],
+      "meaning": "Private experimentation manager/debug prop override surfaces"
+    },
+    {
+      "id": "wds_liquidglass",
+      "title": "WDS / LiquidGlass",
+      "match": [
+        "wds_",
+        "liquid_glass",
+        "liquidglass"
+      ],
+      "meaning": "WhatsApp design system and LiquidGlass UI refresh gates"
+    },
+    {
+      "id": "aura",
+      "title": "WA Plus / Aura",
+      "match": [
+        "aura",
+        "subscription",
+        "premium",
+        "benefit",
+        "whatsapp_plus",
+        "watsapp_plus",
+        "wa_plus"
+      ],
+      "meaning": "WA Plus/Aura subscription, themes, app icons, ringtones and gated benefits"
+    },
+    {
+      "id": "ai_metaai",
+      "title": "AI / Meta AI",
+      "match": [
+        "asteria",
+        "ai_home",
+        "metaai",
+        "meta_ai",
+        "genai",
+        "gen_ai",
+        "llama",
+        "imagine",
+        "hatch",
+        "bot",
+        "incognito",
+        "persona",
+        "assistant"
+      ],
+      "meaning": "Meta AI, Asteria, AI Home, Imagine and assistant surfaces"
+    },
+    {
+      "id": "foa",
+      "title": "FOA",
+      "match": [
+        "foa_",
+        "foa",
+        "foawaab"
+      ],
+      "meaning": "Family-of-apps integrations such as Facebook, Instagram, Threads and Meta AI bookmarks"
+    },
+    {
+      "id": "foa_bookmarks",
+      "title": "FOA / Bookmarks",
+      "match": [
+        "wa_bookmarks_",
+        "bookmarks_hs_"
+      ],
+      "meaning": "Settings/home shortcuts for Family-of-apps bookmarks"
+    },
+    {
+      "id": "ctwa",
+      "title": "CTWA",
+      "match": [
+        "ctwa_"
+      ],
+      "meaning": "Click-to-WhatsApp ads and business entrypoints"
+    },
+    {
+      "id": "br_payments",
+      "title": "BR / Payments",
+      "match": [
+        "br_",
+        "br_consumer_payments",
+        "pix",
+        "upi"
+      ],
+      "meaning": "Brazil/payment-region payment and commerce experiments"
+    },
+    {
+      "id": "business",
+      "title": "Business / Payments",
+      "match": [
+        "business",
+        "biz",
+        "smb",
+        "commerce",
+        "catalog",
+        "merchant",
+        "paid",
+        "payments",
+        "payment"
+      ],
+      "meaning": "Business, SMB, catalog, commerce and payments surfaces"
+    },
+    {
+      "id": "privacy",
+      "title": "Privacy / Identity",
+      "match": [
+        "privacy",
+        "username",
+        "passkey",
+        "security",
+        "defense",
+        "block",
+        "contact",
+        "presence",
+        "about",
+        "last_seen",
+        "lastseen"
+      ],
+      "meaning": "Identity, contacts, presence and privacy gates"
+    },
+    {
+      "id": "messaging",
+      "title": "Messaging",
+      "match": [
+        "message",
+        "msg",
+        "chat",
+        "thread",
+        "poll",
+        "direct",
+        "group",
+        "community"
+      ],
+      "meaning": "Chats, groups, messages and composer behavior"
+    },
+    {
+      "id": "status_channels",
+      "title": "Status / Channels",
+      "match": [
+        "status",
+        "story",
+        "stories",
+        "sticker",
+        "channel",
+        "newsletter",
+        "broadcast",
+        "updates_tab"
+      ],
+      "meaning": "Status, updates tab, newsletters/channels and stickers"
+    },
+    {
+      "id": "account_companion",
+      "title": "Account / Companion",
+      "match": [
+        "interop",
+        "companion",
+        "multi_device",
+        "linked_device",
+        "accounts",
+        "account_switcher"
+      ],
+      "meaning": "Companion mode, linked devices, interop and account switching"
+    },
+    {
+      "id": "internal",
+      "title": "Internal / Dogfood",
+      "match": [
+        "employee",
+        "dogfood",
+        "dogfooding",
+        "internal",
+        "tester",
+        "developer",
+        "debugmenu",
+        "debug_menu",
+        "whitehat",
+        "white_hat"
+      ],
+      "meaning": "Employee, internal tester, dogfood and developer-menu gates"
+    },
+    {
+      "id": "settings_ui",
+      "title": "Settings / UI",
+      "match": [
+        "settings",
+        "setting",
+        "menu",
+        "row",
+        "cell",
+        "entrypoint",
+        "entry_point",
+        "nux",
+        "tooltip",
+        "banner"
+      ],
+      "meaning": "Settings rows, cells, menu visibility and UI entrypoints"
+    }
+  ],
+  "subcategories": [
+    {
+      "id": "negative_killswitch",
+      "title": "Negative · Kill Switch",
+      "match": [
+        "kill_switch",
+        "killswitch",
+        "kill-switch",
+        "kill switch",
+        "disable_all",
+        "global_disable",
+        "hard_disable",
+        "emergencyrollback",
+        "emergency_rollback"
+      ],
+      "recommended_override": "false"
+    },
+    {
+      "id": "negative_disabled",
+      "title": "Negative · Disabled",
+      "match": [
+        "disabled",
+        "disable",
+        "disable_",
+        "_disable",
+        "serverpropsdisable",
+        "experimental_disabled",
+        "off_switch"
+      ],
+      "recommended_override": "false"
+    },
+    {
+      "id": "negative_hide",
+      "title": "Negative · Hide / Suppress",
+      "match": [
+        "hidden",
+        "hide",
+        "suppress",
+        "remove_row",
+        "remove_menu",
+        "not_show",
+        "dont_show",
+        "do_not_show",
+        "hide_row",
+        "hide_cell"
+      ],
+      "recommended_override": "false"
+    },
+    {
+      "id": "negative_block",
+      "title": "Negative · Block / Deny",
+      "match": [
+        "block",
+        "blocked",
+        "deny",
+        "denied",
+        "disallow",
+        "blacklist",
+        "black_list",
+        "ban_"
+      ],
+      "recommended_override": "false"
+    },
+    {
+      "id": "internal_employee",
+      "title": "Internal · Employee / Dogfood",
+      "match": [
+        "employee",
+        "dogfood",
+        "dogfooding",
+        "internal",
+        "tester",
+        "developer",
+        "dev_only",
+        "debugmenu",
+        "debug_menu",
+        "whitehat",
+        "white_hat"
+      ],
+      "recommended_override": "true"
+    },
+    {
+      "id": "debug_overrides",
+      "title": "Debug / Overrides",
+      "match": [
+        "debug",
+        "diagnostic",
+        "logging",
+        "log_",
+        "trace",
+        "whatsbroken",
+        "override",
+        "qa",
+        "test_data"
+      ],
+      "recommended_override": "true"
+    },
+    {
+      "id": "eligibility",
+      "title": "Eligibility / Entrypoint",
+      "match": [
+        "eligible",
+        "eligibility",
+        "allowed",
+        "is_allowed",
+        "can_",
+        "should_show",
+        "entrypoint",
+        "entry_point",
+        "visible",
+        "availability"
+      ],
+      "recommended_override": "true"
+    },
+    {
+      "id": "positive_enabled",
+      "title": "Positive · Enabled",
+      "match": [
+        "enabled",
+        "enable",
+        "is_enabled",
+        "feature_enabled",
+        "master",
+        "launched",
+        "launch"
+      ],
+      "recommended_override": "true"
+    },
+    {
+      "id": "experiment_sync",
+      "title": "Experiment / Sync",
+      "match": [
+        "experiment",
+        "abprop",
+        "ab_prop",
+        "bucket",
+        "sync",
+        "rollout",
+        "treatment",
+        "variant",
+        "arm_",
+        "cohort"
+      ],
+      "recommended_override": "inspect"
+    },
+    {
+      "id": "network_fetch",
+      "title": "Network / Fetch",
+      "match": [
+        "fetch",
+        "cache",
+        "network",
+        "request",
+        "graphql",
+        "query",
+        "server",
+        "prefetch",
+        "lazyinit",
+        "shadow"
+      ],
+      "recommended_override": "inspect"
+    },
+    {
+      "id": "ui_surface",
+      "title": "UI / Surface",
+      "match": [
+        "ui",
+        "view",
+        "screen",
+        "row",
+        "cell",
+        "section",
+        "menu",
+        "button",
+        "tab",
+        "navbar",
+        "topbar",
+        "bottombar"
+      ],
+      "recommended_override": "true"
+    },
+    {
+      "id": "general",
+      "title": "General",
+      "match": [],
+      "recommended_override": "inspect"
+    }
+  ],
+  "curated_feature_bundles": [
+    {
+      "id": "internal_dogfood",
+      "title": "Internal / Employee / Dogfood",
+      "positive": [
+        "isInternalUser",
+        "isEmployee",
+        "isMetaEmployeeOrInternalTester",
+        "isDebugMenuAllowed",
+        "isDebugMenuShortcutEnabled",
+        "ig_is_employee",
+        "ig_is_employee_or_test_user"
+      ],
+      "negative": [
+        "isKillSwitchActive",
+        "internal_disabled",
+        "developer_menu_disabled"
+      ]
+    },
+    {
+      "id": "private_experimentation",
+      "title": "Private Experimentation",
+      "positive": [
+        "private_experimentation_enabled",
+        "private_experimentation_debug_enabled",
+        "debugPropOverrides",
+        "privateABProperties",
+        "requestPropsIfNeededWithCompletionHandler"
+      ],
+      "negative": [
+        "private_experimentation_disabled",
+        "private_experimentation_hide"
+      ]
+    },
+    {
+      "id": "debug_menu",
+      "title": "Native Developer Debug Menu",
+      "positive": [
+        "debugViewController",
+        "sections",
+        "items",
+        "menuItems",
+        "debugItems",
+        "debugSections",
+        "plugins",
+        "providers"
+      ],
+      "negative": [
+        "isDebugMenuDisabled",
+        "debug_menu_hide",
+        "debug_menu_kill_switch"
+      ]
+    },
+    {
+      "id": "liquidglass",
+      "title": "LiquidGlass / WDS",
+      "positive": [
+        "ios_liquid_glass_enabled",
+        "ios_liquid_glass_launched",
+        "ios_liquid_glass_media_m0",
+        "ios_liquid_glass_m1",
+        "ios_liquid_glass_m_1_5",
+        "ios_liquid_glass_m_1_5_context_menu",
+        "ios_liquid_glass_chat_top_bar_m2_enabled",
+        "ios_liquid_glass_text_layout_m2_enabled",
+        "ios_liquid_glass_m_2_action_tile",
+        "ios_liquid_glass_enable_new_chatbar_ux",
+        "ios_liquid_glass_larger_composer",
+        "ios_liquid_glass_unify_ui_refresh_enabled",
+        "ios_liquid_glass_unify_navigation_bar_enabled",
+        "ios_liquid_glass_native_sidebar_enabled",
+        "ios_liquid_glass_media_editor_enabled",
+        "ios_liquid_glass_calling_improvement_enabled"
+      ],
+      "negative": [
+        "ios_liquid_glass_workaround_hides_bottombar",
+        "ios_liquid_glass_reduce_transparency"
+      ]
+    },
+    {
+      "id": "aura",
+      "title": "WA Plus / Aura",
+      "positive": [
+        "aura_enabled",
+        "aura_settings_row_enabled",
+        "new_appearance_setting_cell_enabled",
+        "aura_app_icon_enabled",
+        "aura_app_themes_enabled",
+        "aura_app_themes_chat_checkmark_themed_enabled",
+        "aura_app_themes_status_ring_enabled",
+        "aura_app_themes_share_extension_themed_enabled",
+        "aura_ringtones_enabled",
+        "aura_ringtones_per_chat_enabled",
+        "aura_stickers_enabled",
+        "aura_enhanced_lists_enabled",
+        "aura_pinned_chats_enabled",
+        "aura_subscription_simulation_enabled",
+        "isSettingsRowEnabled",
+        "isAppThemesEnabled",
+        "isAppIconsEnabled",
+        "isRingtonesEnabled",
+        "isStickersEnabled"
+      ],
+      "negative": [
+        "isKillSwitchActive",
+        "aura_kill_switch",
+        "aura_disabled"
+      ]
+    },
+    {
+      "id": "ai_metaai",
+      "title": "AI / Meta AI / Asteria",
+      "positive": [
+        "ai_home",
+        "ai_home_enabled",
+        "asteria",
+        "asteria_enabled",
+        "metaai",
+        "meta_ai",
+        "genai",
+        "gen_ai",
+        "imagine",
+        "llama",
+        "hatch",
+        "incognito_chat",
+        "ai_rich_response_vibes_promotion_enabled"
+      ],
+      "negative": [
+        "ai_home_disabled",
+        "asteria_disabled",
+        "meta_ai_kill_switch",
+        "genai_kill_switch"
+      ]
+    },
+    {
+      "id": "foa_bookmarks",
+      "title": "FOA Bookmarks",
+      "positive": [
+        "foa_bookmarks_enabled",
+        "foa_threads_bookmarks_enabled",
+        "foa_bridges_account_switcher_ios_enabled",
+        "wa_bookmarks_hs_fb_cta",
+        "wa_bookmarks_hs_ig_cta",
+        "wa_bookmarks_hs_meta_ai_cta",
+        "wa_bookmarks_hs_threads_cta"
+      ],
+      "negative": [
+        "foa_bookmarks_disabled",
+        "foa_bookmarks_hide"
+      ]
+    },
+    {
+      "id": "contacts_presence",
+      "title": "Contacts / About / Presence",
+      "positive": [
+        "ios_contacts_surface_is_enabled",
+        "isContactsHubEnabled",
+        "isEvolveAboutM1Enabled",
+        "about",
+        "presence",
+        "online_presence",
+        "last_seen",
+        "lastseen"
+      ],
+      "negative": [
+        "contacts_surface_disabled",
+        "presence_disabled",
+        "last_seen_disabled"
+      ]
+    },
+    {
+      "id": "payments",
+      "title": "Payments / Business",
+      "positive": [
+        "br_consumer_payments_home_enabled",
+        "paymentsUPIOverdraftAccountEnabled",
+        "business",
+        "biz",
+        "smb",
+        "catalog",
+        "commerce"
+      ],
+      "negative": [
+        "payments_disabled",
+        "business_disabled",
+        "commerce_kill_switch"
+      ]
+    },
+    {
+      "id": "messaging_status",
+      "title": "Messaging / Status / Channels",
+      "positive": [
+        "listMessageReceptionDisabled",
+        "frequentlyForwardedGroupSettingEnabled",
+        "message",
+        "chat",
+        "composer",
+        "status",
+        "story",
+        "stories",
+        "channel",
+        "newsletter"
+      ],
+      "negative": [
+        "message_disabled",
+        "status_disabled",
+        "channels_kill_switch"
+      ]
+    }
+  ],
+  "ui_policy": {
+    "grouping": "prefix_group first, then subcategory, then class/selector",
+    "negative_order": [
+      "Negative · Kill Switch",
+      "Negative · Disabled",
+      "Negative · Hide / Suppress",
+      "Negative · Block / Deny"
+    ],
+    "runtime_rule": "Do not install hooks at startup. Scan and classify only when the user opens the runtime menu; install a hook only for explicit toggles."
+  }
+}

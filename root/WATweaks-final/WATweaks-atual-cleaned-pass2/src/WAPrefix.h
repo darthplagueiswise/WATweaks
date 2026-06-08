@@ -1,0 +1,16 @@
+#pragma once
+
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import <objc/runtime.h>
+#import <objc/message.h>
+
+#define WALog(fmt, ...) NSLog(@"[WATweaks] " fmt, ##__VA_ARGS__)
+
+#define WA_PREF_KEYCHAIN_REWRITE @"watweak_ui_keychain_rewrite_enabled"
+#define WA_PREF_KEYCHAIN_OBSERVER @"watweak_ui_keychain_observer_enabled"
+#define WA_PREF_EMPLOYEE_MASTER @"watweak_ui_employee_master"
+#define WA_PREF_AB_OBSERVER @"watweak_ui_abprops_observer_enabled"
+#define WA_PREF_LIQUID_GLASS @"watweak_ui_liquid_glass_enabled"
+#define WA_PREF_LIQUID_GLASS_USERDEFAULTS @"watweak_ui_liquid_glass_userdefaults_overrides"
+#define WA_PREF_LIQUID_GLASS_METHOD_HOOKS @"watweak_ui_liquid_glass_method_hooks"
