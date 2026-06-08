@@ -15,9 +15,6 @@ extern NSString  *WAGRHookRouterDiagnostic(void);
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
-extern void       WAGRGateHooksEnsureInstalled(void);
-extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
-extern NSArray<NSString *> *WAGRGateAllOverrides(void);
 
 static const char *kLP = "wagr.lp.ok";
 
@@ -163,15 +160,9 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 
 static void startup(void) {
     @autoreleasepool {
-        // Long-press entrypoint only. No native Settings row injection.
+        // Launch-safe: entrypoint only.
+        // No Gate/WAAB/Aura/Dogfood hooks during app launch.
         installLongPressTableHook();
-
-        // Rehydrate persisted overrides safely after launch.
-        // No broad runtime UI scan here; only hook owners needed for saved overrides.
-        if (WAGRGateAllOverrides().count) {
-            WAGRGateHooksEnsureInstalled();
-            (void)WAGRWAABInstallHooksForAllRuntimeImages();
-        }
     }
 }
 

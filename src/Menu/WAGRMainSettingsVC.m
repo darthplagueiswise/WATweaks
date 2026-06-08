@@ -26,6 +26,7 @@ extern void WAGRAuraEnsureHooksInstalled(void);
 extern void WAGRDogfoodEnsureHooksInstalled(void);
 extern void WAGRLGPrefsDidChange(void);
 extern void WAGRGateHooksEnsureInstalled(void);
+extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
 
 // ── Cell model ───────────────────────────────────────────────────────────────
@@ -328,13 +329,14 @@ static WATSection *secTools(void) {
 
 - (void)applyAllHooks {
     WAGRGateHooksEnsureInstalled();
+    NSUInteger waab=WAGRWAABInstallHooksForAllRuntimeImages();
     WAGRAuraEnsureHooksInstalled();
     WAGRDogfoodEnsureHooksInstalled();
     WAGRLGPrefsDidChange();
     NSUInteger n=WAGRReinstallPersistedHooks();
     NSString *msg=[NSString stringWithFormat:
-        @"%lu hooks/overrides reaplicados.\n\nGateStore overrides ativos: %lu",
-        (unsigned long)n,(unsigned long)WAGRGateAllOverrides().count];
+        @"%lu hooks/overrides reaplicados.\nWAAB central hooks: %lu\n\nGateStore overrides ativos: %lu",
+        (unsigned long)n,(unsigned long)waab,(unsigned long)WAGRGateAllOverrides().count];
     alert(self,@"Aplicar",msg);
     [self.tableView reloadData];
 }
