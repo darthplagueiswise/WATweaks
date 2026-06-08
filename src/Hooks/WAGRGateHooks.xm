@@ -52,8 +52,9 @@ static BOOL WAGRGateGenericBoolTrampoline(id self, SEL _cmd) {
     typedef BOOL (*BoolIMP)(id, SEL);
     BoolIMP orig = NULL;
     NSString *hookID = WAGRGateHookID(className, isMeta, selName);
-    NSValue *v = gGateOriginalIMPs[hookID] ?: gGateOriginalIMPs[WAGRGateHookID(className, !isMeta, selName)];
+    NSValue *v = gGateOriginalIMPs[hookID];
     if (v) orig = reinterpret_cast<BoolIMP>([v pointerValue]);
+    if ((IMP)orig == (IMP)WAGRGateGenericBoolTrampoline) orig = NULL;
     BOOL original = orig ? orig(self, _cmd) : NO;
     return WAGRGateValueForSelector(selName, original);
 }
@@ -76,7 +77,7 @@ static BOOL WAGRGateInstallHookForSelectorInternal(NSString *className, NSString
     Class target = isClassMethod ? object_getClass(cls) : cls;
     IMP orig = NULL;
     MSHookMessageEx(target, sel, (IMP)WAGRGateGenericBoolTrampoline, &orig);
-    if (!orig) return NO;
+    if (!orig || orig == (IMP)WAGRGateGenericBoolTrampoline) return NO;
     gGateOriginalIMPs[hookID] = [NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
     [gGateInstalled addObject:hookID];
     if (remember) WAGRGateRememberHook(className, selectorName, isClassMethod);
@@ -290,7 +291,7 @@ static BOOL WAGRInstallKeyHookOnClass(Class cls, NSString *selName, IMP replacem
     if (!m) return NO;
     IMP orig = NULL;
     MSHookMessageEx(cls, sel, replacement, &orig);
-    if (!orig) return NO;
+    if (!orig || orig == replacement) return NO;
     store[className] = [NSValue valueWithPointer:reinterpret_cast<const void *>(orig)];
     return YES;
 }

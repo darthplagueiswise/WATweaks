@@ -160,8 +160,9 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 
 static void startup(void) {
     @autoreleasepool {
-        // Launch-safe: entrypoint only.
-        // No Gate/WAAB/Aura/Dogfood hooks during app launch.
+        // Launch-safe: entrypoint only. Do not install Gate/WAAB/Aura/Dogfood
+        // or Developer hooks during app launch. Those owners are installed
+        // only from explicit menu actions/toggles.
         installLongPressTableHook();
     }
 }

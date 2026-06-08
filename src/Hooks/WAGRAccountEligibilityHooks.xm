@@ -177,14 +177,4 @@ extern "C" NSString *WAGRAccountEligibilityDiagnostic(void) {
 }
 
 __attribute__((constructor))
-static void WAGRAccountEligibilityCtor(void) {
-    @autoreleasepool {
-        // Watusi pattern: synchronous install in constructor. SharedModules
-        // (which contains WAAccountEligibility) is loaded as a regular
-        // framework dependency, so the class is available by ctor time. Late
-        // Swift bundles are picked up by the menu-open ensure path. The
-        // previous staggered-retry (0.5/1.5/3.5/6.0s) fired four blocks on
-        // the main queue during launch — removed.
-        WAGRAccountEligibilityEnsureHooksInstalled();
-    }
-}
+static void WAGRAccountEligibilityCtor(void) { /* launch-safe: install via WAGRAccountEligibilityEnsureHooksInstalled only */ }

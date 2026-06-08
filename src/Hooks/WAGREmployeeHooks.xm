@@ -241,8 +241,4 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 // (0.2/1.0/3.0/6.0s) — removed because WAServerProperties is in SharedModules
 // which is loaded before our ctor runs.
 __attribute__((constructor))
-static void WAGREmployeeHooksCtor(void) {
-    @autoreleasepool {
-        installEmployeeHooks();
-    }
-}
+static void WAGREmployeeHooksCtor(void) { /* launch-safe: install via WAGRDogfoodEnsureHooksInstalled only */ }

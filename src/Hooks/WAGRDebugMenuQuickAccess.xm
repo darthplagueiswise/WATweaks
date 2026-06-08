@@ -1,5 +1,5 @@
 // WAGRDebugMenuQuickAccess.xm
-// Disabled: WATweaks must not mutate WADebugViewController UI.
+// Disabled intentionally: WATweaks must not mutate WhatsApp WADebugViewController UI.
 
 #import <Foundation/Foundation.h>
 

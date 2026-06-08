@@ -216,8 +216,4 @@ extern "C" NSString *WAGRAuraNavigationDiagnostic(void) {
 }
 
 __attribute__((constructor))
-static void WAGRAuraNavConstructor(void) {
-    @autoreleasepool {
-        WAGRAuraEnsureNavigationHooksInstalled();
-    }
-}
+static void WAGRAuraNavConstructor(void) { /* launch-safe: install via WAGRAuraEnsureNavigationHooksInstalled only */ }

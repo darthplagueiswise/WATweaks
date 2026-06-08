@@ -609,11 +609,4 @@ static void WAGRNativeDevMenuScheduleRetry(NSTimeInterval delay) {
 }
 
 __attribute__((constructor))
-static void WAGRNativeDevMenuCtor(void) {
-    @autoreleasepool {
-        installNativeDevMenuHooks();
-        WAGRNativeDevMenuScheduleRetry(0.2);
-        WAGRNativeDevMenuScheduleRetry(1.0);
-        WAGRNativeDevMenuScheduleRetry(3.0);
-    }
-}
+static void WAGRNativeDevMenuCtor(void) { /* launch-safe: install via WAGRNativeDevMenuEnsureHooksInstalled only */ }

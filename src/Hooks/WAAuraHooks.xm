@@ -132,12 +132,4 @@ extern "C" NSString *WAGRAuraDiagnostic(void) {
 }
 
 __attribute__((constructor))
-static void WAGRAuraCtor(void) {
-    @autoreleasepool {
-        installAuraHooks();
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1*NSEC_PER_SEC)),
-                       dispatch_get_main_queue(),^{ installAuraHooks(); });
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(4*NSEC_PER_SEC)),
-                       dispatch_get_main_queue(),^{ installAuraHooks(); });
-    }
-}
+static void WAGRAuraCtor(void) { /* launch-safe: install via WAGRAuraEnsureHooksInstalled only */ }

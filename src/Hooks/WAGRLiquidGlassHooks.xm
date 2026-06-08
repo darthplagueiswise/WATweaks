@@ -95,10 +95,4 @@ extern "C" NSString *WAGRLGDiagnosticText(void){
 }
 
 __attribute__((constructor))
-static void WAGRLGConstructor(void){
-    @autoreleasepool {
-        // Constructor installs fixed WDS trampolines only. Native defaults and
-        // NSUserDefaults synchronization stay in WAGRLGPrefsDidChange().
-        WAGRLGHookClass();
-    }
-}
+static void WAGRLGConstructor(void) { /* launch-safe: install via WAGRLGPrefsDidChange/apply only */ }

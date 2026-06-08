@@ -116,11 +116,4 @@ extern "C" NSString *WAGRContextHooksDiagnostic(void) {
 // hook ahead of time means flipping the pref later takes effect immediately
 // without requiring the user to relaunch the app.
 __attribute__((constructor))
-static void WAGRContextHooksCtor(void) {
-    @autoreleasepool {
-        // Watusi pattern: synchronous install. Previously 4 dispatch_after
-        // retries (0.2/1.0/3.0/6.0s) — removed because WAContext is in
-        // SharedModules which is loaded before our ctor runs.
-        installContextHooks();
-    }
-}
+static void WAGRContextHooksCtor(void) { /* launch-safe: no context hooks during dylib load */ }
