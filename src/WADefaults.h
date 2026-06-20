@@ -5,6 +5,10 @@
 #pragma once
 #import <Foundation/Foundation.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 NS_ASSUME_NONNULL_BEGIN
 
 /// Returns the master dictionary of all registered defaults.
@@ -15,3 +19,7 @@ NSDictionary<NSString *, id> * WADefaultsDictionary(void);
 id WAGetDefault(NSString *key);
 
 NS_ASSUME_NONNULL_END
+
+#ifdef __cplusplus
+}
+#endif
