@@ -1,8 +1,8 @@
 // Tweak.x — entry point.
 //
-// Startup rule: do not hook global UIKit surfaces during app launch. The
-// Entry is long-press only. Gate/WAAB/Aura persisted hooks are rehydrated
-// via UIApplicationDidFinishLaunchingNotification (exact post-launch point).
+// Startup rule: long-press only entry. Gate/WAAB/Aura persisted hooks
+// are now installed deterministically from WAGRGateHooks.xm %ctor
+// following AGENTS.md / RyukGramPriv pattern (no dispatch_after, no UI dependency).
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -15,7 +15,6 @@ extern NSString  *WAGRHookRouterDiagnostic(void);
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
-extern void       WAGRGateHooksEnsureInstalled(void);
 
 static const char *kLP = "wagr.lp.ok";
 
@@ -158,23 +157,7 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 static void startup(void) {
     @autoreleasepool {
         installLongPressTableHook();
-
-        // Rehydrate persisted Gate/WAAB/Aura hooks exactly at didFinishLaunching.
-        // This matches the pattern used in Ryukgram-Fork/experimental2 for post-launch work
-        // (notification observers + dispatch in didFinishLaunching hooks) and avoids
-        // arbitrary dispatch_after magic numbers while respecting the safe-startup rule
-        // in WAGRGateHooks.xm (no heavy work in dylib constructor).
-        static dispatch_once_t once;
-        dispatch_once(&once, ^{
-            [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
-                                                              object:nil
-                                                               queue:[NSOperationQueue mainQueue]
-                                                          usingBlock:^(__unused NSNotification *note) {
-                if (WAGRGateHooksEnsureInstalled) {
-                    WAGRGateHooksEnsureInstalled();
-                }
-            }];
-        });
+        // Gate hooks now self-install persisted phase from their own %ctor (AGENTS.md pattern)
     }
 }
 
