@@ -1,5 +1,4 @@
-// WAGramPrefix.h — unified prefix for WATweaks (WA prefix migration in progress)
-// Aggressive WAGRGate* → WAGate* migration started (batch 1: Prefix + planning)
+// WAGramPrefix.h — WA prefix + aggressive WAGRGate* → WAGate* migration (Batch 2)
 
 #pragma once
 #ifdef __OBJC__
@@ -11,8 +10,8 @@
 #endif
 #import "WAPrefix.h"
 #import "WADefaults.h"
-#import "Runtime/WAGRGateStore.h"     // will be migrated to WAGateStore.h soon
-#import "Runtime/WAGRGateRegistry.h" // will be migrated to WAGateRegistry.h soon
+#import "Runtime/WAGateStore.h"
+#import "Runtime/WAGateRegistry.h"
 
 #define kWAGRDebugMode         @"watweak_ui_debug_mode_enabled"
 #define kWAGRInternalMaster    @"watweak_bundle_internal_master"
@@ -35,7 +34,7 @@
 
 static inline BOOL WAPreferenceEnabled(NSString *key) {
     if (!key.length) return NO;
-    if (WAGRGateIsSet(key)) return WAGRGateGet(key);
+    if (WAGateIsSet(key)) return WAGateGet(key);
     id defaultVal = WAGetDefault(key);
     if (defaultVal) {
         id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -49,17 +48,16 @@ static inline BOOL WAPreferenceEnabled(NSString *key) {
 #define WAGRPref(key) WAPreferenceEnabled((key))
 
 static inline NSString *WAGateKey(NSString *key) {
-    return WAGRGateCanonicalKey(key ?: @"");
+    return WAGateCanonicalKey(key ?: @"");
 }
 
 static inline BOOL WAGateIsOn(NSString *key) {
     if (!key.length) return NO;
-    if (WAGRGateIsSet(key)) return WAGRGateGet(key);
-    id stored = [[NSUserDefaults standardUserDefaults] objectForKey:WAGRGateCanonicalKey(key)];
+    if (WAGateIsSet(key)) return WAGateGet(key);
+    id stored = [[NSUserDefaults standardUserDefaults] objectForKey:WAGateCanonicalKey(key)];
     if ([stored respondsToSelector:@selector(boolValue)]) return [stored boolValue];
     return NO;
 }
 
-// Legacy aliases
 static inline NSString *WAGRKey(NSString *key) { return WAGateKey(key); }
 static inline BOOL WAGRIsOn(NSString *key) { return WAGateIsOn(key); }
