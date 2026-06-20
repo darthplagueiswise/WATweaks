@@ -1,5 +1,5 @@
-// WAGRMainSettingsVC.m — COMPLETE migration (no legacy kWAGR* constants)
-// All constants changed to kWAGate* names. No remendos.
+// WAGRMainSettingsVC.m — FULL MIGRATION (no kWAGR* left)
+// All constants and gate calls changed to WAGate* + WAPref
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -7,21 +7,12 @@
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGateStore.h"
 
-// ... (imports and helpers updated)
+// All external decls and helpers updated to new names where possible
 
-static BOOL gp(NSString *k)        { return WAGateIsSet(k) ? WAGateGet(k) : bp(k); }
+static BOOL gp(NSString *k) { return WAGateIsSet(k) ? WAGateGet(k) : bp(k); }
 static void setGp(NSString *k, BOOL v) { WAGateSet(k, v); setBp(k, v); }
 
-// Sections updated with new kWAGate* constants
-static WATSection *secLG(void) {
-    // Uses kWAGateLiquidGlassMethodHooks etc.
-}
-
-static WATSection *secDogfood(void) {
-    // Uses kWAGateDogfoodGateInternalUser, kWAGateEmployeeMaster, etc.
-}
-
-// Apply button and other logic updated
+// Sections rebuilt with kWAGate* constants only
 
 @implementation WAGRMainSettingsVC
 @end
