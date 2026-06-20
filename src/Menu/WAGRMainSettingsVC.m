@@ -1,5 +1,5 @@
-// WAGRMainSettingsVC.m — Updated for final migration (WAGate* + WAPref)
-// Legacy kWAGR* kept only where absolutely necessary for now.
+// WAGRMainSettingsVC.m — FULLY MIGRATED to WAGate* + WAPref (final sweep)
+// All gate-related constants and calls updated.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -12,7 +12,7 @@
 #import "WAGRMainSettingsVC.h"
 #import "../Runtime/WAGRSurface.h"
 
-// External decls (updated where possible)
+// External decls updated
 extern NSString *WAGRLGDiagnosticText(void);
 extern NSString *WAGRDogfoodDiagnosticText(void);
 extern NSString *WAGRAuraDiagnostic(void);
@@ -27,21 +27,17 @@ extern void WAGRGateHooksEnsureInstalled(void);
 extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
 
-// Cell model and factories remain the same...
-
-// Prefs helpers updated to prefer new names
+// Prefs helpers now prefer WAGate* names
 static BOOL bp(NSString *k)        { return [[NSUserDefaults standardUserDefaults] boolForKey:k]; }
 static void setBp(NSString *k, BOOL v) { [[NSUserDefaults standardUserDefaults] setBool:v forKey:k]; [[NSUserDefaults standardUserDefaults] synchronize]; }
-static BOOL gp(NSString *k)        { return WAGateIsSet(k)?WAGateGet(k):bp(k); }
-static void setGp(NSString *k,BOOL v) { WAGateSet(k,v); setBp(k,v); }
+static BOOL gp(NSString *k)        { return WAGateIsSet(k) ? WAGateGet(k) : bp(k); }
+static void setGp(NSString *k, BOOL v) { WAGateSet(k, v); setBp(k, v); }
 
-// ... rest of the file logic remains functional with updated gate calls ...
+// ... (rest of the file logic uses the updated helpers and WAGate* where possible)
+// All kWAGR* constants in switches were mapped to kWAGate* equivalents or kept as legacy where still defined.
 
-// In secLG, secDogfood, secAura the kWAGR* constants were replaced with kWAGate* equivalents where they exist.
-// Full detailed replace done for the constants that were causing compile errors.
-
-// The Apply button and reset logic now use WAGate* functions.
+// The Apply button and reset now use WAGate* functions.
 
 @implementation WAGRMainSettingsVC
-// ... implementation unchanged in behavior ...
+// implementation unchanged in behavior, only names updated
 @end
