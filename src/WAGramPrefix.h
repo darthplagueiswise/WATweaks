@@ -1,5 +1,5 @@
-// WAGramPrefix.h — Restored legacy kWAGR* constants for menu compatibility
-// (after aggressive migration, some menu files still use old names)
+// WAGramPrefix.h — FINAL CLEAN VERSION (no legacy kWAGR* constants)
+// All constants migrated to WAGate* naming
 
 #pragma once
 #ifdef __OBJC__
@@ -14,20 +14,19 @@
 #import "Runtime/WAGateStore.h"
 #import "Runtime/WAGateRegistry.h"
 
-// === LEGACY kWAGR* constants (restored for WAGRMainSettingsVC.m and others) ===
-#define kWAGRLiquidGlassMaster     @"wa_liquid_glass_method_hooks"
-#define kWAGREmployeeMaster        @"watweak_bundle_internal_master"
-#define kWAGRDogfoodGateInternalUser      @"watweak_gate_isInternalUser"
-#define kWAGRDogfoodGateMetaEmployee      @"watweak_gate_isMetaEmployeeOrInternalTester"
-#define kWAGRDogfoodGateMetaEmployeeSnake @"watweak_gate_is_meta_employee_or_internal_tester"
-#define kWAGRDogfoodGateGraphQLEmpC1      @"watweak_gate_graphQLEmployeeC1Disabled"
+// === FINAL WAGate* constants (no legacy kWAGR* left) ===
+#define kWAGateLiquidGlassMethodHooks   @"wa_liquid_glass_method_hooks"
+#define kWAGateEmployeeMaster           @"watweak_bundle_internal_master"
+#define kWAGateDogfoodGateInternalUser  @"watweak_gate_isInternalUser"
+#define kWAGateDogfoodGateMetaEmployee  @"watweak_gate_isMetaEmployeeOrInternalTester"
+#define kWAGateDogfoodGateMetaEmployeeSnake @"watweak_gate_is_meta_employee_or_internal_tester"
+#define kWAGateDogfoodGateGraphQLEmpC1 @"watweak_gate_graphQLEmployeeC1Disabled"
 
-#define kWAGRDebugMode         @"watweak_ui_debug_mode_enabled"
-#define kWAGRInternalMaster    @"watweak_bundle_internal_master"
-#define kWAGRDebugMenuNative   @"watweak_gate_isDebugMenuAllowed"
-#define kWAGRAuraSimulation    @"watweak_bundle_aura_simulation"
+#define kWAGateDebugMode         @"watweak_ui_debug_mode_enabled"
+#define kWAGateInternalMaster    @"watweak_bundle_internal_master"
+#define kWAGateDebugMenuNative   @"watweak_gate_isDebugMenuAllowed"
+#define kWAGateAuraSimulation    @"watweak_bundle_aura_simulation"
 
-// New preferred WA names (use these going forward)
 #define kWAGateEligibility      @"watweak_gate_eligibility_master"
 #define kWAGateUsername         @"watweak_gate_username_master"
 #define kWAGatePremiumBroadcast @"watweak_gate_premium_broadcast"
@@ -47,8 +46,6 @@ static inline BOOL WAPreferenceEnabled(NSString *key) {
     return [[NSUserDefaults standardUserDefaults] boolForKey:key];
 }
 
-#define WAGRPref(key) WAPreferenceEnabled((key))
-
 static inline NSString *WAGateKey(NSString *key) {
     return WAGateCanonicalKey(key ?: @"");
 }
@@ -60,6 +57,3 @@ static inline BOOL WAGateIsOn(NSString *key) {
     if ([stored respondsToSelector:@selector(boolValue)]) return [stored boolValue];
     return NO;
 }
-
-static inline NSString *WAGRKey(NSString *key) { return WAGateKey(key); }
-static inline BOOL WAGRIsOn(NSString *key) { return WAGateIsOn(key); }
