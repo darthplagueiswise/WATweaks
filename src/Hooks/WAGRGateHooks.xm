@@ -1,5 +1,8 @@
 // WAGRGateHooks.xm — single owner for every gate override hook.
-// SDK 26.2 refresh: WAAB hot path covers bool/string/integer/doubleForKey:defaultValue:.
+// Following RyukGramPriv / AGENTS.md baseline:
+// - Persisted overrides installed from %ctor (deterministic, no dispatch_after)
+// - Light + Persisted phases called early
+// - Hot path stays cheap (trampolines read from static cache / WAGRGateGet)
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
@@ -131,7 +134,7 @@ static void WAGRWAABIngestNameMapJSON(id json, NSMutableDictionary<NSString *, N
             NSString *ks = [k description]; NSString *vs = [v description];
             BOOL kNum = [ks rangeOfString:@"^[0-9]+$" options:NSRegularExpressionSearch].location != NSNotFound;
             BOOL vNum = [vs rangeOfString:@"^[0-9]+$" options:NSRegularExpressionSearch].location != NSNotFound;
-            if (kNum && vs.length && ![vs isEqualToString:ks]) map[ks] = vs;
+            if (kNum && vs.length && ![ks isEqualToString:vs]) map[ks] = vs;
             else if (vNum && ks.length && ![ks isEqualToString:vs]) map[vs] = ks;
         }];
     } else if ([json isKindOfClass:NSArray.class]) {
@@ -165,11 +168,11 @@ static void WAGRWAABLoadNameMapFile(NSString *path, NSMutableDictionary<NSString
         WAGRWAABIngestNameMapJSON(json, map);
         return;
     }
-    NSString *txt = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    NSString *txt = [[NSString alloc] initWithData:data encoding:NSUTF8Encoding];
     if (!txt.length) return;
     [txt enumerateLinesUsingBlock:^(NSString *line, BOOL *stop) {
         if (line.length < 3 || [line hasPrefix:@"#"]) return;
-        NSArray *parts = [line componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" \t,;:=|\""]];
+        NSArray *parts = [line componentsSeparatedByCharactersFromSet:[NSCharacterSet characterSetWithCharactersInString:@" \t,;:=|\""]];
         NSMutableArray *tokens = [NSMutableArray array];
         for (NSString *p in parts) if (p.length) [tokens addObject:p];
         NSString *num = nil;
@@ -204,7 +207,7 @@ static NSDictionary<NSString *, NSString *> *WAGRWAABLoadRuntimeNameMap(void) {
             if (b.resourcePath.length) [roots addObject:b.resourcePath];
             if (b.bundlePath.length) [roots addObject:b.bundlePath];
         }
-        NSArray *lib = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES);
+        NSArray *lib = NSSearchPathForDirectoriesOfDomains(NSLibraryDirectory, NSUserDomainMask, YES);
         if (lib.firstObject) [roots addObject:lib.firstObject];
         [roots addObject:@"/Library/Application Support/WATweaks/runtime"];
         [roots addObject:@"/var/jb/Library/Application Support/WATweaks/runtime"];
@@ -272,7 +275,7 @@ static long long WAGRIntegerForKeyTrampoline(id self, SEL _cmd, NSString *key, l
     if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key) ? 1LL : 0LL;
     return original;
 }
-static double WAGRDoubleForKeyTrampoline(id self, SEL _cmd, NSString *key, double defaultVal) {
+static double WAGRDoubleForKeyTrampoline(id self, SEL _cmd, double defaultVal) {
     WAGRGateStorageInit();
     NSString *className = NSStringFromClass([self class]);
     DoubleKeyIMP orig = gDoubleKeyOriginals[className] ? reinterpret_cast<DoubleKeyIMP>([gDoubleKeyOriginals[className] pointerValue]) : NULL;
@@ -311,20 +314,17 @@ static NSArray<NSDictionary *> *WAGRBootstrapSelectorHooks(void) {
         @{ @"class": @"WAServerProperties", @"sel": @"paymentsUPIOverdraftAccountEnabled", @"meta": @YES },
         @{ @"class": @"WAServerProperties", @"sel": @"listMessageReceptionDisabled", @"meta": @YES },
         @{ @"class": @"WAServerProperties", @"sel": @"frequentlyForwardedGroupSettingEnabled", @"meta": @YES },
-        // WAAuraGating — seletores snake_case confirmados via __objc_methname (SharedModules arm64)
-        // CRÍTICO: os seletores são aura_*, NÃO is*, isEnabled etc. não existem nesta classe.
+        // WAAuraGating
         @{ @"class": @"WAAuraGating", @"sel": @"aura_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_settings_row_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_subscription_simulation_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_app_icon_enabled", @"meta": @NO },
-        @{ @"class": @"WAAuraGating", @"sel": @"aura_app_icon_benefit_active", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_app_themes_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_app_themes_benefit_active", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_ringtones_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_stickers_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_enhanced_lists_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_kill_switch", @"meta": @NO },
-        @{ @"class": @"WAAuraGating", @"sel": @"aura_premium_stickers_killswitch", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_pinned_chats_enabled", @"meta": @NO },
         @{ @"class": @"WAAuraGating", @"sel": @"aura_vault_backups_enabled", @"meta": @NO },
         @{ @"class": @"WDSLiquidGlass", @"sel": @"isM0Enabled", @"meta": @YES },
@@ -390,25 +390,9 @@ static NSUInteger WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageMode
             NSUInteger after = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
             if (after > before) installed += (after - before);
         }
-
-}
-
-    // Broad WAAB provider scan is intentionally here, not in any constructor.
-    // It runs only when ABProperties UI asks for it. It is split by Mach-O image
-    // so Exec and SharedModules can be scanned independently.
-    unsigned int count = 0;
-    Class *classes = objc_copyClassList(&count);
-    if (!classes) return installed;
-    for (unsigned int i = 0; i < count; i++) {
-        Class cls = classes[i];
-        if (!WAGRWAABClassMatchesRuntimeImage(cls, mode)) continue;
-        if (!WAGRClassLooksLikeWAABProvider(cls)) continue;
-        NSUInteger before = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-        WAGRInstallWAABKeyHooksOnClass(cls);
-        NSUInteger after = gBoolKeyOriginals.count + gStringKeyOriginals.count + gIntegerKeyOriginals.count + gDoubleKeyOriginals.count;
-        if (after > before) installed += (after - before);
     }
-    free(classes);
+
+    // Broad scan is now only for on-demand (ABProperties UI). Not called from ctor.
     return installed;
 }
 
@@ -431,7 +415,6 @@ static void WAGRInstallWAABKeyHooksDirectedScan(void) {
 
 static void WAGRGateHooksInstallLightPhase(void) {
     WAGRGateStorageInit();
-    /* WAAB broad scan is on-demand from ABProperties only. */
     for (NSDictionary *h in WAGRBootstrapSelectorHooks()) {
         WAGRGateInstallHookForSelectorInternal(h[@"class"], h[@"sel"], [h[@"meta"] boolValue], NO);
     }
@@ -480,8 +463,11 @@ extern "C" NSString *WAGRGateHooksDiagnostic(void) {
         (unsigned long)WAGRGateAllOverrides().count];
 }
 
+// AGENTS.md pattern: install persisted overrides from %ctor (deterministic, no dispatch_after, no dependency on opening UI)
 __attribute__((constructor))
 static void WAGRGateHooksConstructor(void) {
-    /* v17 safe-startup: no hooks or WAAB scan during dylib load. */
+    WAGRGateStorageInit();
+    WAGRGateHooksInstallLightPhase();
+    WAGRGateHooksInstallPersistedPhase();
 }
 
