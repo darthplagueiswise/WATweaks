@@ -1,9 +1,8 @@
 // Tweak.x — entry point.
 //
 // Startup rule: do not hook global UIKit surfaces during app launch. The
-// Entry is long-press only. Do not inject a WATweaks row into WhatsApp Settings.
-// The UITableView long-press hook is installed at startup with a Settings-only guard.
-// Gate/WAAB/Aura persisted hooks are rehydrated safely after launch (see below).
+// Entry is long-press only. Gate/WAAB/Aura persisted hooks are rehydrated
+// via UIApplicationDidFinishLaunchingNotification (exact post-launch point).
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -16,7 +15,7 @@ extern NSString  *WAGRHookRouterDiagnostic(void);
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
-extern void       WAGRGateHooksEnsureInstalled(void);  // rehydrate persisted gates
+extern void       WAGRGateHooksEnsureInstalled(void);
 
 static const char *kLP = "wagr.lp.ok";
 
@@ -101,7 +100,7 @@ static UIViewController *WAGRSettingsVCForTable(UITableView *tv) {
     if (g.state != UIGestureRecognizerStateBegan) return;
     UITableView *tv = (UITableView *)g.view;
     if (![tv isKindOfClass:UITableView.class]) return;
-    NSIndexPath *ip = [tv indexPathForRowAtPoint:[g locationInView(tv)]];
+    NSIndexPath *ip = [tv indexPathForRowAtPoint:[g locationInView:tv]];
     if (!ip) return;
     UITableViewCell *c = [tv cellForRowAtIndexPath:ip];
     if (!isTrigger(c)) return;
@@ -125,13 +124,10 @@ static void hookTableDidMoveToWindow(id self, SEL _cmd) {
     UITableView *tv = (UITableView *)self;
     if (!tv.window) return;
 
-    // Critical performance guard: this is a global UITableView hook, so do
-    // absolutely nothing unless the table belongs to WhatsApp Settings.
     UIViewController *settingsVC = WAGRSettingsVCForTable(tv);
     if (!settingsVC) return;
 
     attachLP(tv);
-
 }
 
 static void installLongPressTableHook(void) {
@@ -145,7 +141,6 @@ static void installLongPressTableHook(void) {
 }
 
 void WAGRDebugMenuEnsureHooksInstalled(void) {
-    // Do not call this from startup. It is a manual/fallback ensure path.
     installLongPressTableHook();
     WAGRNativeDevMenuEnsureHooksInstalled();
 }
@@ -164,13 +159,21 @@ static void startup(void) {
     @autoreleasepool {
         installLongPressTableHook();
 
-        // Rehydrate persisted Gate/WAAB/Aura hooks after launch (safe, delayed).
-        // This makes overrides survive app relaunch without requiring menu re-toggle.
-        // Pattern based on working rehydrate logic from Ryukgram-Fork/experimental2 + prior WATweaks commits.
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if (WAGRGateHooksEnsureInstalled) {
-                WAGRGateHooksEnsureInstalled();
-            }
+        // Rehydrate persisted Gate/WAAB/Aura hooks exactly at didFinishLaunching.
+        // This matches the pattern used in Ryukgram-Fork/experimental2 for post-launch work
+        // (notification observers + dispatch in didFinishLaunching hooks) and avoids
+        // arbitrary dispatch_after magic numbers while respecting the safe-startup rule
+        // in WAGRGateHooks.xm (no heavy work in dylib constructor).
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                              object:nil
+                                                               queue:[NSOperationQueue mainQueue]
+                                                          usingBlock:^(__unused NSNotification *note) {
+                if (WAGRGateHooksEnsureInstalled) {
+                    WAGRGateHooksEnsureInstalled();
+                }
+            }];
         });
     }
 }
