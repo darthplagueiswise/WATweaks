@@ -1,5 +1,5 @@
-// WAGramPrefix.h — Final cleaned version (Port completo + aggressive migration done)
-// Following AGENTS.md baseline + WA prefix
+// WAGramPrefix.h — Restored legacy kWAGR* constants for menu compatibility
+// (after aggressive migration, some menu files still use old names)
 
 #pragma once
 #ifdef __OBJC__
@@ -14,20 +14,24 @@
 #import "Runtime/WAGateStore.h"
 #import "Runtime/WAGateRegistry.h"
 
-// Gate master toggles (WA prefix - final, no legacy WAGR aliases)
+// === LEGACY kWAGR* constants (restored for WAGRMainSettingsVC.m and others) ===
+#define kWAGRLiquidGlassMaster     @"wa_liquid_glass_method_hooks"
+#define kWAGREmployeeMaster        @"watweak_bundle_internal_master"
+#define kWAGRDogfoodGateInternalUser      @"watweak_gate_isInternalUser"
+#define kWAGRDogfoodGateMetaEmployee      @"watweak_gate_isMetaEmployeeOrInternalTester"
+#define kWAGRDogfoodGateMetaEmployeeSnake @"watweak_gate_is_meta_employee_or_internal_tester"
+#define kWAGRDogfoodGateGraphQLEmpC1      @"watweak_gate_graphQLEmployeeC1Disabled"
+
+#define kWAGRDebugMode         @"watweak_ui_debug_mode_enabled"
+#define kWAGRInternalMaster    @"watweak_bundle_internal_master"
+#define kWAGRDebugMenuNative   @"watweak_gate_isDebugMenuAllowed"
+#define kWAGRAuraSimulation    @"watweak_bundle_aura_simulation"
+
+// New preferred WA names (use these going forward)
 #define kWAGateEligibility      @"watweak_gate_eligibility_master"
 #define kWAGateUsername         @"watweak_gate_username_master"
 #define kWAGatePremiumBroadcast @"watweak_gate_premium_broadcast"
 
-#define kWAGateDogfoodMetaEmployee      @"watweak_gate_isMetaEmployeeOrInternalTester"
-#define kWAGateDogfoodMetaEmployeeSnake @"watweak_gate_is_meta_employee_or_internal_tester"
-#define kWAGateDogfoodInternalUser      @"watweak_gate_isInternalUser"
-#define kWAGateDogfoodGraphQLEmpC1      @"watweak_gate_graphQLEmployeeC1Disabled"
-
-#define kWAGateLiquidGlassUserDefaults @"wa_liquid_glass_userdefaults_overrides"
-#define kWAGateLiquidGlassMethodHooks  @"wa_liquid_glass_method_hooks"
-
-// Primary and only prefix now
 #define WAPref(key) WAPreferenceEnabled((key))
 
 static inline BOOL WAPreferenceEnabled(NSString *key) {
@@ -43,6 +47,8 @@ static inline BOOL WAPreferenceEnabled(NSString *key) {
     return [[NSUserDefaults standardUserDefaults] boolForKey:key];
 }
 
+#define WAGRPref(key) WAPreferenceEnabled((key))
+
 static inline NSString *WAGateKey(NSString *key) {
     return WAGateCanonicalKey(key ?: @"");
 }
@@ -54,3 +60,6 @@ static inline BOOL WAGateIsOn(NSString *key) {
     if ([stored respondsToSelector:@selector(boolValue)]) return [stored boolValue];
     return NO;
 }
+
+static inline NSString *WAGRKey(NSString *key) { return WAGateKey(key); }
+static inline BOOL WAGRIsOn(NSString *key) { return WAGateIsOn(key); }
