@@ -1,8 +1,5 @@
 // WAGRGateHooks.xm — single owner for every gate override hook.
-// Following RyukGramPriv / AGENTS.md baseline:
-// - Persisted overrides installed from %ctor (deterministic, no dispatch_after)
-// - Light + Persisted phases called early
-// - Hot path stays cheap (trampolines read from static cache / WAGRGateGet)
+// Following RyukGramPriv / AGENTS.md baseline (WA prefix transition started)
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
@@ -168,11 +165,11 @@ static void WAGRWAABLoadNameMapFile(NSString *path, NSMutableDictionary<NSString
         WAGRWAABIngestNameMapJSON(json, map);
         return;
     }
-    NSString *txt = [[NSString alloc] initWithData:data encoding:NSUTF8Encoding];
+    NSString *txt = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     if (!txt.length) return;
     [txt enumerateLinesUsingBlock:^(NSString *line, BOOL *stop) {
         if (line.length < 3 || [line hasPrefix:@"#"]) return;
-        NSArray *parts = [line componentsSeparatedByCharactersFromSet:[NSCharacterSet characterSetWithCharactersInString:@" \t,;:=|\""]];
+        NSArray *parts = [line componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" \t,;:=|\""]];
         NSMutableArray *tokens = [NSMutableArray array];
         for (NSString *p in parts) if (p.length) [tokens addObject:p];
         NSString *num = nil;
@@ -207,7 +204,7 @@ static NSDictionary<NSString *, NSString *> *WAGRWAABLoadRuntimeNameMap(void) {
             if (b.resourcePath.length) [roots addObject:b.resourcePath];
             if (b.bundlePath.length) [roots addObject:b.bundlePath];
         }
-        NSArray *lib = NSSearchPathForDirectoriesOfDomains(NSLibraryDirectory, NSUserDomainMask, YES);
+        NSArray *lib = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES);
         if (lib.firstObject) [roots addObject:lib.firstObject];
         [roots addObject:@"/Library/Application Support/WATweaks/runtime"];
         [roots addObject:@"/var/jb/Library/Application Support/WATweaks/runtime"];
@@ -275,7 +272,7 @@ static long long WAGRIntegerForKeyTrampoline(id self, SEL _cmd, NSString *key, l
     if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key) ? 1LL : 0LL;
     return original;
 }
-static double WAGRDoubleForKeyTrampoline(id self, SEL _cmd, double defaultVal) {
+static double WAGRDoubleForKeyTrampoline(id self, SEL _cmd, NSString *key, double defaultVal) {
     WAGRGateStorageInit();
     NSString *className = NSStringFromClass([self class]);
     DoubleKeyIMP orig = gDoubleKeyOriginals[className] ? reinterpret_cast<DoubleKeyIMP>([gDoubleKeyOriginals[className] pointerValue]) : NULL;
@@ -392,7 +389,6 @@ static NSUInteger WAGRInstallWAABKeyHooksOnRuntimeImage(WAGRWAABRuntimeImageMode
         }
     }
 
-    // Broad scan is now only for on-demand (ABProperties UI). Not called from ctor.
     return installed;
 }
 
@@ -463,7 +459,7 @@ extern "C" NSString *WAGRGateHooksDiagnostic(void) {
         (unsigned long)WAGRGateAllOverrides().count];
 }
 
-// AGENTS.md pattern: install persisted overrides from %ctor (deterministic, no dispatch_after, no dependency on opening UI)
+// AGENTS.md pattern: install persisted overrides from %ctor
 __attribute__((constructor))
 static void WAGRGateHooksConstructor(void) {
     WAGRGateStorageInit();
