@@ -30,7 +30,6 @@ NSDictionary<NSString *, id> * WADefaultsDictionary(void) {
             @"wa_liquid_glass_method_hooks" : @NO,
 
             // Add new keys here when introducing features.
-            // Every key here is automatically included in backup/export.
         };
     });
     return gWADefaults;
