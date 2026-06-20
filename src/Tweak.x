@@ -3,6 +3,7 @@
 // Startup rule: do not hook global UIKit surfaces during app launch. The
 // Entry is long-press only. Do not inject a WATweaks row into WhatsApp Settings.
 // The UITableView long-press hook is installed at startup with a Settings-only guard.
+// Gate/WAAB/Aura persisted hooks are rehydrated safely after launch (see below).
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -15,6 +16,7 @@ extern NSString  *WAGRHookRouterDiagnostic(void);
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern NSString  *WAGRNativeDevMenuDiagnosticText(void);
 extern NSString  *WAGRSettingsRowsNativeDiagnosticText(void);
+extern void       WAGRGateHooksEnsureInstalled(void);  // rehydrate persisted gates
 
 static const char *kLP = "wagr.lp.ok";
 
@@ -99,7 +101,7 @@ static UIViewController *WAGRSettingsVCForTable(UITableView *tv) {
     if (g.state != UIGestureRecognizerStateBegan) return;
     UITableView *tv = (UITableView *)g.view;
     if (![tv isKindOfClass:UITableView.class]) return;
-    NSIndexPath *ip = [tv indexPathForRowAtPoint:[g locationInView:tv]];
+    NSIndexPath *ip = [tv indexPathForRowAtPoint:[g locationInView(tv)]];
     if (!ip) return;
     UITableViewCell *c = [tv cellForRowAtIndexPath:ip];
     if (!isTrigger(c)) return;
@@ -160,10 +162,16 @@ NSString *WAGRDebugMenuDiagnosticText(void) {
 
 static void startup(void) {
     @autoreleasepool {
-        // Launch-safe: entrypoint only. Do not install Gate/WAAB/Aura/Dogfood
-        // or Developer hooks during app launch. Those owners are installed
-        // only from explicit menu actions/toggles.
         installLongPressTableHook();
+
+        // Rehydrate persisted Gate/WAAB/Aura hooks after launch (safe, delayed).
+        // This makes overrides survive app relaunch without requiring menu re-toggle.
+        // Pattern based on working rehydrate logic from Ryukgram-Fork/experimental2 + prior WATweaks commits.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (WAGRGateHooksEnsureInstalled) {
+                WAGRGateHooksEnsureInstalled();
+            }
+        });
     }
 }
 
