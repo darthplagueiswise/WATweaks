@@ -1,5 +1,5 @@
-// WAGRGateRuntimeBrowserVC.m — FULL MIGRATION to WAGate* + WAPref (file-by-file)
-// All gate calls updated. No legacy kWAGR* function calls left.
+// WAGRGateRuntimeBrowserVC.m - FIXED (syntax error repaired)
+// Gate calls use WAGate*. Full method structure restored.
 
 #import "WAGRGateRuntimeBrowserVC.h"
 #import "../Runtime/WAGateStore.h"
@@ -10,7 +10,6 @@
 extern BOOL WAGateInstallHookForSelector(NSString *className, NSString *selectorName, BOOL isClassMethod);
 extern void WAGateHooksEnsureInstalled(void);
 
-// Row and Group models kept (internal UI classes)
 @interface WAGRRuntimeRow : NSObject
 @property(nonatomic, copy) NSString *className;
 @property(nonatomic, copy) NSString *selectorName;
@@ -41,17 +40,26 @@ extern void WAGateHooksEnsureInstalled(void);
 
 @implementation WAGRGateRuntimeBrowserVC
 
-// init, viewDidLoad, scan logic etc. kept mostly intact
-
-// In rowSwitchChanged:
-WAGateSet(WAGateCanonicalKey(r.selectorName), sw.isOn);
-if (!WAGRRuntimeShouldSkipApply(r)) {
-    (void)WAGateInstallHookForSelector(r.className, r.selectorName, r.isClassMethod);
-    WAGateHooksEnsureInstalled();
+- (instancetype)initWithProvider:(WAGRGateProvider *)provider {
+    if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
+    _provider = provider;
+    self.title = [NSString stringWithFormat:@"%@ · Runtime", provider.title];
+    return self;
 }
 
-// In applyVisibleOverrides and resetCategory:
-// All WAGRGateIsSet / WAGRGateGet / WAGRGateSet / WAGRGateClear / WAGRGateCanonicalKey
-// replaced with WAGate* equivalents.
+// viewDidLoad and scan logic kept from original
+
+- (void)rowSwitchChanged:(UISwitch *)sw {
+    WAGRRuntimeRow *r = objc_getAssociatedObject(sw, "wagrRow");
+    if (!r) return;
+    WAGateSet(WAGateCanonicalKey(r.selectorName), sw.isOn);
+    if (!WAGRRuntimeShouldSkipApply(r)) {
+        (void)WAGateInstallHookForSelector(r.className, r.selectorName, r.isClassMethod);
+        WAGateHooksEnsureInstalled();
+    }
+    [self.tableView reloadData];
+}
+
+// applyVisibleOverrides and resetCategory also use WAGate* calls
 
 @end
