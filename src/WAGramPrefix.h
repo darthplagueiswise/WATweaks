@@ -1,5 +1,5 @@
-// WAGramPrefix.h — FINAL CLEAN VERSION (no legacy kWAGR* constants)
-// All constants migrated to WAGate* naming
+// WAGramPrefix.h - FINAL CLEAN (Fase 0 completed)
+// Only WAGate* + WAPref. Zero legacy kWAGR* constants or aliases.
 
 #pragma once
 #ifdef __OBJC__
@@ -9,23 +9,20 @@
 #import <objc/message.h>
 #import <substrate.h>
 #endif
+
 #import "WAPrefix.h"
 #import "WADefaults.h"
 #import "Runtime/WAGateStore.h"
 #import "Runtime/WAGateRegistry.h"
 
-// === FINAL WAGate* constants (no legacy kWAGR* left) ===
 #define kWAGateLiquidGlassMethodHooks   @"wa_liquid_glass_method_hooks"
 #define kWAGateEmployeeMaster           @"watweak_bundle_internal_master"
 #define kWAGateDogfoodGateInternalUser  @"watweak_gate_isInternalUser"
 #define kWAGateDogfoodGateMetaEmployee  @"watweak_gate_isMetaEmployeeOrInternalTester"
-#define kWAGateDogfoodGateMetaEmployeeSnake @"watweak_gate_is_meta_employee_or_internal_tester"
-#define kWAGateDogfoodGateGraphQLEmpC1 @"watweak_gate_graphQLEmployeeC1Disabled"
-
-#define kWAGateDebugMode         @"watweak_ui_debug_mode_enabled"
-#define kWAGateInternalMaster    @"watweak_bundle_internal_master"
-#define kWAGateDebugMenuNative   @"watweak_gate_isDebugMenuAllowed"
-#define kWAGateAuraSimulation    @"watweak_bundle_aura_simulation"
+#define kWAGateDebugMenuNative          @"watweak_gate_isDebugMenuAllowed"
+#define kWAGateInternalMaster           @"watweak_bundle_internal_master"
+#define kWAGateDebugMode                @"watweak_ui_debug_mode_enabled"
+#define kWAGateAuraSimulation           @"watweak_bundle_aura_simulation"
 
 #define kWAGateEligibility      @"watweak_gate_eligibility_master"
 #define kWAGateUsername         @"watweak_gate_username_master"
