@@ -13,6 +13,7 @@
 #import <objc/runtime.h>
 #import <dlfcn.h>
 #import <substrate.h>
+#include <stdlib.h>
 #import "../WAGramPrefix.h"
 
 static NSString * const kWAGREmployeeSweepSource = @"waEmployeeSweep";
@@ -148,7 +149,8 @@ static BOOL WAGREmployeeSweepInstallTarget(Class baseClass,
     Class targetClass = classMethod ? object_getClass(baseClass) : baseClass;
     if (!targetClass) return NO;
 
-    WAGREmployeeSweepDescriptor *descriptor = calloc(1, sizeof(WAGREmployeeSweepDescriptor));
+    WAGREmployeeSweepDescriptor *descriptor =
+        (WAGREmployeeSweepDescriptor *)calloc(1, sizeof(WAGREmployeeSweepDescriptor));
     if (!descriptor) return NO;
     descriptor->selector = selector;
     descriptor->key = (CFStringRef)CFBridgingRetain(key);
@@ -233,7 +235,8 @@ extern "C" NSUInteger WAGREmployeeSweepInstallNow(void) {
     int classCount = objc_getClassList(NULL, 0);
     if (classCount <= 0) return 0;
 
-    Class *classes = calloc((size_t)classCount, sizeof(Class));
+    __unsafe_unretained Class *classes =
+        (__unsafe_unretained Class *)calloc((size_t)classCount, sizeof(Class));
     if (!classes) return 0;
     classCount = objc_getClassList(classes, classCount);
 
