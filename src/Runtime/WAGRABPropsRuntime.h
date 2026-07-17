@@ -12,12 +12,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, assign) BOOL classMethod;
 @end
 
-NSArray *WAGRABPropsResolveRuntimeObjects(nullable id userContext);
+NSArray *WAGRABPropsResolveRuntimeObjects(id _Nullable userContext);
 NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects);
 BOOL WAGRABPropEntryIsBoolean(WAGRABPropEntry *entry);
 NSString *WAGRABPropsCurrentValue(WAGRABPropEntry *entry,
-                                  NSArray *runtimeObjects,
-                                  BOOL * _Nullable boolValue,
-                                  BOOL * _Nullable boolKnown);
+                                   NSArray *runtimeObjects,
+                                   BOOL * _Nullable boolValue,
+                                   BOOL * _Nullable boolKnown);
 
 NS_ASSUME_NONNULL_END
