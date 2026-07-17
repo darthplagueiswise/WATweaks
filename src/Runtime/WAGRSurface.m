@@ -1,58 +1,69 @@
-// WAGRSurface.m — real runtime surfaces backed by current Mach-O images.
-// Runtime browsers are intentionally technical: group by Objective-C class and
-// expose only patchable BOOL/char no-argument getters with a toggle.
-
 #import "WAGRSurface.h"
+#import "WAGRRuntimeValueStore.h"
 #import <objc/runtime.h>
+#include <stdlib.h>
 
-@implementation WAGREntry @end
+@implementation WAGREntry
+@end
 
 static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
-                                        NSString *title,
-                                        NSString *subtitle,
-                                        NSString *icon,
-                                        NSArray<NSString *> *names,
-                                        NSArray<NSString *> *frags,
-                                        NSArray<NSString *> *tokens,
-                                        NSArray<NSString *> *cats,
-                                        BOOL inst,
-                                        BOOL cls,
-                                        BOOL props,
-                                        BOOL advanced) {
-    WAGRSurfaceSpec *s = [WAGRSurfaceSpec new];
-    s.surfaceID = sid;
-    s.title = title;
-    s.subtitle = subtitle ?: @"";
-    s.icon = icon ?: @"circle";
-    s.classNames = names ?: @[];
-    s.classNameFragments = frags ?: @[];
-    s.selectorTokens = tokens ?: @[];
-    s.categoryAllowList = cats ?: @[];
-    s.scanInstanceMethods = inst;
-    s.scanClassMethods = cls;
-    s.scanProperties = props;
-    s.advancedOnly = advanced;
-    return s;
+                                         NSString *title,
+                                         NSString *subtitle,
+                                         NSString *icon,
+                                         NSArray<NSString *> *names,
+                                         NSArray<NSString *> *frags,
+                                         NSArray<NSString *> *tokens,
+                                         NSArray<NSString *> *cats,
+                                         BOOL inst,
+                                         BOOL cls,
+                                         BOOL props,
+                                         BOOL advanced) {
+    WAGRSurfaceSpec *surface = [WAGRSurfaceSpec new];
+    surface.surfaceID = sid;
+    surface.title = title;
+    surface.subtitle = subtitle ?: @"";
+    surface.icon = icon ?: @"circle";
+    surface.classNames = names ?: @[];
+    surface.classNameFragments = frags ?: @[];
+    surface.selectorTokens = tokens ?: @[];
+    surface.categoryAllowList = cats ?: @[];
+    surface.scanInstanceMethods = inst;
+    surface.scanClassMethods = cls;
+    surface.scanProperties = props;
+    surface.advancedOnly = advanced;
+    return surface;
 }
 
 @implementation WAGRSurfaceSpec
 
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces {
     return @[
-        WAGRMakeSurface(@"exec", @"Runtime — WhatsApp Executable",
-                        @"Classes do executável principal WhatsApp.app/WhatsApp",
-                        @"app.dashed", @[], @[], @[], @[], YES, YES, YES, YES),
-
-        WAGRMakeSurface(@"sharedmodules", @"Runtime — SharedModules.framework",
-                        @"Classes do Frameworks/SharedModules.framework/SharedModules",
-                        @"shippingbox", @[], @[], @[], @[], YES, YES, YES, YES),
-
-        WAGRMakeSurface(@"waab", @"WAABProperties",
-                        @"AB props / feature flags",
+        WAGRMakeSurface(@"waab", @"WAABProperties — atual",
+                        @"AB props tipadas carregadas nesta build",
                         @"switch.2",
-                        @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WAABPropertiesPreChatd"],
-                        @[@"WAABProperties", @"ABProperties", @"FOAWAAB"],
-                        @[], @[], YES, YES, YES, YES),
+                        @[@"WAABProperties", @"FOAWAABPropertiesImpl", @"WAABPropertiesPreChatd",
+                          @"WAFoundation.FOAWAABPropertiesImpl"],
+                        @[@"WAABProperties", @"ABProperties", @"FOAWAAB", @"ObjCABProps"],
+                        @[], @[], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"privateexperimentation", @"Private Experimentation",
+                        @"Managers, providers, properties e debug UI",
+                        @"testtube.2",
+                        @[], @[@"PrivateExperiment", @"Experimentation", @"PrivateABPropert"],
+                        @[], @[], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"debugmenu", @"Developer / Debug Menu",
+                        @"Gates e providers do menu nativo",
+                        @"hammer",
+                        @[@"_TtC15WADebugMenuMain17DebugMenuProvider", @"WADebugViewController"],
+                        @[@"DebugMenu", @"WADebug"],
+                        @[], @[], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"mobileconfig", @"MobileConfig",
+                        @"Readers, contexts e gates ObjC/Swift",
+                        @"slider.horizontal.3",
+                        @[], @[@"MobileConfig", @"WAMobileConfig", @"FOAMobileConfig"],
+                        @[], @[], YES, YES, YES, NO),
 
         WAGRMakeSurface(@"aura", @"WAAuraGating",
                         @"Aura / WA Plus gates",
@@ -60,15 +71,23 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
                         @[@"WAAuraGating"],
                         @[@"WAAuraGating", @"AuraGating", @"AuraBenefit", @"AuraSubscription", @"Aura"],
                         @[@"aura", @"subscription", @"benefit", @"theme", @"icon", @"ringtone", @"sticker"],
-                        @[], YES, YES, YES, YES),
+                        @[], YES, YES, YES, NO),
 
         WAGRMakeSurface(@"liquidglass", @"LiquidGlass / WDS",
-                        @"LiquidGlass gates and WDSLiquidGlass class methods",
+                        @"LiquidGlass gates e valores tipados",
                         @"drop",
                         @[@"WDSLiquidGlass", @"WAABProperties", @"FOAWAABPropertiesImpl"],
                         @[@"LiquidGlass", @"WDSLiquidGlass"],
                         @[@"liquid", @"glass", @"wds", @"M0", @"M1", @"M2"],
-                        @[], YES, YES, YES, YES),
+                        @[], YES, YES, YES, NO),
+
+        WAGRMakeSurface(@"exec", @"Runtime — WhatsApp Executable",
+                        @"Browser bruto tipado do executable principal",
+                        @"app.dashed", @[], @[], @[], @[], YES, YES, YES, YES),
+
+        WAGRMakeSurface(@"sharedmodules", @"Runtime — SharedModules.framework",
+                        @"Browser bruto tipado do framework compartilhado",
+                        @"shippingbox", @[], @[], @[], @[], YES, YES, YES, YES)
     ];
 }
 
@@ -76,27 +95,22 @@ static WAGRSurfaceSpec *WAGRMakeSurface(NSString *sid,
 
 NSString *WAGRCleanDisplayName(NSString *name) {
     if (!name.length) return @"";
-    NSString *s = [name copy];
-    while ([s hasPrefix:@"@property "]) s = [s substringFromIndex:10];
-    while ([s hasPrefix:@"- "]) s = [s substringFromIndex:2];
-    while ([s hasPrefix:@"+ "]) s = [s substringFromIndex:2];
-    return s;
+    NSString *value = [name copy];
+    while ([value hasPrefix:@"@property "]) value = [value substringFromIndex:10];
+    while ([value hasPrefix:@"- "]) value = [value substringFromIndex:2];
+    while ([value hasPrefix:@"+ "]) value = [value substringFromIndex:2];
+    return value;
 }
 
 NSString *WAGRCategoryForSelector(NSString *name) {
-    // Compatibility symbol. Runtime UI now groups by class, not synthetic category.
     return name.length ? name : @"Other";
-}
-
-static BOOL WAGRReturnIsPatchableBool(const char *ret) {
-    return ret && (ret[0] == 'B' || ret[0] == 'c');
 }
 
 static BOOL WAGRTokenMatch(NSArray<NSString *> *tokens, NSString *haystack) {
     if (!tokens.count) return YES;
-    NSString *lo = haystack.lowercaseString ?: @"";
-    for (NSString *t in tokens) {
-        if (t.length && [lo containsString:t.lowercaseString]) return YES;
+    NSString *lower = haystack.lowercaseString ?: @"";
+    for (NSString *token in tokens) {
+        if (token.length && [lower containsString:token.lowercaseString]) return YES;
     }
     return NO;
 }
@@ -109,132 +123,143 @@ static BOOL WAGRSurfaceIsImageBacked(WAGRSurfaceSpec *spec) {
 static BOOL WAGRSurfaceClassMatchesImage(WAGRSurfaceSpec *spec, Class cls) {
     if (!spec || !cls) return NO;
     NSString *sid = spec.surfaceID.lowercaseString ?: @"";
-    const char *img = class_getImageName(cls);
-    NSString *path = img ? [NSString stringWithUTF8String:img] : @"";
+    const char *image = class_getImageName(cls);
+    NSString *path = image ? [NSString stringWithUTF8String:image] : @"";
     if (!path.length) return NO;
-
     if ([sid isEqualToString:@"sharedmodules"]) {
         return [path rangeOfString:@"SharedModules.framework/SharedModules" options:NSCaseInsensitiveSearch].location != NSNotFound;
     }
     if ([sid isEqualToString:@"exec"]) {
-        BOOL wa = [path rangeOfString:@"/WhatsApp.app/WhatsApp" options:NSCaseInsensitiveSearch].location != NSNotFound ||
-                  [path hasSuffix:@"/WhatsApp"] || [path isEqualToString:@"WhatsApp"];
-        BOOL fw = [path rangeOfString:@".framework/" options:NSCaseInsensitiveSearch].location != NSNotFound;
-        return wa && !fw;
+        BOOL whatsapp = [path rangeOfString:@"/WhatsApp.app/WhatsApp" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+                         [path hasSuffix:@"/WhatsApp"] || [path isEqualToString:@"WhatsApp"];
+        BOOL framework = [path rangeOfString:@".framework/" options:NSCaseInsensitiveSearch].location != NSNotFound;
+        return whatsapp && !framework;
     }
     return YES;
 }
 
-static void WAGRAddEntry(NSMutableArray<WAGREntry *> *out,
+static void WAGRAddEntry(NSMutableArray<WAGREntry *> *output,
                          NSMutableSet<NSString *> *seen,
                          WAGRSurfaceSpec *spec,
                          Class cls,
                          BOOL meta,
                          NSString *selector,
                          BOOL property,
-                         NSString *returnType) {
-    if (!selector.length || [selector containsString:@":"]) return;
-    NSString *cname = NSStringFromClass(cls);
-    if (!cname.length) return;
+                         NSString *typeCode) {
+    if (!selector.length || [selector containsString:@":"] || !typeCode.length) return;
+    NSString *typeName = WAGRRuntimeValueTypeName(typeCode);
+    if (!typeName.length) return;
+    NSString *className = NSStringFromClass(cls);
+    if (!className.length) return;
     NSString *display = WAGRCleanDisplayName(selector);
-    NSString *hay = [NSString stringWithFormat:@"%@ %@ %@", cname, selector, display ?: @""];
-    if (!WAGRTokenMatch(spec.selectorTokens, hay)) return;
+    NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@", className, selector, display, typeName];
+    if (!WAGRTokenMatch(spec.selectorTokens, haystack)) return;
 
-    NSString *uid = [NSString stringWithFormat:@"%@|%@|%@", cname, meta ? @"class" : @"inst", selector];
-    if ([seen containsObject:uid]) return;
+    NSString *uid = WAGRRuntimeValueUID(className, selector, meta);
+    if (!uid.length || [seen containsObject:uid]) return;
     [seen addObject:uid];
 
-    WAGREntry *e = [WAGREntry new];
-    e.surfaceID = spec.surfaceID ?: @"runtime";
-    e.className = cname;
-    e.isClassMethod = meta;
-    e.isProperty = property;
-    e.selectorName = selector;
-    e.displayName = display.length ? display : selector;
-    e.returnType = returnType ?: @"BOOL";
-    e.category = cname;       // critical: group only by class
-    e.overrideKey = selector; // single unified GateStore key
-    [out addObject:e];
+    WAGREntry *entry = [WAGREntry new];
+    entry.surfaceID = spec.surfaceID ?: @"runtime";
+    entry.className = className;
+    entry.isClassMethod = meta;
+    entry.isProperty = property;
+    entry.selectorName = selector;
+    entry.displayName = display.length ? display : selector;
+    entry.returnType = typeName;
+    entry.typeCode = typeCode;
+    entry.typeName = typeName;
+    entry.category = className;
+    entry.overrideKey = uid;
+    [output addObject:entry];
 }
 
 @implementation WAGRScanner
 
 + (NSArray<WAGREntry *> *)scanSurface:(WAGRSurfaceSpec *)spec {
     if (!spec) return @[];
-    NSMutableArray<WAGREntry *> *out = [NSMutableArray array];
+    NSMutableArray<WAGREntry *> *output = [NSMutableArray array];
     NSMutableSet<NSString *> *seen = [NSMutableSet set];
-    NSMutableArray<Class> *classesToScan = [NSMutableArray array];
+    NSMutableOrderedSet *classesToScan = [NSMutableOrderedSet orderedSet];
 
-    void (^addClass)(Class) = ^(Class c) {
-        if (!c) return;
-        if (WAGRSurfaceIsImageBacked(spec) && !WAGRSurfaceClassMatchesImage(spec, c)) return;
-        if (![classesToScan containsObject:c]) [classesToScan addObject:c];
+    void (^addClass)(Class) = ^(Class cls) {
+        if (!cls) return;
+        if (WAGRSurfaceIsImageBacked(spec) && !WAGRSurfaceClassMatchesImage(spec, cls)) return;
+        [classesToScan addObject:cls];
     };
 
-    for (NSString *n in spec.classNames) addClass(NSClassFromString(n));
+    for (NSString *name in spec.classNames) addClass(NSClassFromString(name) ?: objc_getClass(name.UTF8String));
 
-    unsigned int total = 0;
-    Class *all = objc_copyClassList(&total);
-    if (all) {
-        for (unsigned int i = 0; i < total; i++) {
-            Class c = all[i];
-            NSString *name = NSStringFromClass(c) ?: @"";
-            if (WAGRSurfaceIsImageBacked(spec)) {
-                addClass(c);
-                continue;
+    int total = objc_getClassList(NULL, 0);
+    if (total > 0) {
+        __unsafe_unretained Class *all = (__unsafe_unretained Class *)calloc((size_t)total, sizeof(Class));
+        if (all) {
+            total = objc_getClassList(all, total);
+            for (int index = 0; index < total; index++) {
+                Class cls = all[index];
+                NSString *name = NSStringFromClass(cls) ?: @"";
+                if (WAGRSurfaceIsImageBacked(spec)) {
+                    addClass(cls);
+                    continue;
+                }
+                for (NSString *fragment in spec.classNameFragments) {
+                    if (fragment.length && [name rangeOfString:fragment options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                        addClass(cls);
+                        break;
+                    }
+                }
             }
-            for (NSString *frag in spec.classNameFragments) {
-                if (frag.length && [name rangeOfString:frag options:NSCaseInsensitiveSearch].location != NSNotFound) { addClass(c); break; }
-            }
+            free(all);
         }
-        free(all);
     }
 
     for (Class cls in classesToScan) {
         if (spec.scanProperties) {
-            unsigned int pc = 0;
-            objc_property_t *props = class_copyPropertyList(cls, &pc);
-            if (props) {
-                for (unsigned int i = 0; i < pc; i++) {
-                    const char *pn = property_getName(props[i]);
-                    const char *attrs = property_getAttributes(props[i]);
-                    if (!pn || !attrs) continue;
-                    NSString *attr = @(attrs);
-                    if (![attr hasPrefix:@"TB"] && ![attr hasPrefix:@"Tc"]) continue;
-                    NSString *sel = @(pn);
-                    Method m = class_getInstanceMethod(cls, NSSelectorFromString(sel));
-                    if (!m || method_getNumberOfArguments(m) != 2) continue;
-                    WAGRAddEntry(out, seen, spec, cls, NO, sel, YES, @"BOOL");
+            unsigned int propertyCount = 0;
+            objc_property_t *properties = class_copyPropertyList(cls, &propertyCount);
+            if (properties) {
+                for (unsigned int index = 0; index < propertyCount; index++) {
+                    const char *name = property_getName(properties[index]);
+                    if (!name) continue;
+                    NSString *selector = [NSString stringWithUTF8String:name];
+                    Method method = class_getInstanceMethod(cls, NSSelectorFromString(selector));
+                    if (!method || method_getNumberOfArguments(method) != 2) continue;
+                    char type[64] = {0};
+                    method_getReturnType(method, type, sizeof(type));
+                    WAGRAddEntry(output, seen, spec, cls, NO, selector, YES,
+                                 [NSString stringWithUTF8String:type] ?: @"");
                 }
-                free(props);
+                free(properties);
             }
         }
 
-        for (int meta = 0; meta <= 1; meta++) {
+        for (NSUInteger meta = 0; meta <= 1; meta++) {
             if (meta == 0 && !spec.scanInstanceMethods) continue;
             if (meta == 1 && !spec.scanClassMethods) continue;
-            Class target = meta ? object_getClass(cls) : cls;
-            unsigned int n = 0;
-            Method *ms = class_copyMethodList(target, &n);
-            if (!ms) continue;
-            for (unsigned int i = 0; i < n; i++) {
-                if (method_getNumberOfArguments(ms[i]) != 2) continue;
-                char ret[16] = {0};
-                method_getReturnType(ms[i], ret, sizeof(ret));
-                if (!WAGRReturnIsPatchableBool(ret)) continue;
-                NSString *sel = NSStringFromSelector(method_getName(ms[i]));
-                WAGRAddEntry(out, seen, spec, cls, (BOOL)meta, sel, NO, @"BOOL");
+            Class owner = meta ? object_getClass(cls) : cls;
+            unsigned int methodCount = 0;
+            Method *methods = class_copyMethodList(owner, &methodCount);
+            if (!methods) continue;
+            for (unsigned int index = 0; index < methodCount; index++) {
+                Method method = methods[index];
+                if (method_getNumberOfArguments(method) != 2) continue;
+                char type[64] = {0};
+                method_getReturnType(method, type, sizeof(type));
+                NSString *typeCode = [NSString stringWithUTF8String:type] ?: @"";
+                if (!WAGRRuntimeValueTypeIsSupported(typeCode)) continue;
+                NSString *selector = NSStringFromSelector(method_getName(method));
+                WAGRAddEntry(output, seen, spec, cls, (BOOL)meta, selector, NO, typeCode);
             }
-            free(ms);
+            free(methods);
         }
     }
 
-    return [out sortedArrayUsingComparator:^NSComparisonResult(WAGREntry *a, WAGREntry *b) {
-        NSComparisonResult r = [a.className localizedCaseInsensitiveCompare:b.className];
-        if (r != NSOrderedSame) return r;
-        r = [a.selectorName localizedCaseInsensitiveCompare:b.selectorName];
-        if (r != NSOrderedSame) return r;
-        return a.isClassMethod == b.isClassMethod ? NSOrderedSame : (a.isClassMethod ? NSOrderedAscending : NSOrderedDescending);
+    return [output sortedArrayUsingComparator:^NSComparisonResult(WAGREntry *left, WAGREntry *right) {
+        NSComparisonResult result = [left.className localizedCaseInsensitiveCompare:right.className];
+        if (result != NSOrderedSame) return result;
+        result = [left.selectorName localizedCaseInsensitiveCompare:right.selectorName];
+        if (result != NSOrderedSame) return result;
+        return left.isClassMethod == right.isClassMethod ? NSOrderedSame : (left.isClassMethod ? NSOrderedAscending : NSOrderedDescending);
     }];
 }
 
