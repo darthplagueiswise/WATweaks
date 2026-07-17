@@ -5,7 +5,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface WAGRABPropsBrowserVC : UITableViewController <UISearchResultsUpdating>
-- (instancetype)initWithUserContext:(nullable id)userContext;
+- (instancetype)initWithUserContext:(id _Nullable)userContext;
 @end
 
 NS_ASSUME_NONNULL_END
