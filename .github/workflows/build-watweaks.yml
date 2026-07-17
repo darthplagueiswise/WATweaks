@@ -61,7 +61,7 @@ jobs:
           mkdir -p "$THEOS/sdks"
           mv iPhoneOS26.2.sdk "$THEOS/sdks/"
 
-      - name: Validate dogfood and typed runtime sources
+      - name: Validate dogfood and live typed runtime sources
         run: |
           files=(
             src/Hooks/WAGREmployeeHooks.xm
@@ -70,8 +70,11 @@ jobs:
             src/Menu/WAGRDogfoodMenuPatch.xm
             src/Menu/WAGRABPropsBrowserVC.h
             src/Menu/WAGRABPropsBrowserVC.m
+            src/Menu/WAGRRuntimeGatesVC.h
+            src/Menu/WAGRRuntimeGatesVC.m
             src/Menu/WAGRRuntimeValueEditor.h
             src/Menu/WAGRRuntimeValueEditor.m
+            src/Menu/WAGRSurfaceBrowserVC.h
             src/Menu/WAGRSurfaceBrowserVC.m
             src/Runtime/WAGRABPropsRuntime.h
             src/Runtime/WAGRABPropsRuntime.m
@@ -113,7 +116,7 @@ jobs:
               src/Menu/WAGRABPropsBrowserVC.m \
               src/Menu/WAGRSurfaceBrowserVC.m \
               src/Runtime/WAGRABPropsRuntime.m; then
-            echo 'ERRO: o browser WAAB não pode regredir para read-only.'
+            echo 'ERRO: o browser runtime não pode regredir para read-only.'
             exit 1
           fi
 
@@ -123,9 +126,21 @@ jobs:
           grep -q 'WA_PREF_RUNTIME_VALUE_OVERRIDES' src/WADefaults.m
           grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'method_getNumberOfArguments(method) != 2' src/Runtime/WAGRABPropsRuntime.m
-          grep -q 'WAGRABPropsScan(objects)' src/Menu/WAGRSurfaceBrowserVC.m
+
+          # Runtime categories and subcategories must come from the loaded
+          # Objective-C runtime, never from the old static provider registry.
+          grep -q 'objc_copyClassList' src/Runtime/WAGRSurface.m
+          grep -q 'class_getImageName' src/Runtime/WAGRSurface.m
+          grep -q 'runtimeImageSurfaces' src/Runtime/WAGRSurface.m
+          grep -q 'runtimeFamilySurfaces' src/Runtime/WAGRSurface.m
+          grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Runtime/WAGRSurface.m
+          grep -q 'WAGRLiveRuntimeSubcategoryForEntry' src/Runtime/WAGRSurface.m
+          grep -q 'runtimeFamilySurfaces' src/Menu/WAGRRuntimeGatesVC.m
+          ! grep -q 'WAGRGateRegistry' src/Menu/WAGRRuntimeGatesVC.m
+          grep -q 'scanSurface:spec' src/Menu/WAGRSurfaceBrowserVC.m
+          grep -q 'scopeButtonTitles' src/Menu/WAGRSurfaceBrowserVC.m
+          grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
-          grep -q 'scopeButtonTitles' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
 
