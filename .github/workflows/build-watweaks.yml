@@ -70,6 +70,13 @@ jobs:
               src/Hooks/WAGREmployeeHooks.xm \
               src/Hooks/WAGREmployeeSweep.xm \
               src/Menu/WAGRDogfoodMenuPatch.xm
+          if grep -R -n \
+              --include='*.x' --include='*.xm' \
+              -E '\{[[:space:]]*[A-Z_][A-Z0-9_]*\([^;]*\);[[:space:]]*return[[:space:]]+%orig;[[:space:]]*\}[[:space:]]*$' \
+              src; then
+            echo 'ERRO: hook Logos em uma linha com macro + %orig; use corpo multiline explícito.'
+            exit 1
+          fi
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
 
       - name: Build rootless package
