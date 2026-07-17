@@ -1,14 +1,5 @@
 // WAGREmployeeHooks.xm
 // Deterministic WhatsApp Employee / Internal owner.
-//
-// Confirmed static-analysis target:
-//   WAServerProperties +isInternalUser  (SharedModules, BOOL zero-arg)
-//
-// The other employee/internal predicates move between Swift modules and
-// Objective-C categories. They are handled by WAGREmployeeSweep.xm only when
-// the user explicitly enables the post-launch sweep. This file deliberately
-// contains no broad class scan, guessed class owner, graphQLEmployeeC1 hook,
-// userContext spy, delayed retry, or direct __TEXT patch.
 
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
@@ -19,6 +10,8 @@ extern "C" NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void);
 extern "C" NSUInteger WAGREmployeeSweepEnsureInstalled(void);
 extern "C" NSString *WAGREmployeeSweepDiagnosticText(void);
+extern "C" void WAGRDogfoodKnownWAABEnsureInstalled(void);
+extern "C" NSString *WAGRDogfoodKnownWAABDiagnosticText(void);
 
 @interface WAServerProperties : NSObject
 + (BOOL)isInternalUser;
@@ -41,7 +34,6 @@ static BOOL WAGRKnownEmployeeEnabled(void) {
 }
 
 %end
-
 %end
 
 static BOOL WAGRMethodIsZeroArgBOOL(Method method) {
@@ -74,11 +66,15 @@ static NSArray<NSString *> *WAGRManagedDogfoodPositiveGates(void) {
         gates = @[
             @"isDebugMenuAllowed",
             @"isDebugMenuShortcutEnabled",
+            @"isMetaEmployeeOrInternalTester",
+            @"is_meta_employee_or_internal_tester",
+            @"is_internal_tester",
             @"waios_mc_debug_ui_enabled",
             @"whatsbroken_enabled",
             @"private_experimentation_should_sync",
             @"private_abprop_for_dev_only",
             @"dogfooding_nudge_settings_entrypoint_enabled",
+            @"dogfooding_nudge_banner_home_screen_enabled",
             @"get_help_internal_bug_report_enabled",
             @"give_dogfooders_task_id_for_bug_reporting",
             @"internal_bug_reporting_bottom_sheet",
@@ -146,35 +142,37 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
     WAGRApplyManagedDogfoodGates(masterEnabled);
 
     if (masterEnabled) {
-        // This function is called from the menu/apply action, not from ctor.
-        // Installing WAAB/runtime gate readers here is therefore post-launch.
+        // Deterministic targets first: these are concrete BOOL getters attached
+        // to WAABProperties in the executable/SharedModules categories.
+        WAGRDogfoodKnownWAABEnsureInstalled();
+
+        // Reader hooks remain useful for keys consumed through typed key APIs,
+        // but Dogfood no longer depends on those readers being the active path.
         WAGRGateHooksEnsureInstalled();
         WAGRWAABInstallHooksForAllRuntimeImages();
         WAGRNativeDevMenuEnsureHooksInstalled();
     }
 
     if (WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP)) {
-        // Exact persisted targets only; the global scan remains user-triggered.
         WAGREmployeeSweepEnsureInstalled();
     }
 }
 
 extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
     return [NSString stringWithFormat:
-            @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedGates=%lu\nmanagedBackup=%lu\n\n[Employee sweep]\n%@",
+            @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedGates=%lu\nmanagedBackup=%lu\n\n[Known WAAB]\n%@\n\n[Employee sweep]\n%@",
             WAGRPref(kWAGREmployeeMaster) ? @"ON" : @"OFF",
             objc_getClass("WAServerProperties") ? @"YES" : @"NO",
             gWAGRKnownEmployeeInstalled ? @"YES" : @"NO",
             (unsigned long)WAGRManagedDogfoodPositiveGates().count,
             (unsigned long)WAGRManagedGateBackup().count,
+            WAGRDogfoodKnownWAABDiagnosticText() ?: @"n/a",
             WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
 }
 
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
-        // Cheap preference read first. No WAAB scan, dladdr, class-list walk,
-        // context getter call, or delayed work is performed during launch.
         if (!WAGRKnownEmployeeEnabled()) return;
         WAGRInstallKnownEmployeeHook();
     }
