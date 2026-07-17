@@ -65,9 +65,11 @@ jobs:
         run: |
           files=(
             src/Hooks/WAGREmployeeHooks.xm
+            src/Hooks/WAGRDogfoodKnownWAABHooks.xm
             src/Hooks/WAGREmployeeSweep.xm
             src/Hooks/WAGRDebugMenuInstrumentation.xm
             src/Menu/WAGRDogfoodMenuPatch.xm
+            src/Menu/WAGRABPropsRootVC.m
             src/Menu/WAGRABPropsBrowserVC.h
             src/Menu/WAGRABPropsBrowserVC.m
             src/Menu/WAGRRuntimeGatesVC.h
@@ -86,8 +88,6 @@ jobs:
             src/Runtime/WAGRSurface.m
             src/WADefaults.m
             src/WAUtils.m
-            resources/runtime/WAABProperties.json
-            resources/runtime/wagr_runtime_inventory_manifest.json
           )
           for file in "${files[@]}"; do
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
@@ -124,11 +124,25 @@ jobs:
           grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'WA_PREF_RUNTIME_VALUE_OVERRIDES' src/WADefaults.m
+
+          # WAAB discovery/categorization is runtime-only. A JSON catalog must
+          # not be a functional dependency or a CI gate.
+          grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsRuntime.m
+          grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'method_getNumberOfArguments(method) != 2' src/Runtime/WAGRABPropsRuntime.m
+          ! grep -q 'WAABProperties.json' src/Runtime/WAGRABPropsRuntime.m
+          ! grep -q 'WAGRGateRegistry' src/Menu/WAGRABPropsRootVC.m
+          grep -q 'WAGRABPropsBrowserVC' src/Menu/WAGRABPropsRootVC.m
 
-          # Runtime categories and subcategories must come from the loaded
-          # Objective-C runtime, never from the old static provider registry.
+          # Runtime image shortcuts resolve the current Mach-O snapshot instead
+          # of looking up removed static IDs such as exec/sharedmodules.
+          grep -q 'runtimeImageSurfaces' src/Menu/WAGRDogfoodMenuPatch.xm
+          grep -q 'runtimeImagePath' src/Menu/WAGRDogfoodMenuPatch.xm
+          grep -q 'SharedModules.framework/SharedModules' src/Menu/WAGRDogfoodMenuPatch.xm
+
+          # Categories and subcategories come from the loaded Objective-C
+          # runtime, never from the old static provider registry.
           grep -q 'objc_copyClassList' src/Runtime/WAGRSurface.m
           grep -q 'class_getImageName' src/Runtime/WAGRSurface.m
           grep -q 'runtimeImageSurfaces' src/Runtime/WAGRSurface.m
@@ -141,84 +155,17 @@ jobs:
           grep -q 'scopeButtonTitles' src/Menu/WAGRSurfaceBrowserVC.m
           grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
+
+          # Deterministic Dogfood mode must own the known employee/internal and
+          # dogfood AB getters instead of relying only on a generic reader.
+          grep -q '%hook WAABProperties' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'isMetaEmployeeOrInternalTester' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'private_experimentation_should_sync' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'ios_internal_rage_shake_enabled' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'WAGRDogfoodKnownWAABEnsureInstalled' src/Hooks/WAGREmployeeHooks.xm
+
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
-
-      - name: Validate current WAABProperties inventory
-        run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          catalog = json.loads(Path(
-              'resources/runtime/WAABProperties.json'
-          ).read_text())
-          manifest = json.loads(Path(
-              'resources/runtime/wagr_runtime_inventory_manifest.json'
-          ).read_text())
-
-          waab = next(group for group in manifest['groups']
-                      if group['id'] == 'WAABProperties')
-          stats = catalog['stats']
-
-          assert catalog['runtime_source_of_truth'] is True
-          assert catalog['schema_version'] == waab['catalog_schema'], (
-              catalog['schema_version'], waab['catalog_schema'])
-
-          catalog_hashes = {
-              item['file']: item['sha256']
-              for item in catalog['generated_from']
-          }
-          manifest_hashes = {
-              item['file']: item['sha256']
-              for item in manifest['generated_from']
-          }
-          expected_hashes = {
-              'WhatsApp': 'ff25d3d3e907ba1b5f8fcfcb48f3afbea8a11e5e6a2ecd788b5d6dffe4787384',
-              'SharedModules': '236652b9a798fddd26ab94888221b8a59bbfc8d13306f2a86dfb871b0dff0fef',
-          }
-          assert catalog_hashes == expected_hashes, catalog_hashes
-          assert manifest_hashes == expected_hashes, manifest_hashes
-
-          categories = int(stats['categories_total'])
-          methods = int(stats['methods_supported'])
-          selectors = int(stats['selectors_supported'])
-          multiple_origins = int(stats['selectors_with_multiple_origins'])
-          return_counts = {
-              key: int(value)
-              for key, value in stats['return_type_counts'].items()
-          }
-
-          assert categories > 0, categories
-          assert methods > 0, methods
-          assert 0 < selectors <= methods, (selectors, methods)
-          assert 0 <= multiple_origins < selectors, multiple_origins
-          assert sum(return_counts.values()) == methods, (
-              return_counts, methods)
-          assert set(return_counts).issubset(
-              set(catalog['editable_runtime_types'])
-          ), return_counts
-
-          assert waab['category_records'] == categories, (waab, stats)
-          assert waab['methods_supported'] == methods, (waab, stats)
-          assert waab['selectors_total'] == selectors, (waab, stats)
-          assert waab['selectors_with_multiple_origins'] == multiple_origins, (
-              waab, stats)
-          assert waab['return_type_counts'] == return_counts, (waab, stats)
-
-          assert manifest['runtime_policy']['typed_overrides'] is True
-          assert manifest['runtime_policy']['startup_scan'] is False
-          assert set(manifest['runtime_policy']['editable_types']) == set(
-              catalog['editable_runtime_types'])
-          assert manifest['runtime_policy']['waab_discovery'].startswith(
-              'live runtime first')
-
-          print(
-              'WAAB inventory coherent:',
-              selectors, 'selectors /', methods, 'typed methods /',
-              categories, 'categories'
-          )
-          PY
 
       - name: Build rootless package
         run: |
