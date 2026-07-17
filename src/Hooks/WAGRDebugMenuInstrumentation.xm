@@ -1,8 +1,8 @@
 // WAGRDebugMenuInstrumentation.xm
-// Restores an AB Props browser inside WhatsApp's native Developer menu on
-// release-candidate builds. In this build WADebugViewController -createSections
-// unconditionally creates a warning card, while WAABProperties still exposes
-// thousands of real typed getters through Objective-C categories.
+// The RC build hardcodes an unavailable-warning in -createSections even though
+// WAABProperties, its categories, PrivateExperimentation and override storage
+// remain present. Preserve the native Developer menu and replace only that dead
+// section with actions backed by the real runtime objects.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -10,7 +10,16 @@
 #import <substrate.h>
 #include <string.h>
 #import "../Menu/WAGRABPropsBrowserVC.h"
+#import "../Runtime/WAGRABPropsRuntime.h"
+#import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRLog.h"
+
+extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC,
+                                                        NSError **outError);
+
+@interface WACachedCopyMutableArray : NSObject
+- (NSArray *)immutableArray;
+@end
 
 @interface WATableRow : NSObject
 - (UITableViewCell *)cell;
@@ -18,7 +27,7 @@
 @end
 
 @interface WATableSection : NSObject
-- (NSArray *)rows;
+- (id)rows;
 - (void)deleteRow:(WATableRow *)row;
 - (WATableRow *)addTableRowWithCellStyle:(UITableViewCellStyle)style;
 - (NSString *)headerText;
@@ -28,10 +37,9 @@
 
 @interface WADebugViewController : UIViewController
 - (void)createSections;
-- (NSArray *)sections;
-- (WATableSection *)addSection;
-- (WATableSection *)addSectionAtIndex:(NSInteger)index;
+- (id)sections;
 - (id)userContext;
+- (void)resetAllOverriddenABProps;
 @end
 
 typedef void (*WAGRCreateSectionsIMP)(id, SEL);
@@ -45,42 +53,79 @@ static BOOL WAGRMethodHasExactEncoding(Method method, const char *expected) {
     return actual && strcmp(actual, expected) == 0;
 }
 
+static NSArray *WAGRSnapshotCollection(id collection) {
+    if (!collection) return @[];
+    if ([collection respondsToSelector:@selector(immutableArray)]) {
+        id snapshot = [collection immutableArray];
+        return [snapshot isKindOfClass:NSArray.class] ? snapshot : @[];
+    }
+    if ([collection isKindOfClass:NSArray.class]) return [collection copy];
+    NSMutableArray *snapshot = [NSMutableArray array];
+    if ([collection conformsToProtocol:@protocol(NSFastEnumeration)]) {
+        for (id object in collection) if (object) [snapshot addObject:object];
+    }
+    return snapshot;
+}
+
+static BOOL WAGRSectionContainsRCWarning(WATableSection *section) {
+    for (WATableRow *row in WAGRSnapshotCollection([section rows])) {
+        UITableViewCell *cell = [row cell];
+        NSString *text = [NSString stringWithFormat:@"%@ %@",
+            cell.textLabel.text ?: @"", cell.detailTextLabel.text ?: @""].lowercaseString;
+        if ([text containsString:@"ab props are not available"] ||
+            [text containsString:@"release candidate builds"]) return YES;
+    }
+    return NO;
+}
+
 static WATableSection *WAGRFindABPropsSection(WADebugViewController *controller) {
     if (!controller || ![controller respondsToSelector:@selector(sections)]) return nil;
+    id sections = nil;
+    @try { sections = [controller sections]; }
+    @catch (__unused NSException *exception) { sections = nil; }
 
-    NSArray *sections = nil;
-    @try {
-        sections = [controller sections];
-    } @catch (__unused NSException *exception) {
-        sections = nil;
-    }
-
-    for (id candidate in sections ?: @[]) {
+    for (id candidate in WAGRSnapshotCollection(sections)) {
         if (![candidate respondsToSelector:@selector(headerText)]) continue;
         NSString *header = nil;
-        @try {
-            header = [candidate headerText];
-        } @catch (__unused NSException *exception) {
-            header = nil;
-        }
-        if (header.length && [header caseInsensitiveCompare:@"AB Props"] == NSOrderedSame) {
-            return (WATableSection *)candidate;
+        @try { header = [candidate headerText]; }
+        @catch (__unused NSException *exception) { header = nil; }
+        if ((header.length && [header caseInsensitiveCompare:@"AB Props"] == NSOrderedSame) ||
+            WAGRSectionContainsRCWarning(candidate)) {
+            return candidate;
         }
     }
     return nil;
 }
 
+static UIViewController *WAGRTopPresenter(UIViewController *controller) {
+    UIViewController *top = controller;
+    while (top.presentedViewController) top = top.presentedViewController;
+    if ([top isKindOfClass:UINavigationController.class]) {
+        UIViewController *visible = ((UINavigationController *)top).visibleViewController;
+        if (visible) top = visible;
+    }
+    return top;
+}
+
+static void WAGRPresentMessage(UIViewController *host,
+                               NSString *title,
+                               NSString *message) {
+    if (!host) return;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                   message:message
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
+    [WAGRTopPresenter(host) presentViewController:alert animated:YES completion:nil];
+}
+
 static void WAGRPresentABPropsBrowser(WADebugViewController *host) {
     if (!host) return;
-
     id userContext = nil;
     @try {
-        if ([host respondsToSelector:@selector(userContext)]) {
-            userContext = [host userContext];
-        }
-    } @catch (__unused NSException *exception) {
-        userContext = nil;
-    }
+        if ([host respondsToSelector:@selector(userContext)]) userContext = [host userContext];
+    } @catch (__unused NSException *exception) { userContext = nil; }
 
     WAGRABPropsBrowserVC *browser = [[WAGRABPropsBrowserVC alloc]
         initWithUserContext:userContext];
@@ -95,62 +140,108 @@ static void WAGRPresentABPropsBrowser(WADebugViewController *host) {
     }
 }
 
+static void WAGRAddActionRow(WATableSection *section,
+                             NSString *title,
+                             NSString *detail,
+                             NSString *symbol,
+                             UIColor *tint,
+                             void (^handler)(void)) {
+    WATableRow *row = [section addTableRowWithCellStyle:UITableViewCellStyleSubtitle];
+    if (!row) return;
+    UITableViewCell *cell = [row cell];
+    cell.textLabel.text = title;
+    cell.detailTextLabel.text = detail;
+    cell.detailTextLabel.numberOfLines = 0;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    UIImage *image = [UIImage systemImageNamed:symbol];
+    if (image) {
+        cell.imageView.image = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        cell.imageView.tintColor = tint;
+    }
+    [row setHandler:[handler copy]];
+}
+
 static void WAGRConfigureABPropsSection(WADebugViewController *controller) {
     if (!controller) return;
-
     WATableSection *section = WAGRFindABPropsSection(controller);
     if (!section) {
-        @try {
-            if ([controller respondsToSelector:@selector(addSectionAtIndex:)]) {
-                section = [controller addSectionAtIndex:0];
-            } else if ([controller respondsToSelector:@selector(addSection)]) {
-                section = [controller addSection];
-            }
-        } @catch (__unused NSException *exception) {
-            section = nil;
-        }
-    }
-    if (!section) {
-        WAGRLogAppend(@"[DebugMenu][ABProps] could not resolve/create AB Props section");
+        WAGRLogAppend(@"[DebugMenu][ABProps] native AB Props warning section not found");
         return;
     }
 
     @try {
-        NSArray *existingRows = [[section rows] copy];
-        for (WATableRow *row in existingRows ?: @[]) {
-            if ([section respondsToSelector:@selector(deleteRow:)]) {
-                [section deleteRow:row];
-            }
+        for (WATableRow *row in WAGRSnapshotCollection([section rows])) {
+            [section deleteRow:row];
         }
 
         [section setHeaderText:@"AB Props"];
         [section setFooterText:
-            @"A build RC removeu somente o browser nativo. Este browser enumera "
-             "os getters reais carregados em WAABProperties/PrivateABProperties. "
-             "BOOL, inteiros, float/double e objetos Foundation aceitam override "
-             "com trampoline específico para cada ABI."];
-
-        WATableRow *row = [section addTableRowWithCellStyle:UITableViewCellStyleSubtitle];
-        UITableViewCell *cell = [row cell];
-        cell.textLabel.text = @"Abrir AB Props Runtime";
-        cell.detailTextLabel.text = @"Flags reais desta build · busca · valor atual · editor tipado · usar original";
-        cell.detailTextLabel.numberOfLines = 0;
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+            @"Catálogo regenerado do executable e SharedModules desta build. "
+             "Os overrides usam trampolines separados por ABI e podem ser removidos com Usar original."];
 
         __weak WADebugViewController *weakController = controller;
-        [row setHandler:^{
-            WADebugViewController *strongController = weakController;
-            if (strongController) WAGRPresentABPropsBrowser(strongController);
-        }];
+        WAGRAddActionRow(section,
+            @"AB Props Runtime completo",
+            @"10.355 selectors editáveis · 7.782 BOOL · 1.797 inteiros · 199 double · 577 objetos",
+            @"switch.2", UIColor.systemGreenColor, ^{
+                WADebugViewController *strongController = weakController;
+                if (strongController) WAGRPresentABPropsBrowser(strongController);
+            });
+
+        WAGRAddActionRow(section,
+            @"Private Experimentation",
+            @"Abre o manager nativo usando o userContext real e seus PrivateABProperties/debug overrides",
+            @"testtube.2", UIColor.systemPurpleColor, ^{
+                WADebugViewController *strongController = weakController;
+                if (!strongController) return;
+                NSError *error = nil;
+                if (!WAGRLaunchPrivateExperimentationDebug(strongController, &error)) {
+                    WAGRPresentMessage(strongController,
+                        @"Private Experimentation",
+                        error.localizedDescription ?: @"Não foi possível abrir o manager nativo.");
+                }
+            });
+
+        WAGRAddActionRow(section,
+            @"Reinstalar overrides tipados",
+            @"Reaplica somente class/selector/ABI persistidos; não executa varredura global",
+            @"arrow.triangle.2.circlepath", UIColor.systemCyanColor, ^{
+                WADebugViewController *strongController = weakController;
+                NSUInteger installed = WAGRRuntimeValueReinstallPersistedHooks();
+                WAGRPresentMessage(strongController,
+                    @"Overrides tipados",
+                    [NSString stringWithFormat:@"%lu hooks reinstalados de %lu overrides persistidos.",
+                     (unsigned long)installed,
+                     (unsigned long)WAGRRuntimeValueAllOverrideSpecs().count]);
+            });
+
+        WAGRAddActionRow(section,
+            @"Resetar overrides AB Props",
+            @"Limpa overrides tipados da tweak e chama o reset nativo do WADebugViewController",
+            @"arrow.counterclockwise", UIColor.systemOrangeColor, ^{
+                WADebugViewController *strongController = weakController;
+                NSArray *specs = WAGRRuntimeValueAllOverrideSpecs();
+                for (NSDictionary *spec in specs) {
+                    WAGRRuntimeValueClearOverride(spec[@"class"],
+                                                  spec[@"selector"],
+                                                  [spec[@"meta"] boolValue]);
+                }
+                if ([strongController respondsToSelector:@selector(resetAllOverriddenABProps)]) {
+                    [strongController resetAllOverriddenABProps];
+                }
+                WAGRPresentMessage(strongController,
+                    @"AB Props",
+                    [NSString stringWithFormat:@"%lu overrides tipados removidos.",
+                     (unsigned long)specs.count]);
+            });
 
         gWAGRABPropsSectionPatchCount++;
-        WAGRLogAppendF(@"[DebugMenu][ABProps] native RC warning replaced; patchCount=%lu",
+        WAGRLogAppendF(@"[DebugMenu][ABProps] RC warning replaced; patchCount=%lu",
                        (unsigned long)gWAGRABPropsSectionPatchCount);
     } @catch (NSException *exception) {
         WAGRLogAppendF(@"[DebugMenu][ABProps] section patch exception %@: %@",
-                       exception.name,
-                       exception.reason);
+                       exception.name, exception.reason);
     }
 }
 
@@ -163,12 +254,11 @@ static void hook_WADebugCreateSections(id self, SEL _cmd) {
 
 extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void) {
     if (gWAGRDebugCreateSectionsHooked) return;
-
     Class cls = NSClassFromString(@"WADebugViewController");
     SEL selector = NSSelectorFromString(@"createSections");
     Method method = cls ? class_getInstanceMethod(cls, selector) : NULL;
     if (!WAGRMethodHasExactEncoding(method, "v16@0:8")) {
-        WAGRLogAppend(@"[DebugMenu][ABProps] WADebugViewController -createSections unavailable or ABI changed");
+        WAGRLogAppend(@"[DebugMenu][ABProps] createSections unavailable or ABI changed");
         return;
     }
 
@@ -182,9 +272,14 @@ extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void) {
 }
 
 extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void) {
+    NSDictionary *stats = WAGRABPropsCatalogStats();
     return [NSString stringWithFormat:
-        @"AB Props typed browser hook=%@\nsection patches=%lu\nWADebugViewController=%@",
+        @"AB Props createSections hook=%@\nsection patches=%lu\ncatalog supported=%@\ntyped overrides=%lu\nWAABProperties=%@\nPrivateABProperties=%@",
         gWAGRDebugCreateSectionsHooked ? @"YES" : @"NO",
         (unsigned long)gWAGRABPropsSectionPatchCount,
-        NSClassFromString(@"WADebugViewController") ? @"loaded" : @"missing"];
+        stats[@"selectors_supported"] ?: @"catalog unavailable",
+        (unsigned long)WAGRRuntimeValueAllOverrideSpecs().count,
+        NSClassFromString(@"WAABProperties") ? @"loaded" : @"missing",
+        (NSClassFromString(@"_TtC24WAPrivateExperimentation19PrivateABProperties") ||
+         NSClassFromString(@"WAPrivateExperimentation.PrivateABProperties")) ? @"loaded" : @"missing"];
 }
