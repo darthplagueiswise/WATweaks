@@ -14,7 +14,7 @@
 #define WA_PREF_EMPLOYEE_SWEEP_OVERRIDES @"wa_employee_sweep_overrides"
 #define WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP @"wa_employee_managed_gate_backup"
 #define WA_PREF_AB_OBSERVER @"wa_abprops_observer_enabled"
-#define WA_PREF_AB_TYPED_OVERRIDES @"watweak_abprop_typed_overrides_v1"
+#define WA_PREF_RUNTIME_VALUE_OVERRIDES @"watweak_runtime_value_overrides_v1"
 #define WA_PREF_LIQUID_GLASS @"wa_liquid_glass_enabled"
 #define WA_PREF_LIQUID_GLASS_USERDEFAULTS @"wa_liquid_glass_userdefaults_overrides"
 #define WA_PREF_LIQUID_GLASS_METHOD_HOOKS @"wa_liquid_glass_method_hooks"
