@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "generated_from": [
     {
       "file": "SharedModules",
@@ -17,17 +17,19 @@
       "id": "WAABProperties",
       "file": "WAABProperties.json",
       "runtime_source_of_truth": true,
-      "categories_total": 330,
-      "methods_total": 5637,
-      "selectors_total": 5426,
-      "selectors_with_multiple_origins": 179,
-      "return_type_counts": {
-        "B": 4188,
-        "q": 1037,
-        "d": 92,
-        "@": 319,
+      "catalog_schema": 3,
+      "category_records": 1106,
+      "methods_raw": 11075,
+      "method_variants_unique": 11030,
+      "selectors_total": 10355,
+      "preferred_return_type_counts": {
+        "B": 7782,
+        "q": 1796,
+        "d": 199,
+        "@": 577,
         "I": 1
-      }
+      },
+      "runtime_validation": "class + selector + argc == 2 + exact return ABI"
     },
     {
       "id": "WAContext",
@@ -75,9 +77,15 @@
   "relationships": [
     {
       "from": "WAABProperties",
-      "to": "WAGRRuntimeClassifier",
+      "to": "WAGRABPropsRuntime",
       "confidence": "high",
-      "reason": "Live selectors are grouped by their own prefix and negative/positive/debug semantics instead of collapsing under the WAABProperties owner class."
+      "reason": "The current catalog merges executable and SharedModules category getters; runtime rejects absent selectors, methods with arguments and ABI mismatches."
+    },
+    {
+      "from": "WAGRABPropsRuntime",
+      "to": "WAGRRuntimeValueStore",
+      "confidence": "high",
+      "reason": "The dedicated WAAB browser and the general Runtime Browser share the same typed override engine."
     },
     {
       "from": "WAABProperties",
@@ -89,23 +97,17 @@
       "from": "WAServerProperties",
       "to": "WAContext/WAContextMain",
       "confidence": "high",
-      "reason": "WAServerProperties exposes internal-user and user-context state used by the concrete account graph."
-    },
-    {
-      "from": "WAAuraGating",
-      "to": "WAAura controllers",
-      "confidence": "high",
-      "reason": "SharedModules provides the gating layer and the executable provides the corresponding UI surfaces."
+      "reason": "WAServerProperties exposes internal-user and user-context state used by the account graph."
     }
   ],
   "runtime_policy": {
-    "prefix_first": true,
-    "negative_gates_first": true,
     "typed_overrides": true,
+    "editable_types": ["B", "c", "C", "s", "S", "i", "I", "l", "L", "q", "Q", "f", "d", "@"],
     "override_identity": "class + class/instance + selector",
     "startup_scan": false,
-    "persisted_reinstall": "exact hooks only",
-    "object_policy": "Foundation objects and nil are persisted; custom model replacement remains guarded"
+    "persisted_reinstall": "exact class/selector/ABI hooks only",
+    "object_policy": "Foundation objects and nil persist; custom model substitution remains guarded",
+    "waab_discovery": "current catalog first, runtime-only drift isolated in separate sections"
   },
   "backup_policy": {
     "registered_preference": "watweak_runtime_value_overrides_v1",
