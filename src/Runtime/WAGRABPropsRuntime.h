@@ -9,15 +9,26 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy) NSString *selectorName;
 @property(nonatomic, copy) NSString *typeCode;
 @property(nonatomic, copy) NSString *typeName;
+@property(nonatomic, copy) NSString *categoryName;
+@property(nonatomic, copy) NSString *sourceImage;
 @property(nonatomic, assign) BOOL classMethod;
 @end
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 NSArray *WAGRABPropsResolveRuntimeObjects(id _Nullable userContext);
 NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects);
 id _Nullable WAGRABPropsReceiverForEntry(WAGRABPropEntry *entry,
-                                         NSArray *runtimeObjects);
+                                          NSArray *runtimeObjects);
 NSString *WAGRABPropsCurrentValue(WAGRABPropEntry *entry,
-                                  NSArray *runtimeObjects,
-                                  id _Nullable * _Nullable rawValue);
+                                   NSArray *runtimeObjects,
+                                   id _Nullable * _Nullable rawValue);
+NSDictionary *WAGRABPropsCatalogStats(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 NS_ASSUME_NONNULL_END
