@@ -1,4 +1,5 @@
 #import "WAGRABPropsRuntime.h"
+#import "WAGRRuntimeClassifier.h"
 #import "WAGRRuntimeValueStore.h"
 #import <objc/runtime.h>
 #import <dlfcn.h>
@@ -133,7 +134,6 @@ static NSDictionary *WAGRABCatalog(void) {
             id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
             if (![json isKindOfClass:NSDictionary.class]) continue;
             if ([json[@"schema_version"] integerValue] < 3) continue;
-            if (![json[@"selectors"] isKindOfClass:NSDictionary.class]) continue;
             catalog = json;
             break;
         }
@@ -143,29 +143,50 @@ static NSDictionary *WAGRABCatalog(void) {
 }
 
 NSDictionary *WAGRABPropsCatalogStats(void) {
-    id stats = WAGRABCatalog()[@"stats"];
-    return [stats isKindOfClass:NSDictionary.class] ? stats : @{};
+    NSDictionary *catalog = WAGRABCatalog();
+    id stats = catalog[@"stats"];
+    if ([stats isKindOfClass:NSDictionary.class]) return stats;
+
+    NSNumber *categories = catalog[@"categories_total"];
+    NSNumber *methods = catalog[@"methods_total"];
+    NSNumber *selectors = catalog[@"selectors_unique"];
+    NSDictionary *types = [catalog[@"return_type_counts"] isKindOfClass:NSDictionary.class]
+        ? catalog[@"return_type_counts"] : @{};
+    if (!categories && !methods && !selectors) return @{};
+    return @{
+        @"categories_total": categories ?: @0,
+        @"methods_supported": methods ?: @0,
+        @"selectors_supported": selectors ?: @0,
+        @"return_type_counts": types
+    };
 }
 
 static NSDictionary *WAGRABMetadataForSelector(NSString *selectorName) {
     if (!selectorName.length) return @{};
     NSDictionary *catalog = WAGRABCatalog();
-    NSArray *metadata = catalog[@"selectors"][selectorName];
-    NSArray *categories = catalog[@"categories"];
-    if (![metadata isKindOfClass:NSArray.class] || metadata.count < 4) return @{};
+    id rawMetadata = [catalog[@"selectors"] isKindOfClass:NSDictionary.class]
+        ? catalog[@"selectors"][selectorName] : nil;
+    NSArray *metadata = [rawMetadata isKindOfClass:NSArray.class] ? rawMetadata : nil;
+    NSArray *categories = [catalog[@"categories"] isKindOfClass:NSArray.class]
+        ? catalog[@"categories"] : @[];
 
-    NSInteger categoryIndex = [metadata[0] integerValue];
-    NSString *category = (categoryIndex >= 0 && categoryIndex < (NSInteger)categories.count)
-        ? categories[(NSUInteger)categoryIndex]
-        : @"WAABProperties";
-    NSInteger imageCode = [metadata[1] integerValue];
-    NSString *image = imageCode == 0 ? @"WhatsApp" : @"SharedModules";
-    NSString *type = [metadata[2] isKindOfClass:NSString.class] ? metadata[2] : @"";
-    BOOL meta = [metadata[3] boolValue];
-    return @{ @"category": category ?: @"WAABProperties",
-              @"image": image,
-              @"type": type,
-              @"meta": @(meta) };
+    if (metadata.count >= 4 && [metadata[0] respondsToSelector:@selector(integerValue)]) {
+        NSInteger categoryIndex = [metadata[0] integerValue];
+        NSString *category = (categoryIndex >= 0 && categoryIndex < (NSInteger)categories.count)
+            ? categories[(NSUInteger)categoryIndex]
+            : @"WAABProperties";
+        NSInteger imageCode = [metadata[1] integerValue];
+        NSString *image = imageCode == 0 ? @"WhatsApp" : @"SharedModules";
+        NSString *type = [metadata[2] isKindOfClass:NSString.class] ? metadata[2] : @"";
+        BOOL meta = [metadata[3] boolValue];
+        return @{ @"category": category ?: @"WAABProperties",
+                  @"image": image,
+                  @"type": type,
+                  @"meta": @(meta) };
+    }
+
+    NSString *runtimeSection = WAGRRuntimeSectionForSelector(selectorName, @"WAABProperties");
+    return @{ @"category": runtimeSection.length ? runtimeSection : @"Other — General" };
 }
 
 static NSString *WAGRABImageForMethod(Method method, Class baseClass) {
@@ -250,7 +271,7 @@ NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
                 entry.typeCode = typeCode;
                 entry.typeName = typeName;
                 entry.classMethod = (BOOL)meta;
-                entry.categoryName = metadata[@"category"] ?: className;
+                entry.categoryName = metadata[@"category"] ?: WAGRRuntimeSectionForSelector(selectorName, className);
                 entry.sourceImage = metadata[@"image"] ?: WAGRABImageForMethod(method, baseClass);
                 [entries addObject:entry];
             }
