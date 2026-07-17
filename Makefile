@@ -1,4 +1,5 @@
 TARGET := iphone:clang:26.2:15.0
+THEOS_PACKAGE_SCHEME = rootless
 INSTALL_TARGET_PROCESSES = WhatsApp
 ARCHS = arm64
 
