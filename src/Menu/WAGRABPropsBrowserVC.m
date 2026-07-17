@@ -5,6 +5,15 @@
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import <objc/runtime.h>
 
+typedef NS_ENUM(NSInteger, WAGRABBrowserScope) {
+    WAGRABBrowserScopeFeatured = 0,
+    WAGRABBrowserScopeAll,
+    WAGRABBrowserScopeBoolean,
+    WAGRABBrowserScopeNumeric,
+    WAGRABBrowserScopeObject,
+    WAGRABBrowserScopeOverrides,
+};
+
 static const void *kWAGRABSwitchEntryKey = &kWAGRABSwitchEntryKey;
 static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 
@@ -35,25 +44,31 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
-    self.tableView.estimatedRowHeight = 70.0;
+    self.tableView.estimatedRowHeight = 72.0;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
 
     UISearchController *search = [[UISearchController alloc] initWithSearchResultsController:nil];
     search.searchResultsUpdater = self;
     search.obscuresBackgroundDuringPresentation = NO;
-    search.searchBar.placeholder = @"Buscar nome, classe ou tipo";
+    search.searchBar.delegate = self;
+    search.searchBar.placeholder = @"Buscar nome, categoria, classe ou tipo";
+    search.searchBar.scopeButtonTitles = @[
+        @"Destaques", @"Todos", @"BOOL", @"Números", @"Objetos", @"Overrides"
+    ];
+    search.searchBar.selectedScopeButtonIndex = WAGRABBrowserScopeFeatured;
     self.navigationItem.searchController = search;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
+    self.definesPresentationContext = YES;
     self.searchController = search;
 
     UIBarButtonItem *scan = [[UIBarButtonItem alloc] initWithTitle:@"Scan"
-                                                            style:UIBarButtonItemStylePlain
-                                                           target:self
-                                                           action:@selector(scanNow)];
+                                                             style:UIBarButtonItemStylePlain
+                                                            target:self
+                                                            action:@selector(scanNow)];
     UIBarButtonItem *overrides = [[UIBarButtonItem alloc] initWithTitle:@"Ativos"
-                                                                 style:UIBarButtonItemStylePlain
-                                                                target:self
-                                                                action:@selector(showActiveOverrides)];
+                                                                  style:UIBarButtonItemStylePlain
+                                                                 target:self
+                                                                 action:@selector(showActiveOverrides)];
     self.navigationItem.rightBarButtonItems = @[scan, overrides];
 }
 
@@ -72,73 +87,139 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
         dispatch_async(dispatch_get_main_queue(), ^{
             self.runtimeObjects = objects ?: @[];
             self.allEntries = entries ?: @[];
-            [self applyFilter:self.searchController.searchBar.text ?: @""];
+            [self applyCurrentFilter];
         });
     });
 }
 
-- (void)applyFilter:(NSString *)query {
-    NSArray<NSString *> *tokens = [[query lowercaseString]
-        componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    NSArray<WAGRABPropEntry *> *filtered = self.allEntries;
-    if (query.length) {
-        filtered = [filtered filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(WAGRABPropEntry *entry, __unused NSDictionary *bindings) {
-            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@",
-                entry.className ?: @"", entry.selectorName ?: @"",
-                entry.typeName ?: @"", entry.classMethod ? @"class" : @"instance"].lowercaseString;
-            for (NSString *token in tokens) {
-                if (token.length && ![haystack containsString:token]) return NO;
-            }
+static NSArray<NSString *> *WAGRABSearchTokens(NSString *query) {
+    NSArray *parts = [[query lowercaseString] componentsSeparatedByCharactersInSet:
+        NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSMutableArray *tokens = [NSMutableArray array];
+    for (NSString *part in parts) if (part.length) [tokens addObject:part];
+    return tokens;
+}
+
+static BOOL WAGRABEntryIsFeatured(WAGRABPropEntry *entry) {
+    if (WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.classMethod)) return YES;
+    NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@",
+        entry.categoryName ?: @"", entry.selectorName ?: @"", entry.className ?: @""].lowercaseString;
+    for (NSString *token in @[
+        @"employee", @"internal", @"dogfood", @"debug", @"developer",
+        @"private", @"experiment", @"sandbox", @"mobileconfig", @"rage",
+        @"testuser", @"test_user", @"whatsbroken"
+    ]) {
+        if ([haystack containsString:token]) return YES;
+    }
+    return NO;
+}
+
+static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry,
+                                    WAGRABBrowserScope scope,
+                                    BOOL hasSearchText) {
+    switch (scope) {
+        case WAGRABBrowserScopeFeatured:
+            return hasSearchText ? YES : WAGRABEntryIsFeatured(entry);
+        case WAGRABBrowserScopeAll:
             return YES;
-        }]];
+        case WAGRABBrowserScopeBoolean:
+            return WAGRRuntimeValueTypeIsBoolean(entry.typeCode);
+        case WAGRABBrowserScopeNumeric:
+            return WAGRRuntimeValueTypeIsSignedInteger(entry.typeCode) ||
+                   WAGRRuntimeValueTypeIsUnsignedInteger(entry.typeCode) ||
+                   WAGRRuntimeValueTypeIsFloatingPoint(entry.typeCode);
+        case WAGRABBrowserScopeObject:
+            return WAGRRuntimeValueTypeIsObject(entry.typeCode);
+        case WAGRABBrowserScopeOverrides:
+            return WAGRRuntimeValueHasOverride(entry.className,
+                                               entry.selectorName,
+                                               entry.classMethod);
+    }
+    return YES;
+}
+
+- (void)applyCurrentFilter {
+    NSString *query = self.searchController.searchBar.text ?: @"";
+    NSArray<NSString *> *tokens = WAGRABSearchTokens(query);
+    WAGRABBrowserScope scope = (WAGRABBrowserScope)self.searchController.searchBar.selectedScopeButtonIndex;
+
+    NSMutableArray<WAGRABPropEntry *> *filtered = [NSMutableArray array];
+    for (WAGRABPropEntry *entry in self.allEntries) {
+        if (!WAGRABEntryMatchesScope(entry, scope, tokens.count > 0)) continue;
+        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@",
+            entry.categoryName ?: @"", entry.selectorName ?: @"",
+            entry.className ?: @"", entry.typeName ?: @"",
+            entry.sourceImage ?: @"", entry.classMethod ? @"class" : @"instance"].lowercaseString;
+        BOOL matches = YES;
+        for (NSString *token in tokens) {
+            if (![haystack containsString:token]) { matches = NO; break; }
+        }
+        if (matches) [filtered addObject:entry];
     }
 
-    NSMutableDictionary<NSString *, NSMutableArray<WAGRABPropEntry *> *> *groups = [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSString *, NSMutableArray<WAGRABPropEntry *> *> *groups =
+        [NSMutableDictionary dictionary];
     for (WAGRABPropEntry *entry in filtered) {
-        NSString *key = entry.className.length ? entry.className : @"Other";
-        if (!groups[key]) groups[key] = [NSMutableArray array];
-        [groups[key] addObject:entry];
+        NSString *category = entry.categoryName.length ? entry.categoryName : entry.className;
+        if (!category.length) category = @"Other";
+        if (!groups[category]) groups[category] = [NSMutableArray array];
+        [groups[category] addObject:entry];
     }
-    self.sectionKeys = [groups.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    self.sectionKeys = [groups.allKeys sortedArrayUsingSelector:
+        @selector(localizedCaseInsensitiveCompare:)];
     self.sections = groups;
 
-    NSUInteger editable = 0;
     NSUInteger active = 0;
     for (WAGRABPropEntry *entry in filtered) {
-        if (!WAGRRuntimeValueTypeIsObject(entry.typeCode)) editable++;
-        if (WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.classMethod)) active++;
+        if (WAGRRuntimeValueHasOverride(entry.className,
+                                        entry.selectorName,
+                                        entry.classMethod)) active++;
     }
-    self.title = [NSString stringWithFormat:@"AB Props (%lu · %lu editáveis%@)",
-                  (unsigned long)filtered.count,
-                  (unsigned long)editable,
-                  active ? [NSString stringWithFormat:@" · %lu ON", (unsigned long)active] : @""];
+    NSDictionary *stats = WAGRABPropsCatalogStats();
+    NSUInteger supported = [stats[@"selectors_supported"] unsignedIntegerValue];
+    NSString *base = supported
+        ? [NSString stringWithFormat:@"AB Props %lu/%lu",
+             (unsigned long)filtered.count, (unsigned long)supported]
+        : [NSString stringWithFormat:@"AB Props (%lu)", (unsigned long)filtered.count];
+    self.title = active
+        ? [base stringByAppendingFormat:@" · %lu ativos", (unsigned long)active]
+        : base;
     [self.tableView reloadData];
 }
 
-- (void)updateSearchResultsForSearchController:(UISearchController *)searchController {
-    [self applyFilter:searchController.searchBar.text ?: @""];
+- (void)updateSearchResultsForSearchController:(__unused UISearchController *)searchController {
+    [self applyCurrentFilter];
+}
+
+- (void)searchBar:(__unused UISearchBar *)searchBar
+selectedScopeButtonIndexDidChange:(__unused NSInteger)selectedScope {
+    [self applyCurrentFilter];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tableView {
     return (NSInteger)self.sectionKeys.count;
 }
 
-- (NSInteger)tableView:(__unused UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+- (NSInteger)tableView:(__unused UITableView *)tableView
+ numberOfRowsInSection:(NSInteger)section {
     if (section < 0 || section >= (NSInteger)self.sectionKeys.count) return 0;
     return (NSInteger)self.sections[self.sectionKeys[(NSUInteger)section]].count;
 }
 
-- (NSString *)tableView:(__unused UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+- (NSString *)tableView:(__unused UITableView *)tableView
+ titleForHeaderInSection:(NSInteger)section {
     if (section < 0 || section >= (NSInteger)self.sectionKeys.count) return nil;
     NSString *key = self.sectionKeys[(NSUInteger)section];
-    return [NSString stringWithFormat:@"%@ (%lu)", key, (unsigned long)self.sections[key].count];
+    return [NSString stringWithFormat:@"%@ (%lu)",
+            key, (unsigned long)self.sections[key].count];
 }
 
-- (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+- (NSString *)tableView:(__unused UITableView *)tableView
+ titleForFooterInSection:(NSInteger)section {
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
-    return @"BOOL, inteiros, float/double e objetos Foundation aceitam override tipado. "
-            "Objeto customizado permanece protegido até existir hook da classe concreta. "
-            "Toque para editar; pressão longa abre as mesmas ações.";
+    return @"Toque para editar por ABI: BOOL, inteiros, float/double e objetos Foundation. "
+            "Objetos customizados aceitam Force nil ou substituição Foundation avançada. "
+            "Pressão longa abre as mesmas ações; Usar original remove o override persistido.";
 }
 
 - (WAGRABPropEntry *)entryAtIndexPath:(NSIndexPath *)indexPath {
@@ -148,10 +229,22 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
     return rows[(NSUInteger)indexPath.row];
 }
 
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
+    if (!overridden) return @"";
+    if (!value) return @" · FORCE nil";
+    NSString *description = [value description] ?: @"?";
+    if (description.length > 120) description = [[description substringToIndex:120] stringByAppendingString:@"…"];
+    return [NSString stringWithFormat:@" · FORCE %@", description];
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView
+         cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *identifier = @"WAGRABPropsRuntimeCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
-    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:identifier];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
+                                      reuseIdentifier:identifier];
+    }
 
     WAGRABPropEntry *entry = [self entryAtIndexPath:indexPath];
     WAGRMenuApplyCellStyle(cell, indexPath.row, entry.selectorName ?: @"abprop");
@@ -165,23 +258,38 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 
     id raw = nil;
     NSString *current = WAGRABPropsCurrentValue(entry, self.runtimeObjects, &raw);
-    BOOL overridden = WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.classMethod);
-    id forced = WAGRRuntimeValueOverride(entry.className, entry.selectorName, entry.classMethod);
+    BOOL overridden = WAGRRuntimeValueHasOverride(entry.className,
+                                                   entry.selectorName,
+                                                   entry.classMethod);
+    id forced = WAGRRuntimeValueOverride(entry.className,
+                                         entry.selectorName,
+                                         entry.classMethod);
 
-    cell.textLabel.text = [NSString stringWithFormat:@"%@%@", entry.classMethod ? @"+ " : @"- ", entry.selectorName];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\nAtual: %@%@",
-        entry.className, entry.typeName ?: @"?", current ?: @"?",
-        overridden ? [NSString stringWithFormat:@" · FORCE %@", forced == NSNull.null ? @"nil" : forced] : @""];
-    cell.detailTextLabel.textColor = overridden ? UIColor.systemCyanColor : WAGRMenuSecondaryTextColor();
+    cell.textLabel.text = [NSString stringWithFormat:@"%@%@",
+        entry.classMethod ? @"+ " : @"- ", entry.selectorName];
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@\nAtual: %@%@",
+        entry.sourceImage ?: @"runtime", entry.className ?: @"",
+        entry.typeName ?: @"?", current ?: @"?",
+        WAGRABOverrideDescription(forced, overridden)];
+    cell.detailTextLabel.textColor = overridden
+        ? UIColor.systemCyanColor
+        : WAGRMenuSecondaryTextColor();
 
     if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
-        UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class] ? (UISwitch *)cell.accessoryView : [UISwitch new];
+        UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class]
+            ? (UISwitch *)cell.accessoryView : [UISwitch new];
         if (toggle != cell.accessoryView) {
-            [toggle addTarget:self action:@selector(boolSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+            [toggle addTarget:self
+                       action:@selector(boolSwitchChanged:)
+             forControlEvents:UIControlEventValueChanged];
             cell.accessoryView = toggle;
         }
-        objc_setAssociatedObject(toggle, kWAGRABSwitchEntryKey, entry, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(toggle,
+                                 kWAGRABSwitchEntryKey,
+                                 entry,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         toggle.on = overridden ? [forced boolValue] : [raw boolValue];
+        toggle.enabled = YES;
         toggle.onTintColor = overridden ? UIColor.systemCyanColor : UIColor.systemGreenColor;
         cell.accessoryType = UITableViewCellAccessoryNone;
     } else {
@@ -191,10 +299,14 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 
     UILongPressGestureRecognizer *longPress = objc_getAssociatedObject(cell, kWAGRABLongPressKey);
     if (!longPress) {
-        longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressRow:)];
+        longPress = [[UILongPressGestureRecognizer alloc]
+            initWithTarget:self action:@selector(longPressRow:)];
         longPress.minimumPressDuration = 0.45;
         [cell addGestureRecognizer:longPress];
-        objc_setAssociatedObject(cell, kWAGRABLongPressKey, longPress, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(cell,
+                                 kWAGRABLongPressKey,
+                                 longPress,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     return cell;
 }
@@ -202,9 +314,16 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 - (void)boolSwitchChanged:(UISwitch *)sender {
     WAGRABPropEntry *entry = objc_getAssociatedObject(sender, kWAGRABSwitchEntryKey);
     if (!entry) return;
-    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName, entry.classMethod, entry.typeCode, @(sender.isOn));
-    (void)WAGRRuntimeValueInstallHook(entry.className, entry.selectorName, entry.classMethod, entry.typeCode);
-    [self applyFilter:self.searchController.searchBar.text ?: @""];
+    WAGRRuntimeValueSetOverride(entry.className,
+                                entry.selectorName,
+                                entry.classMethod,
+                                entry.typeCode,
+                                @(sender.isOn));
+    (void)WAGRRuntimeValueInstallHook(entry.className,
+                                      entry.selectorName,
+                                      entry.classMethod,
+                                      entry.typeCode);
+    [self applyCurrentFilter];
 }
 
 - (void)presentEditorForEntry:(WAGRABPropEntry *)entry fromView:(UIView *)sourceView {
@@ -212,10 +331,16 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
     id raw = nil;
     NSString *current = WAGRABPropsCurrentValue(entry, self.runtimeObjects, &raw);
     __weak typeof(self) weakSelf = self;
-    WAGRPresentRuntimeValueEditor(self, sourceView,
-        entry.className, entry.selectorName, entry.classMethod, entry.typeCode,
-        current, raw, ^{
-            [weakSelf applyFilter:weakSelf.searchController.searchBar.text ?: @""];
+    WAGRPresentRuntimeValueEditor(self,
+        sourceView,
+        entry.className,
+        entry.selectorName,
+        entry.classMethod,
+        entry.typeCode,
+        current,
+        raw,
+        ^{
+            [weakSelf applyCurrentFilter];
         });
 }
 
@@ -229,25 +354,15 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
     if (gesture.state != UIGestureRecognizerStateBegan) return;
     UITableViewCell *cell = (UITableViewCell *)gesture.view;
     NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
-    if (indexPath) [self presentEditorForEntry:[self entryAtIndexPath:indexPath] fromView:cell];
+    if (indexPath) {
+        [self presentEditorForEntry:[self entryAtIndexPath:indexPath] fromView:cell];
+    }
 }
 
 - (void)showActiveOverrides {
-    NSArray *specs = WAGRRuntimeValueAllOverrideSpecs();
-    NSString *message = specs.count
-        ? [NSString stringWithFormat:@"%lu overrides tipados ativos. Pesquise pelo nome para localizar e editar.", (unsigned long)specs.count]
-        : @"Nenhum override tipado ativo.";
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Overrides ativos" message:message preferredStyle:UIAlertControllerStyleAlert];
-    if (specs.count) {
-        [alert addAction:[UIAlertAction actionWithTitle:@"Limpar todos" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
-            for (NSDictionary *spec in specs) {
-                WAGRRuntimeValueClearOverride(spec[@"class"], spec[@"selector"], [spec[@"meta"] boolValue]);
-            }
-            [self applyFilter:self.searchController.searchBar.text ?: @""];
-        }]];
-    }
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    self.searchController.searchBar.text = @"";
+    self.searchController.searchBar.selectedScopeButtonIndex = WAGRABBrowserScopeOverrides;
+    [self applyCurrentFilter];
 }
 
 @end
