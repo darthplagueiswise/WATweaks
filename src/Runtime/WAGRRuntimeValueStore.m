@@ -1,9 +1,19 @@
 #import "WAGRRuntimeValueStore.h"
+#import "../WAPrefix.h"
 #import <objc/runtime.h>
 #import <substrate.h>
 #include <string.h>
 
-NSString * const kWAGRRuntimeValueOverridesKey = @"watweak_runtime_value_overrides_v1";
+NSString * const kWAGRRuntimeValueOverridesKey = WA_PREF_RUNTIME_VALUE_OVERRIDES;
+
+static NSString * const kWAGRValueClassKey = @"class";
+static NSString * const kWAGRValueSelectorKey = @"selector";
+static NSString * const kWAGRValueMetaKey = @"meta";
+static NSString * const kWAGRValueTypeKey = @"type";
+static NSString * const kWAGRValuePayloadKey = @"value";
+static NSString * const kWAGRValueKindKey = @"kind";
+static NSString * const kWAGRNestedKindKey = @"__watweak_kind";
+static NSString * const kWAGRNestedValueKey = @"__watweak_value";
 
 @interface WAGRRuntimeValueHookDescriptor : NSObject
 @property(nonatomic, copy) NSString *uid;
@@ -19,6 +29,123 @@ static NSMutableDictionary<NSString *, WAGRRuntimeValueHookDescriptor *> *gWAGRV
 static NSObject *gWAGRValueLock;
 static dispatch_once_t gWAGRValueOnce;
 
+static NSString *WAGRRuntimeValueNormalizedType(NSString *typeCode) {
+    if (!typeCode.length) return @"";
+    const char *cursor = typeCode.UTF8String;
+    while (*cursor && strchr("rnNoORV", *cursor)) cursor++;
+    return *cursor ? [NSString stringWithFormat:@"%c", *cursor] : @"";
+}
+
+static id WAGRRuntimeValueEncodeNested(id value);
+static id WAGRRuntimeValueDecodeNested(id value);
+
+static id WAGRRuntimeValueEncodeNested(id value) {
+    if (!value || value == NSNull.null) {
+        return @{ kWAGRNestedKindKey: @"nil" };
+    }
+    if ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSNumber.class]) {
+        return value;
+    }
+    if ([value isKindOfClass:NSURL.class]) {
+        return @{ kWAGRNestedKindKey: @"url",
+                  kWAGRNestedValueKey: [(NSURL *)value absoluteString] ?: @"" };
+    }
+    if ([value isKindOfClass:NSData.class]) {
+        return @{ kWAGRNestedKindKey: @"data",
+                  kWAGRNestedValueKey: [(NSData *)value base64EncodedStringWithOptions:0] ?: @"" };
+    }
+    if ([value isKindOfClass:NSDate.class]) {
+        return @{ kWAGRNestedKindKey: @"date",
+                  kWAGRNestedValueKey: @([(NSDate *)value timeIntervalSince1970]) };
+    }
+    if ([value isKindOfClass:NSSet.class]) {
+        NSMutableArray *encoded = [NSMutableArray array];
+        for (id item in [(NSSet *)value allObjects]) {
+            [encoded addObject:WAGRRuntimeValueEncodeNested(item) ?: @{ kWAGRNestedKindKey: @"nil" }];
+        }
+        return @{ kWAGRNestedKindKey: @"set", kWAGRNestedValueKey: encoded };
+    }
+    if ([value isKindOfClass:NSArray.class]) {
+        NSMutableArray *encoded = [NSMutableArray arrayWithCapacity:[(NSArray *)value count]];
+        for (id item in (NSArray *)value) {
+            [encoded addObject:WAGRRuntimeValueEncodeNested(item) ?: @{ kWAGRNestedKindKey: @"nil" }];
+        }
+        return encoded;
+    }
+    if ([value isKindOfClass:NSDictionary.class]) {
+        NSMutableDictionary *encoded = [NSMutableDictionary dictionary];
+        [(NSDictionary *)value enumerateKeysAndObjectsUsingBlock:^(id key, id object, BOOL *stop) {
+            (void)stop;
+            NSString *stringKey = [key isKindOfClass:NSString.class] ? key : [key description];
+            if (!stringKey.length) return;
+            encoded[stringKey] = WAGRRuntimeValueEncodeNested(object) ?: @{ kWAGRNestedKindKey: @"nil" };
+        }];
+        return encoded;
+    }
+    return nil;
+}
+
+static id WAGRRuntimeValueDecodeNested(id value) {
+    if ([value isKindOfClass:NSArray.class]) {
+        NSMutableArray *decoded = [NSMutableArray arrayWithCapacity:[(NSArray *)value count]];
+        for (id item in (NSArray *)value) {
+            id object = WAGRRuntimeValueDecodeNested(item);
+            [decoded addObject:object ?: NSNull.null];
+        }
+        return decoded;
+    }
+    if (![value isKindOfClass:NSDictionary.class]) return value;
+
+    NSString *kind = [(NSDictionary *)value objectForKey:kWAGRNestedKindKey];
+    id payload = [(NSDictionary *)value objectForKey:kWAGRNestedValueKey];
+    if ([kind isEqualToString:@"nil"]) return nil;
+    if ([kind isEqualToString:@"url"]) return [NSURL URLWithString:[payload description] ?: @""];
+    if ([kind isEqualToString:@"data"]) return [[NSData alloc] initWithBase64EncodedString:[payload description] ?: @"" options:0];
+    if ([kind isEqualToString:@"date"]) return [NSDate dateWithTimeIntervalSince1970:[payload doubleValue]];
+    if ([kind isEqualToString:@"set"]) {
+        id decoded = WAGRRuntimeValueDecodeNested(payload);
+        return [decoded isKindOfClass:NSArray.class] ? [NSSet setWithArray:decoded] : [NSSet set];
+    }
+
+    NSMutableDictionary *decoded = [NSMutableDictionary dictionary];
+    [(NSDictionary *)value enumerateKeysAndObjectsUsingBlock:^(id key, id object, BOOL *stop) {
+        (void)stop;
+        id decodedObject = WAGRRuntimeValueDecodeNested(object);
+        decoded[key] = decodedObject ?: NSNull.null;
+    }];
+    return decoded;
+}
+
+static NSDictionary *WAGRRuntimeValueEncodedObjectSpec(id value) {
+    if (!value || value == NSNull.null) {
+        return @{ kWAGRValueKindKey: @"nil", kWAGRValuePayloadKey: @"" };
+    }
+    id encoded = WAGRRuntimeValueEncodeNested(value);
+    if (!encoded) return nil;
+
+    NSString *kind = @"foundation";
+    if ([value isKindOfClass:NSString.class]) kind = @"string";
+    else if ([value isKindOfClass:NSNumber.class]) kind = @"number";
+    else if ([value isKindOfClass:NSArray.class]) kind = @"array";
+    else if ([value isKindOfClass:NSDictionary.class]) kind = @"dictionary";
+    else if ([value isKindOfClass:NSSet.class]) kind = @"set";
+    else if ([value isKindOfClass:NSURL.class]) kind = @"url";
+    else if ([value isKindOfClass:NSData.class]) kind = @"data";
+    else if ([value isKindOfClass:NSDate.class]) kind = @"date";
+
+    return @{ kWAGRValueKindKey: kind, kWAGRValuePayloadKey: encoded };
+}
+
+static id WAGRRuntimeValueDecodeSpec(NSDictionary *spec) {
+    if (![spec isKindOfClass:NSDictionary.class]) return nil;
+    NSString *type = spec[kWAGRValueTypeKey];
+    id payload = spec[kWAGRValuePayloadKey];
+    if (![type isEqualToString:@"@"]) return payload;
+    NSString *kind = spec[kWAGRValueKindKey];
+    if ([kind isEqualToString:@"nil"]) return nil;
+    return WAGRRuntimeValueDecodeNested(payload);
+}
+
 static void WAGRRuntimeValueEnsureStorage(void) {
     dispatch_once(&gWAGRValueOnce, ^{
         gWAGRValueLock = [NSObject new];
@@ -28,16 +155,9 @@ static void WAGRRuntimeValueEnsureStorage(void) {
     });
 }
 
-static NSString *WAGRRuntimeValueNormalizedType(NSString *typeCode) {
-    if (!typeCode.length) return @"";
-    const char *p = typeCode.UTF8String;
-    while (*p && strchr("rnNoORV", *p)) p++;
-    return *p ? [NSString stringWithFormat:@"%c", *p] : @"";
-}
-
 NSString *WAGRRuntimeValueUID(NSString *className,
-                              NSString *selectorName,
-                              BOOL isClassMethod) {
+                               NSString *selectorName,
+                               BOOL isClassMethod) {
     if (!className.length || !selectorName.length) return @"";
     return [NSString stringWithFormat:@"%@|%@|%@",
             className,
@@ -46,9 +166,9 @@ NSString *WAGRRuntimeValueUID(NSString *className,
 }
 
 NSString *WAGRRuntimeValueTypeName(NSString *typeCode) {
-    NSString *t = WAGRRuntimeValueNormalizedType(typeCode);
-    if (!t.length) return nil;
-    switch ([t characterAtIndex:0]) {
+    NSString *type = WAGRRuntimeValueNormalizedType(typeCode);
+    if (!type.length) return nil;
+    switch ([type characterAtIndex:0]) {
         case 'B': return @"BOOL";
         case 'c': return @"char/BOOL";
         case 'C': return @"uint8";
@@ -71,28 +191,28 @@ BOOL WAGRRuntimeValueTypeIsSupported(NSString *typeCode) {
     return WAGRRuntimeValueTypeName(typeCode) != nil;
 }
 BOOL WAGRRuntimeValueTypeIsBoolean(NSString *typeCode) {
-    NSString *t = WAGRRuntimeValueNormalizedType(typeCode);
-    return [t isEqualToString:@"B"] || [t isEqualToString:@"c"];
+    NSString *type = WAGRRuntimeValueNormalizedType(typeCode);
+    return [type isEqualToString:@"B"] || [type isEqualToString:@"c"];
 }
 BOOL WAGRRuntimeValueTypeIsSignedInteger(NSString *typeCode) {
-    NSString *t = WAGRRuntimeValueNormalizedType(typeCode);
-    return [@[@"s", @"i", @"l", @"q"] containsObject:t];
+    NSString *type = WAGRRuntimeValueNormalizedType(typeCode);
+    return [@[@"s", @"i", @"l", @"q"] containsObject:type];
 }
 BOOL WAGRRuntimeValueTypeIsUnsignedInteger(NSString *typeCode) {
-    NSString *t = WAGRRuntimeValueNormalizedType(typeCode);
-    return [@[@"C", @"S", @"I", @"L", @"Q"] containsObject:t];
+    NSString *type = WAGRRuntimeValueNormalizedType(typeCode);
+    return [@[@"C", @"S", @"I", @"L", @"Q"] containsObject:type];
 }
 BOOL WAGRRuntimeValueTypeIsFloatingPoint(NSString *typeCode) {
-    NSString *t = WAGRRuntimeValueNormalizedType(typeCode);
-    return [t isEqualToString:@"f"] || [t isEqualToString:@"d"];
+    NSString *type = WAGRRuntimeValueNormalizedType(typeCode);
+    return [type isEqualToString:@"f"] || [type isEqualToString:@"d"];
 }
 BOOL WAGRRuntimeValueTypeIsObject(NSString *typeCode) {
-    return [WAGRRuntimeValueNormalizedType(typeCode) isEqualToString:@"@"];
+    return [WAGRRuntimeValueNormalizedType(typeCode) isEqualToString:@"@"]; 
 }
 
 static NSDictionary *WAGRRuntimeValueSpec(NSString *className,
-                                          NSString *selectorName,
-                                          BOOL isClassMethod) {
+                                           NSString *selectorName,
+                                           BOOL isClassMethod) {
     WAGRRuntimeValueEnsureStorage();
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
     if (!uid.length) return nil;
@@ -110,7 +230,7 @@ BOOL WAGRRuntimeValueHasOverride(NSString *className,
 id WAGRRuntimeValueOverride(NSString *className,
                             NSString *selectorName,
                             BOOL isClassMethod) {
-    return WAGRRuntimeValueSpec(className, selectorName, isClassMethod)[@"value"];
+    return WAGRRuntimeValueDecodeSpec(WAGRRuntimeValueSpec(className, selectorName, isClassMethod));
 }
 
 static void WAGRRuntimeValuePersistLocked(void) {
@@ -126,15 +246,25 @@ void WAGRRuntimeValueSetOverride(NSString *className,
                                  id value) {
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
     NSString *normalized = WAGRRuntimeValueNormalizedType(typeCode);
-    if (!uid.length || !normalized.length || !value) return;
+    if (!uid.length || !normalized.length) return;
+
+    NSMutableDictionary *spec = [@{
+        kWAGRValueClassKey: className,
+        kWAGRValueSelectorKey: selectorName,
+        kWAGRValueMetaKey: @(isClassMethod),
+        kWAGRValueTypeKey: normalized
+    } mutableCopy];
+
+    if ([normalized isEqualToString:@"@"]) {
+        NSDictionary *encoded = WAGRRuntimeValueEncodedObjectSpec(value);
+        if (!encoded) return;
+        [spec addEntriesFromDictionary:encoded];
+    } else {
+        if (![value isKindOfClass:NSNumber.class]) return;
+        spec[kWAGRValuePayloadKey] = value;
+    }
+
     WAGRRuntimeValueEnsureStorage();
-    NSDictionary *spec = @{
-        @"class": className,
-        @"selector": selectorName,
-        @"meta": @(isClassMethod),
-        @"type": normalized,
-        @"value": value
-    };
     @synchronized (gWAGRValueLock) {
         gWAGRValueOverrides[uid] = spec;
         WAGRRuntimeValuePersistLocked();
@@ -157,92 +287,97 @@ NSArray<NSDictionary<NSString *, id> *> *WAGRRuntimeValueAllOverrideSpecs(void) 
     WAGRRuntimeValueEnsureStorage();
     @synchronized (gWAGRValueLock) {
         return [gWAGRValueOverrides.allValues sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *left, NSDictionary *right) {
-            NSString *a = [NSString stringWithFormat:@"%@ %@", left[@"class"] ?: @"", left[@"selector"] ?: @""];
-            NSString *b = [NSString stringWithFormat:@"%@ %@", right[@"class"] ?: @"", right[@"selector"] ?: @""];
-            return [a localizedCaseInsensitiveCompare:b];
+            NSString *leftName = [NSString stringWithFormat:@"%@ %@", left[kWAGRValueClassKey] ?: @"", left[kWAGRValueSelectorKey] ?: @""];
+            NSString *rightName = [NSString stringWithFormat:@"%@ %@", right[kWAGRValueClassKey] ?: @"", right[kWAGRValueSelectorKey] ?: @""];
+            return [leftName localizedCaseInsensitiveCompare:rightName];
         }];
     }
 }
 
-static id WAGRRuntimeValueForcedValue(WAGRRuntimeValueHookDescriptor *descriptor) {
+static id WAGRRuntimeValueForcedValue(WAGRRuntimeValueHookDescriptor *descriptor,
+                                      BOOL *hasOverride) {
+    if (hasOverride) *hasOverride = NO;
     if (!descriptor.uid.length) return nil;
     WAGRRuntimeValueEnsureStorage();
     @synchronized (gWAGRValueLock) {
-        return gWAGRValueOverrides[descriptor.uid][@"value"];
+        NSDictionary *spec = gWAGRValueOverrides[descriptor.uid];
+        if (!spec) return nil;
+        if (hasOverride) *hasOverride = YES;
+        return WAGRRuntimeValueDecodeSpec(spec);
     }
 }
 
-static IMP WAGRRuntimeValueReplacement(WAGRRuntimeValueHookDescriptor *d) {
-    switch (d.typeCode) {
+static IMP WAGRRuntimeValueReplacement(WAGRRuntimeValueHookDescriptor *descriptor) {
+    switch (descriptor.typeCode) {
         case 'B': return imp_implementationWithBlock(^BOOL(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced boolValue];
-            return d.original ? ((BOOL (*)(id, SEL))d.original)(receiver, d.selector) : NO;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced boolValue];
+            return descriptor.original ? ((BOOL (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : NO;
         });
         case 'c': return imp_implementationWithBlock(^signed char(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return (signed char)[forced charValue];
-            return d.original ? ((signed char (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return (signed char)[forced charValue];
+            return descriptor.original ? ((signed char (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'C': return imp_implementationWithBlock(^unsigned char(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return (unsigned char)[forced unsignedCharValue];
-            return d.original ? ((unsigned char (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return (unsigned char)[forced unsignedCharValue];
+            return descriptor.original ? ((unsigned char (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 's': return imp_implementationWithBlock(^short(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return (short)[forced shortValue];
-            return d.original ? ((short (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return (short)[forced shortValue];
+            return descriptor.original ? ((short (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'S': return imp_implementationWithBlock(^unsigned short(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return (unsigned short)[forced unsignedShortValue];
-            return d.original ? ((unsigned short (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return (unsigned short)[forced unsignedShortValue];
+            return descriptor.original ? ((unsigned short (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'i': return imp_implementationWithBlock(^int(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced intValue];
-            return d.original ? ((int (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced intValue];
+            return descriptor.original ? ((int (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'I': return imp_implementationWithBlock(^unsigned int(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced unsignedIntValue];
-            return d.original ? ((unsigned int (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced unsignedIntValue];
+            return descriptor.original ? ((unsigned int (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'l': return imp_implementationWithBlock(^long(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced longValue];
-            return d.original ? ((long (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced longValue];
+            return descriptor.original ? ((long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'L': return imp_implementationWithBlock(^unsigned long(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced unsignedLongValue];
-            return d.original ? ((unsigned long (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced unsignedLongValue];
+            return descriptor.original ? ((unsigned long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'q': return imp_implementationWithBlock(^long long(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced longLongValue];
-            return d.original ? ((long long (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced longLongValue];
+            return descriptor.original ? ((long long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'Q': return imp_implementationWithBlock(^unsigned long long(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced unsignedLongLongValue];
-            return d.original ? ((unsigned long long (*)(id, SEL))d.original)(receiver, d.selector) : 0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced unsignedLongLongValue];
+            return descriptor.original ? ((unsigned long long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'f': return imp_implementationWithBlock(^float(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced floatValue];
-            return d.original ? ((float (*)(id, SEL))d.original)(receiver, d.selector) : 0.0f;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced floatValue];
+            return descriptor.original ? ((float (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0.0f;
         });
         case 'd': return imp_implementationWithBlock(^double(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return [forced doubleValue];
-            return d.original ? ((double (*)(id, SEL))d.original)(receiver, d.selector) : 0.0;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return [forced doubleValue];
+            return descriptor.original ? ((double (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0.0;
         });
         case '@': return imp_implementationWithBlock(^id(id receiver) {
-            id forced = WAGRRuntimeValueForcedValue(d);
-            if (forced) return forced == NSNull.null ? nil : forced;
-            return d.original ? ((id (*)(id, SEL))d.original)(receiver, d.selector) : nil;
+            BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
+            if (has) return forced;
+            return descriptor.original ? ((id (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : nil;
         });
         default: return NULL;
     }
@@ -292,10 +427,10 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
 NSUInteger WAGRRuntimeValueReinstallPersistedHooks(void) {
     NSUInteger installed = 0;
     for (NSDictionary *spec in WAGRRuntimeValueAllOverrideSpecs()) {
-        NSString *className = spec[@"class"];
-        NSString *selectorName = spec[@"selector"];
-        NSString *typeCode = spec[@"type"];
-        BOOL meta = [spec[@"meta"] boolValue];
+        NSString *className = spec[kWAGRValueClassKey];
+        NSString *selectorName = spec[kWAGRValueSelectorKey];
+        NSString *typeCode = spec[kWAGRValueTypeKey];
+        BOOL meta = [spec[kWAGRValueMetaKey] boolValue];
         if (WAGRRuntimeValueInstallHook(className, selectorName, meta, typeCode)) installed++;
     }
     return installed;
@@ -334,26 +469,26 @@ NSString *WAGRRuntimeValueRead(NSString *className,
 
     @try {
         switch ([type characterAtIndex:0]) {
-            case 'B': { BOOL v = ((BOOL (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return v ? @"YES" : @"NO"; }
-            case 'c': { signed char v = ((signed char (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%d", (int)v]; }
-            case 'C': { unsigned char v = ((unsigned char (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%u", (unsigned int)v]; }
-            case 's': { short v = ((short (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%d", (int)v]; }
-            case 'S': { unsigned short v = ((unsigned short (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%u", (unsigned int)v]; }
-            case 'i': { int v = ((int (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%d", v]; }
-            case 'I': { unsigned int v = ((unsigned int (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%u", v]; }
-            case 'l': { long v = ((long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%ld", v]; }
-            case 'L': { unsigned long v = ((unsigned long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%lu", v]; }
-            case 'q': { long long v = ((long long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%lld", v]; }
-            case 'Q': { unsigned long long v = ((unsigned long long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%llu", v]; }
-            case 'f': { float v = ((float (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%.9g", v]; }
-            case 'd': { double v = ((double (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(v); return [NSString stringWithFormat:@"%.17g", v]; }
+            case 'B': { BOOL value = ((BOOL (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return value ? @"YES" : @"NO"; }
+            case 'c': { signed char value = ((signed char (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%d", (int)value]; }
+            case 'C': { unsigned char value = ((unsigned char (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%u", (unsigned int)value]; }
+            case 's': { short value = ((short (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%d", (int)value]; }
+            case 'S': { unsigned short value = ((unsigned short (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%u", (unsigned int)value]; }
+            case 'i': { int value = ((int (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%d", value]; }
+            case 'I': { unsigned int value = ((unsigned int (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%u", value]; }
+            case 'l': { long value = ((long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%ld", value]; }
+            case 'L': { unsigned long value = ((unsigned long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%lu", value]; }
+            case 'q': { long long value = ((long long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%lld", value]; }
+            case 'Q': { unsigned long long value = ((unsigned long long (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%llu", value]; }
+            case 'f': { float value = ((float (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%.9g", value]; }
+            case 'd': { double value = ((double (*)(id, SEL))imp)(receiver, selector); if (rawValue) *rawValue = @(value); return [NSString stringWithFormat:@"%.17g", value]; }
             case '@': {
-                id v = ((id (*)(id, SEL))imp)(receiver, selector);
-                if (rawValue) *rawValue = v;
-                if (!v) return @"nil";
-                NSString *description = [v description] ?: @"(sem description)";
+                id value = ((id (*)(id, SEL))imp)(receiver, selector);
+                if (rawValue) *rawValue = value;
+                if (!value) return @"nil";
+                NSString *description = [value description] ?: @"(sem description)";
                 if (description.length > 500) description = [[description substringToIndex:500] stringByAppendingString:@"…"];
-                return [NSString stringWithFormat:@"%@ · %@", NSStringFromClass([v class]), description];
+                return [NSString stringWithFormat:@"%@ · %@", NSStringFromClass([value class]), description];
             }
             default: return @"tipo não suportado";
         }
