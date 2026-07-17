@@ -31,7 +31,6 @@
 - (NSArray *)sections;
 - (WATableSection *)addSection;
 - (WATableSection *)addSectionAtIndex:(NSInteger)index;
-- (void)reloadAllSections;
 - (id)userContext;
 @end
 
@@ -145,9 +144,9 @@ static void WAGRConfigureABPropsSection(WADebugViewController *controller) {
             if (strongController) WAGRPresentABPropsBrowser(strongController);
         }];
 
-        if ([controller respondsToSelector:@selector(reloadAllSections)]) {
-            [controller reloadAllSections];
-        }
+        // We are still inside -createSections. The original controller will
+        // consume this mutated section list immediately; forcing a reload here
+        // is unnecessary and can re-enter section construction on other builds.
         gWAGRABPropsSectionPatchCount++;
         WAGRLogAppendF(@"[DebugMenu][ABProps] native RC warning replaced; patchCount=%lu",
                        (unsigned long)gWAGRABPropsSectionPatchCount);
