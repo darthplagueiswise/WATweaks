@@ -1,15 +1,15 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "generated_from": [
     {
-      "file": "SharedModules(11)",
-      "sha256": "60b1dbe8e56dca400559980fde05216cdbdb7d6163304e6e6f9b0179ea0b71b8",
-      "size": 67488256
+      "file": "SharedModules",
+      "sha256": "236652b9a798fddd26ab94888221b8a59bbfc8d13306f2a86dfb871b0dff0fef",
+      "size": 71957088
     },
     {
-      "file": "WhatsApp(7)",
-      "sha256": "b17d1135796457a3ed93f2c67b4e7560de9df71c7fcdc67a9d9c7867e7c3ceed",
-      "size": 138781904
+      "file": "WhatsApp",
+      "sha256": "ff25d3d3e907ba1b5f8fcfcb48f3afbea8a11a5e6a2ecd788b5d6dffe4787384",
+      "size": 143867904
     },
     {
       "file": "WAABPrefixCategories.json",
@@ -21,8 +21,18 @@
     {
       "id": "WAABProperties",
       "file": "WAABProperties.json",
-      "classes_total": 273,
-      "selectors_total": 6807
+      "runtime_source_of_truth": true,
+      "categories_total": 359,
+      "methods_total": 5637,
+      "classes_total": 1,
+      "selectors_total": 5426,
+      "return_type_counts": {
+        "B": 4188,
+        "q": 1037,
+        "d": 92,
+        "@": 319,
+        "I": 1
+      }
     },
     {
       "id": "WAABPrefixCategories",
@@ -105,7 +115,7 @@
       "from": "WAABProperties",
       "to": "FOAWAABPropertiesImpl",
       "confidence": "high",
-      "reason": "FOAWAABPropertiesImpl exposes boolForKey/stringForKey/integer accessors and wraps AB properties."
+      "reason": "FOAWAABPropertiesImpl exposes typed key readers while WAABProperties owns thousands of category getters."
     },
     {
       "from": "WAAuraGating",
@@ -134,6 +144,8 @@
   ],
   "runtime_taxonomy_policy": {
     "prefix_first": true,
+    "typed_overrides": true,
+    "override_identity": "class + class/instance + selector",
     "subcategories_first": [
       "Negative · Kill Switch",
       "Negative · Disabled",
@@ -152,11 +164,11 @@
       "AI / Meta AI",
       "Internal / Dogfood"
     ],
-    "startup_policy": "No runtime scan at startup; scan only when the menu opens and install hooks only for explicit toggles."
+    "startup_policy": "No global runtime scan at startup; scan only when a browser opens and reinstall only exact persisted typed hooks."
   },
   "backup_import_policy": {
-    "export_scope": "NSUserDefaults keys owned by WATweaks only: wagr*, WAGR*, wa_*, selected WA legacy keys already used by the tweak",
+    "export_scope": "Registered WATweaks preferences including watweak_runtime_value_overrides_v1",
     "import_policy": "mirror: apply all JSON preferences and remove existing WATweaks keys absent from the imported JSON",
-    "reason": "runtime inventory maps feature groups; backup stores user choices, not raw binary state"
+    "reason": "runtime inventory maps current binary state; backup stores typed user overrides and tweak preferences"
   }
 }
