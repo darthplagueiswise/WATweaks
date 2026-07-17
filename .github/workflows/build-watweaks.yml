@@ -75,17 +75,21 @@ jobs:
             src/Menu/WAGRSurfaceBrowserVC.m
             src/Runtime/WAGRABPropsRuntime.h
             src/Runtime/WAGRABPropsRuntime.m
+            src/Runtime/WAGRRuntimeClassifier.h
+            src/Runtime/WAGRRuntimeClassifier.m
             src/Runtime/WAGRRuntimeValueStore.h
             src/Runtime/WAGRRuntimeValueStore.m
             src/Runtime/WAGRSurface.h
             src/Runtime/WAGRSurface.m
+            src/WADefaults.m
             src/WAUtils.m
+            resources/runtime/WAABProperties.json
           )
           for file in "${files[@]}"; do
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
           done
           ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' "${files[@]}"
-          if grep -n -E '\bnullable[[:space:]]+id\b' \
+          if grep -n -E 'nullable[[:space:]]+id' \
               src/Runtime/WAGRABPropsRuntime.h \
               src/Runtime/WAGRRuntimeValueStore.h \
               src/Menu/WAGRABPropsBrowserVC.h \
@@ -103,11 +107,51 @@ jobs:
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
           grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
+          grep -q 'WA_PREF_RUNTIME_VALUE_OVERRIDES' src/WADefaults.m
           grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
+          grep -q 'WAGRRuntimeSectionForSelector' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
+          grep -q 'scopeButtonTitles' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q '"selectors_unique": 5426' resources/runtime/WAABProperties.json
+          grep -q 'WACachedCopyMutableArray' src/Hooks/WAGRDebugMenuInstrumentation.xm
+
+      - name: Validate current WAABProperties catalog
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path('resources/runtime/WAABProperties.json').read_text())
+          assert data['schema_version'] == 3, data.get('schema_version')
+          hashes = {item['file']: item['sha256'] for item in data['generated_from']}
+          assert hashes == {
+              'WhatsApp': 'ff25d3d3e907ba1b5f8fcfcb48f3afbea8a11a5e6a2ecd788b5d6dffe4787384',
+              'SharedModules': '236652b9a798fddd26ab94888221b8a59bbfc8d13306f2a86dfb871b0dff0fef',
+          }, hashes
+          stats = data['stats']
+          assert stats['categories_whatsapp'] == 741, stats
+          assert stats['categories_sharedmodules'] == 365, stats
+          assert stats['methods_raw'] == 11075, stats
+          assert stats['selectors_unique'] == 10356, stats
+          assert stats['selectors_supported'] == 10355, stats
+          assert stats['selectors_by_preferred_type'] == {
+              '@': 577, 'B': 7782, 'I': 1, 'd': 199, 'q': 1796, 'v': 1
+          }, stats['selectors_by_preferred_type']
+          required = {
+              'isMetaEmployeeOrInternalTester',
+              'is_internal_tester',
+              'is_meta_employee_or_internal_tester',
+              'waios_mc_debug_ui_enabled',
+              'private_experimentation_should_sync',
+              'dogfooding_nudge_settings_entrypoint_enabled',
+              'ios_internal_rage_shake_enabled',
+              'whatsbroken_enabled',
+          }
+          missing = sorted(required - set(data['selectors']))
+          assert not missing, missing
+          print('WAAB catalog OK:', stats['selectors_supported'], 'supported selectors')
+          PY
 
       - name: Build rootless package
         run: |
