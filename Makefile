@@ -54,5 +54,8 @@ after-stage::
 	@cp -f resources/*.json "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/" 2>/dev/null || true
 	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/runtime"
 	@cp -f resources/runtime/*.json "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/runtime/" 2>/dev/null || true
+	@for f in resources/runtime/*.json.gz; do \
+		[ -f "$$f" ] && gzip -dc "$$f" > "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/runtime/$$(basename "$$f" .gz)" 2>/dev/null || true; \
+	done
 	@mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/docs"
 	@cp -f docs/*.md "$(THEOS_STAGING_DIR)/Library/Application Support/WATweaks/docs/" 2>/dev/null || true
