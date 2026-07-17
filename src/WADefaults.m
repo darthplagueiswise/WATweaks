@@ -1,7 +1,8 @@
 // WADefaults.m
-// Following RyukGramPriv / AGENTS.md baseline for WATweaks (WA prefix)
+// Registered preferences are the single source used by backup/export.
 
 #import "WADefaults.h"
+#import "WAPrefix.h"
 #import <Foundation/Foundation.h>
 
 static NSDictionary<NSString *, id> *gWADefaults = nil;
@@ -10,7 +11,13 @@ static dispatch_once_t gWADefaultsOnce;
 NSDictionary<NSString *, id> * WADefaultsDictionary(void) {
     dispatch_once(&gWADefaultsOnce, ^{
         gWADefaults = @{
-            // Gate / override system (core persisted feature)
+            // Employee / Dogfood / Internal
+            WA_PREF_EMPLOYEE_MASTER : @NO,
+            WA_PREF_EMPLOYEE_SWEEP : @NO,
+            WA_PREF_EMPLOYEE_SWEEP_OVERRIDES : @{},
+            WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP : @{},
+
+            // Gate / override system
             @"watweak_gate_eligibility_master" : @NO,
             @"watweak_gate_username_master" : @NO,
             @"watweak_gate_premium_broadcast" : @NO,
@@ -25,11 +32,15 @@ NSDictionary<NSString *, id> * WADefaultsDictionary(void) {
             @"watweak_gate_isDebugMenuAllowed" : @NO,
             @"watweak_bundle_aura_simulation" : @NO,
 
-            // Liquid Glass
-            @"wa_liquid_glass_userdefaults_overrides" : @NO,
-            @"wa_liquid_glass_method_hooks" : @NO,
+            // Runtime observers / compatibility
+            WA_PREF_AB_OBSERVER : @NO,
+            WA_PREF_KEYCHAIN_REWRITE : @NO,
+            WA_PREF_KEYCHAIN_OBSERVER : @NO,
 
-            // Add new keys here when introducing features.
+            // Liquid Glass
+            WA_PREF_LIQUID_GLASS : @NO,
+            WA_PREF_LIQUID_GLASS_USERDEFAULTS : @NO,
+            WA_PREF_LIQUID_GLASS_METHOD_HOOKS : @NO,
         };
     });
     return gWADefaults;
