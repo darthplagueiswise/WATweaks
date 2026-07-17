@@ -9,16 +9,18 @@ static void WAGRRuntimeEditorApply(NSString *className,
                                    id value,
                                    dispatch_block_t completion) {
     WAGRRuntimeValueSetOverride(className, selectorName, meta, typeCode, value);
-    (void)WAGRRuntimeValueInstallHook(className, selectorName, meta, typeCode);
+    if (WAGRRuntimeValueHasOverride(className, selectorName, meta)) {
+        (void)WAGRRuntimeValueInstallHook(className, selectorName, meta, typeCode);
+    }
     if (completion) completion();
 }
 
 static void WAGRRuntimeEditorPrompt(UIViewController *presenter,
-                                    NSString *title,
-                                    NSString *message,
-                                    NSString *initial,
-                                    UIKeyboardType keyboard,
-                                    void (^parseAndApply)(NSString *text)) {
+                                     NSString *title,
+                                     NSString *message,
+                                     NSString *initial,
+                                     UIKeyboardType keyboard,
+                                     void (^parseAndApply)(NSString *text)) {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -29,50 +31,150 @@ static void WAGRRuntimeEditorPrompt(UIViewController *presenter,
         field.autocapitalizationType = UITextAutocapitalizationTypeNone;
         field.clearButtonMode = UITextFieldViewModeWhileEditing;
     }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Aplicar" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar"
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Aplicar"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(__unused UIAlertAction *action) {
         NSString *text = alert.textFields.firstObject.text ?: @"";
         if (parseAndApply) parseAndApply(text);
     }]];
     [presenter presentViewController:alert animated:YES completion:nil];
 }
 
-static id WAGRRuntimeParseObjectText(NSString *text, id currentRaw, NSString **error) {
-    if (error) *error = nil;
-    if ([currentRaw isKindOfClass:NSNumber.class]) {
-        NSScanner *scanner = [NSScanner scannerWithString:text ?: @""];
-        double value = 0.0;
-        if (![scanner scanDouble:&value] || !scanner.isAtEnd) {
-            if (error) *error = @"Número inválido.";
-            return nil;
-        }
-        return @(value);
-    }
-
-    NSString *trimmed = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    if ([currentRaw isKindOfClass:NSArray.class] ||
-        [currentRaw isKindOfClass:NSDictionary.class] ||
-        [trimmed hasPrefix:@"["] || [trimmed hasPrefix:@"{"]) {
-        NSData *data = [trimmed dataUsingEncoding:NSUTF8StringEncoding];
-        NSError *jsonError = nil;
-        id object = data ? [NSJSONSerialization JSONObjectWithData:data
-                                                           options:NSJSONReadingFragmentsAllowed
-                                                             error:&jsonError] : nil;
-        if (!object || jsonError) {
-            if (error) *error = jsonError.localizedDescription ?: @"JSON inválido.";
-            return nil;
-        }
-        return object;
-    }
-    return text ?: @"";
-}
-
 static void WAGRRuntimeShowParseError(UIViewController *presenter, NSString *message) {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Valor inválido"
                                                                    message:message ?: @"Não foi possível converter o valor."
                                                             preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
     [presenter presentViewController:alert animated:YES completion:nil];
+}
+
+static id WAGRRuntimeParseJSON(NSString *text, NSString **error) {
+    NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding];
+    NSError *jsonError = nil;
+    id object = data ? [NSJSONSerialization JSONObjectWithData:data
+                                                      options:NSJSONReadingFragmentsAllowed
+                                                        error:&jsonError] : nil;
+    if (!object || jsonError) {
+        if (error) *error = jsonError.localizedDescription ?: @"JSON inválido.";
+        return nil;
+    }
+    return object;
+}
+
+static NSNumber *WAGRRuntimeParseDecimalNumber(NSString *text, NSString **error) {
+    NSString *trimmed = [text stringByTrimmingCharactersInSet:
+        NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSDecimalNumber *number = [NSDecimalNumber decimalNumberWithString:trimmed
+                                                                locale:@{ NSLocaleDecimalSeparator: @"." }];
+    if (!trimmed.length || [number isEqualToNumber:NSDecimalNumber.notANumber]) {
+        if (error) *error = @"Número inválido.";
+        return nil;
+    }
+    return number;
+}
+
+static NSString *WAGRRuntimeObjectInitialText(id value) {
+    if (!value || value == NSNull.null) return @"";
+    if ([value isKindOfClass:NSString.class]) return value;
+    if ([value isKindOfClass:NSNumber.class]) return [value description];
+    if ([value isKindOfClass:NSURL.class]) return [(NSURL *)value absoluteString] ?: @"";
+    if ([value isKindOfClass:NSData.class]) return [(NSData *)value base64EncodedStringWithOptions:0] ?: @"";
+    if ([value isKindOfClass:NSDate.class]) return [NSString stringWithFormat:@"%.6f", [(NSDate *)value timeIntervalSince1970]];
+
+    id jsonObject = value;
+    if ([value isKindOfClass:NSSet.class]) jsonObject = [(NSSet *)value allObjects];
+    if ([NSJSONSerialization isValidJSONObject:jsonObject]) {
+        NSData *data = [NSJSONSerialization dataWithJSONObject:jsonObject
+                                                       options:NSJSONWritingPrettyPrinted
+                                                         error:nil];
+        if (data) return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"";
+    }
+    return [value description] ?: @"";
+}
+
+static id WAGRRuntimeParseObjectText(NSString *text, id currentRaw, NSString **error) {
+    if (error) *error = nil;
+    NSString *trimmed = [text stringByTrimmingCharactersInSet:
+        NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSString *lower = trimmed.lowercaseString;
+
+    if ([lower isEqualToString:@"nil"] || [lower isEqualToString:@"null"]) return NSNull.null;
+    if ([lower hasPrefix:@"string:"]) return [trimmed substringFromIndex:7];
+    if ([lower hasPrefix:@"number:"]) {
+        return WAGRRuntimeParseDecimalNumber([trimmed substringFromIndex:7], error);
+    }
+    if ([lower hasPrefix:@"url:"]) {
+        NSURL *url = [NSURL URLWithString:[trimmed substringFromIndex:4]];
+        if (!url) { if (error) *error = @"URL inválida."; return nil; }
+        return url;
+    }
+    if ([lower hasPrefix:@"data:"]) {
+        NSData *data = [[NSData alloc] initWithBase64EncodedString:[trimmed substringFromIndex:5]
+                                                           options:0];
+        if (!data) { if (error) *error = @"Base64 inválido."; return nil; }
+        return data;
+    }
+    if ([lower hasPrefix:@"date:"]) {
+        NSNumber *number = WAGRRuntimeParseDecimalNumber([trimmed substringFromIndex:5], error);
+        return number ? [NSDate dateWithTimeIntervalSince1970:number.doubleValue] : nil;
+    }
+    if ([lower hasPrefix:@"json:"]) {
+        return WAGRRuntimeParseJSON([trimmed substringFromIndex:5], error);
+    }
+    if ([lower hasPrefix:@"set:"]) {
+        id object = WAGRRuntimeParseJSON([trimmed substringFromIndex:4], error);
+        if (![object isKindOfClass:NSArray.class]) {
+            if (error && !*error) *error = @"set: exige um array JSON.";
+            return nil;
+        }
+        return [NSSet setWithArray:object];
+    }
+
+    if ([currentRaw isKindOfClass:NSNumber.class]) {
+        return WAGRRuntimeParseDecimalNumber(trimmed, error);
+    }
+    if ([currentRaw isKindOfClass:NSURL.class]) {
+        NSURL *url = [NSURL URLWithString:trimmed];
+        if (!url) { if (error) *error = @"URL inválida."; return nil; }
+        return url;
+    }
+    if ([currentRaw isKindOfClass:NSData.class]) {
+        NSData *data = [[NSData alloc] initWithBase64EncodedString:trimmed options:0];
+        if (!data) { if (error) *error = @"Base64 inválido."; return nil; }
+        return data;
+    }
+    if ([currentRaw isKindOfClass:NSDate.class]) {
+        NSNumber *number = WAGRRuntimeParseDecimalNumber(trimmed, error);
+        return number ? [NSDate dateWithTimeIntervalSince1970:number.doubleValue] : nil;
+    }
+    if ([currentRaw isKindOfClass:NSSet.class]) {
+        id object = WAGRRuntimeParseJSON(trimmed, error);
+        if (![object isKindOfClass:NSArray.class]) {
+            if (error && !*error) *error = @"NSSet exige um array JSON.";
+            return nil;
+        }
+        return [NSSet setWithArray:object];
+    }
+    if ([currentRaw isKindOfClass:NSArray.class] ||
+        [currentRaw isKindOfClass:NSDictionary.class] ||
+        [trimmed hasPrefix:@"["] || [trimmed hasPrefix:@"{"]) {
+        return WAGRRuntimeParseJSON(trimmed, error);
+    }
+    return text ?: @"";
+}
+
+static NSString *WAGRRuntimeObjectHelp(id currentRaw) {
+    NSString *currentClass = currentRaw ? NSStringFromClass([currentRaw class]) : @"nil";
+    return [NSString stringWithFormat:
+        @"Objeto atual: %@. Digite o valor mantendo o tipo atual, ou use prefixos explícitos: "
+         "string:, number:, url:, data:<base64>, date:<timestamp>, json:<JSON>, set:<array JSON>. "
+         "Para objetos customizados, a substituição por Foundation é avançada e pode ser rejeitada pelo consumidor.",
+        currentClass];
 }
 
 void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
@@ -89,12 +191,15 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
     BOOL overridden = WAGRRuntimeValueHasOverride(className, selectorName, isClassMethod);
     id override = WAGRRuntimeValueOverride(className, selectorName, isClassMethod);
     NSString *typeName = WAGRRuntimeValueTypeName(typeCode) ?: typeCode;
+    NSString *overrideDescription = overridden
+        ? (override ? [override description] : @"nil")
+        : nil;
     NSString *message = [NSString stringWithFormat:@"%@\n%@ method · %@\nAtual: %@%@",
-                         className,
-                         isClassMethod ? @"class" : @"instance",
-                         typeName,
-                         currentDescription ?: @"?",
-                         overridden ? [NSString stringWithFormat:@"\nOverride: %@", override ?: @"nil"] : @""];
+        className,
+        isClassMethod ? @"class" : @"instance",
+        typeName,
+        currentDescription ?: @"?",
+        overridden ? [NSString stringWithFormat:@"\nOverride: %@", overrideDescription] : @""];
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:selectorName
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleActionSheet];
@@ -111,8 +216,8 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
     } else if (WAGRRuntimeValueTypeIsSignedInteger(typeCode)) {
         [sheet addAction:[UIAlertAction actionWithTitle:@"Definir inteiro…" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
             NSString *initial = overridden ? [override description] : [currentRawValue description];
-            WAGRRuntimeEditorPrompt(presenter, selectorName, @"Inteiro decimal com sinal.", initial, UIKeyboardTypeNumbersAndPunctuation, ^(NSString *text) {
-                NSScanner *scanner = [NSScanner scannerWithString:text];
+            WAGRRuntimeEditorPrompt(presenter, selectorName, @"Inteiro decimal com sinal.", initial, UIKeyboardTypeNumbersAndPunctuation, ^(NSString *valueText) {
+                NSScanner *scanner = [NSScanner scannerWithString:valueText];
                 long long value = 0;
                 if (![scanner scanLongLong:&value] || !scanner.isAtEnd) {
                     WAGRRuntimeShowParseError(presenter, @"Inteiro decimal inválido.");
@@ -124,13 +229,13 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
     } else if (WAGRRuntimeValueTypeIsUnsignedInteger(typeCode)) {
         [sheet addAction:[UIAlertAction actionWithTitle:@"Definir inteiro sem sinal…" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
             NSString *initial = overridden ? [override description] : [currentRawValue description];
-            WAGRRuntimeEditorPrompt(presenter, selectorName, @"Inteiro decimal maior ou igual a zero.", initial, UIKeyboardTypeNumberPad, ^(NSString *text) {
-                if (!text.length || [text hasPrefix:@"-"]) {
+            WAGRRuntimeEditorPrompt(presenter, selectorName, @"Inteiro decimal maior ou igual a zero.", initial, UIKeyboardTypeNumberPad, ^(NSString *valueText) {
+                if (!valueText.length || [valueText hasPrefix:@"-"]) {
                     WAGRRuntimeShowParseError(presenter, @"Inteiro sem sinal inválido.");
                     return;
                 }
                 char *end = NULL;
-                unsigned long long value = strtoull(text.UTF8String, &end, 10);
+                unsigned long long value = strtoull(valueText.UTF8String, &end, 10);
                 if (!end || *end != '\0') {
                     WAGRRuntimeShowParseError(presenter, @"Inteiro decimal inválido.");
                     return;
@@ -141,8 +246,8 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
     } else if (WAGRRuntimeValueTypeIsFloatingPoint(typeCode)) {
         [sheet addAction:[UIAlertAction actionWithTitle:@"Definir decimal…" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
             NSString *initial = overridden ? [override description] : [currentRawValue description];
-            WAGRRuntimeEditorPrompt(presenter, selectorName, @"Número decimal.", initial, UIKeyboardTypeDecimalPad, ^(NSString *text) {
-                NSScanner *scanner = [NSScanner scannerWithString:text];
+            WAGRRuntimeEditorPrompt(presenter, selectorName, @"Número decimal usando ponto.", initial, UIKeyboardTypeDecimalPad, ^(NSString *valueText) {
+                NSScanner *scanner = [NSScanner scannerWithString:valueText];
                 double value = 0.0;
                 if (![scanner scanDouble:&value] || !scanner.isAtEnd) {
                     WAGRRuntimeShowParseError(presenter, @"Número decimal inválido.");
@@ -152,40 +257,22 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
             });
         }]];
     } else if (WAGRRuntimeValueTypeIsObject(typeCode)) {
-        BOOL editableObject = !currentRawValue ||
-            [currentRawValue isKindOfClass:NSString.class] ||
-            [currentRawValue isKindOfClass:NSNumber.class] ||
-            [currentRawValue isKindOfClass:NSArray.class] ||
-            [currentRawValue isKindOfClass:NSDictionary.class] ||
-            currentRawValue == NSNull.null;
-        if (editableObject) {
-            [sheet addAction:[UIAlertAction actionWithTitle:@"Definir objeto/JSON…" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-                NSString *initial = overridden ? [override description] : [currentRawValue description];
-                if ([currentRawValue isKindOfClass:NSArray.class] || [currentRawValue isKindOfClass:NSDictionary.class]) {
-                    NSData *data = [NSJSONSerialization dataWithJSONObject:currentRawValue options:0 error:nil];
-                    if (data) initial = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        [sheet addAction:[UIAlertAction actionWithTitle:@"Definir objeto Foundation…" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            id initialObject = overridden ? override : currentRawValue;
+            NSString *initial = WAGRRuntimeObjectInitialText(initialObject);
+            WAGRRuntimeEditorPrompt(presenter, selectorName, WAGRRuntimeObjectHelp(currentRawValue), initial, UIKeyboardTypeDefault, ^(NSString *valueText) {
+                NSString *parseError = nil;
+                id value = WAGRRuntimeParseObjectText(valueText, currentRawValue, &parseError);
+                if (!value) {
+                    WAGRRuntimeShowParseError(presenter, parseError);
+                    return;
                 }
-                WAGRRuntimeEditorPrompt(presenter, selectorName,
-                    @"String, número ou JSON. O tipo do objeto atual é preservado quando possível.",
-                    initial, UIKeyboardTypeDefault, ^(NSString *text) {
-                        NSString *parseError = nil;
-                        id value = WAGRRuntimeParseObjectText(text, currentRawValue, &parseError);
-                        if (!value) {
-                            WAGRRuntimeShowParseError(presenter, parseError);
-                            return;
-                        }
-                        WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, value, completion);
-                    });
-            }]];
-            [sheet addAction:[UIAlertAction actionWithTitle:@"Force nil" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, NSNull.null, completion);
-            }]];
-        } else {
-            [sheet addAction:[UIAlertAction actionWithTitle:@"Objeto customizado: copiar para hook tipado" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-                UIPasteboard.generalPasteboard.string = [NSString stringWithFormat:@"%@ %@ %@ = %@",
-                    isClassMethod ? @"+" : @"-", className, selectorName, currentDescription ?: @"?"];
-            }]];
-        }
+                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, value, completion);
+            });
+        }]];
+        [sheet addAction:[UIAlertAction actionWithTitle:@"Force nil" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, NSNull.null, completion);
+        }]];
     }
 
     if (overridden) {
@@ -196,7 +283,8 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
     }
     [sheet addAction:[UIAlertAction actionWithTitle:@"Copiar nome + valor" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         UIPasteboard.generalPasteboard.string = [NSString stringWithFormat:@"%@ %@ %@ (%@) = %@",
-            isClassMethod ? @"+" : @"-", className, selectorName, typeName, currentDescription ?: @"?"];
+            isClassMethod ? @"+" : @"-", className, selectorName,
+            typeName, currentDescription ?: @"?"];
     }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
     [presenter presentViewController:sheet animated:YES completion:nil];
