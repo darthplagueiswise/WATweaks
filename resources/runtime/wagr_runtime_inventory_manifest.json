@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "generated_from": [
     {
       "file": "SharedModules",
@@ -8,13 +8,8 @@
     },
     {
       "file": "WhatsApp",
-      "sha256": "ff25d3d3e907ba1b5f8fcfcb48f3afbea8a11a5e6a2ecd788b5d6dffe4787384",
+      "sha256": "ff25d3d3e907ba1b5f8fcfcb48f3afbea8a11e5e6a2ecd788b5d6dffe4787384",
       "size": 143867904
-    },
-    {
-      "file": "WAABPrefixCategories.json",
-      "sha256": "7a8bda3057590d045634d56c98f243f68c29d5f6eb2e187de29224df7e485c11",
-      "size": 16334
     }
   ],
   "groups": [
@@ -22,10 +17,10 @@
       "id": "WAABProperties",
       "file": "WAABProperties.json",
       "runtime_source_of_truth": true,
-      "categories_total": 359,
+      "categories_total": 330,
       "methods_total": 5637,
-      "classes_total": 1,
       "selectors_total": 5426,
+      "selectors_with_multiple_origins": 179,
       "return_type_counts": {
         "B": 4188,
         "q": 1037,
@@ -33,15 +28,6 @@
         "@": 319,
         "I": 1
       }
-    },
-    {
-      "id": "WAABPrefixCategories",
-      "file": "WAABPrefixCategories.json",
-      "classes_total": 0,
-      "selectors_total": 0,
-      "prefix_groups_total": 22,
-      "subcategories_total": 12,
-      "feature_bundles_total": 10
     },
     {
       "id": "WAContext",
@@ -88,87 +74,41 @@
   ],
   "relationships": [
     {
-      "from": "WAABPrefixCategories",
-      "to": "RuntimeClassifier",
+      "from": "WAABProperties",
+      "to": "WAGRRuntimeClassifier",
       "confidence": "high",
-      "reason": "The resource mirrors the prefix/subcategory order used by WAGRRuntimeClassifier so the runtime browser can keep a stable visual taxonomy even as selector inventory changes."
-    },
-    {
-      "from": "WAABPrefixCategories",
-      "to": "WAABProperties",
-      "confidence": "high",
-      "reason": "WAAB selectors are grouped by their own key prefix first, then by negative/positive/debug subcategory, instead of collapsing under the broad WAABProperties owner class."
-    },
-    {
-      "from": "WAServerProperties",
-      "to": "WAContext/WAContextMain",
-      "confidence": "high",
-      "reason": "WAServerProperties exposes userContext/setUserContext/configureUserContext and isInternalUser; WAContextMain exists only in main executable."
-    },
-    {
-      "from": "WAContext",
-      "to": "WAContextMain",
-      "confidence": "high",
-      "reason": "SharedModules has WAContext/container classes; main executable has WAContextMain concrete graph with many managers/services."
+      "reason": "Live selectors are grouped by their own prefix and negative/positive/debug semantics instead of collapsing under the WAABProperties owner class."
     },
     {
       "from": "WAABProperties",
       "to": "FOAWAABPropertiesImpl",
       "confidence": "high",
-      "reason": "FOAWAABPropertiesImpl exposes typed key readers while WAABProperties owns thousands of category getters."
+      "reason": "WAABProperties owns category getters while FOAWAABPropertiesImpl exposes typed key readers and related context."
+    },
+    {
+      "from": "WAServerProperties",
+      "to": "WAContext/WAContextMain",
+      "confidence": "high",
+      "reason": "WAServerProperties exposes internal-user and user-context state used by the concrete account graph."
     },
     {
       "from": "WAAuraGating",
-      "to": "WAAura/WAAuraFoundation controllers",
+      "to": "WAAura controllers",
       "confidence": "high",
-      "reason": "SharedModules exposes AuraGating/GatedBenefit/GatedSubscription; main executable exposes AppThemesViewController/AppIconsViewController/AuraProviding."
-    },
-    {
-      "from": "FOA",
-      "to": "WAFoaAppUtilities",
-      "confidence": "high",
-      "reason": "WAFoaAppUtilities exposes installed-state class properties for Facebook/Instagram/Threads/MetaAI."
-    },
-    {
-      "from": "WABiz",
-      "to": "WAABProperties",
-      "confidence": "high",
-      "reason": "WABiz.BizManager contains an abProperties ivar; many WABiz surfaces are server/AB gated."
-    },
-    {
-      "from": "Contacts/About",
-      "to": "WAInfoTopHeaderView.OnlinePresenceDotView",
-      "confidence": "medium",
-      "reason": "OnlinePresenceDotView is UI only; actual gates are likely WAAB/WAContextMain services."
+      "reason": "SharedModules provides the gating layer and the executable provides the corresponding UI surfaces."
     }
   ],
-  "runtime_taxonomy_policy": {
+  "runtime_policy": {
     "prefix_first": true,
+    "negative_gates_first": true,
     "typed_overrides": true,
     "override_identity": "class + class/instance + selector",
-    "subcategories_first": [
-      "Negative · Kill Switch",
-      "Negative · Disabled",
-      "Negative · Hide / Suppress",
-      "Negative · Block / Deny"
-    ],
-    "important_prefixes": [
-      "GraphQL",
-      "WAMO",
-      "XFAMG",
-      "WAiOS",
-      "MobileConfig",
-      "Private Experimentation",
-      "WDS / LiquidGlass",
-      "WA Plus / Aura",
-      "AI / Meta AI",
-      "Internal / Dogfood"
-    ],
-    "startup_policy": "No global runtime scan at startup; scan only when a browser opens and reinstall only exact persisted typed hooks."
+    "startup_scan": false,
+    "persisted_reinstall": "exact hooks only",
+    "object_policy": "Foundation objects and nil are persisted; custom model replacement remains guarded"
   },
-  "backup_import_policy": {
-    "export_scope": "Registered WATweaks preferences including watweak_runtime_value_overrides_v1",
-    "import_policy": "mirror: apply all JSON preferences and remove existing WATweaks keys absent from the imported JSON",
-    "reason": "runtime inventory maps current binary state; backup stores typed user overrides and tweak preferences"
+  "backup_policy": {
+    "registered_preference": "watweak_runtime_value_overrides_v1",
+    "content": "typed user overrides keyed by exact runtime target"
   }
 }
