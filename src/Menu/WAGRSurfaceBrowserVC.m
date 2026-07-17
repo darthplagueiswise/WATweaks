@@ -43,12 +43,14 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
     self.search = [[UISearchController alloc] initWithSearchResultsController:nil];
     self.search.searchResultsUpdater = self;
     self.search.obscuresBackgroundDuringPresentation = NO;
-    self.search.searchBar.placeholder = @"Buscar área, classe, método ou tipo";
+    self.search.searchBar.placeholder = @"Buscar categoria, área, classe, método ou tipo";
     self.navigationItem.searchController = self.search;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
 
-    UIBarButtonItem *scan = [[UIBarButtonItem alloc] initWithTitle:@"Scan" style:UIBarButtonItemStylePlain target:self action:@selector(scanNow)];
-    UIBarButtonItem *apply = [[UIBarButtonItem alloc] initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone target:self action:@selector(applyVisibleOverrides)];
+    UIBarButtonItem *scan = [[UIBarButtonItem alloc] initWithTitle:@"Scan"
+        style:UIBarButtonItemStylePlain target:self action:@selector(scanNow)];
+    UIBarButtonItem *apply = [[UIBarButtonItem alloc] initWithTitle:@"Aplicar"
+        style:UIBarButtonItemStyleDone target:self action:@selector(applyVisibleOverrides)];
     self.navigationItem.rightBarButtonItems = @[apply, scan];
 }
 
@@ -57,13 +59,40 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
     if (!self.didScan) [self scanNow];
 }
 
+- (BOOL)isWAABSurface {
+    return [[self.spec.surfaceID lowercaseString] isEqualToString:@"waab"];
+}
+
 - (NSArray *)resolveRuntimeObjects {
     id context = WAGRCurrentUserContext();
-    NSString *surfaceID = self.spec.surfaceID.lowercaseString ?: @"";
-    if ([surfaceID isEqualToString:@"waab"] || [surfaceID isEqualToString:@"privateexperimentation"]) {
+    NSString *sid = self.spec.surfaceID.lowercaseString ?: @"";
+    if ([sid isEqualToString:@"waab"] ||
+        [sid isEqualToString:@"privateexperimentation"]) {
         return WAGRABPropsResolveRuntimeObjects(context);
     }
     return context ? @[context] : @[];
+}
+
+- (NSArray<WAGREntry *> *)WAABEntriesFromObjects:(NSArray *)objects {
+    NSMutableArray<WAGREntry *> *converted = [NSMutableArray array];
+    for (WAGRABPropEntry *source in WAGRABPropsScan(objects)) {
+        WAGREntry *entry = [WAGREntry new];
+        entry.surfaceID = @"waab";
+        entry.className = source.className;
+        entry.isClassMethod = source.classMethod;
+        entry.isProperty = NO;
+        entry.selectorName = source.selectorName;
+        entry.displayName = source.selectorName;
+        entry.category = source.categoryName.length ? source.categoryName : source.className;
+        entry.returnType = source.typeName;
+        entry.typeCode = source.typeCode;
+        entry.typeName = source.typeName;
+        entry.overrideKey = WAGRRuntimeValueUID(source.className,
+                                                source.selectorName,
+                                                source.classMethod);
+        [converted addObject:entry];
+    }
+    return converted;
 }
 
 - (void)scanNow {
@@ -71,8 +100,11 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
     WAGRSurfaceSpec *spec = self.spec;
     self.title = @"Escaneando…";
     NSArray *objects = [self resolveRuntimeObjects];
+    BOOL waab = [self isWAABSurface];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSArray<WAGREntry *> *entries = [WAGRScanner scanSurface:spec];
+        NSArray<WAGREntry *> *entries = waab
+            ? [self WAABEntriesFromObjects:objects]
+            : [WAGRScanner scanSurface:spec];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.runtimeObjects = objects ?: @[];
             self.allEntries = entries ?: @[];
@@ -86,11 +118,13 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
         componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     NSArray<WAGREntry *> *base = self.allEntries;
     if (query.length) {
-        base = [base filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(WAGREntry *entry, __unused NSDictionary *bindings) {
-            NSString *runtimeSection = WAGRRuntimeSectionForSelector(entry.selectorName, entry.className);
-            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@",
-                entry.className ?: @"", entry.selectorName ?: @"", entry.displayName ?: @"",
-                entry.typeName ?: @"", runtimeSection ?: @"",
+        base = [base filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(
+            WAGREntry *entry, __unused NSDictionary *bindings) {
+            NSString *runtimeSection = WAGRRuntimeSectionForSelector(entry.selectorName,
+                                                                      entry.className);
+            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@",
+                entry.category ?: @"", runtimeSection ?: @"", entry.className ?: @"",
+                entry.selectorName ?: @"", entry.displayName ?: @"", entry.typeName ?: @"",
                 entry.isClassMethod ? @"class" : @"instance"].lowercaseString;
             for (NSString *token in tokens) {
                 if (token.length && ![haystack containsString:token]) return NO;
@@ -99,10 +133,17 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
         }]];
     }
 
-    NSMutableDictionary<NSString *, NSMutableArray<WAGREntry *> *> *groups = [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSString *, NSMutableArray<WAGREntry *> *> *groups =
+        [NSMutableDictionary dictionary];
+    BOOL waab = [self isWAABSurface];
     for (WAGREntry *entry in base) {
-        NSString *section = WAGRRuntimeSectionForSelector(entry.selectorName, entry.className);
-        if (!section.length) section = entry.className.length ? entry.className : @"Other — General";
+        NSString *section = nil;
+        if (waab && entry.category.length) {
+            section = entry.category;
+        } else {
+            section = WAGRRuntimeSectionForSelector(entry.selectorName, entry.className);
+            if (!section.length) section = entry.className.length ? entry.className : @"Other — General";
+        }
         if (!groups[section]) groups[section] = [NSMutableArray array];
         [groups[section] addObject:entry];
     }
@@ -111,11 +152,12 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
 
     NSUInteger active = 0;
     for (WAGREntry *entry in base) {
-        if (WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.isClassMethod)) active++;
+        if (WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
+                                        entry.isClassMethod)) active++;
     }
     self.title = [NSString stringWithFormat:@"%@ (%lu%@)", self.spec.title ?: @"Runtime",
-                  (unsigned long)base.count,
-                  active ? [NSString stringWithFormat:@" · %lu overrides", (unsigned long)active] : @""];
+        (unsigned long)base.count,
+        active ? [NSString stringWithFormat:@" · %lu overrides", (unsigned long)active] : @""];
     [self.tableView reloadData];
 }
 
@@ -129,14 +171,16 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
 
 - (NSString *)tableView:(__unused UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     NSString *key = self.sectionKeys[(NSUInteger)section];
-    return [NSString stringWithFormat:@"%@ (%lu)", key, (unsigned long)self.sections[key].count];
+    return [NSString stringWithFormat:@"%@ (%lu)", key,
+            (unsigned long)self.sections[key].count];
 }
 
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
-    return @"Agrupado por área/prefixo, com gates negativos separados. Overrides usam "
-            "classe + class/instance + selector. BOOL, inteiros, float/double e objetos "
-            "Foundation recebem trampolines específicos para a ABI.";
+    if ([self isWAABSurface]) {
+        return @"WAAB usa o catálogo desta build e revalida classe, selector, argumentos e retorno no runtime. BOOL, inteiros, float/double e objetos Foundation são editáveis.";
+    }
+    return @"Agrupado por área/prefixo. Overrides usam classe + class/instance + selector, com trampoline específico para cada ABI suportada.";
 }
 
 - (NSInteger)tableView:(__unused UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -159,9 +203,7 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
         if (cls && ![object isKindOfClass:cls]) continue;
         if ([object respondsToSelector:selector]) return object;
     }
-    for (id object in self.runtimeObjects) {
-        if ([object respondsToSelector:selector]) return object;
-    }
+    for (id object in self.runtimeObjects) if ([object respondsToSelector:selector]) return object;
     return nil;
 }
 
@@ -187,23 +229,28 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
 
     id raw = nil;
     NSString *current = [self currentForEntry:entry raw:&raw];
-    BOOL overridden = WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.isClassMethod);
-    id forced = WAGRRuntimeValueOverride(entry.className, entry.selectorName, entry.isClassMethod);
+    BOOL overridden = WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
+                                                   entry.isClassMethod);
+    id forced = WAGRRuntimeValueOverride(entry.className, entry.selectorName,
+                                         entry.isClassMethod);
     NSString *forcedDescription = forced ? [forced description] : @"nil";
-
-    cell.textLabel.text = [NSString stringWithFormat:@"%@ %@", entry.isClassMethod ? @"+" : @"-", entry.selectorName];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\nAtual: %@%@",
+    cell.textLabel.text = [NSString stringWithFormat:@"%@ %@",
+                           entry.isClassMethod ? @"+" : @"-", entry.selectorName];
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\nRuntime: %@%@",
         entry.className, entry.typeName ?: @"?", current ?: @"?",
         overridden ? [NSString stringWithFormat:@" · FORCE %@", forcedDescription] : @""];
     cell.detailTextLabel.textColor = overridden ? UIColor.systemCyanColor : WAGRMenuSecondaryTextColor();
 
     if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
-        UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class] ? (UISwitch *)cell.accessoryView : [UISwitch new];
+        UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class]
+            ? (UISwitch *)cell.accessoryView : [UISwitch new];
         if (toggle != cell.accessoryView) {
-            [toggle addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+            [toggle addTarget:self action:@selector(switchChanged:)
+             forControlEvents:UIControlEventValueChanged];
             cell.accessoryView = toggle;
         }
-        objc_setAssociatedObject(toggle, kWAGRSurfaceEntryKey, entry, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(toggle, kWAGRSurfaceEntryKey, entry,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         toggle.on = overridden ? [forced boolValue] : [raw boolValue];
         toggle.onTintColor = overridden ? UIColor.systemCyanColor : UIColor.systemGreenColor;
         cell.accessoryType = UITableViewCellAccessoryNone;
@@ -217,7 +264,8 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
         press = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressRow:)];
         press.minimumPressDuration = 0.45;
         [cell addGestureRecognizer:press];
-        objc_setAssociatedObject(cell, kWAGRSurfaceLongPressKey, press, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(cell, kWAGRSurfaceLongPressKey, press,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     return cell;
 }
@@ -225,8 +273,10 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
 - (void)switchChanged:(UISwitch *)sender {
     WAGREntry *entry = objc_getAssociatedObject(sender, kWAGRSurfaceEntryKey);
     if (!entry) return;
-    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName, entry.isClassMethod, entry.typeCode, @(sender.isOn));
-    (void)WAGRRuntimeValueInstallHook(entry.className, entry.selectorName, entry.isClassMethod, entry.typeCode);
+    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName, entry.isClassMethod,
+                                entry.typeCode, @(sender.isOn));
+    (void)WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
+                                      entry.isClassMethod, entry.typeCode);
     [self applyFilter:self.search.searchBar.text ?: @""];
 }
 
@@ -235,9 +285,8 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
     id raw = nil;
     NSString *current = [self currentForEntry:entry raw:&raw];
     __weak typeof(self) weakSelf = self;
-    WAGRPresentRuntimeValueEditor(self, sourceView,
-        entry.className, entry.selectorName, entry.isClassMethod, entry.typeCode,
-        current, raw, ^{
+    WAGRPresentRuntimeValueEditor(self, sourceView, entry.className,
+        entry.selectorName, entry.isClassMethod, entry.typeCode, current, raw, ^{
             [weakSelf applyFilter:weakSelf.search.searchBar.text ?: @""];
         });
 }
@@ -245,7 +294,7 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     [self presentEditorForEntry:[self entryAtIndexPath:indexPath]
-                      fromView:[tableView cellForRowAtIndexPath:indexPath]];
+                       fromView:[tableView cellForRowAtIndexPath:indexPath]];
 }
 
 - (void)longPressRow:(UILongPressGestureRecognizer *)gesture {
@@ -260,7 +309,8 @@ static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
     NSUInteger installed = 0;
     for (NSString *key in self.sectionKeys) {
         for (WAGREntry *entry in self.sections[key]) {
-            if (!WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.isClassMethod)) continue;
+            if (!WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
+                                             entry.isClassMethod)) continue;
             active++;
             if (WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
                                             entry.isClassMethod, entry.typeCode)) installed++;
