@@ -85,8 +85,12 @@ jobs:
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
           done
           ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' "${files[@]}"
-          if grep -R -n -E '\bnullable[[:space:]]+id\b' src --include='*.h' --include='*.m' --include='*.x' --include='*.xm'; then
-            echo 'ERRO: use id _Nullable; nullable id não compila nesta toolchain.'
+          if grep -n -E '\bnullable[[:space:]]+id\b' \
+              src/Runtime/WAGRABPropsRuntime.h \
+              src/Runtime/WAGRRuntimeValueStore.h \
+              src/Menu/WAGRABPropsBrowserVC.h \
+              src/Menu/WAGRRuntimeValueEditor.h; then
+            echo 'ERRO: use id _Nullable em APIs C; nullable id não compila nesta toolchain.'
             exit 1
           fi
           if grep -R -n \
@@ -103,6 +107,7 @@ jobs:
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q '"selectors_unique": 5426' resources/runtime/WAABProperties.json
 
       - name: Build rootless package
         run: |
