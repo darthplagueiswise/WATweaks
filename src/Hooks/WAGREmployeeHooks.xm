@@ -97,18 +97,20 @@ static void WAGRApplyManagedDogfoodGates(BOOL enabled) {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 
     if (enabled) {
-        NSDictionary *existingBackup = WAGRManagedGateBackup();
-        if (existingBackup.count == 0) {
-            NSMutableDictionary *backup = [NSMutableDictionary dictionary];
-            for (NSString *key in WAGRManagedDogfoodPositiveGates()) {
-                BOOL present = WAGRGateIsSet(key);
-                backup[key] = @{
-                    @"present" : @(present),
-                    @"value" : @(present ? WAGRGateGet(key) : NO),
-                };
-            }
-            [defaults setObject:backup forKey:WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP];
+        NSMutableDictionary *backup = [WAGRManagedGateBackup() mutableCopy];
+        if (!backup) backup = [NSMutableDictionary dictionary];
+
+        // Merge missing entries instead of trusting a backup created by an
+        // older build with a shorter gate list.
+        for (NSString *key in WAGRManagedDogfoodPositiveGates()) {
+            if (backup[key]) continue;
+            BOOL present = WAGRGateIsSet(key);
+            backup[key] = @{
+                @"present" : @(present),
+                @"value" : @(present ? WAGRGateGet(key) : NO),
+            };
         }
+        [defaults setObject:backup forKey:WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP];
 
         for (NSString *key in WAGRManagedDogfoodPositiveGates()) {
             WAGRGateSet(key, YES);
@@ -142,12 +144,7 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
     WAGRApplyManagedDogfoodGates(masterEnabled);
 
     if (masterEnabled) {
-        // Deterministic targets first: these are concrete BOOL getters attached
-        // to WAABProperties in the executable/SharedModules categories.
         WAGRDogfoodKnownWAABEnsureInstalled();
-
-        // Reader hooks remain useful for keys consumed through typed key APIs,
-        // but Dogfood no longer depends on those readers being the active path.
         WAGRGateHooksEnsureInstalled();
         WAGRWAABInstallHooksForAllRuntimeImages();
         WAGRNativeDevMenuEnsureHooksInstalled();
