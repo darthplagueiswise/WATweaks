@@ -61,15 +61,22 @@ jobs:
           mkdir -p "$THEOS/sdks"
           mv iPhoneOS26.2.sdk "$THEOS/sdks/"
 
-      - name: Validate dogfood sources
+      - name: Validate dogfood and AB Props sources
         run: |
-          test -f src/Hooks/WAGREmployeeHooks.xm
-          test -f src/Hooks/WAGREmployeeSweep.xm
-          test -f src/Menu/WAGRDogfoodMenuPatch.xm
-          ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' \
-              src/Hooks/WAGREmployeeHooks.xm \
-              src/Hooks/WAGREmployeeSweep.xm \
-              src/Menu/WAGRDogfoodMenuPatch.xm
+          files=(
+            src/Hooks/WAGREmployeeHooks.xm
+            src/Hooks/WAGREmployeeSweep.xm
+            src/Hooks/WAGRDebugMenuInstrumentation.xm
+            src/Menu/WAGRDogfoodMenuPatch.xm
+            src/Menu/WAGRABPropsBrowserVC.h
+            src/Menu/WAGRABPropsBrowserVC.m
+            src/Runtime/WAGRABPropsRuntime.h
+            src/Runtime/WAGRABPropsRuntime.m
+          )
+          for file in "${files[@]}"; do
+            test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
+          done
+          ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' "${files[@]}"
           if grep -R -n \
               --include='*.x' --include='*.xm' \
               -E '\{[[:space:]]*[A-Z_][A-Z0-9_]*\([^;]*\);[[:space:]]*return[[:space:]]+%orig;[[:space:]]*\}[[:space:]]*$' \
@@ -78,6 +85,9 @@ jobs:
             exit 1
           fi
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
+          grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
 
       - name: Build rootless package
         run: |
