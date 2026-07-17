@@ -14,10 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 NSArray *WAGRABPropsResolveRuntimeObjects(id _Nullable userContext);
 NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects);
-BOOL WAGRABPropEntryIsBoolean(WAGRABPropEntry *entry);
+id _Nullable WAGRABPropsReceiverForEntry(WAGRABPropEntry *entry,
+                                         NSArray *runtimeObjects);
 NSString *WAGRABPropsCurrentValue(WAGRABPropEntry *entry,
-                                   NSArray *runtimeObjects,
-                                   BOOL * _Nullable boolValue,
-                                   BOOL * _Nullable boolKnown);
+                                  NSArray *runtimeObjects,
+                                  id _Nullable * _Nullable rawValue);
 
 NS_ASSUME_NONNULL_END
