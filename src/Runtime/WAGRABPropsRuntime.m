@@ -13,7 +13,8 @@ extern id WAGRCurrentUserContext(void);
 @implementation WAGRABPropEntry
 @end
 
-static NSString * const kWAGRABCatalogFilename = @"WAABProperties.json";
+static NSDictionary *gWAGRABLiveStats = nil;
+static NSObject *gWAGRABLiveStatsLock = nil;
 
 static NSString *WAGRABNormalizedType(NSString *typeCode) {
     if (!typeCode.length) return @"";
@@ -45,6 +46,7 @@ static BOOL WAGRABObjectLooksRelevant(id object) {
         [name containsString:@"privateexperiment"] ||
         [name containsString:@"serverpropert"] ||
         [name containsString:@"foawaab"] ||
+        [name containsString:@"wapropert"] ||
         [name containsString:@"propoverride"] ||
         [name containsString:@"debugoverride"]) {
         return YES;
@@ -94,7 +96,8 @@ static id WAGRABSharedObjectForClass(Class cls) {
         @try {
             id value = ((id (*)(id, SEL))objc_msgSend)(cls, selector);
             if (value) return value;
-        } @catch (__unused NSException *exception) {}
+        } @catch (__unused NSException *exception) {
+        }
     }
     return nil;
 }
@@ -106,7 +109,7 @@ NSArray *WAGRABPropsResolveRuntimeObjects(id userContext) {
     WAGRABCollectObjectGraph(context, objects, visited, 0);
 
     for (NSString *name in @[
-        @"WAABProperties", @"FOAWAABPropertiesImpl",
+        @"WAABProperties", @"WAProperties", @"FOAWAABPropertiesImpl",
         @"WAFoundation.FOAWAABPropertiesImpl", @"WAABPropertiesPreChatd",
         @"_TtC24WAPrivateExperimentation19PrivateABProperties",
         @"WAPrivateExperimentation.PrivateABProperties"
@@ -115,57 +118,21 @@ NSArray *WAGRABPropsResolveRuntimeObjects(id userContext) {
         id shared = WAGRABSharedObjectForClass(cls);
         if (shared) [objects addObject:shared];
     }
+
     WAGRLogAppendF(@"[ABProps] resolved runtimeObjects=%lu context=%@",
                    (unsigned long)objects.count,
                    context ? NSStringFromClass([context class]) : @"nil");
     return objects.array ?: @[];
 }
 
-static NSArray<NSString *> *WAGRABCatalogCandidatePaths(void) {
-    NSMutableOrderedSet<NSString *> *paths = [NSMutableOrderedSet orderedSet];
-    for (NSString *root in @[
-        @"/var/jb/Library/Application Support/WATweaks/runtime",
-        @"/Library/Application Support/WATweaks/runtime",
-        @"/var/mobile/Library/Application Support/WATweaks/runtime"
-    ]) {
-        [paths addObject:[root stringByAppendingPathComponent:kWAGRABCatalogFilename]];
-    }
-    for (NSBundle *bundle in [[NSBundle allBundles]
-            arrayByAddingObjectsFromArray:[NSBundle allFrameworks]]) {
-        NSString *path = [bundle pathForResource:@"WAABProperties" ofType:@"json"];
-        if (path.length) [paths addObject:path];
-        path = [bundle pathForResource:@"WAABProperties" ofType:@"json" inDirectory:@"runtime"];
-        if (path.length) [paths addObject:path];
-    }
-    return paths.array;
-}
-
-static NSDictionary *WAGRABCatalog(void) {
-    static NSDictionary *catalog = nil;
+NSDictionary *WAGRABPropsCatalogStats(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        for (NSString *path in WAGRABCatalogCandidatePaths()) {
-            NSData *data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
-            if (!data.length) continue;
-            id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-            if (![json isKindOfClass:NSDictionary.class]) continue;
-            if ([json[@"schema_version"] integerValue] < 3) continue;
-            if (![json[@"categories"] isKindOfClass:NSArray.class]) continue;
-            catalog = json;
-            WAGRLogAppendF(@"[ABProps] catalog path=%@ stats=%@", path, json[@"stats"] ?: @{});
-            break;
-        }
-        if (!catalog) {
-            catalog = @{};
-            WAGRLogAppend(@"[ABProps] current catalog missing; live runtime fallback only");
-        }
+        gWAGRABLiveStatsLock = [NSObject new];
     });
-    return catalog;
-}
-
-NSDictionary *WAGRABPropsCatalogStats(void) {
-    NSDictionary *stats = WAGRABCatalog()[@"stats"];
-    return [stats isKindOfClass:NSDictionary.class] ? stats : @{};
+    @synchronized (gWAGRABLiveStatsLock) {
+        return [gWAGRABLiveStats copy] ?: @{};
+    }
 }
 
 static NSString *WAGRABImageForMethod(Method method, Class baseClass) {
@@ -190,14 +157,20 @@ static NSArray<Class> *WAGRABClassesToScan(NSArray *runtimeObjects) {
         Class cls = [object class];
         while (cls && cls != NSObject.class) {
             NSString *name = NSStringFromClass(cls).lowercaseString ?: @"";
-            if ([name containsString:@"abpropert"] || [name containsString:@"privateexperiment"] ||
-                [name containsString:@"serverpropert"] || [name containsString:@"foawaab"] ||
-                [name containsString:@"propoverride"]) [classes addObject:cls];
+            if ([name containsString:@"abpropert"] ||
+                [name containsString:@"privateexperiment"] ||
+                [name containsString:@"serverpropert"] ||
+                [name containsString:@"foawaab"] ||
+                [name containsString:@"wapropert"] ||
+                [name containsString:@"propoverride"]) {
+                [classes addObject:cls];
+            }
             cls = class_getSuperclass(cls);
         }
     }
+
     for (NSString *name in @[
-        @"WAABProperties", @"FOAWAABPropertiesImpl",
+        @"WAABProperties", @"WAProperties", @"FOAWAABPropertiesImpl",
         @"WAFoundation.FOAWAABPropertiesImpl", @"WAABPropertiesPreChatd",
         @"_TtC24WAPrivateExperimentation19PrivateABProperties",
         @"WAPrivateExperimentation.PrivateABProperties"
@@ -208,19 +181,24 @@ static NSArray<Class> *WAGRABClassesToScan(NSArray *runtimeObjects) {
     return classes.array ?: @[];
 }
 
-static BOOL WAGRABValidateMethod(Class cls, NSString *selectorName, BOOL classMethod,
-                                 NSString *declaredType, Method *outMethod,
-                                 NSString **outType, NSString **outEncoding) {
+static BOOL WAGRABValidateMethod(Class cls,
+                                  NSString *selectorName,
+                                  BOOL classMethod,
+                                  Method *outMethod,
+                                  NSString **outType,
+                                  NSString **outEncoding) {
     if (!cls || !selectorName.length) return NO;
     SEL selector = NSSelectorFromString(selectorName);
-    Method method = classMethod ? class_getClassMethod(cls, selector) : class_getInstanceMethod(cls, selector);
+    Method method = classMethod ? class_getClassMethod(cls, selector)
+                                : class_getInstanceMethod(cls, selector);
     if (!method || method_getNumberOfArguments(method) != 2) return NO;
+
     char rawReturn[64] = {0};
     method_getReturnType(method, rawReturn, sizeof(rawReturn));
-    NSString *runtimeType = WAGRABNormalizedType([NSString stringWithUTF8String:rawReturn] ?: @"");
+    NSString *runtimeType = WAGRABNormalizedType(
+        [NSString stringWithUTF8String:rawReturn] ?: @"");
     if (!WAGRRuntimeValueTypeIsSupported(runtimeType)) return NO;
-    NSString *catalogType = WAGRABNormalizedType(declaredType ?: @"");
-    if (catalogType.length && ![catalogType isEqualToString:runtimeType]) return NO;
+
     if (outMethod) *outMethod = method;
     if (outType) *outType = runtimeType;
     if (outEncoding) {
@@ -231,82 +209,42 @@ static BOOL WAGRABValidateMethod(Class cls, NSString *selectorName, BOOL classMe
 }
 
 static void WAGRABAppendEntry(NSMutableArray<WAGRABPropEntry *> *entries,
-                              NSMutableSet<NSString *> *seen, Class cls,
-                              NSString *categoryName, NSString *sourceImage,
-                              NSString *selectorName, BOOL classMethod,
-                              NSString *declaredType, BOOL cataloged) {
+                               NSMutableSet<NSString *> *seen,
+                               Class cls,
+                               NSString *selectorName,
+                               BOOL classMethod) {
     Method method = NULL;
     NSString *runtimeType = nil;
     NSString *encoding = nil;
-    if (!WAGRABValidateMethod(cls, selectorName, classMethod, declaredType,
+    if (!WAGRABValidateMethod(cls, selectorName, classMethod,
                               &method, &runtimeType, &encoding)) return;
+
     NSString *className = NSStringFromClass(cls) ?: @"";
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, classMethod);
     if (!uid.length || [seen containsObject:uid]) return;
     [seen addObject:uid];
+
     WAGRABPropEntry *entry = [WAGRABPropEntry new];
     entry.className = className;
     entry.selectorName = selectorName;
     entry.typeCode = runtimeType;
     entry.typeName = WAGRRuntimeValueTypeName(runtimeType) ?: runtimeType;
-    entry.categoryName = categoryName.length ? categoryName : WAGRRuntimeSectionForSelector(selectorName, className);
-    entry.sourceImage = sourceImage.length ? sourceImage : WAGRABImageForMethod(method, cls);
+    entry.categoryName = WAGRLiveRuntimeFamilyForSelector(selectorName, className);
+    entry.sourceImage = WAGRABImageForMethod(method, cls);
     entry.methodEncoding = encoding ?: @"";
     entry.classMethod = classMethod;
-    entry.cataloged = cataloged;
+    entry.cataloged = NO;
     [entries addObject:entry];
 }
 
 NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
     NSMutableArray<WAGRABPropEntry *> *entries = [NSMutableArray array];
     NSMutableSet<NSString *> *seen = [NSMutableSet set];
-    NSDictionary *catalog = WAGRABCatalog();
-    NSArray *categories = [catalog[@"categories"] isKindOfClass:NSArray.class] ? catalog[@"categories"] : @[];
-    Class waabClass = NSClassFromString(@"WAABProperties") ?: objc_getClass("WAABProperties");
-    __block NSUInteger catalogedCount = 0;
+    NSMutableDictionary<NSString *, NSNumber *> *typeCounts = [NSMutableDictionary dictionary];
+    NSMutableSet<NSString *> *images = [NSMutableSet set];
+    NSArray<Class> *classes = WAGRABClassesToScan(runtimeObjects);
 
-    if (waabClass) {
-        NSInteger schema = [catalog[@"schema_version"] integerValue];
-        if (schema >= 4) {
-            for (NSDictionary *category in categories) {
-                if (![category isKindOfClass:NSDictionary.class]) continue;
-                NSString *categoryName = [category[@"n"] isKindOfClass:NSString.class] ? category[@"n"] : @"WAABProperties";
-                NSString *sourceImage = [category[@"i"] isKindOfClass:NSString.class] ? category[@"i"] : @"catalog";
-                NSArray *methods = [category[@"m"] isKindOfClass:NSArray.class] ? category[@"m"] : @[];
-                for (NSArray *methodSpec in methods) {
-                    if (![methodSpec isKindOfClass:NSArray.class] || methodSpec.count < 3) continue;
-                    NSString *selectorName = [methodSpec[0] isKindOfClass:NSString.class] ? methodSpec[0] : nil;
-                    NSString *declaredType = [methodSpec[1] isKindOfClass:NSString.class] ? methodSpec[1] : nil;
-                    NSUInteger before = entries.count;
-                    WAGRABAppendEntry(entries, seen, waabClass, categoryName, sourceImage,
-                                      selectorName, [methodSpec[2] boolValue], declaredType, YES);
-                    if (entries.count > before) catalogedCount++;
-                }
-            }
-        } else {
-            NSArray *categoryNames = categories;
-            NSDictionary *selectors = [catalog[@"selectors"] isKindOfClass:NSDictionary.class] ? catalog[@"selectors"] : @{};
-            [selectors enumerateKeysAndObjectsUsingBlock:^(id rawKey, id rawSpec, __unused BOOL *stop) {
-                if (![rawKey isKindOfClass:NSString.class] || ![rawSpec isKindOfClass:NSArray.class]) return;
-                NSString *selectorName = rawKey;
-                NSArray *spec = rawSpec;
-                if (spec.count < 4) return;
-                NSInteger categoryIndex = [spec[0] integerValue];
-                NSString *categoryName = categoryIndex >= 0 && categoryIndex < (NSInteger)categoryNames.count &&
-                    [categoryNames[(NSUInteger)categoryIndex] isKindOfClass:NSString.class]
-                    ? categoryNames[(NSUInteger)categoryIndex]
-                    : WAGRRuntimeSectionForSelector(selectorName, @"WAABProperties");
-                NSString *sourceImage = [spec[1] integerValue] == 0 ? @"WhatsApp" : @"SharedModules";
-                NSString *declaredType = [spec[2] isKindOfClass:NSString.class] ? spec[2] : nil;
-                NSUInteger before = entries.count;
-                WAGRABAppendEntry(entries, seen, waabClass, categoryName, sourceImage,
-                                  selectorName, [spec[3] boolValue], declaredType, YES);
-                if (entries.count > before) catalogedCount++;
-            }];
-        }
-    }
-
-    for (Class baseClass in WAGRABClassesToScan(runtimeObjects)) {
+    for (Class baseClass in classes) {
         for (NSUInteger meta = 0; meta <= 1; meta++) {
             Class owner = meta ? object_getClass(baseClass) : baseClass;
             if (!owner) continue;
@@ -318,24 +256,47 @@ NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
                 if (!method || method_getNumberOfArguments(method) != 2) continue;
                 NSString *selectorName = NSStringFromSelector(method_getName(method));
                 if (!selectorName.length || [selectorName containsString:@":"]) continue;
-                WAGRABAppendEntry(entries, seen, baseClass, nil,
-                    WAGRABImageForMethod(method, baseClass), selectorName, (BOOL)meta, nil, NO);
+                NSUInteger before = entries.count;
+                WAGRABAppendEntry(entries, seen, baseClass, selectorName, (BOOL)meta);
+                if (entries.count > before) {
+                    WAGRABPropEntry *entry = entries.lastObject;
+                    typeCounts[entry.typeCode] = @([typeCounts[entry.typeCode] unsignedIntegerValue] + 1);
+                    if (entry.sourceImage.length) [images addObject:entry.sourceImage];
+                }
             }
             free(methods);
         }
     }
 
-    NSArray *sorted = [entries sortedArrayUsingComparator:^NSComparisonResult(WAGRABPropEntry *left, WAGRABPropEntry *right) {
-        NSComparisonResult result = [left.categoryName localizedCaseInsensitiveCompare:right.categoryName];
-        if (result != NSOrderedSame) return result;
-        result = [left.selectorName localizedCaseInsensitiveCompare:right.selectorName];
-        if (result != NSOrderedSame) return result;
-        return [left.sourceImage localizedCaseInsensitiveCompare:right.sourceImage];
-    }];
-    WAGRLogAppendF(@"[ABProps] live=%lu cataloged=%lu classifiedRuntime=%lu runtimeObjects=%lu",
+    NSArray *sorted = [entries sortedArrayUsingComparator:
+        ^NSComparisonResult(WAGRABPropEntry *left, WAGRABPropEntry *right) {
+            NSComparisonResult result = [left.categoryName
+                localizedCaseInsensitiveCompare:right.categoryName];
+            if (result != NSOrderedSame) return result;
+            result = [left.selectorName localizedCaseInsensitiveCompare:right.selectorName];
+            if (result != NSOrderedSame) return result;
+            return [left.sourceImage localizedCaseInsensitiveCompare:right.sourceImage];
+        }];
+
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        gWAGRABLiveStatsLock = [NSObject new];
+    });
+    NSDictionary *stats = @{
+        @"source" : @"live Objective-C runtime",
+        @"classes" : @(classes.count),
+        @"selectors" : @(sorted.count),
+        @"images" : @(images.count),
+        @"return_type_counts" : [typeCounts copy],
+    };
+    @synchronized (gWAGRABLiveStatsLock) {
+        gWAGRABLiveStats = stats;
+    }
+
+    WAGRLogAppendF(@"[ABProps] live selectors=%lu classes=%lu images=%lu runtimeObjects=%lu",
                    (unsigned long)sorted.count,
-                   (unsigned long)catalogedCount,
-                   (unsigned long)(sorted.count - MIN(sorted.count, catalogedCount)),
+                   (unsigned long)classes.count,
+                   (unsigned long)images.count,
                    (unsigned long)runtimeObjects.count);
     return sorted;
 }
@@ -348,15 +309,22 @@ id WAGRABPropsReceiverForEntry(WAGRABPropEntry *entry, NSArray *runtimeObjects) 
     for (id object in runtimeObjects) {
         if (cls && [object isKindOfClass:cls] && [object respondsToSelector:selector]) return object;
     }
-    for (id object in runtimeObjects) if ([object respondsToSelector:selector]) return object;
+    for (id object in runtimeObjects) {
+        if ([object respondsToSelector:selector]) return object;
+    }
     return nil;
 }
 
-NSString *WAGRABPropsCurrentValue(WAGRABPropEntry *entry, NSArray *runtimeObjects, id *rawValue) {
+NSString *WAGRABPropsCurrentValue(WAGRABPropEntry *entry,
+                                   NSArray *runtimeObjects,
+                                   id *rawValue) {
     if (!entry) {
         if (rawValue) *rawValue = nil;
         return @"entrada inválida";
     }
-    return WAGRRuntimeValueRead(entry.className, entry.selectorName, entry.classMethod,
-                                WAGRABPropsReceiverForEntry(entry, runtimeObjects), rawValue);
+    return WAGRRuntimeValueRead(entry.className,
+                                entry.selectorName,
+                                entry.classMethod,
+                                WAGRABPropsReceiverForEntry(entry, runtimeObjects),
+                                rawValue);
 }
