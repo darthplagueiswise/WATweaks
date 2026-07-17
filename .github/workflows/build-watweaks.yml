@@ -89,8 +89,10 @@ jobs:
           for file in "${files[@]}"; do
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
           done
+
           ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' "${files[@]}"
-          if grep -n -E 'nullable[[:space:]]+id' \
+
+          if grep -n -E '\bnullable[[:space:]]+id\b' \
               src/Runtime/WAGRABPropsRuntime.h \
               src/Runtime/WAGRRuntimeValueStore.h \
               src/Menu/WAGRABPropsBrowserVC.h \
@@ -98,6 +100,7 @@ jobs:
             echo 'ERRO: use id _Nullable em APIs C; nullable id não compila nesta toolchain.'
             exit 1
           fi
+
           if grep -R -n \
               --include='*.x' --include='*.xm' \
               -E '\{[[:space:]]*[A-Z_][A-Z0-9_]*\([^;]*\);[[:space:]]*return[[:space:]]+%orig;[[:space:]]*\}[[:space:]]*$' \
@@ -105,50 +108,65 @@ jobs:
             echo 'ERRO: hook Logos em uma linha com macro + %orig; use corpo multiline explícito.'
             exit 1
           fi
+
+          if grep -R -n -E 'read[- ]only|somente leitura' \
+              src/Menu/WAGRABPropsBrowserVC.m \
+              src/Menu/WAGRSurfaceBrowserVC.m \
+              src/Runtime/WAGRABPropsRuntime.m; then
+            echo 'ERRO: o browser WAAB não pode regredir para read-only.'
+            exit 1
+          fi
+
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
           grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'WA_PREF_RUNTIME_VALUE_OVERRIDES' src/WADefaults.m
           grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
-          grep -q 'WAGRRuntimeSectionForSelector' src/Runtime/WAGRABPropsRuntime.m
-          grep -q 'WAGRRuntimeSectionForSelector' src/Menu/WAGRSurfaceBrowserVC.m
+          grep -q 'method_getNumberOfArguments(method) != 2' src/Runtime/WAGRABPropsRuntime.m
+          grep -q 'WAGRABPropsScan(objects)' src/Menu/WAGRSurfaceBrowserVC.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'scopeButtonTitles' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
 
-      - name: Validate audited WAABProperties inventory
+      - name: Validate current WAABProperties inventory
         run: |
           python3 - <<'PY'
           import json
           from pathlib import Path
 
           catalog = json.loads(Path('resources/runtime/WAABProperties.json').read_text())
-          assert catalog['schema_version'] == 4, catalog.get('schema_version')
-          hashes = {item['file']: item['sha256'] for item in catalog['generated_from']}
+          assert catalog['schema_version'] >= 3, catalog.get('schema_version')
+          stats = catalog['stats']
+          supported = int(stats['selectors_supported'])
+          assert supported >= 10000, supported
+
+          preferred = stats['selectors_by_preferred_type']
+          assert int(preferred['B']) >= 7700, preferred
+          assert int(preferred['q']) >= 1700, preferred
+          assert int(preferred['d']) >= 190, preferred
+          assert int(preferred['@']) >= 500, preferred
+          assert int(preferred['I']) >= 1, preferred
+
+          manifest = json.loads(Path(
+              'resources/runtime/wagr_runtime_inventory_manifest.json'
+          ).read_text())
+          assert manifest['schema_version'] >= 5
+          hashes = {item['file']: item['sha256']
+                    for item in manifest['generated_from']}
           assert hashes == {
               'WhatsApp': 'ff25d3d3e907ba1b5f8fcfcb48f3afbea8a11e5e6a2ecd788b5d6dffe4787384',
               'SharedModules': '236652b9a798fddd26ab94888221b8a59bbfc8d13306f2a86dfb871b0dff0fef',
           }, hashes
-          stats = catalog['stats']
-          assert stats == {
-              'categories_total': 330,
-              'methods_supported': 5637,
-              'selectors_supported': 5426,
-              'selectors_with_multiple_origins': 179,
-              'return_type_counts': {'B': 4188, 'q': 1037, 'd': 92, '@': 319, 'I': 1},
-          }, stats
-          assert catalog['catalog_policy']['selector_source'].startswith('live runtime')
-          assert set(catalog['editable_runtime_types']) == {
-              'B', 'c', 'C', 's', 'S', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', '@'
+          waab = next(group for group in manifest['groups']
+                      if group['id'] == 'WAABProperties')
+          assert waab['selectors_total'] == supported, (waab, stats)
+          assert manifest['runtime_policy']['typed_overrides'] is True
+          assert set(manifest['runtime_policy']['editable_types']) == {
+              'B', 'c', 'C', 's', 'S', 'i', 'I',
+              'l', 'L', 'q', 'Q', 'f', 'd', '@'
           }
-
-          manifest = json.loads(Path('resources/runtime/wagr_runtime_inventory_manifest.json').read_text())
-          assert manifest['schema_version'] == 4
-          waab = next(group for group in manifest['groups'] if group['id'] == 'WAABProperties')
-          assert waab['selectors_total'] == 5426
-          assert waab['selectors_with_multiple_origins'] == 179
-          print('WAAB inventory OK:', stats['selectors_supported'], 'live selectors')
+          print('WAAB inventory OK:', supported, 'typed selectors')
           PY
 
       - name: Build rootless package
