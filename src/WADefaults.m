@@ -34,7 +34,7 @@ NSDictionary<NSString *, id> * WADefaultsDictionary(void) {
 
             // Runtime observers / compatibility
             WA_PREF_AB_OBSERVER : @NO,
-            WA_PREF_AB_TYPED_OVERRIDES : @{},
+            WA_PREF_RUNTIME_VALUE_OVERRIDES : @{},
             WA_PREF_KEYCHAIN_REWRITE : @NO,
             WA_PREF_KEYCHAIN_OBSERVER : @NO,
 
