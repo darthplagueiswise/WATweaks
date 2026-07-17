@@ -61,7 +61,7 @@ jobs:
           mkdir -p "$THEOS/sdks"
           mv iPhoneOS26.2.sdk "$THEOS/sdks/"
 
-      - name: Validate dogfood and AB Props sources
+      - name: Validate dogfood and typed runtime sources
         run: |
           files=(
             src/Hooks/WAGREmployeeHooks.xm
@@ -70,13 +70,25 @@ jobs:
             src/Menu/WAGRDogfoodMenuPatch.xm
             src/Menu/WAGRABPropsBrowserVC.h
             src/Menu/WAGRABPropsBrowserVC.m
+            src/Menu/WAGRRuntimeValueEditor.h
+            src/Menu/WAGRRuntimeValueEditor.m
+            src/Menu/WAGRSurfaceBrowserVC.m
             src/Runtime/WAGRABPropsRuntime.h
             src/Runtime/WAGRABPropsRuntime.m
+            src/Runtime/WAGRRuntimeValueStore.h
+            src/Runtime/WAGRRuntimeValueStore.m
+            src/Runtime/WAGRSurface.h
+            src/Runtime/WAGRSurface.m
+            src/WAUtils.m
           )
           for file in "${files[@]}"; do
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
           done
           ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' "${files[@]}"
+          if grep -R -n -E '\bnullable[[:space:]]+id\b' src --include='*.h' --include='*.m' --include='*.x' --include='*.xm'; then
+            echo 'ERRO: use id _Nullable; nullable id não compila nesta toolchain.'
+            exit 1
+          fi
           if grep -R -n \
               --include='*.x' --include='*.xm' \
               -E '\{[[:space:]]*[A-Z_][A-Z0-9_]*\([^;]*\);[[:space:]]*return[[:space:]]+%orig;[[:space:]]*\}[[:space:]]*$' \
@@ -85,9 +97,12 @@ jobs:
             exit 1
           fi
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
+          grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
+          grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
+          grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
+          grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
 
       - name: Build rootless package
         run: |
