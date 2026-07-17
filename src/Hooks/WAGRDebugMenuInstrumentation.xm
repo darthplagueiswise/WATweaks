@@ -127,13 +127,13 @@ static void WAGRConfigureABPropsSection(WADebugViewController *controller) {
         [section setFooterText:
             @"A build RC removeu somente o browser nativo. Este browser enumera "
              "os getters reais carregados em WAABProperties/PrivateABProperties. "
-             "BOOL aceita Force YES/NO; tipos numéricos e object são inspecionados "
-             "com a ABI correta."];
+             "BOOL, inteiros, float/double e objetos Foundation aceitam override "
+             "com trampoline específico para cada ABI."];
 
         WATableRow *row = [section addTableRowWithCellStyle:UITableViewCellStyleSubtitle];
         UITableViewCell *cell = [row cell];
         cell.textLabel.text = @"Abrir AB Props Runtime";
-        cell.detailTextLabel.text = @"Milhares de flags reais desta build · busca · valor atual · override BOOL";
+        cell.detailTextLabel.text = @"Flags reais desta build · busca · valor atual · editor tipado · usar original";
         cell.detailTextLabel.numberOfLines = 0;
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
@@ -144,9 +144,6 @@ static void WAGRConfigureABPropsSection(WADebugViewController *controller) {
             if (strongController) WAGRPresentABPropsBrowser(strongController);
         }];
 
-        // We are still inside -createSections. The original controller will
-        // consume this mutated section list immediately; forcing a reload here
-        // is unnecessary and can re-enter section construction on other builds.
         gWAGRABPropsSectionPatchCount++;
         WAGRLogAppendF(@"[DebugMenu][ABProps] native RC warning replaced; patchCount=%lu",
                        (unsigned long)gWAGRABPropsSectionPatchCount);
@@ -186,7 +183,7 @@ extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void) {
 
 extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"AB Props RC browser hook=%@\nsection patches=%lu\nWADebugViewController=%@",
+        @"AB Props typed browser hook=%@\nsection patches=%lu\nWADebugViewController=%@",
         gWAGRDebugCreateSectionsHooked ? @"YES" : @"NO",
         (unsigned long)gWAGRABPropsSectionPatchCount,
         NSClassFromString(@"WADebugViewController") ? @"loaded" : @"missing"];
