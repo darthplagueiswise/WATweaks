@@ -11,7 +11,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy) NSString *typeName;
 @property(nonatomic, copy) NSString *categoryName;
 @property(nonatomic, copy) NSString *sourceImage;
+@property(nonatomic, copy) NSString *methodEncoding;
 @property(nonatomic, assign) BOOL classMethod;
+@property(nonatomic, assign) BOOL cataloged;
 @end
 
 #ifdef __cplusplus
