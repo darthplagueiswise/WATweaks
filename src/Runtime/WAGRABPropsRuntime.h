@@ -1,6 +1,7 @@
 #pragma once
 
 #import <Foundation/Foundation.h>
+#import "WAGRSurface.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
