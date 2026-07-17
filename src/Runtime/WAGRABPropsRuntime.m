@@ -152,12 +152,12 @@ static NSDictionary *WAGRABCatalog(void) {
             if ([json[@"schema_version"] integerValue] < 3) continue;
             if (![json[@"categories"] isKindOfClass:NSArray.class]) continue;
             catalog = json;
-            WAGRLogAppendF(@"[ABProps] exact catalog path=%@ stats=%@", path, json[@"stats"] ?: @{});
+            WAGRLogAppendF(@"[ABProps] catalog path=%@ stats=%@", path, json[@"stats"] ?: @{});
             break;
         }
         if (!catalog) {
             catalog = @{};
-            WAGRLogAppend(@"[ABProps] current catalog missing; runtime-only fallback");
+            WAGRLogAppend(@"[ABProps] current catalog missing; live runtime fallback only");
         }
     });
     return catalog;
@@ -263,6 +263,7 @@ NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
     NSDictionary *catalog = WAGRABCatalog();
     NSArray *categories = [catalog[@"categories"] isKindOfClass:NSArray.class] ? catalog[@"categories"] : @[];
     Class waabClass = NSClassFromString(@"WAABProperties") ?: objc_getClass("WAABProperties");
+    __block NSUInteger catalogedCount = 0;
 
     if (waabClass) {
         NSInteger schema = [catalog[@"schema_version"] integerValue];
@@ -276,15 +277,18 @@ NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
                     if (![methodSpec isKindOfClass:NSArray.class] || methodSpec.count < 3) continue;
                     NSString *selectorName = [methodSpec[0] isKindOfClass:NSString.class] ? methodSpec[0] : nil;
                     NSString *declaredType = [methodSpec[1] isKindOfClass:NSString.class] ? methodSpec[1] : nil;
+                    NSUInteger before = entries.count;
                     WAGRABAppendEntry(entries, seen, waabClass, categoryName, sourceImage,
                                       selectorName, [methodSpec[2] boolValue], declaredType, YES);
+                    if (entries.count > before) catalogedCount++;
                 }
             }
         } else {
             NSArray *categoryNames = categories;
             NSDictionary *selectors = [catalog[@"selectors"] isKindOfClass:NSDictionary.class] ? catalog[@"selectors"] : @{};
-            [selectors enumerateKeysAndObjectsUsingBlock:^(NSString *selectorName, id rawSpec, __unused BOOL *stop) {
-                if (![selectorName isKindOfClass:NSString.class] || ![rawSpec isKindOfClass:NSArray.class]) return;
+            [selectors enumerateKeysAndObjectsUsingBlock:^(id rawKey, id rawSpec, __unused BOOL *stop) {
+                if (![rawKey isKindOfClass:NSString.class] || ![rawSpec isKindOfClass:NSArray.class]) return;
+                NSString *selectorName = rawKey;
                 NSArray *spec = rawSpec;
                 if (spec.count < 4) return;
                 NSInteger categoryIndex = [spec[0] integerValue];
@@ -294,8 +298,10 @@ NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
                     : WAGRRuntimeSectionForSelector(selectorName, @"WAABProperties");
                 NSString *sourceImage = [spec[1] integerValue] == 0 ? @"WhatsApp" : @"SharedModules";
                 NSString *declaredType = [spec[2] isKindOfClass:NSString.class] ? spec[2] : nil;
+                NSUInteger before = entries.count;
                 WAGRABAppendEntry(entries, seen, waabClass, categoryName, sourceImage,
                                   selectorName, [spec[3] boolValue], declaredType, YES);
+                if (entries.count > before) catalogedCount++;
             }];
         }
     }
@@ -312,8 +318,7 @@ NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
                 if (!method || method_getNumberOfArguments(method) != 2) continue;
                 NSString *selectorName = NSStringFromSelector(method_getName(method));
                 if (!selectorName.length || [selectorName containsString:@":"]) continue;
-                WAGRABAppendEntry(entries, seen, baseClass,
-                    [NSString stringWithFormat:@"Runtime · %@", NSStringFromClass(baseClass) ?: @"Unknown"],
+                WAGRABAppendEntry(entries, seen, baseClass, nil,
                     WAGRABImageForMethod(method, baseClass), selectorName, (BOOL)meta, nil, NO);
             }
             free(methods);
@@ -327,8 +332,10 @@ NSArray<WAGRABPropEntry *> *WAGRABPropsScan(NSArray *runtimeObjects) {
         if (result != NSOrderedSame) return result;
         return [left.sourceImage localizedCaseInsensitiveCompare:right.sourceImage];
     }];
-    WAGRLogAppendF(@"[ABProps] entries=%lu catalogGroups=%lu runtimeObjects=%lu",
-                   (unsigned long)sorted.count, (unsigned long)categories.count,
+    WAGRLogAppendF(@"[ABProps] live=%lu cataloged=%lu classifiedRuntime=%lu runtimeObjects=%lu",
+                   (unsigned long)sorted.count,
+                   (unsigned long)catalogedCount,
+                   (unsigned long)(sorted.count - MIN(sorted.count, catalogedCount)),
                    (unsigned long)runtimeObjects.count);
     return sorted;
 }
