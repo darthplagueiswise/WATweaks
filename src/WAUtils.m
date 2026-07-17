@@ -1,6 +1,7 @@
 #import "WAUtils.h"
 #import "WAPrefix.h"
 #import "Runtime/WAGRGateStore.h"
+#import "Runtime/WAGRRuntimeValueStore.h"
 #import <objc/runtime.h>
 
 BOOL WAEnabled(NSString *key) {
@@ -29,7 +30,8 @@ void WARegisterDefaults(void) {
         WA_PREF_AB_OBSERVER: @NO,
         WA_PREF_LIQUID_GLASS: @NO,
         WA_PREF_LIQUID_GLASS_USERDEFAULTS: @YES,
-        WA_PREF_LIQUID_GLASS_METHOD_HOOKS: @YES
+        WA_PREF_LIQUID_GLASS_METHOD_HOOKS: @YES,
+        kWAGRRuntimeValueOverridesKey: @{}
     }];
 }
 
@@ -54,15 +56,15 @@ Class WAFindClassByNameFragment(NSString *fragment) {
     NSString *needle = fragment.lowercaseString;
     int count = objc_getClassList(NULL, 0);
     if (count <= 0) return Nil;
-    Class *classes = (Class *)calloc((NSUInteger)count, sizeof(Class));
+    __unsafe_unretained Class *classes = (__unsafe_unretained Class *)calloc((NSUInteger)count, sizeof(Class));
     if (!classes) return Nil;
     objc_getClassList(classes, count);
     Class found = Nil;
     for (int i = 0; i < count; i++) {
         const char *name = class_getName(classes[i]);
         if (!name) continue;
-        NSString *s = @(name).lowercaseString;
-        if ([s containsString:needle]) { found = classes[i]; break; }
+        NSString *nameString = @(name).lowercaseString;
+        if ([nameString containsString:needle]) { found = classes[i]; break; }
     }
     free(classes);
     return found;
@@ -72,26 +74,26 @@ NSArray<Class> *WAClassesMatchingFragments(NSArray<NSString *> *fragments, NSUIn
     if (!fragments.count) return @[];
     int count = objc_getClassList(NULL, 0);
     if (count <= 0) return @[];
-    Class *classes = (Class *)calloc((NSUInteger)count, sizeof(Class));
+    __unsafe_unretained Class *classes = (__unsafe_unretained Class *)calloc((NSUInteger)count, sizeof(Class));
     if (!classes) return @[];
     objc_getClassList(classes, count);
-    NSMutableArray<Class> *out = [NSMutableArray array];
+    NSMutableArray<Class> *output = [NSMutableArray array];
     NSMutableArray<NSString *> *needles = [NSMutableArray array];
-    for (NSString *f in fragments) if (f.length) [needles addObject:f.lowercaseString];
+    for (NSString *fragment in fragments) if (fragment.length) [needles addObject:fragment.lowercaseString];
     for (int i = 0; i < count; i++) {
         const char *name = class_getName(classes[i]);
         if (!name) continue;
-        NSString *s = @(name).lowercaseString;
+        NSString *nameString = @(name).lowercaseString;
         for (NSString *needle in needles) {
-            if ([s containsString:needle]) {
-                [out addObject:classes[i]];
+            if ([nameString containsString:needle]) {
+                [output addObject:classes[i]];
                 break;
             }
         }
-        if (limit > 0 && out.count >= limit) break;
+        if (limit > 0 && output.count >= limit) break;
     }
     free(classes);
-    return out;
+    return output;
 }
 
 BOOL WAInstanceRespondsTo(Class cls, SEL sel) {
