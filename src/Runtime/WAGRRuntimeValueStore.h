@@ -4,11 +4,15 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern NSString * const kWAGRRuntimeValueOverridesKey;
 
 NSString *WAGRRuntimeValueUID(NSString *className,
-                              NSString *selectorName,
-                              BOOL isClassMethod);
+                               NSString *selectorName,
+                               BOOL isClassMethod);
 NSString * _Nullable WAGRRuntimeValueTypeName(NSString *typeCode);
 BOOL WAGRRuntimeValueTypeIsSupported(NSString *typeCode);
 BOOL WAGRRuntimeValueTypeIsBoolean(NSString *typeCode);
@@ -44,5 +48,9 @@ NSString *WAGRRuntimeValueRead(NSString *className,
                                BOOL isClassMethod,
                                id _Nullable instance,
                                id _Nullable * _Nullable rawValue);
+
+#ifdef __cplusplus
+}
+#endif
 
 NS_ASSUME_NONNULL_END
