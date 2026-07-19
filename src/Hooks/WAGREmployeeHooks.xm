@@ -1,5 +1,5 @@
 // WAGREmployeeHooks.xm
-// Deterministic WhatsApp Employee / Internal owner.
+// Deterministic owner for the unified Employee / Internal / Tester / Dogfood mode.
 
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
@@ -21,9 +21,9 @@ extern "C" NSString *WAGRDebugBuildDiagnosticText(void);
 
 static BOOL gWAGRKnownEmployeeInstalled = NO;
 
-static BOOL WAGRKnownEmployeeEnabled(void) {
+static BOOL WAGRKnownEmployeeHookRequested(void) {
     return WAGRPref(kWAGREmployeeMaster) ||
-           WAGRPref(kWAGRDogfoodGateInternalUser);
+           WAGRGateIsSet(@"isInternalUser");
 }
 
 %group WAGRKnownEmployee
@@ -31,7 +31,10 @@ static BOOL WAGRKnownEmployeeEnabled(void) {
 %hook WAServerProperties
 
 + (BOOL)isInternalUser {
-    if (WAGRKnownEmployeeEnabled()) return YES;
+    if (WAGRPref(kWAGREmployeeMaster)) return YES;
+    if (WAGRGateIsSet(@"isInternalUser")) {
+        return WAGRGateGet(@"isInternalUser");
+    }
     return %orig;
 }
 
@@ -61,31 +64,36 @@ static void WAGRInstallKnownEmployeeHook(void) {
     NSLog(@"[WATweaks][Employee] installed WAServerProperties +isInternalUser");
 }
 
-static NSArray<NSString *> *WAGRManagedDogfoodPositiveGates(void) {
-    static NSArray<NSString *> *gates = nil;
+static NSDictionary<NSString *, NSNumber *> *WAGRManagedDogfoodDesiredGates(void) {
+    static NSDictionary<NSString *, NSNumber *> *gates = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        gates = @[
-            @"isDebugBuild",
-            @"isDebugMenuAllowed",
-            @"isDebugMenuShortcutEnabled",
-            @"isMetaEmployeeOrInternalTester",
-            @"is_meta_employee_or_internal_tester",
-            @"is_internal_tester",
-            @"waios_mc_debug_ui_enabled",
-            @"whatsbroken_enabled",
-            @"private_experimentation_should_sync",
-            @"private_abprop_for_dev_only",
-            @"dogfooding_nudge_settings_entrypoint_enabled",
-            @"dogfooding_nudge_banner_home_screen_enabled",
-            @"get_help_internal_bug_report_enabled",
-            @"give_dogfooders_task_id_for_bug_reporting",
-            @"internal_bug_reporting_bottom_sheet",
-            @"ios_internal_in_app_bug_reporting_enable",
-            @"ios_internal_rage_shake_enabled",
-            @"hn_dogfooding",
-            @"malibu_dogfooding",
-        ];
+        gates = @{
+            @"isDebugMenuAllowed" : @YES,
+            @"isDebugMenuShortcutEnabled" : @YES,
+            @"isInternalUser" : @YES,
+            @"isMetaEmployeeOrInternalTester" : @YES,
+            @"is_meta_employee_or_internal_tester" : @YES,
+            @"is_internal_tester" : @YES,
+            @"waios_mc_debug_ui_enabled" : @YES,
+            @"whatsbroken_enabled" : @YES,
+            @"private_experimentation_should_sync" : @YES,
+            @"private_abprop_for_dev_only" : @YES,
+            @"private_experimentation_use_acs_config_id" : @YES,
+            @"dogfooding_nudge_settings_entrypoint_enabled" : @YES,
+            @"dogfooding_nudge_banner_home_screen_enabled" : @YES,
+            @"username_dogfooding_pn_privacy_enabled" : @YES,
+            @"username_dogfooding_pn_privacy_periodic_conversion_enabled" : @YES,
+            @"tbv_pass_eligibility_dogfooding_gk" : @YES,
+            @"get_help_internal_bug_report_enabled" : @YES,
+            @"give_dogfooders_task_id_for_bug_reporting" : @YES,
+            @"internal_bug_reporting_bottom_sheet" : @YES,
+            @"ios_internal_in_app_bug_reporting_enable" : @YES,
+            @"ios_internal_rage_shake_enabled" : @YES,
+            @"hn_dogfooding" : @YES,
+            @"malibu_dogfooding" : @YES,
+            @"graphQLEmployeeC1Disabled" : @NO,
+        };
     });
     return gates;
 }
@@ -98,14 +106,13 @@ static NSDictionary *WAGRManagedGateBackup(void) {
 
 static void WAGRApplyManagedDogfoodGates(BOOL enabled) {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDictionary<NSString *, NSNumber *> *desired = WAGRManagedDogfoodDesiredGates();
 
     if (enabled) {
         NSMutableDictionary *backup = [WAGRManagedGateBackup() mutableCopy];
         if (!backup) backup = [NSMutableDictionary dictionary];
 
-        // Merge missing entries instead of trusting a backup created by an
-        // older build with a shorter gate list.
-        for (NSString *key in WAGRManagedDogfoodPositiveGates()) {
+        for (NSString *key in desired) {
             if (backup[key]) continue;
             BOOL present = WAGRGateIsSet(key);
             backup[key] = @{
@@ -115,23 +122,26 @@ static void WAGRApplyManagedDogfoodGates(BOOL enabled) {
         }
         [defaults setObject:backup forKey:WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP];
 
-        for (NSString *key in WAGRManagedDogfoodPositiveGates()) {
-            WAGRGateSet(key, YES);
-        }
+        [desired enumerateKeysAndObjectsUsingBlock:
+            ^(NSString *key, NSNumber *value, BOOL *stop) {
+                (void)stop;
+                WAGRGateSet(key, value.boolValue);
+            }];
         [defaults synchronize];
         return;
     }
 
     NSDictionary *backup = WAGRManagedGateBackup();
-    [backup enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSDictionary *entry, BOOL *stop) {
-        (void)stop;
-        if (![entry isKindOfClass:NSDictionary.class]) return;
-        if ([entry[@"present"] boolValue]) {
-            WAGRGateSet(key, [entry[@"value"] boolValue]);
-        } else {
-            WAGRGateClear(key);
-        }
-    }];
+    [backup enumerateKeysAndObjectsUsingBlock:
+        ^(NSString *key, NSDictionary *entry, BOOL *stop) {
+            (void)stop;
+            if (![entry isKindOfClass:NSDictionary.class]) return;
+            if ([entry[@"present"] boolValue]) {
+                WAGRGateSet(key, [entry[@"value"] boolValue]);
+            } else {
+                WAGRGateClear(key);
+            }
+        }];
 
     [defaults removeObjectForKey:WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP];
     [defaults synchronize];
@@ -140,11 +150,11 @@ static void WAGRApplyManagedDogfoodGates(BOOL enabled) {
 extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
     BOOL masterEnabled = WAGRPref(kWAGREmployeeMaster);
 
-    if (WAGRKnownEmployeeEnabled()) {
+    WAGRApplyManagedDogfoodGates(masterEnabled);
+
+    if (WAGRKnownEmployeeHookRequested()) {
         WAGRInstallKnownEmployeeHook();
     }
-
-    WAGRApplyManagedDogfoodGates(masterEnabled);
 
     if (masterEnabled) {
         WAGRDebugBuildEnsureInstalled();
@@ -161,21 +171,21 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
 
 extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
     return [NSString stringWithFormat:
-            @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedGates=%lu\nmanagedBackup=%lu\n\n[Debug build]\n%@\n\n[Known WAAB]\n%@\n\n[Employee sweep]\n%@",
-            WAGRPref(kWAGREmployeeMaster) ? @"ON" : @"OFF",
-            objc_getClass("WAServerProperties") ? @"YES" : @"NO",
-            gWAGRKnownEmployeeInstalled ? @"YES" : @"NO",
-            (unsigned long)WAGRManagedDogfoodPositiveGates().count,
-            (unsigned long)WAGRManagedGateBackup().count,
-            WAGRDebugBuildDiagnosticText() ?: @"n/a",
-            WAGRDogfoodKnownWAABDiagnosticText() ?: @"n/a",
-            WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
+        @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedDesiredGates=%lu\nmanagedBackup=%lu\n\n[Debug build object]\n%@\n\n[Known WAAB]\n%@\n\n[Employee sweep]\n%@",
+        WAGRPref(kWAGREmployeeMaster) ? @"ON" : @"OFF",
+        objc_getClass("WAServerProperties") ? @"YES" : @"NO",
+        gWAGRKnownEmployeeInstalled ? @"YES" : @"NO",
+        (unsigned long)WAGRManagedDogfoodDesiredGates().count,
+        (unsigned long)WAGRManagedGateBackup().count,
+        WAGRDebugBuildDiagnosticText() ?: @"n/a",
+        WAGRDogfoodKnownWAABDiagnosticText() ?: @"n/a",
+        WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
 }
 
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
-        if (!WAGRKnownEmployeeEnabled()) return;
+        if (!WAGRKnownEmployeeHookRequested()) return;
         WAGRInstallKnownEmployeeHook();
         if (WAGRPref(kWAGREmployeeMaster)) {
             WAGRDebugBuildEnsureInstalled();
