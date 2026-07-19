@@ -65,6 +65,7 @@ jobs:
         run: |
           files=(
             src/Hooks/WAGREmployeeHooks.xm
+            src/Hooks/WAGRDebugBuildHooks.xm
             src/Hooks/WAGRDogfoodKnownWAABHooks.xm
             src/Hooks/WAGREmployeeSweep.xm
             src/Hooks/WAGRDebugMenuInstrumentation.xm
@@ -156,16 +157,28 @@ jobs:
           grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
 
-          # Deterministic Dogfood mode must own the known employee/internal and
-          # dogfood AB getters instead of relying only on a generic reader.
+          # Deterministic Dogfood mode owns the known employee/internal,
+          # KMP build-type and dogfood AB getters.
           grep -q '%hook WAABProperties' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
           grep -q 'isMetaEmployeeOrInternalTester' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
           grep -q 'private_experimentation_should_sync' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
           grep -q 'ios_internal_rage_shake_enabled' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
           grep -q 'WAGRDogfoodKnownWAABEnsureInstalled' src/Hooks/WAGREmployeeHooks.xm
 
+          grep -q '_TtC21WAAppStateSyncContext17KmpAppleBuildInfo' src/Hooks/WAGRDebugBuildHooks.xm
+          grep -q 'getBuildType' src/Hooks/WAGRDebugBuildHooks.xm
+          grep -q 'WASDEKmpBuildType' src/Hooks/WAGRDebugBuildHooks.xm
+          grep -q 'sel_registerName("debug")' src/Hooks/WAGRDebugBuildHooks.xm
+          grep -q 'MSHookMessageEx' src/Hooks/WAGRDebugBuildHooks.xm
+          ! grep -q 'WASDEKotlinSelectorsHolder' src/Hooks/WAGRDebugBuildHooks.xm
+          ! grep -q 'WASDEBoolean' src/Hooks/WAGRDebugBuildHooks.xm
+          grep -q 'isDebugBuild' src/Hooks/WAGREmployeeHooks.xm
+          grep -q 'WAGRDebugBuildEnsureInstalled' src/Hooks/WAGREmployeeHooks.xm
+
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'v16@0:8' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'createSections' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'viewDidLoad' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'viewDidAppear:' src/Hooks/WAGRDebugMenuInstrumentation.xm
 
       - name: Build rootless package
         run: |
