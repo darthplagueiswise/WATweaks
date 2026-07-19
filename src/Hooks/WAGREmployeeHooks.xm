@@ -12,6 +12,8 @@ extern "C" NSUInteger WAGREmployeeSweepEnsureInstalled(void);
 extern "C" NSString *WAGREmployeeSweepDiagnosticText(void);
 extern "C" void WAGRDogfoodKnownWAABEnsureInstalled(void);
 extern "C" NSString *WAGRDogfoodKnownWAABDiagnosticText(void);
+extern "C" void WAGRDebugBuildEnsureInstalled(void);
+extern "C" NSString *WAGRDebugBuildDiagnosticText(void);
 
 @interface WAServerProperties : NSObject
 + (BOOL)isInternalUser;
@@ -64,6 +66,7 @@ static NSArray<NSString *> *WAGRManagedDogfoodPositiveGates(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         gates = @[
+            @"isDebugBuild",
             @"isDebugMenuAllowed",
             @"isDebugMenuShortcutEnabled",
             @"isMetaEmployeeOrInternalTester",
@@ -144,6 +147,7 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
     WAGRApplyManagedDogfoodGates(masterEnabled);
 
     if (masterEnabled) {
+        WAGRDebugBuildEnsureInstalled();
         WAGRDogfoodKnownWAABEnsureInstalled();
         WAGRGateHooksEnsureInstalled();
         WAGRWAABInstallHooksForAllRuntimeImages();
@@ -157,12 +161,13 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
 
 extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
     return [NSString stringWithFormat:
-            @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedGates=%lu\nmanagedBackup=%lu\n\n[Known WAAB]\n%@\n\n[Employee sweep]\n%@",
+            @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedGates=%lu\nmanagedBackup=%lu\n\n[Debug build]\n%@\n\n[Known WAAB]\n%@\n\n[Employee sweep]\n%@",
             WAGRPref(kWAGREmployeeMaster) ? @"ON" : @"OFF",
             objc_getClass("WAServerProperties") ? @"YES" : @"NO",
             gWAGRKnownEmployeeInstalled ? @"YES" : @"NO",
             (unsigned long)WAGRManagedDogfoodPositiveGates().count,
             (unsigned long)WAGRManagedGateBackup().count,
+            WAGRDebugBuildDiagnosticText() ?: @"n/a",
             WAGRDogfoodKnownWAABDiagnosticText() ?: @"n/a",
             WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
 }
@@ -172,5 +177,8 @@ static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
         if (!WAGRKnownEmployeeEnabled()) return;
         WAGRInstallKnownEmployeeHook();
+        if (WAGRPref(kWAGREmployeeMaster)) {
+            WAGRDebugBuildEnsureInstalled();
+        }
     }
 }
