@@ -8,6 +8,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
+#include <string.h>
 #import "../WAGramPrefix.h"
 
 typedef id (*WAGRGetBuildTypeIMP)(id, SEL);
