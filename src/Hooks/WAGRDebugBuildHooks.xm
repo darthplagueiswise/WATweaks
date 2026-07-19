@@ -148,6 +148,12 @@ extern "C" NSString *WAGRDebugBuildDiagnosticText(void) {
         (void *)gWAGROrigBuildTypeValue];
 }
 
+// Compatibility name used by the settings diagnostic while the WA prefix
+// migration is still in progress. There is only one underlying hook owner.
+extern "C" NSString *WAGRBuildTypeDiagnosticText(void) {
+    return WAGRDebugBuildDiagnosticText();
+}
+
 __attribute__((constructor))
 static void WAGRDebugBuildCtor(void) {
     @autoreleasepool {
