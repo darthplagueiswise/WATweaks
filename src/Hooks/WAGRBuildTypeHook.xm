@@ -14,6 +14,8 @@
 #import "../WAPrefix.h"
 #import "../../modules/fishhook/fishhook.h"
 
+extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void);
+
 static uint64_t (*orig_WABuildTypeValue)(void) = NULL;
 static BOOL gWAGRForceDebugBuildLatched = NO;
 static BOOL gWAGRBuildTypeRebound = NO;
@@ -49,5 +51,10 @@ static void WAGRBuildTypeHookCtor(void) {
         gWAGRBuildTypeRebound = (result == 0 && orig_WABuildTypeValue != NULL);
         NSLog(@"[WATweaks][BuildType] fishhook result=%d orig=%p force=Debug(3)",
               result, (void *)orig_WABuildTypeValue);
+
+        // Direct class/selector install only; the expensive AB scan remains
+        // user-triggered. This also patches a Developer screen opened through
+        // WhatsApp's own navigation when Force Debug Build is the only toggle.
+        WAGRDebugMenuInstrumentationEnsureInstalled();
     }
 }
