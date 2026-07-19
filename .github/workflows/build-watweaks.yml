@@ -81,6 +81,8 @@ jobs:
             src/Menu/WAGRSurfaceBrowserVC.m
             src/Runtime/WAGRABPropsRuntime.h
             src/Runtime/WAGRABPropsRuntime.m
+            src/Runtime/WAGRNativeABPropsResolver.h
+            src/Runtime/WAGRNativeABPropsResolver.m
             src/Runtime/WAGRRuntimeClassifier.h
             src/Runtime/WAGRRuntimeClassifier.m
             src/Runtime/WAGRRuntimeValueStore.h
@@ -98,6 +100,7 @@ jobs:
 
           if grep -n -E '\bnullable[[:space:]]+id\b' \
               src/Runtime/WAGRABPropsRuntime.h \
+              src/Runtime/WAGRNativeABPropsResolver.h \
               src/Runtime/WAGRRuntimeValueStore.h \
               src/Menu/WAGRABPropsBrowserVC.h \
               src/Menu/WAGRRuntimeValueEditor.h; then
@@ -125,20 +128,32 @@ jobs:
           grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'WA_PREF_RUNTIME_VALUE_OVERRIDES' src/WADefaults.m
-          grep -q 'WA_PREF_FORCE_DEBUG_BUILD' src/WADefaults.m
 
-          # WAAB discovery/categorization is runtime-only. A JSON catalog must
-          # not be a functional dependency or a CI gate.
+          # WAAB discovery/categorization is runtime-only. JSON is not a source,
+          # dependency or CI gate.
           grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'method_getNumberOfArguments(method) != 2' src/Runtime/WAGRABPropsRuntime.m
-          ! grep -q 'WAABProperties.json' src/Runtime/WAGRABPropsRuntime.m
+          grep -q '#import "WAGRSurface.h"' src/Runtime/WAGRABPropsRuntime.h
+          ! grep -R -n 'WAABProperties.json' \
+              src/Runtime src/Menu src/Hooks
           ! grep -q 'WAGRGateRegistry' src/Menu/WAGRABPropsRootVC.m
           grep -q 'WAGRABPropsBrowserVC' src/Menu/WAGRABPropsRootVC.m
 
+          # Native AB Props is always attempted first. Class enumeration occurs
+          # only from the explicit row handler; the typed browser is fallback.
+          grep -q 'WAGRResolveNativeABPropsController' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'WAGRNativeABPropsResolverDiagnosticText' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'objc_copyClassList' src/Runtime/WAGRNativeABPropsResolver.m
+          grep -q 'WADebugABPropertiesTableViewController' src/Runtime/WAGRNativeABPropsResolver.m
+          grep -q 'runtime fallback' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          ! grep -q 'AB Props Runtime completo' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          ! grep -q 'resetAllOverriddenABProps' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          ! grep -q 'Reinstalar overrides tipados' src/Hooks/WAGRDebugMenuInstrumentation.xm
+
           # Runtime image shortcuts resolve the current Mach-O snapshot instead
-          # of looking up removed static IDs such as exec/sharedmodules.
+          # of looking up removed IDs such as exec/sharedmodules.
           grep -q 'runtimeImageSurfaces' src/Menu/WAGRDogfoodMenuPatch.xm
           grep -q 'runtimeImagePath' src/Menu/WAGRDogfoodMenuPatch.xm
           grep -q 'SharedModules.framework/SharedModules' src/Menu/WAGRDogfoodMenuPatch.xm
@@ -158,32 +173,35 @@ jobs:
           grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
 
-          # Deterministic Dogfood owns employee/internal and known WAAB getters.
+          # One master owns Employee/Internal/Tester/Dogfood, including negative
+          # gates that must become NO rather than blindly forcing every flag YES.
           grep -q '%hook WAABProperties' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
-          grep -q 'isMetaEmployeeOrInternalTester' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
-          grep -q 'private_experimentation_should_sync' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
-          grep -q 'ios_internal_rage_shake_enabled' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'username_dogfooding_pn_privacy_enabled' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'tbv_pass_eligibility_dogfooding_gk' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'graphQLEmployeeC1Disabled' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+          grep -q 'graphQLEmployeeC1Disabled" : @NO' src/Hooks/WAGREmployeeHooks.xm
           grep -q 'WAGRDogfoodKnownWAABEnsureInstalled' src/Hooks/WAGREmployeeHooks.xm
 
-          # A single debug-build owner covers both ABI-correct sources:
-          # object KMP enum (live) and imported C enum (latched/restart).
+          # Debug build uses only the object-ABI Kotlin source. The C build-type
+          # symbol was tied to telemetry and must not be rebound.
           grep -q '_TtC21WAAppStateSyncContext17KmpAppleBuildInfo' src/Hooks/WAGRDebugBuildHooks.xm
           grep -q 'getBuildType' src/Hooks/WAGRDebugBuildHooks.xm
           grep -q 'WASDEKmpBuildType' src/Hooks/WAGRDebugBuildHooks.xm
           grep -q 'sel_registerName("debug")' src/Hooks/WAGRDebugBuildHooks.xm
           grep -q 'MSHookMessageEx' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'WABuildTypeValue' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'rebind_symbols' src/Hooks/WAGRDebugBuildHooks.xm
+          ! grep -q 'rebind_symbols' src/Hooks/WAGRDebugBuildHooks.xm
+          ! grep -q 'WAGRHookBuildTypeValue' src/Hooks/WAGRDebugBuildHooks.xm
           ! grep -q '%hook WASDEKotlinSelectorsHolder' src/Hooks/WAGRDebugBuildHooks.xm
           ! grep -q 'objc_getClass("WASDEKotlinSelectorsHolder")' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'isDebugBuild' src/Hooks/WAGREmployeeHooks.xm
           grep -q 'WAGRDebugBuildEnsureInstalled' src/Hooks/WAGREmployeeHooks.xm
 
-          # The RC warning replacement must survive create/lifecycle timing.
+          # The RC warning replacement must survive create/lifecycle timing, but
+          # it may only remove the warning row and add one native-first entry.
           grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'createSections' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'viewDidLoad' src/Hooks/WAGRDebugMenuInstrumentation.xm
           grep -q 'viewDidAppear:' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'WAGRRowIsRCWarning' src/Hooks/WAGRDebugMenuInstrumentation.xm
 
       - name: Build rootless package
         run: |
