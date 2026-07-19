@@ -16,6 +16,7 @@ NSDictionary<NSString *, id> * WADefaultsDictionary(void) {
             WA_PREF_EMPLOYEE_SWEEP : @NO,
             WA_PREF_EMPLOYEE_SWEEP_OVERRIDES : @{},
             WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP : @{},
+            WA_PREF_FORCE_DEBUG_BUILD : @NO,
 
             // Gate / override system
             @"watweak_gate_eligibility_master" : @NO,
