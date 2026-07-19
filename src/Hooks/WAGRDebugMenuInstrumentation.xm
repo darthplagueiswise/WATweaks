@@ -1,21 +1,24 @@
 // WAGRDebugMenuInstrumentation.xm
-// The RC build hardcodes an unavailable-warning in -createSections even though
-// WAABProperties, its categories, PrivateExperimentation and override storage
-// remain present. Preserve the native Developer menu and replace only that dead
-// section with actions backed by the real runtime objects.
+//
+// Capstone confirms that this RC build creates the AB Props unavailable card
+// unconditionally inside -[WADebugViewController createSections]. There is no
+// employee/debug-build branch to flip in that region. Preserve the native
+// Developer controller, then replace only that section with runtime-backed
+// actions. Hooks are direct class/selector installs; there is no startup scan.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <substrate.h>
 #include <string.h>
+#import "../WAGramPrefix.h"
 #import "../Menu/WAGRABPropsBrowserVC.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRLog.h"
 
 extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC,
-                                                        NSError **outError);
+                                                         NSError **outError);
 
 @interface WACachedCopyMutableArray : NSObject
 - (NSArray *)immutableArray;
@@ -42,15 +45,22 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC,
 - (void)resetAllOverriddenABProps;
 @end
 
-typedef void (*WAGRCreateSectionsIMP)(id, SEL);
-static WAGRCreateSectionsIMP orig_WADebugCreateSections = NULL;
+typedef void (*WAGRVoidIMP)(id, SEL);
+typedef void (*WAGRVoidBoolIMP)(id, SEL, BOOL);
+
+static WAGRVoidIMP orig_WADebugCreateSections = NULL;
+static WAGRVoidIMP orig_WADebugViewDidLoad = NULL;
+static WAGRVoidBoolIMP orig_WADebugViewDidAppear = NULL;
 static BOOL gWAGRDebugCreateSectionsHooked = NO;
+static BOOL gWAGRDebugViewDidLoadHooked = NO;
+static BOOL gWAGRDebugViewDidAppearHooked = NO;
 static NSUInteger gWAGRABPropsSectionPatchCount = 0;
 
-static BOOL WAGRMethodHasExactEncoding(Method method, const char *expected) {
-    if (!method || !expected) return NO;
-    const char *actual = method_getTypeEncoding(method);
-    return actual && strcmp(actual, expected) == 0;
+static BOOL WAGRMethodIsVoidWithArguments(Method method, unsigned int arguments) {
+    if (!method || method_getNumberOfArguments(method) != arguments) return NO;
+    char returnType[16] = {0};
+    method_getReturnType(method, returnType, sizeof(returnType));
+    return returnType[0] == 'v';
 }
 
 static NSArray *WAGRSnapshotCollection(id collection) {
@@ -67,13 +77,25 @@ static NSArray *WAGRSnapshotCollection(id collection) {
     return snapshot;
 }
 
+static NSString *WAGRRowText(WATableRow *row) {
+    UITableViewCell *cell = [row cell];
+    return [NSString stringWithFormat:@"%@ %@",
+        cell.textLabel.text ?: @"", cell.detailTextLabel.text ?: @""];
+}
+
 static BOOL WAGRSectionContainsRCWarning(WATableSection *section) {
     for (WATableRow *row in WAGRSnapshotCollection([section rows])) {
-        UITableViewCell *cell = [row cell];
-        NSString *text = [NSString stringWithFormat:@"%@ %@",
-            cell.textLabel.text ?: @"", cell.detailTextLabel.text ?: @""].lowercaseString;
+        NSString *text = WAGRRowText(row).lowercaseString;
         if ([text containsString:@"ab props are not available"] ||
             [text containsString:@"release candidate builds"]) return YES;
+    }
+    return NO;
+}
+
+static BOOL WAGRSectionAlreadyPatched(WATableSection *section) {
+    for (WATableRow *row in WAGRSnapshotCollection([section rows])) {
+        NSString *text = WAGRRowText(row).lowercaseString;
+        if ([text containsString:@"ab props runtime completo"]) return YES;
     }
     return NO;
 }
@@ -90,9 +112,7 @@ static WATableSection *WAGRFindABPropsSection(WADebugViewController *controller)
         @try { header = [candidate headerText]; }
         @catch (__unused NSException *exception) { header = nil; }
         if ((header.length && [header caseInsensitiveCompare:@"AB Props"] == NSOrderedSame) ||
-            WAGRSectionContainsRCWarning(candidate)) {
-            return candidate;
-        }
+            WAGRSectionContainsRCWarning(candidate)) return candidate;
     }
     return nil;
 }
@@ -162,13 +182,14 @@ static void WAGRAddActionRow(WATableSection *section,
     [row setHandler:[handler copy]];
 }
 
-static void WAGRConfigureABPropsSection(WADebugViewController *controller) {
-    if (!controller) return;
+static BOOL WAGRConfigureABPropsSection(WADebugViewController *controller) {
+    if (!controller) return NO;
     WATableSection *section = WAGRFindABPropsSection(controller);
     if (!section) {
-        WAGRLogAppend(@"[DebugMenu][ABProps] native AB Props warning section not found");
-        return;
+        WAGRLogAppend(@"[DebugMenu][ABProps] AB Props section not found yet");
+        return NO;
     }
+    if (WAGRSectionAlreadyPatched(section)) return NO;
 
     @try {
         for (WATableRow *row in WAGRSnapshotCollection([section rows])) {
@@ -177,13 +198,12 @@ static void WAGRConfigureABPropsSection(WADebugViewController *controller) {
 
         [section setHeaderText:@"AB Props"];
         [section setFooterText:
-            @"Catálogo regenerado do executable e SharedModules desta build. "
-             "Os overrides usam trampolines separados por ABI e podem ser removidos com Usar original."];
+            @"Descoberto do Objective-C runtime carregado. Classes, selectors, imagens e ABIs são reavaliados ao abrir/atualizar; não depende de catálogo estático."];
 
         __weak WADebugViewController *weakController = controller;
         WAGRAddActionRow(section,
             @"AB Props Runtime completo",
-            @"10.355 selectors editáveis · 7.782 BOOL · 1.797 inteiros · 199 double · 577 objetos",
+            @"Enumera WAABProperties e providers vivos desta sessão · busca · valor atual · override tipado",
             @"switch.2", UIColor.systemGreenColor, ^{
                 WADebugViewController *strongController = weakController;
                 if (strongController) WAGRPresentABPropsBrowser(strongController);
@@ -239,47 +259,130 @@ static void WAGRConfigureABPropsSection(WADebugViewController *controller) {
         gWAGRABPropsSectionPatchCount++;
         WAGRLogAppendF(@"[DebugMenu][ABProps] RC warning replaced; patchCount=%lu",
                        (unsigned long)gWAGRABPropsSectionPatchCount);
+        return YES;
     } @catch (NSException *exception) {
-        WAGRLogAppendF(@"[DebugMenu][ABProps] section patch exception %@: %@",
+        WAGRLogAppendF(@"[DebugMenu][ABProps] patch exception %@: %@",
                        exception.name, exception.reason);
+        return NO;
     }
+}
+
+static void WAGRReloadTablesInView(UIView *view) {
+    if (!view) return;
+    if ([view isKindOfClass:UITableView.class]) [(UITableView *)view reloadData];
+    for (UIView *subview in view.subviews) WAGRReloadTablesInView(subview);
+}
+
+static void WAGRPatchVisibleDebugController(UIViewController *controller) {
+    if (!controller) return;
+    if ([controller isKindOfClass:NSClassFromString(@"WADebugViewController")]) {
+        if (WAGRConfigureABPropsSection((WADebugViewController *)controller)) {
+            WAGRReloadTablesInView(controller.view);
+        }
+    }
+    for (UIViewController *child in controller.childViewControllers) {
+        WAGRPatchVisibleDebugController(child);
+    }
+    if (controller.presentedViewController) {
+        WAGRPatchVisibleDebugController(controller.presentedViewController);
+    }
+}
+
+static void WAGRPatchVisibleDebugControllers(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        for (UIWindow *window in UIApplication.sharedApplication.windows) {
+            WAGRPatchVisibleDebugController(window.rootViewController);
+        }
+    });
 }
 
 static void hook_WADebugCreateSections(id self, SEL _cmd) {
     if (orig_WADebugCreateSections) orig_WADebugCreateSections(self, _cmd);
-    if ([self isKindOfClass:UIViewController.class]) {
-        WAGRConfigureABPropsSection((WADebugViewController *)self);
+    WAGRConfigureABPropsSection((WADebugViewController *)self);
+}
+
+static void hook_WADebugViewDidLoad(id self, SEL _cmd) {
+    if (orig_WADebugViewDidLoad) orig_WADebugViewDidLoad(self, _cmd);
+    if (WAGRConfigureABPropsSection((WADebugViewController *)self)) {
+        WAGRReloadTablesInView(((UIViewController *)self).view);
+    }
+}
+
+static void hook_WADebugViewDidAppear(id self, SEL _cmd, BOOL animated) {
+    if (orig_WADebugViewDidAppear) orig_WADebugViewDidAppear(self, _cmd, animated);
+    if (WAGRConfigureABPropsSection((WADebugViewController *)self)) {
+        WAGRReloadTablesInView(((UIViewController *)self).view);
     }
 }
 
 extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void) {
-    if (gWAGRDebugCreateSectionsHooked) return;
     Class cls = NSClassFromString(@"WADebugViewController");
-    SEL selector = NSSelectorFromString(@"createSections");
-    Method method = cls ? class_getInstanceMethod(cls, selector) : NULL;
-    if (!WAGRMethodHasExactEncoding(method, "v16@0:8")) {
-        WAGRLogAppend(@"[DebugMenu][ABProps] createSections unavailable or ABI changed");
+    if (!cls) {
+        WAGRLogAppend(@"[DebugMenu][ABProps] WADebugViewController not loaded");
         return;
     }
 
-    MSHookMessageEx(cls,
-                    selector,
-                    (IMP)hook_WADebugCreateSections,
-                    (IMP *)&orig_WADebugCreateSections);
-    gWAGRDebugCreateSectionsHooked = (orig_WADebugCreateSections != NULL);
-    WAGRLogAppendF(@"[DebugMenu][ABProps] createSections hook=%@",
-                   gWAGRDebugCreateSectionsHooked ? @"YES" : @"NO");
+    if (!gWAGRDebugCreateSectionsHooked) {
+        SEL selector = NSSelectorFromString(@"createSections");
+        Method method = class_getInstanceMethod(cls, selector);
+        if (WAGRMethodIsVoidWithArguments(method, 2)) {
+            MSHookMessageEx(cls, selector, (IMP)hook_WADebugCreateSections,
+                            (IMP *)&orig_WADebugCreateSections);
+            gWAGRDebugCreateSectionsHooked = (orig_WADebugCreateSections != NULL);
+        }
+    }
+
+    if (!gWAGRDebugViewDidLoadHooked) {
+        SEL selector = @selector(viewDidLoad);
+        Method method = class_getInstanceMethod(cls, selector);
+        if (WAGRMethodIsVoidWithArguments(method, 2)) {
+            MSHookMessageEx(cls, selector, (IMP)hook_WADebugViewDidLoad,
+                            (IMP *)&orig_WADebugViewDidLoad);
+            gWAGRDebugViewDidLoadHooked = (orig_WADebugViewDidLoad != NULL);
+        }
+    }
+
+    if (!gWAGRDebugViewDidAppearHooked) {
+        SEL selector = @selector(viewDidAppear:);
+        Method method = class_getInstanceMethod(cls, selector);
+        if (WAGRMethodIsVoidWithArguments(method, 3)) {
+            MSHookMessageEx(cls, selector, (IMP)hook_WADebugViewDidAppear,
+                            (IMP *)&orig_WADebugViewDidAppear);
+            gWAGRDebugViewDidAppearHooked = (orig_WADebugViewDidAppear != NULL);
+        }
+    }
+
+    WAGRLogAppendF(@"[DebugMenu][ABProps] hooks create=%@ load=%@ appear=%@",
+        gWAGRDebugCreateSectionsHooked ? @"YES" : @"NO",
+        gWAGRDebugViewDidLoadHooked ? @"YES" : @"NO",
+        gWAGRDebugViewDidAppearHooked ? @"YES" : @"NO");
+    WAGRPatchVisibleDebugControllers();
 }
 
 extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void) {
     NSDictionary *stats = WAGRABPropsCatalogStats();
     return [NSString stringWithFormat:
-        @"AB Props createSections hook=%@\nsection patches=%lu\ncatalog supported=%@\ntyped overrides=%lu\nWAABProperties=%@\nPrivateABProperties=%@",
+        @"AB Props hooks create=%@ load=%@ appear=%@\nsection patches=%lu\nlive selectors=%@\ntyped overrides=%lu\nWAABProperties=%@\nPrivateABProperties=%@",
         gWAGRDebugCreateSectionsHooked ? @"YES" : @"NO",
+        gWAGRDebugViewDidLoadHooked ? @"YES" : @"NO",
+        gWAGRDebugViewDidAppearHooked ? @"YES" : @"NO",
         (unsigned long)gWAGRABPropsSectionPatchCount,
-        stats[@"selectors_supported"] ?: @"catalog unavailable",
+        stats[@"selectors"] ?: @"not scanned yet",
         (unsigned long)WAGRRuntimeValueAllOverrideSpecs().count,
         NSClassFromString(@"WAABProperties") ? @"loaded" : @"missing",
         (NSClassFromString(@"_TtC24WAPrivateExperimentation19PrivateABProperties") ||
          NSClassFromString(@"WAPrivateExperimentation.PrivateABProperties")) ? @"loaded" : @"missing"];
+}
+
+__attribute__((constructor))
+static void WAGRDebugMenuInstrumentationCtor(void) {
+    @autoreleasepool {
+        // Direct class/selector lookup only. No objc_getClassList, dladdr loop or
+        // runtime scan during launch. The actual AB scan remains user-triggered.
+        if (!WAGRPref(kWAGREmployeeMaster) &&
+            !WAGRPref(kWAGRInternalMaster) &&
+            !WAGRPref(kWAGRDebugMenuNative) &&
+            !WAGRPref(kWAGRDebugMode)) return;
+        WAGRDebugMenuInstrumentationEnsureInstalled();
+    }
 }
