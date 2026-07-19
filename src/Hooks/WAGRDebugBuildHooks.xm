@@ -1,6 +1,7 @@
 // WAGRDebugBuildHooks.xm
 //
-// ABI-correct build-type override. The Kotlin bridge exposes
+// ABI-correct build-type override owned by the unified
+// Employee / Internal / Tester / Dogfood master. The Kotlin bridge exposes
 // KmpAppleBuildInfo -getBuildType as an Objective-C object getter (@16@0:8).
 // WASDEKotlinSelectorsHolder -isDebugBuild is metadata forwarding and is not a
 // BOOL target. WABuildTypeValue is intentionally not fishhooked: Capstone tied
@@ -21,8 +22,6 @@ static NSString *gWAGRLastForcedBuildType = nil;
 
 static BOOL WAGRDebugBuildOverrideEnabled(void) {
     if (WAGRPref(kWAGREmployeeMaster)) return YES;
-    if ([[NSUserDefaults standardUserDefaults]
-            boolForKey:WA_PREF_FORCE_DEBUG_BUILD]) return YES;
     return WAGRGateIsSet(@"isDebugBuild") &&
            WAGRGateGet(@"isDebugBuild");
 }
@@ -47,7 +46,8 @@ static id WAGRResolveKmpDebugBuildType(void) {
         ? class_getClassMethod(buildTypeClass, debugSelector)
         : NULL;
     if (!WAGRMethodReturnsObjectWithNoExplicitArguments(debugMethod)) {
-        gWAGRLastForcedBuildType = @"WASDEKmpBuildType +debug unavailable or ABI changed";
+        gWAGRLastForcedBuildType =
+            @"WASDEKmpBuildType +debug unavailable or ABI changed";
         return nil;
     }
 
@@ -61,8 +61,9 @@ static id WAGRResolveKmpDebugBuildType(void) {
             : @"debug enum returned nil";
         return value;
     } @catch (NSException *exception) {
-        gWAGRLastForcedBuildType = [NSString stringWithFormat:@"exception %@: %@",
-            exception.name ?: @"?", exception.reason ?: @"?"];
+        gWAGRLastForcedBuildType = [NSString stringWithFormat:
+            @"exception %@: %@", exception.name ?: @"?",
+            exception.reason ?: @"?"];
         return nil;
     }
 }
@@ -109,7 +110,7 @@ extern "C" NSString *WAGRDebugBuildDiagnosticText(void) {
         "_TtC21WAAppStateSyncContext17KmpAppleBuildInfo");
     Class typeClass = objc_getClass("WASDEKmpBuildType");
     return [NSString stringWithFormat:
-        @"KmpAppleBuildInfo=%@\nWASDEKmpBuildType=%@\ngetBuildTypeHook=%@\nobjectForceDebug=%@\nlastForced=%@\nWABuildTypeValue fishhook=DISABLED (telemetry consumer only)",
+        @"KmpAppleBuildInfo=%@\nWASDEKmpBuildType=%@\ngetBuildTypeHook=%@\nmasterForceDebug=%@\nlastForced=%@\nWABuildTypeValue fishhook=DISABLED (telemetry consumer only)",
         infoClass ? @"YES" : @"NO",
         typeClass ? @"YES" : @"NO",
         gWAGRDebugBuildHookInstalled ? @"YES" : @"NO",
