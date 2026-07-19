@@ -1,5 +1,5 @@
 // WAGRDogfoodMenuPatch.xm
-// Patches the existing settings model without keeping stale runtime surface IDs.
+// Patches the existing settings model without stale runtime surface IDs.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -12,6 +12,7 @@
 extern "C" NSUInteger WAGREmployeeSweepSetEnabled(BOOL enabled);
 extern "C" NSString *WAGREmployeeSweepDiagnosticText(void);
 extern "C" NSString *WAGRDogfoodDiagnosticText(void);
+extern "C" NSString *WAGRBuildTypeDiagnosticText(void);
 extern "C" BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
 extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
 
@@ -52,10 +53,7 @@ static void WAGRDogfoodMenuAlert(UIViewController *from,
                                   NSString *message) {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *presenter = from;
-        while (presenter.presentedViewController) {
-            presenter = presenter.presentedViewController;
-        }
-
+        while (presenter.presentedViewController) presenter = presenter.presentedViewController;
         UIAlertController *alert = [UIAlertController
             alertControllerWithTitle:title ?: @"Dogfood"
             message:message ?: @""
@@ -66,8 +64,7 @@ static void WAGRDogfoodMenuAlert(UIViewController *from,
                 UIPasteboard.generalPasteboard.string = message ?: @"";
             }]];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK"
-            style:UIAlertActionStyleCancel
-            handler:nil]];
+            style:UIAlertActionStyleCancel handler:nil]];
         [presenter presentViewController:alert animated:YES completion:nil];
     });
 }
@@ -140,12 +137,8 @@ static BOOL WAGRRuntimePathIsSharedModules(NSString *path) {
 static WAGRSurfaceSpec *WAGRRuntimeSurfaceForKind(WAGRRuntimeImageKind kind) {
     for (WAGRSurfaceSpec *surface in [WAGRScanner runtimeImageSurfaces]) {
         NSString *path = surface.runtimeImagePath ?: @"";
-        if (kind == WAGRRuntimeImageKindExecutable && WAGRRuntimePathIsExecutable(path)) {
-            return surface;
-        }
-        if (kind == WAGRRuntimeImageKindSharedModules && WAGRRuntimePathIsSharedModules(path)) {
-            return surface;
-        }
+        if (kind == WAGRRuntimeImageKindExecutable && WAGRRuntimePathIsExecutable(path)) return surface;
+        if (kind == WAGRRuntimeImageKindSharedModules && WAGRRuntimePathIsSharedModules(path)) return surface;
     }
     return nil;
 }
@@ -165,16 +158,14 @@ static void WAGROpenRuntimeImage(UIViewController *from, WAGRRuntimeImageKind ki
     WAGRSurfaceSpec *surface = WAGRRuntimeSurfaceForKind(kind);
     if (!surface) {
         NSString *wanted = kind == WAGRRuntimeImageKindExecutable
-            ? @"WhatsApp Executable"
-            : @"SharedModules";
+            ? @"WhatsApp Executable" : @"SharedModules";
         WAGRDogfoodMenuAlert(from, @"Runtime",
             [NSString stringWithFormat:@"Imagem %@ não encontrada no snapshot atual.\n\nImagens descobertas:\n%@",
              wanted, WAGRRuntimeAvailableImages()]);
         return;
     }
     [from.navigationController pushViewController:
-        [[WAGRSurfaceBrowserVC alloc] initWithSpec:surface]
-        animated:YES];
+        [[WAGRSurfaceBrowserVC alloc] initWithSpec:surface] animated:YES];
 }
 
 %hook WAGRMainSettingsVC
@@ -183,11 +174,8 @@ static void WAGROpenRuntimeImage(UIViewController *from, WAGRRuntimeImageKind ki
     %orig;
 
     NSArray<WATSection *> *sections = nil;
-    @try {
-        sections = [self valueForKey:@"_sections"];
-    } @catch (__unused NSException *exception) {
-        return;
-    }
+    @try { sections = [self valueForKey:@"_sections"]; }
+    @catch (__unused NSException *exception) { return; }
     if (![sections isKindOfClass:NSArray.class]) return;
 
     NSMutableArray<WATSection *> *patchedSections = [sections mutableCopy];
@@ -205,13 +193,25 @@ static void WAGROpenRuntimeImage(UIViewController *from, WAGRRuntimeImageKind ki
                 [rows addObject:row];
             }
 
+            WATCell *forceDebug = WAGRDogfoodSwitch(
+                @"Force Debug Build (reinício)",
+                @"fishhook WABuildTypeValue → Debug(3) · preferência latched no launch",
+                @"hammer.fill",
+                ^BOOL{
+                    return [[NSUserDefaults standardUserDefaults]
+                        boolForKey:WA_PREF_FORCE_DEBUG_BUILD];
+                },
+                ^(BOOL enabled) {
+                    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                    [defaults setBool:enabled forKey:WA_PREF_FORCE_DEBUG_BUILD];
+                    [defaults synchronize];
+                });
+
             WATCell *sweep = WAGRDogfoodSwitch(
                 @"Employee sweep runtime",
                 @"Descoberta pós-launch restrita a getters BOOL allowlisted",
                 @"scope",
-                ^BOOL{
-                    return WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP);
-                },
+                ^BOOL{ return WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP); },
                 ^(BOOL enabled) {
                     NSUInteger changed = WAGREmployeeSweepSetEnabled(enabled);
                     NSLog(@"[WATweaks][EmployeeSweep] %@ changed=%lu",
@@ -220,7 +220,8 @@ static void WAGROpenRuntimeImage(UIViewController *from, WAGRRuntimeImageKind ki
                 });
 
             NSUInteger insertIndex = rows.count > 0 ? 1 : 0;
-            [rows insertObject:sweep atIndex:MIN(insertIndex, rows.count)];
+            [rows insertObject:forceDebug atIndex:MIN(insertIndex, rows.count)];
+            [rows insertObject:sweep atIndex:MIN(insertIndex + 1, rows.count)];
 
             [rows addObject:WAGRDogfoodAction(
                 @"Abrir Developer Menu nativo",
@@ -229,8 +230,7 @@ static void WAGROpenRuntimeImage(UIViewController *from, WAGRRuntimeImageKind ki
                 ^(UIViewController *from) {
                     NSError *error = nil;
                     if (!WAGRLaunchNativeDeveloperMenu(from, &error)) {
-                        WAGRDogfoodMenuAlert(from,
-                            @"Developer Menu",
+                        WAGRDogfoodMenuAlert(from, @"Developer Menu",
                             error.localizedDescription ?: @"O opener nativo não ficou disponível.");
                     }
                 })];
@@ -242,32 +242,32 @@ static void WAGROpenRuntimeImage(UIViewController *from, WAGRRuntimeImageKind ki
                 ^(UIViewController *from) {
                     NSError *error = nil;
                     if (!WAGRLaunchPrivateExperimentationDebug(from, &error)) {
-                        WAGRDogfoodMenuAlert(from,
-                            @"Private Experimentation",
+                        WAGRDogfoodMenuAlert(from, @"Private Experimentation",
                             error.localizedDescription ?: @"Abra o Developer Menu nativo primeiro.");
                     }
                 })];
 
             [rows addObject:WAGRDogfoodAction(
                 @"Diagnóstico Employee / Dogfood",
-                @"Hooks determinísticos, gates gerenciados e sweep desta sessão",
+                @"Employee, build type, hooks determinísticos e sweep desta sessão",
                 @"stethoscope",
                 ^(UIViewController *from) {
                     NSString *message = [NSString stringWithFormat:
-                        @"%@\n\n[Sweep]\n%@",
+                        @"%@\n\n[Build type]\n%@\n\n[Sweep]\n%@",
                         WAGRDogfoodDiagnosticText() ?: @"n/a",
+                        WAGRBuildTypeDiagnosticText() ?: @"n/a",
                         WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
                     WAGRDogfoodMenuAlert(from, @"Employee / Dogfood", message);
                 })];
 
-            section.footer = @"Master determinístico: WAServerProperties, WAABProperties dogfood/employee e DebugMenuProvider. Sweep separado e reversível.";
+            section.footer = @"Employee/Internal é live. Force Debug Build usa o símbolo C global e só muda após reiniciar o WhatsApp.";
             section.rows = rows;
             patchedSections[sectionIndex] = section;
             continue;
         }
 
         if ([section.header isEqualToString:@"Runtime Gates"]) {
-            section.footer = @"As imagens são resolvidas em runtime a cada toque. Não existem mais IDs fixos exec/sharedmodules.";
+            section.footer = @"As imagens são resolvidas em runtime a cada toque. Não existem IDs fixos exec/sharedmodules.";
             section.rows = @[
                 WAGRDogfoodNav(
                     @"Runtime em Tempo Real",
@@ -296,10 +296,8 @@ static void WAGROpenRuntimeImage(UIViewController *from, WAGRRuntimeImageKind ki
         }
     }
 
-    @try {
-        [self setValue:patchedSections forKey:@"_sections"];
-    } @catch (__unused NSException *exception) {
-    }
+    @try { [self setValue:patchedSections forKey:@"_sections"]; }
+    @catch (__unused NSException *exception) {}
 }
 
 %end
