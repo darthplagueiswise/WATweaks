@@ -28,22 +28,18 @@
 
 static BOOL gWAGRKnownWAABDogfoodInstalled = NO;
 
-static BOOL WAGRKnownPositiveDogfoodValue(NSString *selectorName,
-                                          BOOL originalValue) {
-    if (WAGRPref(kWAGREmployeeMaster)) return YES;
-    if (selectorName.length && WAGRGateIsSet(selectorName)) {
-        return WAGRGateGet(selectorName);
+static BOOL WAGRKnownDogfoodOverride(NSString *selectorName,
+                                     BOOL masterValue,
+                                     BOOL *outValue) {
+    if (WAGRPref(kWAGREmployeeMaster)) {
+        if (outValue) *outValue = masterValue;
+        return YES;
     }
-    return originalValue;
-}
-
-static BOOL WAGRKnownNegativeDogfoodValue(NSString *selectorName,
-                                          BOOL originalValue) {
-    if (WAGRPref(kWAGREmployeeMaster)) return NO;
     if (selectorName.length && WAGRGateIsSet(selectorName)) {
-        return WAGRGateGet(selectorName);
+        if (outValue) *outValue = WAGRGateGet(selectorName);
+        return YES;
     }
-    return originalValue;
+    return NO;
 }
 
 %group WAGRKnownWAABDogfood
@@ -51,99 +47,129 @@ static BOOL WAGRKnownNegativeDogfoodValue(NSString *selectorName,
 %hook WAABProperties
 
 - (BOOL)isMetaEmployeeOrInternalTester {
-    if (WAGRPref(kWAGREmployeeMaster)) return YES;
-    if (WAGRGateIsSet(@"isMetaEmployeeOrInternalTester")) {
-        return WAGRGateGet(@"isMetaEmployeeOrInternalTester");
-    }
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"isMetaEmployeeOrInternalTester", YES, &value)) return value;
     return %orig;
 }
 
 - (BOOL)is_meta_employee_or_internal_tester {
-    if (WAGRPref(kWAGREmployeeMaster)) return YES;
-    if (WAGRGateIsSet(@"is_meta_employee_or_internal_tester")) {
-        return WAGRGateGet(@"is_meta_employee_or_internal_tester");
-    }
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"is_meta_employee_or_internal_tester", YES, &value)) return value;
     return %orig;
 }
 
 - (BOOL)is_internal_tester {
-    if (WAGRPref(kWAGREmployeeMaster)) return YES;
-    if (WAGRGateIsSet(@"is_internal_tester")) {
-        return WAGRGateGet(@"is_internal_tester");
-    }
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"is_internal_tester", YES, &value)) return value;
     return %orig;
 }
 
 - (BOOL)waios_mc_debug_ui_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"waios_mc_debug_ui_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"waios_mc_debug_ui_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)whatsbroken_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"whatsbroken_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"whatsbroken_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)private_experimentation_should_sync {
-    return WAGRKnownPositiveDogfoodValue(@"private_experimentation_should_sync", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"private_experimentation_should_sync", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)private_abprop_for_dev_only {
-    return WAGRKnownPositiveDogfoodValue(@"private_abprop_for_dev_only", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"private_abprop_for_dev_only", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)private_experimentation_use_acs_config_id {
-    return WAGRKnownPositiveDogfoodValue(@"private_experimentation_use_acs_config_id", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"private_experimentation_use_acs_config_id", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)dogfooding_nudge_settings_entrypoint_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"dogfooding_nudge_settings_entrypoint_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"dogfooding_nudge_settings_entrypoint_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)dogfooding_nudge_banner_home_screen_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"dogfooding_nudge_banner_home_screen_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"dogfooding_nudge_banner_home_screen_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)username_dogfooding_pn_privacy_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"username_dogfooding_pn_privacy_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"username_dogfooding_pn_privacy_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)username_dogfooding_pn_privacy_periodic_conversion_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"username_dogfooding_pn_privacy_periodic_conversion_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"username_dogfooding_pn_privacy_periodic_conversion_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)tbv_pass_eligibility_dogfooding_gk {
-    return WAGRKnownPositiveDogfoodValue(@"tbv_pass_eligibility_dogfooding_gk", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"tbv_pass_eligibility_dogfooding_gk", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)get_help_internal_bug_report_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"get_help_internal_bug_report_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"get_help_internal_bug_report_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)give_dogfooders_task_id_for_bug_reporting {
-    return WAGRKnownPositiveDogfoodValue(@"give_dogfooders_task_id_for_bug_reporting", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"give_dogfooders_task_id_for_bug_reporting", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)internal_bug_reporting_bottom_sheet {
-    return WAGRKnownPositiveDogfoodValue(@"internal_bug_reporting_bottom_sheet", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"internal_bug_reporting_bottom_sheet", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)ios_internal_in_app_bug_reporting_enable {
-    return WAGRKnownPositiveDogfoodValue(@"ios_internal_in_app_bug_reporting_enable", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"ios_internal_in_app_bug_reporting_enable", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)ios_internal_rage_shake_enabled {
-    return WAGRKnownPositiveDogfoodValue(@"ios_internal_rage_shake_enabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"ios_internal_rage_shake_enabled", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)hn_dogfooding {
-    return WAGRKnownPositiveDogfoodValue(@"hn_dogfooding", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"hn_dogfooding", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)malibu_dogfooding {
-    return WAGRKnownPositiveDogfoodValue(@"malibu_dogfooding", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"malibu_dogfooding", YES, &value)) return value;
+    return %orig;
 }
 
 - (BOOL)graphQLEmployeeC1Disabled {
-    return WAGRKnownNegativeDogfoodValue(@"graphQLEmployeeC1Disabled", %orig);
+    BOOL value = NO;
+    if (WAGRKnownDogfoodOverride(@"graphQLEmployeeC1Disabled", NO, &value)) return value;
+    return %orig;
 }
 
 %end
