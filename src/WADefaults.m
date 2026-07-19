@@ -11,12 +11,11 @@ static dispatch_once_t gWADefaultsOnce;
 NSDictionary<NSString *, id> * WADefaultsDictionary(void) {
     dispatch_once(&gWADefaultsOnce, ^{
         gWADefaults = @{
-            // Employee / Dogfood / Internal
+            // Employee / Internal / Tester / Dogfood
             WA_PREF_EMPLOYEE_MASTER : @NO,
             WA_PREF_EMPLOYEE_SWEEP : @NO,
             WA_PREF_EMPLOYEE_SWEEP_OVERRIDES : @{},
             WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP : @{},
-            WA_PREF_FORCE_DEBUG_BUILD : @NO,
 
             // Gate / override system
             @"watweak_gate_eligibility_master" : @NO,
