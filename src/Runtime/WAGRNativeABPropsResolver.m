@@ -9,11 +9,15 @@
 static NSString *gWAGRNativeABPropsLastDiagnostic = @"not attempted";
 static NSObject *gWAGRNativeABPropsDiagnosticLock = nil;
 
-static void WAGRNativeABPropsSetDiagnostic(NSString *text) {
+static void WAGRNativeABPropsEnsureDiagnosticLock(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         gWAGRNativeABPropsDiagnosticLock = [NSObject new];
     });
+}
+
+static void WAGRNativeABPropsSetDiagnostic(NSString *text) {
+    WAGRNativeABPropsEnsureDiagnosticLock();
     @synchronized (gWAGRNativeABPropsDiagnosticLock) {
         gWAGRNativeABPropsLastDiagnostic = [text copy] ?: @"unknown";
     }
@@ -21,10 +25,7 @@ static void WAGRNativeABPropsSetDiagnostic(NSString *text) {
 }
 
 NSString *WAGRNativeABPropsResolverDiagnosticText(void) {
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        gWAGRNativeABPropsDiagnosticLock = [NSObject new];
-    });
+    WAGRNativeABPropsEnsureDiagnosticLock();
     @synchronized (gWAGRNativeABPropsDiagnosticLock) {
         return [gWAGRNativeABPropsLastDiagnostic copy] ?: @"unknown";
     }
@@ -72,6 +73,7 @@ static id WAGRHostUserContext(UIViewController *host, id suppliedContext) {
 }
 
 static id WAGRObjectFromContext(id context, NSArray<NSString *> *selectorNames) {
+    if (!context) return nil;
     for (NSString *selectorName in selectorNames) {
         id value = WAGRCallZeroArgumentObject(context, selectorName);
         if (value) return value;
@@ -103,23 +105,21 @@ static id WAGRResolveDebugOverridesObject(id userContext) {
 }
 
 static BOOL WAGRClassIsUIViewControllerSubclass(Class cls) {
-    if (!cls) return NO;
-    Class current = cls;
-    while (current) {
+    for (Class current = cls; current; current = class_getSuperclass(current)) {
         if (current == UIViewController.class) return YES;
-        current = class_getSuperclass(current);
     }
     return NO;
 }
 
 static BOOL WAGRClassLooksLikeABPropsController(Class cls) {
     if (!WAGRClassIsUIViewControllerSubclass(cls)) return NO;
-    NSString *name = NSStringFromClass(cls) ?: @"";
-    NSString *lower = name.lowercaseString;
-    if ([lower hasPrefix:@"wagr"] || [lower containsString:@"privateexperimentation"]) return NO;
+    NSString *lower = (NSStringFromClass(cls) ?: @"").lowercaseString;
+    if ([lower hasPrefix:@"wagr"] ||
+        [lower containsString:@"privateexperimentation"]) return NO;
     BOOL properties = [lower containsString:@"abproperties"] ||
                       [lower containsString:@"abprops"] ||
-                      ([lower containsString:@"ab"] && [lower containsString:@"propert"]);
+                      ([lower containsString:@"ab"] &&
+                       [lower containsString:@"propert"]);
     BOOL controller = [lower containsString:@"controller"] ||
                       [lower containsString:@"tableview"];
     return properties && controller;
@@ -133,7 +133,8 @@ static BOOL WAGRSelectorLooksLikeABPropsControllerFactory(NSString *selectorName
         [lower hasPrefix:@"delete"]) return NO;
     BOOL properties = [lower containsString:@"abproperties"] ||
                       [lower containsString:@"abprops"] ||
-                      ([lower containsString:@"ab"] && [lower containsString:@"propert"]);
+                      ([lower containsString:@"ab"] &&
+                       [lower containsString:@"propert"]);
     BOOL controller = [lower containsString:@"viewcontroller"] ||
                       [lower containsString:@"controller"] ||
                       [lower containsString:@"tableview"];
@@ -146,14 +147,18 @@ static id WAGRArgumentForSelectorLabel(NSString *label,
                                        id debugOverrides) {
     NSString *lower = label.lowercaseString ?: @"";
     if ([lower containsString:@"usercontext"] ||
-        ([lower containsString:@"context"] && ![lower containsString:@"controller"])) {
+        ([lower containsString:@"context"] &&
+         ![lower containsString:@"controller"])) {
         return userContext;
     }
-    if ([lower containsString:@"debugoverride"] || [lower containsString:@"propoverride"]) {
+    if ([lower containsString:@"debugoverride"] ||
+        [lower containsString:@"propoverride"]) {
         return debugOverrides;
     }
-    if ([lower containsString:@"abpropert"] || [lower containsString:@"abprops"] ||
-        ([lower containsString:@"propert"] && ![lower containsString:@"controller"])) {
+    if ([lower containsString:@"abpropert"] ||
+        [lower containsString:@"abprops"] ||
+        ([lower containsString:@"propert"] &&
+         ![lower containsString:@"controller"])) {
         return abProperties;
     }
     return nil;
@@ -185,7 +190,8 @@ static id WAGRInvokeObjectMethod(id target,
             case 2:
                 return ((id (*)(id, SEL))objc_msgSend)(target, selector);
             case 3:
-                return ((id (*)(id, SEL, id))objc_msgSend)(target, selector, args[0]);
+                return ((id (*)(id, SEL, id))objc_msgSend)(target, selector,
+                                                           args[0]);
             case 4:
                 return ((id (*)(id, SEL, id, id))objc_msgSend)(target, selector,
                                                                args[0], args[1]);
@@ -220,7 +226,8 @@ static UIViewController *WAGRFactoryControllerFromTarget(id target,
                 if (source) {
                     *source = [NSString stringWithFormat:@"%@%@.%@",
                         classMethods ? @"+" : @"-",
-                        NSStringFromClass(classMethods ? (Class)target : [target class]),
+                        NSStringFromClass(classMethods
+                            ? (Class)target : [target class]),
                         selectorName];
                 }
                 free(methods);
@@ -232,8 +239,8 @@ static UIViewController *WAGRFactoryControllerFromTarget(id target,
     return nil;
 }
 
-static NSArray<Class> *WAGRNativeABPropsControllerClasses(void) {
-    NSMutableOrderedSet<Class> *classes = [NSMutableOrderedSet orderedSet];
+static NSArray *WAGRNativeABPropsControllerClasses(void) {
+    NSMutableOrderedSet *classes = [NSMutableOrderedSet orderedSet];
     for (NSString *name in @[
         @"WADebugABPropertiesTableViewController",
         @"WADebugABPropsTableViewController",
@@ -254,14 +261,39 @@ static NSArray<Class> *WAGRNativeABPropsControllerClasses(void) {
     return classes.array ?: @[];
 }
 
+static id WAGRAllocateControllerClass(Class cls) {
+    if (!cls) return nil;
+    return ((id (*)(id, SEL))objc_msgSend)((id)cls, @selector(alloc));
+}
+
+static UIViewController *WAGRTryControllerInitializer(
+    Class cls,
+    NSString *selectorName,
+    id userContext,
+    id abProperties,
+    id debugOverrides,
+    NSString **source) {
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getInstanceMethod(cls, selector);
+    if (!method) return nil;
+    id allocated = WAGRAllocateControllerClass(cls);
+    if (!allocated) return nil;
+    id value = WAGRInvokeObjectMethod(allocated, method, selector, userContext,
+                                      abProperties, debugOverrides);
+    if (![value isKindOfClass:UIViewController.class]) return nil;
+    if (source) {
+        *source = [NSString stringWithFormat:@"%@.%@",
+                   NSStringFromClass(cls), selectorName];
+    }
+    return value;
+}
+
 static UIViewController *WAGRInstantiateControllerClass(Class cls,
                                                          id userContext,
                                                          id abProperties,
                                                          id debugOverrides,
                                                          NSString **source) {
     if (!WAGRClassLooksLikeABPropsController(cls)) return nil;
-    id allocated = ((id (*)(id, SEL))objc_msgSend)((id)cls, @selector(alloc));
-    if (!allocated) return nil;
 
     NSArray<NSString *> *preferredInitializers = @[
         @"initWithUserContext:abProperties:",
@@ -273,34 +305,23 @@ static UIViewController *WAGRInstantiateControllerClass(Class cls,
         @"initWithProperties:",
         @"init"
     ];
-
     for (NSString *selectorName in preferredInitializers) {
-        SEL selector = NSSelectorFromString(selectorName);
-        Method method = class_getInstanceMethod(cls, selector);
-        if (!method) continue;
-        id value = WAGRInvokeObjectMethod(allocated, method, selector, userContext,
-                                          abProperties, debugOverrides);
-        if ([value isKindOfClass:UIViewController.class]) {
-            if (source) *source = [NSString stringWithFormat:@"%@.%@",
-                                   NSStringFromClass(cls), selectorName];
-            return value;
-        }
+        UIViewController *controller = WAGRTryControllerInitializer(
+            cls, selectorName, userContext, abProperties, debugOverrides, source);
+        if (controller) return controller;
     }
 
     unsigned int methodCount = 0;
     Method *methods = class_copyMethodList(cls, &methodCount);
+    if (!methods) return nil;
     for (unsigned int index = 0; index < methodCount; index++) {
-        Method method = methods[index];
-        SEL selector = method_getName(method);
-        NSString *selectorName = NSStringFromSelector(selector);
+        NSString *selectorName = NSStringFromSelector(method_getName(methods[index]));
         if (![selectorName hasPrefix:@"initWith"]) continue;
-        id value = WAGRInvokeObjectMethod(allocated, method, selector, userContext,
-                                          abProperties, debugOverrides);
-        if ([value isKindOfClass:UIViewController.class]) {
-            if (source) *source = [NSString stringWithFormat:@"%@.%@",
-                                   NSStringFromClass(cls), selectorName];
+        UIViewController *controller = WAGRTryControllerInitializer(
+            cls, selectorName, userContext, abProperties, debugOverrides, source);
+        if (controller) {
             free(methods);
-            return value;
+            return controller;
         }
     }
     free(methods);
@@ -339,7 +360,8 @@ UIViewController *WAGRResolveNativeABPropsController(UIViewController *host,
         UIViewController *controller = WAGRFactoryControllerFromTarget(
             target, NO, context, abProperties, debugOverrides, &source);
         if (controller) {
-            NSString *text = [NSString stringWithFormat:@"native factory %@", source ?: @"unknown"];
+            NSString *text = [NSString stringWithFormat:@"native factory %@",
+                              source ?: @"unknown"];
             WAGRNativeABPropsSetDiagnostic(text);
             if (diagnostic) *diagnostic = text;
             return controller;
@@ -350,7 +372,8 @@ UIViewController *WAGRResolveNativeABPropsController(UIViewController *host,
         UIViewController *controller = WAGRFactoryControllerFromTarget(
             (id)cls, YES, context, abProperties, debugOverrides, &source);
         if (controller) {
-            NSString *text = [NSString stringWithFormat:@"native class factory %@", source ?: @"unknown"];
+            NSString *text = [NSString stringWithFormat:@"native class factory %@",
+                              source ?: @"unknown"];
             WAGRNativeABPropsSetDiagnostic(text);
             if (diagnostic) *diagnostic = text;
             return controller;
@@ -358,7 +381,8 @@ UIViewController *WAGRResolveNativeABPropsController(UIViewController *host,
         controller = WAGRInstantiateControllerClass(cls, context, abProperties,
                                                     debugOverrides, &source);
         if (controller) {
-            NSString *text = [NSString stringWithFormat:@"native controller %@", source ?: NSStringFromClass(cls)];
+            NSString *text = [NSString stringWithFormat:@"native controller %@",
+                              source ?: NSStringFromClass(cls)];
             WAGRNativeABPropsSetDiagnostic(text);
             if (diagnostic) *diagnostic = text;
             return controller;
@@ -366,7 +390,8 @@ UIViewController *WAGRResolveNativeABPropsController(UIViewController *host,
     }
 
     NSString *text = [NSString stringWithFormat:
-        @"native AB Props controller/factory not loaded (context=%@ abProperties=%@ targets=%lu)",
+        @"native AB Props controller/factory not loaded "
+         "(context=%@ abProperties=%@ targets=%lu)",
         context ? NSStringFromClass([context class]) : @"nil",
         abProperties ? NSStringFromClass([abProperties class]) : @"nil",
         (unsigned long)targets.count];
