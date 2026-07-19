@@ -28,7 +28,7 @@ extern "C" NSString *WAGRBuildTypeDiagnosticText(void) {
         @"forceDebugBuild(latched)=%@\nfishhook=%@\norig=%p\nforcedValue=3 (Debug ConfigType path)",
         gWAGRForceDebugBuildLatched ? @"ON" : @"OFF",
         gWAGRBuildTypeRebound ? @"YES" : @"NO",
-        orig_WABuildTypeValue];
+        (void *)orig_WABuildTypeValue];
 }
 
 __attribute__((constructor))
@@ -48,6 +48,6 @@ static void WAGRBuildTypeHookCtor(void) {
         int result = rebind_symbols(&binding, 1);
         gWAGRBuildTypeRebound = (result == 0 && orig_WABuildTypeValue != NULL);
         NSLog(@"[WATweaks][BuildType] fishhook result=%d orig=%p force=Debug(3)",
-              result, orig_WABuildTypeValue);
+              result, (void *)orig_WABuildTypeValue);
     }
 }
