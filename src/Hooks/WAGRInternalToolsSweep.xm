@@ -127,6 +127,7 @@ static BOOL WAGRInternalToolsDesiredValue(NSString *selectorName) {
         [name containsString:@"kill_switch"] ||
         [name containsString:@"killswitch"] ||
         [name containsString:@"lockout"] ||
+        [name containsString:@"blocked_when_offline"] ||
         [name containsString:@"exclude_employees"] ||
         ([name containsString:@"remove_"] &&
          [name containsString:@"setting_switch"])) {
@@ -196,7 +197,9 @@ extern "C" NSUInteger WAGRInternalToolsSweepSetEnabled(BOOL enabled) {
         if (!WAGRInternalToolsMethodIsZeroArgBool(method)) continue;
 
         NSString *selectorName = NSStringFromSelector(method_getName(method));
-        if (!WAGRInternalToolsSelectorIsRelevant(selectorName)) continue;
+        BOOL explicitlyManaged = WAGRGateIsSet(selectorName);
+        if (!explicitlyManaged &&
+            !WAGRInternalToolsSelectorIsRelevant(selectorName)) continue;
         if ([WAGRKnownInternalToolsSelectors() containsObject:selectorName]) continue;
 
         if (!backup[selectorName]) {
@@ -208,7 +211,9 @@ extern "C" NSUInteger WAGRInternalToolsSweepSetEnabled(BOOL enabled) {
             };
         }
 
-        BOOL desired = WAGRInternalToolsDesiredValue(selectorName);
+        BOOL desired = explicitlyManaged
+            ? WAGRGateGet(selectorName)
+            : WAGRInternalToolsDesiredValue(selectorName);
         WAGRGateSet(selectorName, desired);
         if (WAGRGateInstallHookForSelector(@"WAABProperties",
                                            selectorName,
