@@ -191,8 +191,6 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
     BOOL masterEnabled = WAGRPref(kWAGREmployeeMaster);
 
     if (!masterEnabled) {
-        // Restore sweep-owned keys first. The deterministic backup then restores
-        // overlapping known gates to their real pre-master state.
         WAGRInternalToolsSweepSetEnabled(NO);
         WAGRApplyManagedDogfoodGates(NO);
     } else {
@@ -209,9 +207,6 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
         WAGRGateHooksEnsureInstalled();
         WAGRWAABInstallHooksForAllRuntimeImages();
         WAGRNativeDevMenuEnsureHooksInstalled();
-
-        // Explicit post-launch action only. This scans WAABProperties currently
-        // loaded in the process and persists exact class/selector hooks.
         WAGRInternalToolsSweepSetEnabled(YES);
     }
 
@@ -237,10 +232,23 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
     @autoreleasepool {
+        BOOL masterEnabled = WAGRPref(kWAGREmployeeMaster);
+
+        // Cheap preferences and direct known-class hooks only. Never scan here.
+        if (masterEnabled) {
+            WAGRApplyManagedDogfoodGates(YES);
+        } else if (WAGRManagedGateBackup().count) {
+            WAGRApplyManagedDogfoodGates(NO);
+        }
+
         if (!WAGRKnownEmployeeHookRequested()) return;
         WAGRInstallKnownEmployeeHook();
-        if (WAGRPref(kWAGREmployeeMaster)) {
+        if (masterEnabled) {
             WAGRDebugBuildEnsureInstalled();
+            WAGRDogfoodKnownWAABEnsureInstalled();
+            WAGRGateHooksEnsureInstalled();
+            WAGRWAABInstallHooksForAllRuntimeImages();
+            WAGRNativeDevMenuEnsureHooksInstalled();
         }
     }
 }
