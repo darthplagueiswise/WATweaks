@@ -14,6 +14,8 @@ extern "C" void WAGRDogfoodKnownWAABEnsureInstalled(void);
 extern "C" NSString *WAGRDogfoodKnownWAABDiagnosticText(void);
 extern "C" void WAGRDebugBuildEnsureInstalled(void);
 extern "C" NSString *WAGRDebugBuildDiagnosticText(void);
+extern "C" NSUInteger WAGRInternalToolsSweepSetEnabled(BOOL enabled);
+extern "C" NSString *WAGRInternalToolsSweepDiagnosticText(void);
 
 @interface WAServerProperties : NSObject
 + (BOOL)isInternalUser;
@@ -69,6 +71,7 @@ static NSDictionary<NSString *, NSNumber *> *WAGRManagedDogfoodDesiredGates(void
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         gates = @{
+            @"isDebugBuild" : @YES,
             @"isDebugMenuAllowed" : @YES,
             @"isDebugMenuShortcutEnabled" : @YES,
             @"isInternalUser" : @YES,
@@ -92,7 +95,44 @@ static NSDictionary<NSString *, NSNumber *> *WAGRManagedDogfoodDesiredGates(void
             @"ios_internal_rage_shake_enabled" : @YES,
             @"hn_dogfooding" : @YES,
             @"malibu_dogfooding" : @YES,
+            @"bug_reporting_settings_entrypoint_enabled" : @YES,
+            @"groups_member_recommendations_debug_ui" : @YES,
+            @"call_spring_animation_debug_menu_enabled" : @YES,
+            @"ios_optic_in_calling_debug_indicator_enabled" : @YES,
+            @"ios_optic_debug_indicator_enabled" : @YES,
+            @"ios_debug_status_infra_convert_message_to_status" : @YES,
+            @"status_testflight_media_debugger_ios" : @YES,
+            @"additional_logging_for_ios_chat_transfer_debug" : @YES,
+            @"debug_chat_transfer" : @YES,
+            @"show_additional_debug_info_for_chat_transfer" : @YES,
+            @"bug_reporting_tigon_debug_info_upload_enabled" : @YES,
+            @"ai_rich_response_ur_debug_overlay_enabled" : @YES,
+            @"sg_whatsapp_enable_reverse_qr_when_debug_mwa_installed" : @YES,
+            @"ios_internal_hall_enabled" : @YES,
+            @"ios_internal_always_show_message_edit" : @YES,
+            @"macos_internal_bugnub_for_selected_prod_users_enabled" : @YES,
+            @"internal_group_indicator" : @YES,
+            @"md_internal_app_log" : @YES,
+            @"ios_falco_elevated_internal_client_logging_enabled" : @YES,
+            @"enable_syncd_debug_data_in_patch" : @YES,
+            @"wa_asteria_tools_tab_entrypoint_enabled" : @YES,
+            @"wa_meta_one_biz_tools_entry_point_enabled" : @YES,
+            @"ios_evolution_chat_themes_tool" : @YES,
+            @"ios_evolution_chat_themes_tool_advanced" : @YES,
+            @"stella_filebus_enabled" : @YES,
+            @"stella_tests_bypass_biometric" : @YES,
+            @"metaai_share_inbox_snapshot_enabled" : @YES,
+            @"sg_stella_warp_app_start_app" : @YES,
+            @"wearables_llama4_optin_text_enabled" : @YES,
+            @"sg_upsell_linking_without_deeplink_to_meta_ai" : @YES,
+            @"ai_meta_ai_in_app_tab_main_gate_enabled" : @YES,
+            @"ai_new_chat_surface_meta_ai_enabled" : @YES,
+            @"ai_voice_meta_ai_info_entry_enabled" : @YES,
+            @"meta_ai_mode_selector_enabled" : @YES,
+            @"settings_meta_ai_app_top_position_enabled" : @YES,
             @"graphQLEmployeeC1Disabled" : @NO,
+            @"bonsai_remove_meta_ai_shortcut_setting_switch" : @NO,
+            @"ios_contact_suggestions_internal_tool_exclude_employees_enabled" : @NO,
         };
     });
     return gates;
@@ -150,7 +190,14 @@ static void WAGRApplyManagedDogfoodGates(BOOL enabled) {
 extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
     BOOL masterEnabled = WAGRPref(kWAGREmployeeMaster);
 
-    WAGRApplyManagedDogfoodGates(masterEnabled);
+    if (!masterEnabled) {
+        // Restore sweep-owned keys first. The deterministic backup then restores
+        // overlapping known gates to their real pre-master state.
+        WAGRInternalToolsSweepSetEnabled(NO);
+        WAGRApplyManagedDogfoodGates(NO);
+    } else {
+        WAGRApplyManagedDogfoodGates(YES);
+    }
 
     if (WAGRKnownEmployeeHookRequested()) {
         WAGRInstallKnownEmployeeHook();
@@ -162,6 +209,10 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
         WAGRGateHooksEnsureInstalled();
         WAGRWAABInstallHooksForAllRuntimeImages();
         WAGRNativeDevMenuEnsureHooksInstalled();
+
+        // Explicit post-launch action only. This scans WAABProperties currently
+        // loaded in the process and persists exact class/selector hooks.
+        WAGRInternalToolsSweepSetEnabled(YES);
     }
 
     if (WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP)) {
@@ -171,7 +222,7 @@ extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
 
 extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
     return [NSString stringWithFormat:
-        @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedDesiredGates=%lu\nmanagedBackup=%lu\n\n[Debug build object]\n%@\n\n[Known WAAB]\n%@\n\n[Employee sweep]\n%@",
+        @"master=%@\nknownClass=%@\nknownHook=%@\nmanagedDesiredGates=%lu\nmanagedBackup=%lu\n\n[Debug build object]\n%@\n\n[Known WAAB]\n%@\n\n[Internal/Debug/Dogfood live sweep]\n%@\n\n[Employee sweep]\n%@",
         WAGRPref(kWAGREmployeeMaster) ? @"ON" : @"OFF",
         objc_getClass("WAServerProperties") ? @"YES" : @"NO",
         gWAGRKnownEmployeeInstalled ? @"YES" : @"NO",
@@ -179,6 +230,7 @@ extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
         (unsigned long)WAGRManagedGateBackup().count,
         WAGRDebugBuildDiagnosticText() ?: @"n/a",
         WAGRDogfoodKnownWAABDiagnosticText() ?: @"n/a",
+        WAGRInternalToolsSweepDiagnosticText() ?: @"n/a",
         WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
 }
 
