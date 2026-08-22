@@ -1,9 +1,11 @@
 #import "WAGRABPropsRootVC.h"
 #import "WAGRABPropsBrowserVC.h"
+#import "WAGRABPropsSnapshotVC.h"
 #import "WAGRRuntimeGatesVC.h"
 #import "WAGRLogViewController.h"
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
+#import "../Runtime/WAGRABPropsNativeStore.h"
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRLog.h"
 
@@ -16,7 +18,8 @@ extern id WAGRCurrentUserContext(void);
 extern void WAGRGateHooksEnsureInstalled(void);
 
 typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
-    WAGRABPropsActionLiveBrowser = 0,
+    WAGRABPropsActionNativeSnapshot = 0,
+    WAGRABPropsActionLiveBrowser,
     WAGRABPropsActionRuntimeFamilies,
     WAGRABPropsActionPrivateExperimentation,
     WAGRABPropsActionContextDiagnostic,
@@ -77,6 +80,11 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
 
 - (NSArray<NSArray<WAGRABPropsRow *> *> *)buildSections {
     NSArray<WAGRABPropsRow *> *runtime = @[
+        [WAGRABPropsRow rowWithTitle:@"Snapshot nativo · Fetch / Export"
+                              detail:@"Lê todas as ABProps account-scoped do gabp.*p em group.net.whatsapp.WhatsApp.shared, dispara o refresh nativo e exporta o snapshot completo com tradução WAMCEvaluation."
+                                icon:@"arrow.triangle.2.circlepath"
+                           accentKey:@"waab-native-snapshot"
+                              action:WAGRABPropsActionNativeSnapshot],
         [WAGRABPropsRow rowWithTitle:@"WAABProperties ao vivo"
                               detail:@"Enumera agora os getters anexados a WAABProperties e providers concretos; não usa catálogo JSON."
                                 icon:@"switch.2"
@@ -96,12 +104,12 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
 
     NSArray<WAGRABPropsRow *> *diagnostics = @[
         [WAGRABPropsRow rowWithTitle:@"Context / PreFlight Inspector"
-                              detail:@"UserContext, launcher, DebugMenu instrumentation, GateHooks e estatísticas do último scan vivo."
+                              detail:@"UserContext, launcher, DebugMenu instrumentation, GateHooks, cache ABProps nativo e estatísticas do último scan vivo."
                                 icon:@"checklist.checked"
                            accentKey:@"context"
                               action:WAGRABPropsActionContextDiagnostic],
         [WAGRABPropsRow rowWithTitle:@"WATweaks Log"
-                              detail:@"Logs desta sessão, incluindo resolução de objetos WAAB e scans do runtime."
+                              detail:@"Logs desta sessão, incluindo resolução de objetos WAAB, fetch nativo, AppGroup e scans do runtime."
                                 icon:@"doc.text.magnifyingglass"
                            accentKey:@"log"
                               action:WAGRABPropsActionLogs],
@@ -122,13 +130,13 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
 
 - (NSString *)tableView:(__unused UITableView *)tableView
  titleForHeaderInSection:(NSInteger)section {
-    return section == 0 ? @"Runtime ao vivo" : @"Diagnóstico";
+    return section == 0 ? @"ABProps nativas / Runtime" : @"Diagnóstico";
 }
 
 - (NSString *)tableView:(__unused UITableView *)tableView
  titleForFooterInSection:(NSInteger)section {
     if (section != 0) return nil;
-    return @"WAABProperties existe no Objective-C runtime. As linhas são reconstruídas ao abrir/atualizar o browser; JSON não participa da descoberta nem da categorização.";
+    return @"O snapshot nativo usa o payload account-scoped gabp.*p que o próprio WhatsApp atualiza após o IQ ABPROPS. WAABProperties ao vivo é a camada de getters/hook. MobileConfig continua sendo um sistema relacionado, mas separado.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView
@@ -153,6 +161,12 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     WAGRABPropsRow *row = self.sections[(NSUInteger)indexPath.section][(NSUInteger)indexPath.row];
     switch (row.action) {
+        case WAGRABPropsActionNativeSnapshot: {
+            WAGRABPropsSnapshotVC *controller = [[WAGRABPropsSnapshotVC alloc]
+                initWithUserContext:WAGRCurrentUserContext()];
+            [self.navigationController pushViewController:controller animated:YES];
+            return;
+        }
         case WAGRABPropsActionLiveBrowser: {
             id context = WAGRCurrentUserContext();
             WAGRABPropsBrowserVC *browser = [[WAGRABPropsBrowserVC alloc]
@@ -191,11 +205,20 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
 
 - (void)showContextDiagnostic {
     NSDictionary *stats = WAGRABPropsCatalogStats();
-    NSString *message = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@\n\n[WAAB live stats]\n%@",
+    NSError *snapshotError = nil;
+    WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshot(&snapshotError);
+    NSString *native = snapshot
+        ? [NSString stringWithFormat:@"Native cache: %lu props · %@ · %@",
+           (unsigned long)snapshot.numericPropCount, snapshot.payloadKey ?: @"?",
+           snapshot.fingerprint ?: @"?"]
+        : [NSString stringWithFormat:@"Native cache: %@",
+           snapshotError.localizedDescription ?: WAGRABPropsNativeDiagnosticText()];
+    NSString *message = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@\n\n%@\n\n[WAAB live stats]\n%@",
                          WAGRCurrentUserContextDiagnostic() ?: @"UserContext: n/a",
                          WAGRDebugMenuLauncherDiagnosticText() ?: @"Launcher: n/a",
                          WAGRDebugMenuInstrumentationDiagnosticText() ?: @"DebugMenuSpy: n/a",
                          WAGRGateHooksDiagnostic() ?: @"GateHooks: n/a",
+                         native,
                          stats.count ? stats.description : @"nenhum scan executado nesta sessão"];
     [self showAlert:@"Context / PreFlight" message:message];
 }
