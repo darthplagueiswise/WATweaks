@@ -120,11 +120,12 @@ static NSString *WAGRDF2CodeFromGetter(Method method) {
 
 static BOOL WAGRDF2ClassMayOwnABPropGetters(Class cls) {
     if (!cls) return NO;
-    NSString *name = NSStringFromClass(cls).lowercaseString ?: @"";
-    return [name containsString:@"abproperties"] ||
-           [name containsString:@"abprops"] ||
-           [name containsString:@"foawaab"] ||
-           [name isEqualToString:@"waproperties"];
+    const char *rawImage = class_getImageName(cls);
+    if (!rawImage) return NO;
+    NSString *path = [NSString stringWithUTF8String:rawImage] ?: @"";
+    NSString *bundlePath = NSBundle.mainBundle.bundlePath ?: @"";
+    if (bundlePath.length && [path hasPrefix:bundlePath]) return YES;
+    return [path rangeOfString:@"/WhatsApp.app/" options:NSCaseInsensitiveSearch].location != NSNotFound;
 }
 
 static NSDictionary<NSString *, NSString *> *WAGRDF2BuildNativeCodeNameMap(void) {
@@ -164,7 +165,7 @@ static NSDictionary<NSString *, NSString *> *WAGRDF2BuildNativeCodeNameMap(void)
     }
     free(classes);
 
-    WAGRLogAppendF(@"[ABProps][NamesV2] native map=%lu classes=%lu methods=%lu",
+    WAGRLogAppendF(@"[ABProps][NamesV2] native map=%lu appClasses=%lu noArgMethods=%lu",
                    (unsigned long)map.count,
                    (unsigned long)scannedClasses,
                    (unsigned long)scannedMethods);
