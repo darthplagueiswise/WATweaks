@@ -74,6 +74,7 @@ jobs:
             src/Menu/WAGRABPropsRootVC.m
             src/Menu/WAGRABPropsBrowserVC.h
             src/Menu/WAGRABPropsBrowserVC.m
+            src/Menu/WAGRABPropsSnapshotVC.m
             src/Menu/WAGRRuntimeGatesVC.h
             src/Menu/WAGRRuntimeGatesVC.m
             src/Menu/WAGRRuntimeValueEditor.h
@@ -82,11 +83,13 @@ jobs:
             src/Menu/WAGRSurfaceBrowserVC.m
             src/Menu/WAGRMenuTheme.h
             src/Menu/WAGRMenuTheme.m
+            src/Menu/WAGRMainSettingsLiquidGlass.m
             src/Runtime/WAGRABPropsNativeStore.h
             src/Runtime/WAGRABPropsNativeStore.m
             src/Runtime/WAGRABPropsCanonicalNamesV2.h
             src/Runtime/WAGRABPropsCanonicalNamesV2.m
             src/Runtime/WAGRABPropsRequestManagerBridge.m
+            src/Runtime/WAGRABPropsNetworkingBridge.m
             src/Runtime/WAGRUserContextLinkage.h
             src/Runtime/WAGRABPropsRuntime.h
             src/Runtime/WAGRABPropsRuntime.m
@@ -162,17 +165,25 @@ jobs:
           ! grep -q 'watweaks.native.abprops.entry' src/Hooks/WAGRDebugMenuInstrumentation.xm
           ! grep -q 'WAGRRowIsRCWarning' src/Hooks/WAGRDebugMenuInstrumentation.xm
 
-          # Current-build ABProps fetch path comes from the supplied Mach-O:
-          # context -> networkingDependencyProvider -> xmppConnection ->
-          # xmppConnectionABPropsRequestManager -> exact requestFreshABProps ABI.
+          # Current-build ABProps fetch path comes from the supplied Mach-O and
+          # stays exact: live XMPP -> networkingDependencyProvider -> request
+          # manager -> requestFreshABProps:withCompletion:.
           grep -q 'networkingDependencyProvider' src/Runtime/WAGRABPropsRequestManagerBridge.m
           grep -q 'xmppConnectionABPropsRequestManager' src/Runtime/WAGRABPropsRequestManagerBridge.m
           grep -q 'initWithUserContext:xmppConnection:' src/Runtime/WAGRABPropsRequestManagerBridge.m
           grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsRequestManagerBridge.m
           grep -q 'class_addMethod' src/Runtime/WAGRABPropsRequestManagerBridge.m
           ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsRequestManagerBridge.m
+          grep -q 'networkingDependencyProvider' src/Runtime/WAGRABPropsNetworkingBridge.m
+          grep -q 'xmppConnectionABPropsRequestManager' src/Runtime/WAGRABPropsNetworkingBridge.m
           grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsNativeStore.m
           grep -q 'no heuristic fetch/sync method was invoked' src/Runtime/WAGRABPropsNativeStore.m
+
+          # Fetch dispatch and local cache delta are different signals. The UI
+          # must not report a 12-second fingerprint timeout as a network failure.
+          grep -q 'Request ABProps enviado' src/Menu/WAGRABPropsSnapshotVC.m
+          grep -q 'nenhum delta local observado' src/Menu/WAGRABPropsSnapshotVC.m
+          ! grep -q 'fingerprint não mudou em 12 s' src/Menu/WAGRABPropsSnapshotVC.m
 
           # Native ABProp naming remains read-only and is decoded from getter
           # descriptors in current app-owned images.
@@ -180,13 +191,15 @@ jobs:
           grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsCanonicalNamesV2.m
           ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsCanonicalNamesV2.m
 
-          # iOS 26 internal UI uses the public UIKit Liquid Glass API; older OSes
-          # retain a material fallback.
-          grep -q 'UIGlassEffect' src/Menu/WAGRMenuTheme.m
-          grep -q 'UIGlassEffectStyleRegular' src/Menu/WAGRMenuTheme.m
-          grep -q 'UIGlassEffectStyleClear' src/Menu/WAGRMenuTheme.m
-          grep -q 'UIBlurEffectStyleSystemMaterialDark' src/Menu/WAGRMenuTheme.m
-          grep -q 'backgroundEffect' src/Menu/WAGRMenuTheme.m
+          # iOS 26 presentation follows UIKit instead of forcing a glass material
+          # onto every scrolling row. Standard navigation/search/bar controls own
+          # Liquid Glass; inset-grouped content keeps system grouped surfaces.
+          grep -q 'systemGroupedBackgroundColor' src/Menu/WAGRMenuTheme.m
+          grep -q 'secondarySystemGroupedBackgroundColor' src/Menu/WAGRMenuTheme.m
+          grep -q 'backgroundView = nil' src/Menu/WAGRMenuTheme.m
+          ! grep -q 'UIGlassEffectStyleClear' src/Menu/WAGRMenuTheme.m
+          ! grep -q 'backgroundEffect = WAGRMenuGlassEffect' src/Menu/WAGRMenuTheme.m
+          ! grep -q 'cellForRowAtIndexPath' src/Menu/WAGRMainSettingsLiquidGlass.m
 
           # Runtime image shortcuts resolve the current Mach-O snapshot instead
           # of looking up removed IDs such as exec/sharedmodules.
