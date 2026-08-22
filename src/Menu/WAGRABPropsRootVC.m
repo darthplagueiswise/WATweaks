@@ -8,6 +8,8 @@
 #import "../Runtime/WAGRABPropsNativeStore.h"
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRLog.h"
+#import <objc/runtime.h>
+#import <objc/message.h>
 
 extern BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
 extern NSString *WAGRCurrentUserContextDiagnostic(void);
@@ -15,7 +17,156 @@ extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
 extern NSString *WAGRDebugMenuInstrumentationDiagnosticText(void);
 extern NSString *WAGRGateHooksDiagnostic(void);
 extern id WAGRCurrentUserContext(void);
+extern void WAGRRememberUserContext(id ctx, NSString *source);
 extern void WAGRGateHooksEnsureInstalled(void);
+
+#pragma mark - Live userContext recovery for native ABProps
+
+static const char *WAGRABRootSkipQualifiers(const char *type) {
+    if (!type) return "";
+    while (*type && strchr("rnNoORV", *type)) type++;
+    return type;
+}
+
+static BOOL WAGRABRootMethodReturnsObject(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    return WAGRABRootSkipQualifiers(raw)[0] == '@';
+}
+
+static id WAGRABRootCallObjectNoArg(id object, NSString *selectorName) {
+    if (!object || !selectorName.length) return nil;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getInstanceMethod([object class], selector);
+    if (!method || method_getNumberOfArguments(method) != 2 ||
+        !WAGRABRootMethodReturnsObject(method)) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)(object, selector); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
+static id WAGRABRootCallClassObjectNoArg(Class cls, NSString *selectorName) {
+    if (!cls || !selectorName.length) return nil;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getClassMethod(cls, selector);
+    if (!method || method_getNumberOfArguments(method) != 2 ||
+        !WAGRABRootMethodReturnsObject(method)) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)((id)cls, selector); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
+static BOOL WAGRABRootLooksLikeUserContext(id object) {
+    if (!object) return NO;
+    NSString *className = NSStringFromClass([object class]) ?: @"";
+    if ([className containsString:@"UserContext"] ||
+        [className isEqualToString:@"WAContext"] ||
+        [className containsString:@"WAContext"] ||
+        [className containsString:@"ContextMain"]) return YES;
+
+    // Current WhatsApp build exposes the exact ABProps request-manager accessor
+    // on its live WAContext. This is a stronger signal than a name heuristic.
+    if ([object respondsToSelector:NSSelectorFromString(@"xmppConnectionABPropsRequestManager")]) return YES;
+    if ([object respondsToSelector:NSSelectorFromString(@"abProperties")]) return YES;
+    if ([object respondsToSelector:NSSelectorFromString(@"debugPropOverrides")]) return YES;
+    return NO;
+}
+
+static id WAGRABRootProbeObject(id object) {
+    if (!object) return nil;
+    if (WAGRABRootLooksLikeUserContext(object)) return object;
+
+    for (NSString *selectorName in @[
+        @"userContext", @"wa_userContext", @"currentUserContext",
+        @"sharedUserContext", @"mainContext", @"sharedContext",
+        @"currentContext", @"context", @"waContext"
+    ]) {
+        id candidate = WAGRABRootCallObjectNoArg(object, selectorName);
+        if (WAGRABRootLooksLikeUserContext(candidate)) return candidate;
+    }
+
+    for (NSString *ivarName in @[@"_userContext", @"userContext", @"_context", @"_waContext"]) {
+        Ivar ivar = class_getInstanceVariable([object class], ivarName.UTF8String);
+        if (!ivar) continue;
+        const char *type = ivar_getTypeEncoding(ivar);
+        if (!type || WAGRABRootSkipQualifiers(type)[0] != '@') continue;
+        id candidate = nil;
+        @try { candidate = object_getIvar(object, ivar); }
+        @catch (__unused NSException *exception) { candidate = nil; }
+        if (WAGRABRootLooksLikeUserContext(candidate)) return candidate;
+    }
+
+    @try {
+        id candidate = [object valueForKey:@"userContext"];
+        if (WAGRABRootLooksLikeUserContext(candidate)) return candidate;
+    } @catch (__unused NSException *exception) {}
+    return nil;
+}
+
+static id WAGRABRootFindInControllerTree(UIViewController *controller, NSInteger depth) {
+    if (!controller || depth > 24) return nil;
+    id context = WAGRABRootProbeObject(controller);
+    if (context) return context;
+
+    for (UIViewController *child in controller.childViewControllers) {
+        context = WAGRABRootFindInControllerTree(child, depth + 1);
+        if (context) return context;
+    }
+    if (controller.presentedViewController) {
+        context = WAGRABRootFindInControllerTree(controller.presentedViewController, depth + 1);
+        if (context) return context;
+    }
+    return nil;
+}
+
+static id WAGRABRootResolveUserContext(void) {
+    id cached = WAGRCurrentUserContext();
+    if (cached) return cached;
+
+    // The WATweaks sheet is presented over WhatsApp's own Settings hierarchy.
+    // Walk both the underlying and presented controller trees before guessing any
+    // singleton. wagr_findUserContextAnywhere in the native launcher uses the same
+    // source, but this keeps ABProps Fetch independent of opening Developer first.
+    for (UIWindow *window in UIApplication.sharedApplication.windows) {
+        id context = WAGRABRootFindInControllerTree(window.rootViewController, 0);
+        if (context) {
+            WAGRRememberUserContext(context, @"ABPropsRoot controller tree");
+            return context;
+        }
+    }
+
+    id appDelegate = (id)UIApplication.sharedApplication.delegate;
+    id context = WAGRABRootProbeObject(appDelegate);
+    if (context) {
+        WAGRRememberUserContext(context, @"ABPropsRoot app delegate");
+        return context;
+    }
+
+    // Deterministic class roots are fallback-only and every returned object is
+    // validated as a WhatsApp user context before it is cached.
+    for (NSString *className in @[@"WAContext", @"WAContextMain"]) {
+        Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
+        if (!cls) continue;
+        for (NSString *selectorName in @[
+            @"shared", @"sharedInstance", @"current", @"currentContext",
+            @"mainContext", @"defaultContext", @"context", @"waContext"
+        ]) {
+            id candidate = WAGRABRootCallClassObjectNoArg(cls, selectorName);
+            context = WAGRABRootProbeObject(candidate);
+            if (!context) continue;
+            WAGRRememberUserContext(context,
+                [NSString stringWithFormat:@"ABPropsRoot +%@.%@", className, selectorName]);
+            return context;
+        }
+    }
+    return nil;
+}
+
+static id WAGRABRootPrimeUserContext(void) {
+    id context = WAGRABRootResolveUserContext();
+    WAGRLogAppendF(@"[ABProps][Context] preflight=%@",
+                   context ? NSStringFromClass([context class]) : @"nil");
+    return context;
+}
 
 typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
     WAGRABPropsActionNativeSnapshot = 0,
@@ -76,6 +227,7 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
         style:UIBarButtonItemStyleDone
         target:self
         action:@selector(applyOverrides)];
+    (void)WAGRABRootPrimeUserContext();
 }
 
 - (NSArray<NSArray<WAGRABPropsRow *> *> *)buildSections {
@@ -162,13 +314,14 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
     WAGRABPropsRow *row = self.sections[(NSUInteger)indexPath.section][(NSUInteger)indexPath.row];
     switch (row.action) {
         case WAGRABPropsActionNativeSnapshot: {
+            id context = WAGRABRootPrimeUserContext();
             WAGRABPropsSnapshotVC *controller = [[WAGRABPropsSnapshotVC alloc]
-                initWithUserContext:WAGRCurrentUserContext()];
+                initWithUserContext:context];
             [self.navigationController pushViewController:controller animated:YES];
             return;
         }
         case WAGRABPropsActionLiveBrowser: {
-            id context = WAGRCurrentUserContext();
+            id context = WAGRABRootPrimeUserContext();
             WAGRABPropsBrowserVC *browser = [[WAGRABPropsBrowserVC alloc]
                 initWithUserContext:context];
             [self.navigationController pushViewController:browser animated:YES];
@@ -204,6 +357,7 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
 }
 
 - (void)showContextDiagnostic {
+    (void)WAGRABRootPrimeUserContext();
     NSDictionary *stats = WAGRABPropsCatalogStats();
     NSError *snapshotError = nil;
     WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshot(&snapshotError);
