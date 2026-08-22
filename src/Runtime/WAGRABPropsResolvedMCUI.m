@@ -1,7 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
-#import <substrate.h>
 #include <string.h>
 
 #import "WAGRLog.h"
@@ -32,19 +31,15 @@ static UITableViewCell *hook_WAGRABResolvedMCCell(id self,
     NSString *config = [mc[@"config_name"] isKindOfClass:NSString.class] ? mc[@"config_name"] : nil;
     NSString *parameter = [mc[@"parameter_name"] isKindOfClass:NSString.class] ? mc[@"parameter_name"] : nil;
     NSString *canonical = nil;
-    if (config.length && parameter.length) {
-        canonical = [NSString stringWithFormat:@"%@.%@", config, parameter];
-    } else {
-        canonical = config.length ? config : parameter;
-    }
+    if (config.length && parameter.length) canonical = [NSString stringWithFormat:@"%@.%@", config, parameter];
+    else canonical = config.length ? config : parameter;
 
     NSString *resolved = canonical.length
         ? [NSString stringWithFormat:@"MC external=%@ · %@", external, canonical]
         : [NSString stringWithFormat:@"MC external=%@", external];
     NSString *current = cell.detailTextLabel.text ?: @"";
     if (![current containsString:@"MC external="]) {
-        cell.detailTextLabel.text = current.length
-            ? [current stringByAppendingFormat:@"\n%@", resolved] : resolved;
+        cell.detailTextLabel.text = current.length ? [current stringByAppendingFormat:@"\n%@", resolved] : resolved;
         cell.detailTextLabel.numberOfLines = 5;
     }
     return cell;
@@ -64,12 +59,13 @@ static void WAGRInstallABPropsResolvedMCUI(void) {
     while (*cursor && strchr("rnNoORV", *cursor)) cursor++;
     if (*cursor != '@') return;
 
-    MSHookMessageEx(cls, selector,
-                    (IMP)hook_WAGRABResolvedMCCell,
-                    (IMP *)&orig_WAGRABResolvedMCCell);
-    gWAGRABResolvedMCUIInstalled = (orig_WAGRABResolvedMCCell != NULL);
+    IMP current = method_getImplementation(method);
+    if (!current) return;
+    orig_WAGRABResolvedMCCell = (UITableViewCell *(*)(id, SEL, UITableView *, NSIndexPath *))current;
+    method_setImplementation(method, (IMP)hook_WAGRABResolvedMCCell);
+    gWAGRABResolvedMCUIInstalled = method_getImplementation(method) == (IMP)hook_WAGRABResolvedMCCell;
     if (gWAGRABResolvedMCUIInstalled) {
-        WAGRLogAppend(@"[ABProps][MCUI] external MobileConfig IDs visible in snapshot rows");
+        WAGRLogAppend(@"[ABProps][MCUI] sideload-safe method-table enrichment installed");
     }
 }
 
@@ -77,7 +73,5 @@ __attribute__((constructor))
 static void WAGRABPropsResolvedMCUICtor(void) {
     @autoreleasepool {
         WAGRInstallABPropsResolvedMCUI();
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{ WAGRInstallABPropsResolvedMCUI(); });
     }
 }

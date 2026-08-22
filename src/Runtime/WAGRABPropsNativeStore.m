@@ -1,4 +1,7 @@
 #import "WAGRABPropsNativeStore.h"
+#import "WAGRABPropsCanonicalNamesV2.h"
+#import "WAGRMobileConfigBridge.h"
+#import "WAGRUserContextLinkage.h"
 #import "WAGRLog.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -39,6 +42,96 @@ NSString *WAGRABPropsNativeDiagnosticText(void) {
     }
 }
 
+#pragma mark - Shared ABI helpers
+
+static const char *WAGRABSkipQualifiers(const char *type) {
+    if (!type) return "";
+    while (*type && strchr("rnNoORV", *type)) type++;
+    return type;
+}
+
+static BOOL WAGRABMethodReturnsObject(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    return WAGRABSkipQualifiers(raw)[0] == '@';
+}
+
+static BOOL WAGRABMethodReturnsVoid(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    return WAGRABSkipQualifiers(raw)[0] == 'v';
+}
+
+static BOOL WAGRABMethodReturnsInteger(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    switch (WAGRABSkipQualifiers(raw)[0]) {
+        case 'B': case 'c': case 'C': case 's': case 'S':
+        case 'i': case 'I': case 'l': case 'L': case 'q': case 'Q': return YES;
+        default: return NO;
+    }
+}
+
+static BOOL WAGRABMethodWordArgument(Method method, unsigned int index) {
+    if (!method || index >= method_getNumberOfArguments(method)) return NO;
+    char raw[64] = {0};
+    method_getArgumentType(method, index, raw, sizeof(raw));
+    const char *type = WAGRABSkipQualifiers(raw);
+    if (!*type) return NO;
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
+    return size > 0 && size <= sizeof(uint64_t);
+}
+
+static BOOL WAGRABMethodWordReturn(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    const char *type = WAGRABSkipQualifiers(raw);
+    if (!*type || type[0] == '@' || type[0] == 'v' || type[0] == 'f' || type[0] == 'd') return NO;
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
+    return size > 0 && size <= sizeof(uint64_t);
+}
+
+static BOOL WAGRABArgumentIsObject(Method method, unsigned int index) {
+    if (!method || index >= method_getNumberOfArguments(method)) return NO;
+    char raw[64] = {0};
+    method_getArgumentType(method, index, raw, sizeof(raw));
+    return WAGRABSkipQualifiers(raw)[0] == '@';
+}
+
+static BOOL WAGRABArgumentIsBool(Method method, unsigned int index) {
+    if (!method || index >= method_getNumberOfArguments(method)) return NO;
+    char raw[64] = {0};
+    method_getArgumentType(method, index, raw, sizeof(raw));
+    char t = WAGRABSkipQualifiers(raw)[0];
+    return t == 'B' || t == 'c' || t == 'C';
+}
+
+static id WAGRABCallObjectNoArg(id target, NSString *selectorName) {
+    if (!target || !selectorName.length) return nil;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getInstanceMethod([target class], selector);
+    if (!method || method_getNumberOfArguments(method) != 2 || !WAGRABMethodReturnsObject(method)) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)(target, selector); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
+static id WAGRABCallClassObjectNoArg(Class cls, NSString *selectorName) {
+    if (!cls || !selectorName.length) return nil;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getClassMethod(cls, selector);
+    if (!method || method_getNumberOfArguments(method) != 2 || !WAGRABMethodReturnsObject(method)) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)((id)cls, selector); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
 #pragma mark - Native cache decoding
 
 static BOOL WAGRABStringIsDecimal(NSString *value) {
@@ -50,13 +143,11 @@ static BOOL WAGRABStringIsDecimal(NSString *value) {
 static NSDictionary *WAGRABDecodeDictionary(id raw) {
     if ([raw isKindOfClass:NSDictionary.class]) return raw;
     if (![raw isKindOfClass:NSData.class]) return nil;
-    NSError *error = nil;
     id object = [NSPropertyListSerialization propertyListWithData:(NSData *)raw
                                                           options:NSPropertyListImmutable
                                                            format:NULL
-                                                            error:&error];
-    if (![object isKindOfClass:NSDictionary.class]) return nil;
-    return object;
+                                                            error:nil];
+    return [object isKindOfClass:NSDictionary.class] ? object : nil;
 }
 
 static NSUInteger WAGRABNumericKeyCount(NSDictionary *dictionary) {
@@ -71,13 +162,12 @@ static NSUInteger WAGRABNumericKeyCount(NSDictionary *dictionary) {
 
 static NSDictionary *WAGRABSuiteDictionary(void) {
     NSMutableDictionary *merged = [NSMutableDictionary dictionary];
-
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:kWAGRABPropsSharedSuite];
     @try { [defaults synchronize]; } @catch (__unused NSException *exception) {}
-    NSDictionary *representation = nil;
-    @try { representation = defaults.dictionaryRepresentation; }
-    @catch (__unused NSException *exception) { representation = nil; }
-    if (representation.count) [merged addEntriesFromDictionary:representation];
+    @try {
+        NSDictionary *representation = defaults.dictionaryRepresentation;
+        if (representation.count) [merged addEntriesFromDictionary:representation];
+    } @catch (__unused NSException *exception) {}
 
     CFArrayRef keysRef = CFPreferencesCopyKeyList((__bridge CFStringRef)kWAGRABPropsSharedSuite,
                                                    kCFPreferencesCurrentUser,
@@ -97,9 +187,7 @@ static NSDictionary *WAGRABSuiteDictionary(void) {
     return merged;
 }
 
-static NSString *WAGRABFingerprint(NSString *payloadKey,
-                                   NSDictionary *props,
-                                   NSDictionary *metadata) {
+static NSString *WAGRABFingerprint(NSString *payloadKey, NSDictionary *props, NSDictionary *metadata) {
     NSMutableString *material = [NSMutableString stringWithFormat:@"%@|%lu|",
                                  payloadKey ?: @"", (unsigned long)props.count];
     for (NSString *key in @[@"hash", @"refreshID", @"refreshId", @"refresh_id",
@@ -108,8 +196,7 @@ static NSString *WAGRABFingerprint(NSString *payloadKey,
         id value = metadata[key];
         if (value) [material appendFormat:@"%@=%@|", key, value];
     }
-
-    NSArray<NSString *> *sortedCodes = [props.allKeys sortedArrayUsingComparator:^NSComparisonResult(id left, id right) {
+    NSArray *sortedCodes = [props.allKeys sortedArrayUsingComparator:^NSComparisonResult(id left, id right) {
         unsigned long long a = [[left description] longLongValue];
         unsigned long long b = [[right description] longLongValue];
         if (a < b) return NSOrderedAscending;
@@ -119,8 +206,7 @@ static NSString *WAGRABFingerprint(NSString *payloadKey,
     NSUInteger stride = MAX((NSUInteger)1, sortedCodes.count / 256);
     for (NSUInteger index = 0; index < sortedCodes.count; index += stride) {
         NSString *code = [sortedCodes[index] description];
-        id value = props[sortedCodes[index]];
-        [material appendFormat:@"%@=%@|", code, value];
+        [material appendFormat:@"%@=%@|", code, props[sortedCodes[index]]];
     }
     return [NSString stringWithFormat:@"%016lx", (unsigned long)material.hash];
 }
@@ -135,8 +221,7 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshot(NSError **outError) {
         if (![keyObject isKindOfClass:NSString.class]) continue;
         NSString *key = keyObject;
         NSString *lower = key.lowercaseString;
-        if (![lower hasPrefix:@"gabp."] || ![lower hasSuffix:@"p"] ||
-            [lower containsString:@"none"]) continue;
+        if (![lower hasPrefix:@"gabp."] || ![lower hasSuffix:@"p"] || [lower containsString:@"none"]) continue;
         NSDictionary *decoded = WAGRABDecodeDictionary(suite[key]);
         NSUInteger numericCount = WAGRABNumericKeyCount(decoded);
         if (numericCount > bestCount) {
@@ -152,20 +237,18 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshot(NSError **outError) {
                 userInfo:@{NSLocalizedDescriptionKey:
                     @"Nenhum payload account-scoped gabp.*p foi encontrado em group.net.whatsapp.WhatsApp.shared. O WhatsApp precisa estar logado e ter concluído ao menos um sync de ABProps."}];
         }
-        WAGRABNativeSetDiagnostic([NSString stringWithFormat:
-            @"native cache not found; suiteKeys=%lu", (unsigned long)suite.count]);
+        WAGRABNativeSetDiagnostic([NSString stringWithFormat:@"native cache not found; suiteKeys=%lu",
+                                   (unsigned long)suite.count]);
         return nil;
     }
 
     NSString *metadataKey = nil;
     NSDictionary *metadata = @{};
-    if (bestKey.length > 1) {
-        NSString *candidate = [[bestKey substringToIndex:bestKey.length - 1] stringByAppendingString:@"c"];
-        NSDictionary *decoded = WAGRABDecodeDictionary(suite[candidate]);
-        if (decoded) {
-            metadataKey = candidate;
-            metadata = decoded;
-        }
+    NSString *candidate = [[bestKey substringToIndex:bestKey.length - 1] stringByAppendingString:@"c"];
+    NSDictionary *decodedMetadata = WAGRABDecodeDictionary(suite[candidate]);
+    if (decodedMetadata) {
+        metadataKey = candidate;
+        metadata = decodedMetadata;
     }
 
     WAGRABPropsNativeSnapshot *snapshot = [WAGRABPropsNativeSnapshot new];
@@ -177,55 +260,27 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshot(NSError **outError) {
     snapshot.loadedAt = [NSDate date];
     snapshot.numericPropCount = bestCount;
     snapshot.fingerprint = WAGRABFingerprint(bestKey, bestProps, metadata ?: @{});
-
-    WAGRABNativeSetDiagnostic([NSString stringWithFormat:
-        @"cache payload=%@ props=%lu metadata=%@ fingerprint=%@",
-        bestKey, (unsigned long)bestCount, metadataKey ?: @"none", snapshot.fingerprint]);
+    WAGRABNativeSetDiagnostic([NSString stringWithFormat:@"cache payload=%@ props=%lu metadata=%@ fingerprint=%@",
+                               bestKey, (unsigned long)bestCount,
+                               metadataKey ?: @"none", snapshot.fingerprint]);
     return snapshot;
 }
 
-#pragma mark - Name and MobileConfig enrichment
+#pragma mark - Canonical names
 
 NSString *WAGRABPropsDisplayNameForCode(NSString *code) {
     if (!code.length) return @"";
-    NSString *name = nil;
-    @try { name = WAGRWAABDisplayNameForKey(code); }
-    @catch (__unused NSException *exception) { name = nil; }
-    if (!name.length || [name isEqualToString:code]) {
-        return [NSString stringWithFormat:@"ABProp %@", code];
-    }
-    return name;
+    NSString *native = WAGRABPropsCanonicalNameForCode(code);
+    if (native.length) return native;
+
+    NSString *legacy = nil;
+    @try { legacy = WAGRWAABDisplayNameForKey(code); }
+    @catch (__unused NSException *exception) { legacy = nil; }
+    if (legacy.length && ![legacy isEqualToString:code] && ![legacy hasPrefix:@"ABProperty "]) return legacy;
+    return [NSString stringWithFormat:@"ABProp %@", code];
 }
 
-static const char *WAGRABSkipQualifiers(const char *type) {
-    if (!type) return "";
-    while (*type && strchr("rnNoORV", *type)) type++;
-    return type;
-}
-
-static BOOL WAGRABMethodWordArgument(Method method, unsigned int index) {
-    if (!method || index >= method_getNumberOfArguments(method)) return NO;
-    char raw[64] = {0};
-    method_getArgumentType(method, index, raw, sizeof(raw));
-    const char *type = WAGRABSkipQualifiers(raw);
-    NSUInteger size = 0, alignment = 0;
-    if (!*type) return NO;
-    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
-    @catch (__unused NSException *exception) { return NO; }
-    return size > 0 && size <= sizeof(uint64_t);
-}
-
-static BOOL WAGRABMethodWordReturn(Method method) {
-    if (!method) return NO;
-    char raw[64] = {0};
-    method_getReturnType(method, raw, sizeof(raw));
-    const char *type = WAGRABSkipQualifiers(raw);
-    if (!*type || type[0] == '@' || type[0] == 'v' || type[0] == 'f' || type[0] == 'd') return NO;
-    NSUInteger size = 0, alignment = 0;
-    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
-    @catch (__unused NSException *exception) { return NO; }
-    return size > 0 && size <= sizeof(uint64_t);
-}
+#pragma mark - MobileConfig enrichment
 
 static uint64_t WAGRABMCSpecifierForCode(unsigned long long code) {
     Class cls = NSClassFromString(@"WAMCEvaluation");
@@ -233,10 +288,163 @@ static uint64_t WAGRABMCSpecifierForCode(unsigned long long code) {
     Method method = class_getClassMethod(cls, selector);
     if (!cls || !method || method_getNumberOfArguments(method) != 3 ||
         !WAGRABMethodWordArgument(method, 2) || !WAGRABMethodWordReturn(method)) return 0;
+    @try { return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, code); }
+    @catch (__unused NSException *exception) { return 0; }
+}
+
+static BOOL WAGRABMCBoolean(id manager, NSString *selectorName, BOOL *available) {
+    if (available) *available = NO;
+    if (!manager) return NO;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getInstanceMethod([manager class], selector);
+    if (!method || method_getNumberOfArguments(method) != 2 || !WAGRABMethodReturnsInteger(method)) return NO;
+    if (available) *available = YES;
+    @try { return ((BOOL (*)(id, SEL))objc_msgSend)(manager, selector); }
+    @catch (__unused NSException *exception) { return NO; }
+}
+
+static BOOL WAGRABMCManagerIsUsable(id manager) {
+    if (!manager) return NO;
+    NSString *name = NSStringFromClass([manager class]) ?: @"";
+    if (![name containsString:@"FBMobileConfigContextManager"]) return NO;
+    BOOL hasManagerSelector = NO, hasConfigSelector = NO;
+    BOOL hasManager = WAGRABMCBoolean(manager, @"hasValidManager", &hasManagerSelector);
+    BOOL hasConfig = WAGRABMCBoolean(manager, @"hasValidConfig", &hasConfigSelector);
+    if (hasManagerSelector && !hasManager) return NO;
+    if (hasConfigSelector && !hasConfig) return NO;
+    Method stable = class_getInstanceMethod([manager class], NSSelectorFromString(@"getStableIdFromParamSpecifier:"));
+    return stable && method_getNumberOfArguments(stable) == 3 && WAGRABMethodWordArgument(stable, 2);
+}
+
+static id WAGRABResolveMCManager(id userContext) {
+    id manager = WAGRMobileConfigContextManager(userContext);
+    if (WAGRABMCManagerIsUsable(manager)) return manager;
+
+    Class cls = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
+    for (NSString *selectorName in @[@"sessionlessContextManager", @"defaultValueContextManager"]) {
+        id candidate = WAGRABCallClassObjectNoArg(cls, selectorName);
+        if (WAGRABMCManagerIsUsable(candidate)) {
+            WAGRLogAppendF(@"[ABProps][MC] direct manager via +%@", selectorName);
+            return candidate;
+        }
+    }
+    return nil;
+}
+
+static uint64_t WAGRABExternalStableId(id manager, uint64_t specifier) {
+    if (!WAGRABMCManagerIsUsable(manager) || !specifier) return 0;
+    SEL selector = NSSelectorFromString(@"getStableIdFromParamSpecifier:");
+    Method method = class_getInstanceMethod([manager class], selector);
+    if (!method || method_getNumberOfArguments(method) != 3) return 0;
     @try {
-        return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, (uint64_t)code);
-    } @catch (__unused NSException *exception) {
-        return 0;
+        if (WAGRABMethodReturnsObject(method)) {
+            id value = ((id (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, specifier);
+            if ([value respondsToSelector:@selector(unsignedLongLongValue)]) return [value unsignedLongLongValue];
+            return strtoull([[value description] UTF8String] ?: "0", NULL, 10);
+        }
+        if (WAGRABMethodReturnsInteger(method)) {
+            return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, specifier);
+        }
+    } @catch (__unused NSException *exception) {}
+    return 0;
+}
+
+static NSString *WAGRABPathString(id value) {
+    if ([value isKindOfClass:NSString.class]) return value;
+    if ([value isKindOfClass:NSURL.class]) return [(NSURL *)value path];
+    if ([value respondsToSelector:@selector(path)]) {
+        @try {
+            id path = [value path];
+            if ([path isKindOfClass:NSString.class]) return path;
+        } @catch (__unused NSException *exception) {}
+    }
+    return nil;
+}
+
+static NSString *WAGRABMCNamesPath(id manager) {
+    id pathValue = WAGRABCallObjectNoArg(manager, @"getOverridesTablePath");
+    NSString *path = WAGRABPathString(pathValue);
+    if (!path.length) return nil;
+    NSString *directory = [[path pathExtension].lowercaseString isEqualToString:@"json"]
+        ? [path stringByDeletingLastPathComponent] : path;
+    return [directory stringByAppendingPathComponent:@"id_name_mapping.json"];
+}
+
+static NSDictionary *WAGRABLoadMCNames(id manager) {
+    NSString *path = WAGRABMCNamesPath(manager);
+    NSData *data = path.length ? [NSData dataWithContentsOfFile:path] : nil;
+    id object = data.length ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+    NSMutableDictionary *configs = [NSMutableDictionary dictionary];
+    NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
+
+    if ([object isKindOfClass:NSDictionary.class]) {
+        [(NSDictionary *)object enumerateKeysAndObjectsUsingBlock:^(id key, id value, __unused BOOL *stop) {
+            NSString *keyString = [key isKindOfClass:NSString.class] ? key : [key description];
+            NSArray *keyParts = [keyString componentsSeparatedByString:@":"];
+            unsigned long long configId = keyParts.count ? strtoull([keyParts[0] UTF8String] ?: "0", NULL, 10) : 0;
+            if (!configId) return;
+            if (keyParts.count > 1) {
+                NSString *name = [keyParts[1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+                if (name.length) configs[@(configId)] = name;
+            }
+            if (![value isKindOfClass:NSArray.class]) return;
+            for (id rowObject in (NSArray *)value) {
+                if (![rowObject isKindOfClass:NSString.class]) continue;
+                NSArray *row = [(NSString *)rowObject componentsSeparatedByString:@":"];
+                if (row.count < 2) continue;
+                NSInteger parameterIndex = [row[0] integerValue];
+                NSString *parameterName = [row[1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+                if (parameterName.length) {
+                    parameters[[NSString stringWithFormat:@"%llu:%ld", configId, (long)parameterIndex]] = parameterName;
+                }
+            }
+        }];
+    } else if ([object isKindOfClass:NSArray.class]) {
+        for (id lineObject in (NSArray *)object) {
+            if (![lineObject isKindOfClass:NSString.class]) continue;
+            NSArray *parts = [(NSString *)lineObject componentsSeparatedByString:@":"];
+            if (parts.count < 2) continue;
+            unsigned long long configId = strtoull([parts[0] UTF8String] ?: "0", NULL, 10);
+            if (!configId) continue;
+            NSString *configName = [parts[1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+            if (configName.length) configs[@(configId)] = configName;
+            for (NSUInteger i = 2; i + 1 < parts.count; i += 2) {
+                NSInteger parameterIndex = [parts[i] integerValue];
+                NSString *parameterName = [parts[i + 1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+                if (parameterName.length) {
+                    parameters[[NSString stringWithFormat:@"%llu:%ld", configId, (long)parameterIndex]] = parameterName;
+                }
+            }
+        }
+    }
+    return @{ @"configs": configs, @"parameters": parameters };
+}
+
+static NSString *WAGRABEmbeddedMCName(uint64_t specifier) {
+    if (!specifier) return nil;
+    Class cls = NSClassFromString(@"FBMobileConfigStartupConfigs");
+    id instance = WAGRABCallClassObjectNoArg(cls, @"getInstance");
+    if (!instance) return nil;
+    SEL selector = NSSelectorFromString(@"convertSpecifierToParamName:");
+    Method method = class_getInstanceMethod([instance class], selector);
+    if (!method || method_getNumberOfArguments(method) != 3 ||
+        !WAGRABMethodReturnsObject(method) || !WAGRABMethodWordArgument(method, 2)) return nil;
+    @try {
+        id value = ((id (*)(id, SEL, uint64_t))objc_msgSend)(instance, selector, specifier);
+        return [value isKindOfClass:NSString.class] && [value length] ? value : nil;
+    } @catch (__unused NSException *exception) { return nil; }
+}
+
+static void WAGRABSplitEmbeddedMCName(NSString *fullName, NSString **configName, NSString **parameterName) {
+    if (configName) *configName = nil;
+    if (parameterName) *parameterName = nil;
+    if (!fullName.length) return;
+    NSRange dot = [fullName rangeOfString:@"." options:NSBackwardsSearch];
+    if (dot.location != NSNotFound && dot.location > 0 && NSMaxRange(dot) < fullName.length) {
+        if (configName) *configName = [fullName substringToIndex:dot.location];
+        if (parameterName) *parameterName = [fullName substringFromIndex:NSMaxRange(dot)];
+    } else if (parameterName) {
+        *parameterName = fullName;
     }
 }
 
@@ -264,6 +472,12 @@ static id WAGRABJSONSafe(id value) {
 
 NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeSnapshot *snapshot) {
     if (!snapshot) return @{};
+    id context = WAGRCurrentUserContext();
+    id manager = WAGRABResolveMCManager(context);
+    NSDictionary *names = manager ? WAGRABLoadMCNames(manager) : @{};
+    NSDictionary *configNames = names[@"configs"] ?: @{};
+    NSDictionary *parameterNames = names[@"parameters"] ?: @{};
+
     NSArray *sortedKeys = [snapshot.props.allKeys sortedArrayUsingComparator:^NSComparisonResult(id left, id right) {
         unsigned long long a = [[left description] longLongValue];
         unsigned long long b = [[right description] longLongValue];
@@ -273,35 +487,62 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
     }];
 
     NSMutableArray *entries = [NSMutableArray arrayWithCapacity:sortedKeys.count];
+    NSUInteger translated = 0;
+    NSUInteger externalResolved = 0;
+    NSUInteger canonicalNamed = 0;
+
     for (id keyObject in sortedKeys) {
         NSString *code = [keyObject description];
         if (!WAGRABStringIsDecimal(code)) continue;
         id rawEntry = snapshot.props[keyObject];
         NSDictionary *entryDictionary = [rawEntry isKindOfClass:NSDictionary.class] ? rawEntry : @{};
         id wireValue = entryDictionary[@"value"] ?: rawEntry ?: NSNull.null;
-        uint64_t specifier = WAGRABMCSpecifierForCode(strtoull(code.UTF8String ?: "0", NULL, 10));
+        NSString *displayName = WAGRABPropsDisplayNameForCode(code);
+        if (displayName.length && ![displayName hasPrefix:@"ABProp "]) canonicalNamed++;
 
         NSMutableDictionary *entry = [@{
             @"code" : @([code longLongValue]),
-            @"name" : WAGRABPropsDisplayNameForCode(code),
+            @"name" : displayName ?: [NSString stringWithFormat:@"ABProp %@", code],
             @"value" : WAGRABJSONSafe(wireValue),
             @"native_entry" : WAGRABJSONSafe(rawEntry),
         } mutableCopy];
         if (entryDictionary[@"expoKey"]) entry[@"expoKey"] = WAGRABJSONSafe(entryDictionary[@"expoKey"]);
+
+        uint64_t specifier = WAGRABMCSpecifierForCode(strtoull(code.UTF8String ?: "0", NULL, 10));
         if (specifier && !(specifier & (1ULL << 62))) {
-            entry[@"mobileconfig"] = @{
+            translated++;
+            uint16_t parameterIndex = (uint16_t)((specifier >> 16) & 0xFFFF);
+            NSMutableDictionary *mc = [@{
                 @"param_specifier_hex" : [NSString stringWithFormat:@"0x%016llx", specifier],
                 @"local_config_index" : @((specifier >> 32) & 0xFFFF),
-                @"parameter_index" : @((specifier >> 16) & 0xFFFF),
-                @"parameter_stable_id" : @(specifier & 0xFFFF),
+                @"parameter_index" : @(parameterIndex),
+                @"compact_parameter_token" : @(specifier & 0xFFFF),
                 @"native_type" : @((specifier >> 48) & 0x3F),
-            };
+            } mutableCopy];
+
+            uint64_t external = WAGRABExternalStableId(manager, specifier);
+            if (external) {
+                externalResolved++;
+                mc[@"external_config_stable_id"] = @(external);
+                NSString *configName = configNames[@(external)];
+                NSString *parameterName = parameterNames[[NSString stringWithFormat:@"%llu:%u", external, parameterIndex]];
+                if (!configName.length || !parameterName.length) {
+                    NSString *embedded = WAGRABEmbeddedMCName(specifier);
+                    NSString *embeddedConfig = nil, *embeddedParameter = nil;
+                    WAGRABSplitEmbeddedMCName(embedded, &embeddedConfig, &embeddedParameter);
+                    if (!configName.length) configName = embeddedConfig;
+                    if (!parameterName.length) parameterName = embeddedParameter;
+                }
+                if (configName.length) mc[@"config_name"] = configName;
+                if (parameterName.length) mc[@"parameter_name"] = parameterName;
+            }
+            entry[@"mobileconfig"] = mc;
         }
         [entries addObject:entry];
     }
 
     return @{
-        @"format" : @"WATweaks WhatsApp native ABProps snapshot v1",
+        @"format" : @"WATweaks WhatsApp native ABProps snapshot v2",
         @"source" : @"group.net.whatsapp.WhatsApp.shared / account-scoped gabp.*p",
         @"suite" : snapshot.suiteName ?: kWAGRABPropsSharedSuite,
         @"payload_key" : snapshot.payloadKey ?: @"",
@@ -310,272 +551,118 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
         @"fingerprint" : snapshot.fingerprint ?: @"",
         @"loaded_at" : snapshot.loadedAt.description ?: @"",
         @"metadata" : WAGRABJSONSafe(snapshot.metadata ?: @{}),
+        @"mobileconfig_resolution" : @{
+            @"manager_resolved" : @(manager != nil),
+            @"translated" : @(translated),
+            @"external_config_stable_ids_resolved" : @(externalResolved),
+            @"canonical_abprop_names" : @(canonicalNamed),
+            @"canonical_catalog_size" : @(WAGRABPropsCanonicalNameCount()),
+            @"semantic_note" : @"compact_parameter_token is the low-16 compact translation token; external_config_stable_id is resolved separately by FBMobileConfigContextManager"
+        },
         @"entries" : entries,
     };
 }
 
-#pragma mark - Native fetch resolver
+#pragma mark - Exact native fetch, no inline hooks
 
-static BOOL WAGRABClassNameInteresting(NSString *name) {
-    NSString *lower = name.lowercaseString ?: @"";
-    return [lower containsString:@"abprop"] ||
-           [lower containsString:@"abpropert"] ||
-           [lower containsString:@"getabprops"] ||
-           [lower containsString:@"fetchabprops"];
+static BOOL WAGRABObjectCanFreshFetch(id object) {
+    if (!object) return NO;
+    SEL selector = NSSelectorFromString(@"requestFreshABProps:withCompletion:");
+    Method method = class_getInstanceMethod([object class], selector);
+    return method && method_getNumberOfArguments(method) == 4 &&
+           WAGRABMethodReturnsVoid(method) &&
+           WAGRABArgumentIsBool(method, 2) &&
+           WAGRABArgumentIsObject(method, 3);
 }
 
-static id WAGRABCallObjectNoArg(id target, NSString *selectorName) {
-    if (!target || !selectorName.length) return nil;
-    SEL selector = NSSelectorFromString(selectorName);
-    Method method = class_getInstanceMethod([target class], selector);
-    if (!method || method_getNumberOfArguments(method) != 2) return nil;
-    char raw[32] = {0}; method_getReturnType(method, raw, sizeof(raw));
-    if (WAGRABSkipQualifiers(raw)[0] != '@') return nil;
-    @try { return ((id (*)(id, SEL))objc_msgSend)(target, selector); }
-    @catch (__unused NSException *exception) { return nil; }
-}
+static id WAGRABFindExactRequestManager(id root, NSMutableSet<NSValue *> *visited, NSUInteger depth) {
+    if (!root || depth > 5) return nil;
+    if (WAGRABObjectCanFreshFetch(root)) return root;
 
-static id WAGRABSharedObjectForClass(Class cls) {
-    if (!cls) return nil;
-    for (NSString *selectorName in @[@"shared", @"sharedInstance", @"current", @"defaultManager", @"manager"]) {
-        SEL selector = NSSelectorFromString(selectorName);
-        Method method = class_getClassMethod(cls, selector);
-        if (!method || method_getNumberOfArguments(method) != 2) continue;
-        char raw[32] = {0}; method_getReturnType(method, raw, sizeof(raw));
-        if (WAGRABSkipQualifiers(raw)[0] != '@') continue;
-        @try {
-            id value = ((id (*)(id, SEL))objc_msgSend)((id)cls, selector);
-            if (value) return value;
-        } @catch (__unused NSException *exception) {}
-    }
-    return nil;
-}
-
-static void WAGRABCollectFetchTargets(id root,
-                                      NSMutableOrderedSet *targets,
-                                      NSMutableSet<NSValue *> *visited,
-                                      NSUInteger depth) {
-    if (!root || depth > 4) return;
     NSValue *identity = [NSValue valueWithNonretainedObject:root];
-    if ([visited containsObject:identity]) return;
+    if ([visited containsObject:identity]) return nil;
     [visited addObject:identity];
 
-    NSString *className = NSStringFromClass([root class]) ?: @"";
-    if (WAGRABClassNameInteresting(className)) [targets addObject:root];
-
     for (NSString *selectorName in @[
-        @"abPropsRequestManager", @"abPropertiesRequestManager", @"abPropsManager",
-        @"abProperties", @"waABProperties", @"xmppConnection", @"connection",
-        @"syncManager", @"propertiesManager", @"userContext"
+        @"xmppConnectionABPropsRequestManager",
+        @"abPropsRequestManager",
+        @"abPropertiesRequestManager",
+        @"xmppConnection",
+        @"connection",
+        @"userContext"
     ]) {
         id child = WAGRABCallObjectNoArg(root, selectorName);
         if (!child || child == root) continue;
-        NSString *childName = NSStringFromClass([child class]) ?: @"";
-        if (WAGRABClassNameInteresting(childName)) [targets addObject:child];
-        WAGRABCollectFetchTargets(child, targets, visited, depth + 1);
+        id found = WAGRABFindExactRequestManager(child, visited, depth + 1);
+        if (found) return found;
     }
 
-    for (Class current = [root class]; current && current != NSObject.class;
-         current = class_getSuperclass(current)) {
+    for (Class current = [root class]; current && current != NSObject.class; current = class_getSuperclass(current)) {
         unsigned int count = 0;
         Ivar *ivars = class_copyIvarList(current, &count);
         for (unsigned int index = 0; index < count; index++) {
             Ivar ivar = ivars[index];
-            const char *type = ivar_getTypeEncoding(ivar);
-            const char *name = ivar_getName(ivar);
-            if (!type || !name || WAGRABSkipQualifiers(type)[0] != '@') continue;
-            NSString *ivarName = [[NSString stringWithUTF8String:name] lowercaseString] ?: @"";
-            if (!([ivarName containsString:@"abprop"] || [ivarName containsString:@"xmpp"] ||
-                  [ivarName containsString:@"sync"] || [ivarName containsString:@"connection"])) continue;
+            const char *rawType = ivar_getTypeEncoding(ivar);
+            const char *rawName = ivar_getName(ivar);
+            if (!rawType || !rawName || WAGRABSkipQualifiers(rawType)[0] != '@') continue;
+            NSString *name = [[NSString stringWithUTF8String:rawName] lowercaseString] ?: @"";
+            BOOL interesting = [name containsString:@"abprop"] ||
+                               [name containsString:@"request"] ||
+                               [name containsString:@"xmpp"] ||
+                               [name containsString:@"connection"];
+            if (!interesting) continue;
             id child = nil;
             @try { child = object_getIvar(root, ivar); }
             @catch (__unused NSException *exception) { child = nil; }
             if (!child || child == root) continue;
-            NSString *childName = NSStringFromClass([child class]) ?: @"";
-            if (WAGRABClassNameInteresting(childName)) [targets addObject:child];
-            WAGRABCollectFetchTargets(child, targets, visited, depth + 1);
+            id found = WAGRABFindExactRequestManager(child, visited, depth + 1);
+            if (found) { free(ivars); return found; }
         }
         free(ivars);
     }
-}
-
-static BOOL WAGRABReturnTypeSafeForDiscard(Method method) {
-    if (!method) return NO;
-    char raw[64] = {0}; method_getReturnType(method, raw, sizeof(raw));
-    switch (WAGRABSkipQualifiers(raw)[0]) {
-        case 'v': case '@': case 'B': case 'c': case 'C':
-        case 's': case 'S': case 'i': case 'I': case 'l': case 'L': case 'q': case 'Q':
-            return YES;
-        default:
-            return NO;
-    }
-}
-
-static BOOL WAGRABMethodObjectArgument(Method method, unsigned int index) {
-    if (!method || index >= method_getNumberOfArguments(method)) return NO;
-    char raw[64] = {0}; method_getArgumentType(method, index, raw, sizeof(raw));
-    return WAGRABSkipQualifiers(raw)[0] == '@';
-}
-
-static NSInteger WAGRABFetchSelectorScore(NSString *className, NSString *selectorName, Method method) {
-    if (!selectorName.length || !method || !WAGRABReturnTypeSafeForDiscard(method)) return NSIntegerMin;
-    unsigned int argc = method_getNumberOfArguments(method);
-    if (argc != 2 && argc != 3) return NSIntegerMin;
-
-    NSString *lowerClass = className.lowercaseString ?: @"";
-    NSString *lower = selectorName.lowercaseString ?: @"";
-    if ([lower hasPrefix:@"init"] || [lower hasPrefix:@"dealloc"] || [lower containsString:@"cancel"] ||
-        [lower containsString:@"snapshot"] || [lower containsString:@"currentvalue"] ||
-        [lower hasPrefix:@"is"] || [lower hasPrefix:@"should"] || [lower hasPrefix:@"can"]) return NSIntegerMin;
-
-    BOOL verb = [lower containsString:@"fetch"] || [lower containsString:@"sync"] ||
-                [lower containsString:@"refresh"] || [lower containsString:@"request"] ||
-                [lower isEqualToString:@"getabprops"];
-    BOOL ab = [lower containsString:@"abprop"] || [lowerClass containsString:@"abprop"] ||
-              [lowerClass containsString:@"abpropert"];
-    if (!verb || !ab) return NSIntegerMin;
-
-    if (argc == 3) {
-        if (!WAGRABMethodObjectArgument(method, 2)) return NSIntegerMin;
-        NSString *label = [[selectorName componentsSeparatedByString:@":"] firstObject].lowercaseString ?: @"";
-        if (![label containsString:@"context"]) return NSIntegerMin;
-    }
-
-    NSInteger score = 0;
-    if ([lower containsString:@"abprop"]) score += 50;
-    if ([lower containsString:@"fetch"]) score += 40;
-    if ([lower containsString:@"sync"]) score += 35;
-    if ([lower containsString:@"refresh"]) score += 30;
-    if ([lower containsString:@"request"]) score += 25;
-    if ([lowerClass containsString:@"requestmanager"]) score += 30;
-    if ([lowerClass containsString:@"fetchabprops"]) score += 25;
-    if ([lowerClass containsString:@"sync"]) score += 15;
-    if (argc == 2) score += 20;
-    return score;
-}
-
-static BOOL WAGRABInvokeFetchOnTarget(id target,
-                                      BOOL classMethods,
-                                      id userContext,
-                                      NSString **source) {
-    if (!target) return NO;
-    Class owner = classMethods ? object_getClass((Class)target) : [target class];
-    NSString *className = classMethods ? NSStringFromClass((Class)target) : NSStringFromClass([target class]);
-    Method bestMethod = NULL;
-    SEL bestSelector = NULL;
-    NSInteger bestScore = NSIntegerMin;
-
-    for (Class current = owner; current; current = class_getSuperclass(current)) {
-        unsigned int count = 0;
-        Method *methods = class_copyMethodList(current, &count);
-        for (unsigned int index = 0; index < count; index++) {
-            Method method = methods[index];
-            SEL selector = method_getName(method);
-            NSString *selectorName = NSStringFromSelector(selector);
-            NSInteger score = WAGRABFetchSelectorScore(className, selectorName, method);
-            if (score > bestScore) {
-                bestScore = score;
-                bestMethod = method;
-                bestSelector = selector;
-            }
-        }
-        free(methods);
-    }
-
-    if (!bestMethod || !bestSelector || bestScore == NSIntegerMin) return NO;
-    unsigned int argc = method_getNumberOfArguments(bestMethod);
-    NSString *selectorName = NSStringFromSelector(bestSelector);
-    @try {
-        if (argc == 2) {
-            ((void (*)(id, SEL))objc_msgSend)(target, bestSelector);
-        } else if (argc == 3 && userContext) {
-            ((void (*)(id, SEL, id))objc_msgSend)(target, bestSelector, userContext);
-        } else {
-            return NO;
-        }
-    } @catch (NSException *exception) {
-        WAGRLogAppendF(@"[ABProps][Fetch] %@.%@ threw %@",
-                       className ?: @"?", selectorName ?: @"?", exception.reason ?: @"exception");
-        return NO;
-    }
-
-    if (source) {
-        *source = [NSString stringWithFormat:@"%@%@.%@ score=%ld",
-                   classMethods ? @"+" : @"-", className ?: @"?",
-                   selectorName ?: @"?", (long)bestScore];
-    }
-    return YES;
+    return nil;
 }
 
 BOOL WAGRABPropsTriggerNativeFetch(id userContext, NSString **diagnostic) {
-    NSMutableOrderedSet *targets = [NSMutableOrderedSet orderedSet];
+    id context = userContext ?: WAGRCurrentUserContext();
     NSMutableSet<NSValue *> *visited = [NSMutableSet set];
-    WAGRABCollectFetchTargets(userContext, targets, visited, 0);
-
-    NSArray<NSString *> *knownClassNames = @[
-        @"XMPPConnectionABPropsRequestManager",
-        @"WAABPropsRequestManager",
-        @"WAABPropertiesRequestManager",
-        @"FetchABPropsStateResource",
-        @"WABackupABPropsRefreshPlugin",
-        @"BackupABPropsRefreshPlugin"
-    ];
-    for (NSString *name in knownClassNames) {
-        Class cls = NSClassFromString(name) ?: objc_getClass(name.UTF8String);
-        if (!cls) continue;
-        id shared = WAGRABSharedObjectForClass(cls);
-        if (shared) [targets addObject:shared];
+    id manager = WAGRABFindExactRequestManager(context, visited, 0);
+    if (!manager) {
+        NSString *text = @"exact XMPPConnectionABPropsRequestManager not resolved; no heuristic fetch/sync method was invoked";
+        WAGRABNativeSetDiagnostic(text);
+        if (diagnostic) *diagnostic = text;
+        return NO;
     }
 
-    unsigned int classCount = 0;
-    __unsafe_unretained Class *runtimeClasses = objc_copyClassList(&classCount);
-    NSMutableOrderedSet *candidateClasses = [NSMutableOrderedSet orderedSet];
-    for (unsigned int index = 0; index < classCount; index++) {
-        Class cls = runtimeClasses[index];
-        NSString *name = NSStringFromClass(cls) ?: @"";
-        if (WAGRABClassNameInteresting(name) &&
-            ([name.lowercaseString containsString:@"request"] ||
-             [name.lowercaseString containsString:@"fetch"] ||
-             [name.lowercaseString containsString:@"sync"] ||
-             [name.lowercaseString containsString:@"refresh"])) {
-            [candidateClasses addObject:cls];
-        }
-    }
-    free(runtimeClasses);
-
-    NSString *source = nil;
-    for (id target in targets) {
-        if (WAGRABInvokeFetchOnTarget(target, NO, userContext, &source)) {
-            NSString *text = [NSString stringWithFormat:@"native fetch invoked via %@ targets=%lu",
-                              source ?: @"unknown", (unsigned long)targets.count];
-            WAGRABNativeSetDiagnostic(text);
-            if (diagnostic) *diagnostic = text;
-            return YES;
-        }
+    SEL selector = NSSelectorFromString(@"requestFreshABProps:withCompletion:");
+    Method method = class_getInstanceMethod([manager class], selector);
+    if (!method || method_getNumberOfArguments(method) != 4 ||
+        !WAGRABMethodReturnsVoid(method) ||
+        !WAGRABArgumentIsBool(method, 2) || !WAGRABArgumentIsObject(method, 3)) {
+        NSString *text = @"requestFreshABProps:withCompletion: exists with an unexpected ABI; request not sent";
+        WAGRABNativeSetDiagnostic(text);
+        if (diagnostic) *diagnostic = text;
+        return NO;
     }
 
-    for (Class cls in candidateClasses) {
-        if (WAGRABInvokeFetchOnTarget((id)cls, YES, userContext, &source)) {
-            NSString *text = [NSString stringWithFormat:@"native fetch invoked via %@ classCandidates=%lu",
-                              source ?: @"unknown", (unsigned long)candidateClasses.count];
-            WAGRABNativeSetDiagnostic(text);
-            if (diagnostic) *diagnostic = text;
-            return YES;
-        }
-        id shared = WAGRABSharedObjectForClass(cls);
-        if (shared && WAGRABInvokeFetchOnTarget(shared, NO, userContext, &source)) {
-            NSString *text = [NSString stringWithFormat:@"native fetch invoked via %@ classCandidates=%lu",
-                              source ?: @"unknown", (unsigned long)candidateClasses.count];
-            WAGRABNativeSetDiagnostic(text);
-            if (diagnostic) *diagnostic = text;
-            return YES;
-        }
+    void (^completion)(void) = ^{
+        WAGRLogAppend(@"[ABProps][FetchV2] native completion invoked");
+    };
+
+    @try {
+        ((void (*)(id, SEL, BOOL, id))objc_msgSend)(manager, selector, NO, completion);
+    } @catch (NSException *exception) {
+        NSString *text = [NSString stringWithFormat:@"requestFreshABProps:NO threw %@",
+                          exception.reason ?: @"exception"];
+        WAGRABNativeSetDiagnostic(text);
+        if (diagnostic) *diagnostic = text;
+        return NO;
     }
 
     NSString *text = [NSString stringWithFormat:
-        @"native fetch entrypoint not resolved (targets=%lu classes=%lu). The live account cache remains readable/exportable; open/use WhatsApp's native Developer/Internal ABProps flow once and retry Fetch.",
-        (unsigned long)targets.count, (unsigned long)candidateClasses.count];
+        @"exact request sent via -[%@ requestFreshABProps:NO withCompletion:]",
+        NSStringFromClass([manager class]) ?: @"XMPPConnectionABPropsRequestManager"];
     WAGRABNativeSetDiagnostic(text);
     if (diagnostic) *diagnostic = text;
-    return NO;
+    return YES;
 }
