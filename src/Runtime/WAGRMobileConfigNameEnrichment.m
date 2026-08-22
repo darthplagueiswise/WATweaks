@@ -8,6 +8,8 @@
 static NSString *(*orig_WAGRMCParameterName)(WAGRMobileConfigMapping *, SEL) = NULL;
 static NSString *(*orig_WAGRMCConfigName)(WAGRMobileConfigMapping *, SEL) = NULL;
 static BOOL gWAGRMCNameHooksInstalled = NO;
+static const void *kWAGRMCEmbeddedNameCacheKey = &kWAGRMCEmbeddedNameCacheKey;
+static const void *kWAGRMCEmbeddedNameMissKey = &kWAGRMCEmbeddedNameMissKey;
 
 static BOOL WAGRMCNameMethodReturnsObject(Method method) {
     if (!method || method_getNumberOfArguments(method) != 2) return NO;
@@ -18,8 +20,12 @@ static BOOL WAGRMCNameMethodReturnsObject(Method method) {
     return *cursor == '@';
 }
 
-static NSString *WAGRMCEmbeddedSpecifierName(uint64_t specifier) {
-    if (!specifier) return nil;
+static NSString *WAGRMCEmbeddedSpecifierName(WAGRMobileConfigMapping *mapping) {
+    if (!mapping || !mapping.paramSpecifier) return nil;
+    NSString *cached = objc_getAssociatedObject(mapping, kWAGRMCEmbeddedNameCacheKey);
+    if (cached.length) return cached;
+    if ([objc_getAssociatedObject(mapping, kWAGRMCEmbeddedNameMissKey) boolValue]) return nil;
+
     Class cls = NSClassFromString(@"FBMobileConfigStartupConfigs");
     if (!cls) return nil;
 
@@ -51,9 +57,20 @@ static NSString *WAGRMCEmbeddedSpecifierName(uint64_t specifier) {
     if (!size || size > sizeof(uint64_t)) return nil;
 
     id value = nil;
-    @try { value = ((id (*)(id, SEL, uint64_t))objc_msgSend)(instance, convert, specifier); }
-    @catch (__unused NSException *exception) { value = nil; }
-    if (![value isKindOfClass:NSString.class] || ![(NSString *)value length]) return nil;
+    @try {
+        value = ((id (*)(id, SEL, uint64_t))objc_msgSend)(instance,
+                                                          convert,
+                                                          mapping.paramSpecifier);
+    } @catch (__unused NSException *exception) {
+        value = nil;
+    }
+    if (![value isKindOfClass:NSString.class] || ![(NSString *)value length]) {
+        objc_setAssociatedObject(mapping, kWAGRMCEmbeddedNameMissKey, @YES,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        return nil;
+    }
+    objc_setAssociatedObject(mapping, kWAGRMCEmbeddedNameCacheKey, value,
+                             OBJC_ASSOCIATION_COPY_NONATOMIC);
     return value;
 }
 
@@ -79,7 +96,7 @@ static void WAGRMCParseEmbeddedName(NSString *fullName,
 static NSString *hook_WAGRMCParameterName(WAGRMobileConfigMapping *self, SEL _cmd) {
     NSString *native = orig_WAGRMCParameterName ? orig_WAGRMCParameterName(self, _cmd) : nil;
     if (native.length) return native;
-    NSString *embedded = WAGRMCEmbeddedSpecifierName(self.paramSpecifier);
+    NSString *embedded = WAGRMCEmbeddedSpecifierName(self);
     NSString *parameter = nil;
     WAGRMCParseEmbeddedName(embedded, NULL, &parameter);
     return parameter;
@@ -88,7 +105,7 @@ static NSString *hook_WAGRMCParameterName(WAGRMobileConfigMapping *self, SEL _cm
 static NSString *hook_WAGRMCConfigName(WAGRMobileConfigMapping *self, SEL _cmd) {
     NSString *native = orig_WAGRMCConfigName ? orig_WAGRMCConfigName(self, _cmd) : nil;
     if (native.length) return native;
-    NSString *embedded = WAGRMCEmbeddedSpecifierName(self.paramSpecifier);
+    NSString *embedded = WAGRMCEmbeddedSpecifierName(self);
     NSString *config = nil;
     WAGRMCParseEmbeddedName(embedded, &config, NULL);
     return config;
