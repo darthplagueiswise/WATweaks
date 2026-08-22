@@ -26,16 +26,20 @@ extern "C" {
 WAGRABPropsNativeSnapshot * _Nullable WAGRABPropsReadNativeSnapshot(
     NSError * _Nullable * _Nullable outError);
 
-/// Asks WhatsApp's already-loaded native ABProps sync/request machinery to
-/// perform a refresh. The resolver only invokes ABI-validated zero-argument
-/// methods or one-object-argument methods whose selector explicitly requests a
-/// context/userContext. It never implements the WA protocol itself.
+/// Invokes WhatsApp's exact fresh-fetch entrypoint for the current build:
+/// -[XMPPConnectionABPropsRequestManager requestFreshABProps:NO withCompletion:].
+/// The runtime captures/resolves the real XMPPConnectionABPropsRequestManager,
+/// validates the Objective-C ABI, and returns NO rather than invoking a
+/// fetch/sync/refresh lookalike when that exact entrypoint cannot be resolved.
 BOOL WAGRABPropsTriggerNativeFetch(id _Nullable userContext,
                                    NSString * _Nullable * _Nullable diagnostic);
 
-/// Produces a portable JSON-ready document containing every property from the
-/// live native cache, plus metadata and the ABProp -> MobileConfig paramSpecifier
-/// translation exposed by WAMCEvaluation when available.
+/// Produces a portable JSON-ready v2 document containing every property from
+/// the live native cache, canonical code->selector names when the native getter
+/// descriptor is available, and ABProp -> MobileConfig translation data.
+/// `compact_parameter_token` is the low-16 translation token; the external
+/// config/admin stable ID is separately resolved through
+/// FBMobileConfigContextManager.getStableIdFromParamSpecifier: when available.
 NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(
     WAGRABPropsNativeSnapshot *snapshot);
 
