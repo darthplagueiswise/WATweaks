@@ -19,7 +19,7 @@ static NSString * const kWAGRMCErrorDomain = @"WATweaks.MobileConfig";
         @"param_specifier_hex" : [NSString stringWithFormat:@"0x%016llx", self.paramSpecifier],
         @"local_config_index" : @(self.localConfigIndex),
         @"parameter_index" : @(self.parameterIndex),
-        @"parameter_stable_id" : @(self.parameterStableId),
+        @"compact_parameter_token" : @(self.parameterStableId),
         @"native_type" : @(self.nativeType),
         @"native_type_name" : (self.nativeType == 1 ? @"bool" :
                                 self.nativeType == 2 ? @"int64" :
@@ -47,13 +47,9 @@ static BOOL WAGRMCMethodArgumentFitsWord(Method method, unsigned int index) {
     method_getArgumentType(method, index, raw, sizeof(raw));
     const char *type = WAGRMCSkipQualifiers(raw);
     if (!*type) return NO;
-    NSUInteger size = 0;
-    NSUInteger alignment = 0;
-    @try {
-        NSGetSizeAndAlignment(type, &size, &alignment);
-    } @catch (__unused NSException *exception) {
-        return NO;
-    }
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
     return size > 0 && size <= sizeof(uint64_t);
 }
 
@@ -83,9 +79,9 @@ static BOOL WAGRMCMethodReturnsWord(Method method) {
     method_getReturnType(method, raw, sizeof(raw));
     const char *type = WAGRMCSkipQualifiers(raw);
     if (!*type || type[0] == '@' || type[0] == 'v' || type[0] == 'f' || type[0] == 'd') return NO;
-    NSUInteger size = 0;
-    NSUInteger alignment = 0;
-    NSGetSizeAndAlignment(type, &size, &alignment);
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
     return size > 0 && size <= sizeof(uint64_t);
 }
 
@@ -104,25 +100,12 @@ static BOOL WAGRMCMethodReturnsFloat(Method method) {
 }
 
 static BOOL WAGRMCMethodIsObjectNoArg(Method method) {
-    return method && method_getNumberOfArguments(method) == 2 &&
-           WAGRMCMethodReturnsObject(method);
+    return method && method_getNumberOfArguments(method) == 2 && WAGRMCMethodReturnsObject(method);
 }
 
 static BOOL WAGRMCMethodIsWordToWord(Method method) {
     return method && method_getNumberOfArguments(method) == 3 &&
-           WAGRMCMethodReturnsWord(method) &&
-           WAGRMCMethodArgumentFitsWord(method, 2);
-}
-
-static uint64_t WAGRMCClassIntegerReturnValue(Class cls, SEL selector, uint64_t argument) {
-    if (!cls || !selector) return 0;
-    Method method = class_getClassMethod(cls, selector);
-    if (!WAGRMCMethodIsWordToWord(method)) return 0;
-    @try {
-        return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, argument);
-    } @catch (__unused NSException *exception) {
-        return 0;
-    }
+           WAGRMCMethodReturnsWord(method) && WAGRMCMethodArgumentFitsWord(method, 2);
 }
 
 static id WAGRMCCallObjectNoArg(id target, NSString *selectorName) {
@@ -130,14 +113,28 @@ static id WAGRMCCallObjectNoArg(id target, NSString *selectorName) {
     SEL selector = NSSelectorFromString(selectorName);
     Method method = class_getInstanceMethod([target class], selector);
     if (!WAGRMCMethodIsObjectNoArg(method)) return nil;
-    @try {
-        return ((id (*)(id, SEL))objc_msgSend)(target, selector);
-    } @catch (__unused NSException *exception) {
-        return nil;
-    }
+    @try { return ((id (*)(id, SEL))objc_msgSend)(target, selector); }
+    @catch (__unused NSException *exception) { return nil; }
 }
 
-#pragma mark - Live context capture
+static id WAGRMCCallClassObjectNoArg(Class cls, NSString *selectorName) {
+    if (!cls || !selectorName.length) return nil;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getClassMethod(cls, selector);
+    if (!WAGRMCMethodIsObjectNoArg(method)) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)((id)cls, selector); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
+static uint64_t WAGRMCClassIntegerReturnValue(Class cls, SEL selector, uint64_t argument) {
+    if (!cls || !selector) return 0;
+    Method method = class_getClassMethod(cls, selector);
+    if (!WAGRMCMethodIsWordToWord(method)) return 0;
+    @try { return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, argument); }
+    @catch (__unused NSException *exception) { return 0; }
+}
+
+#pragma mark - Live context-manager resolution
 
 static id gWAGRMCContextManager = nil;
 static NSString *gWAGRMCContextManagerSource = nil;
@@ -152,10 +149,40 @@ static void WAGRMCEnsureLock(void) {
     dispatch_once(&once, ^{ gWAGRMCLock = [NSObject new]; });
 }
 
+static BOOL WAGRMCClassDescendsFromContextManager(Class cls) {
+    if (!cls) return NO;
+    Class base = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
+    if (base) {
+        for (Class current = cls; current; current = class_getSuperclass(current)) {
+            if (current == base) return YES;
+        }
+    }
+    return NO;
+}
+
+static BOOL WAGRMCClassHasContextManagerABI(Class cls) {
+    if (!cls) return NO;
+    Method stable = class_getInstanceMethod(cls, NSSelectorFromString(@"getStableIdFromParamSpecifier:"));
+    Method path = class_getInstanceMethod(cls, NSSelectorFromString(@"getOverridesTablePath"));
+    return stable && method_getNumberOfArguments(stable) == 3 &&
+           WAGRMCMethodArgumentFitsWord(stable, 2) &&
+           WAGRMCMethodIsObjectNoArg(path);
+}
+
 static BOOL WAGRMCObjectIsContextManager(id object) {
     if (!object) return NO;
-    NSString *name = NSStringFromClass([object class]) ?: @"";
-    return [name containsString:@"FBMobileConfigContextManager"];
+    Class cls = [object class];
+
+    // The supplied SharedModules Mach-O proves that
+    // FBMobileConfigUserSessionContextManager subclasses FBMobileConfigContextManager.
+    // The old substring test rejected it because "UserSession" sits between
+    // "FBMobileConfig" and "ContextManager" in the concrete class name.
+    if (WAGRMCClassDescendsFromContextManager(cls)) return YES;
+
+    NSString *name = NSStringFromClass(cls) ?: @"";
+    if ([name hasPrefix:@"FBMobileConfig"] && [name hasSuffix:@"ContextManager"] &&
+        WAGRMCClassHasContextManagerABI(cls)) return YES;
+    return NO;
 }
 
 static void WAGRMCRememberManager(id manager, NSString *source) {
@@ -167,7 +194,7 @@ static void WAGRMCRememberManager(id manager, NSString *source) {
         gWAGRMCContextManagerSource = [source copy] ?: @"unknown";
     }
     WAGRLogAppendF(@"[MobileConfig] captured %@ from %@",
-                   NSStringFromClass([manager class]), source ?: @"unknown");
+                   NSStringFromClass([manager class]) ?: @"?", source ?: @"unknown");
 }
 
 static id hook_WAGRMCGetOverridesTablePath(id self, SEL _cmd) {
@@ -181,14 +208,14 @@ static BOOL hook_WAGRMCGetBool(id self, SEL _cmd, uint64_t parameter) {
 }
 
 void WAGRMobileConfigEnsureCaptureHooksInstalled(void) {
-    Class cls = NSClassFromString(@"FBMobileConfigContextManager");
-    if (!cls) return;
+    Class base = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
+    if (!base) return;
 
     if (!gWAGRMCPathHooked) {
         SEL selector = NSSelectorFromString(@"getOverridesTablePath");
-        Method method = class_getInstanceMethod(cls, selector);
+        Method method = class_getInstanceMethod(base, selector);
         if (WAGRMCMethodIsObjectNoArg(method)) {
-            MSHookMessageEx(cls, selector, (IMP)hook_WAGRMCGetOverridesTablePath,
+            MSHookMessageEx(base, selector, (IMP)hook_WAGRMCGetOverridesTablePath,
                             (IMP *)&orig_WAGRMCGetOverridesTablePath);
             gWAGRMCPathHooked = (orig_WAGRMCGetOverridesTablePath != NULL);
         }
@@ -196,11 +223,10 @@ void WAGRMobileConfigEnsureCaptureHooksInstalled(void) {
 
     if (!gWAGRMCBoolHooked) {
         SEL selector = NSSelectorFromString(@"getBool:");
-        Method method = class_getInstanceMethod(cls, selector);
+        Method method = class_getInstanceMethod(base, selector);
         if (method && method_getNumberOfArguments(method) == 3 &&
-            WAGRMCMethodReturnsInteger(method) &&
-            WAGRMCMethodArgumentFitsWord(method, 2)) {
-            MSHookMessageEx(cls, selector, (IMP)hook_WAGRMCGetBool,
+            WAGRMCMethodReturnsInteger(method) && WAGRMCMethodArgumentFitsWord(method, 2)) {
+            MSHookMessageEx(base, selector, (IMP)hook_WAGRMCGetBool,
                             (IMP *)&orig_WAGRMCGetBool);
             gWAGRMCBoolHooked = (orig_WAGRMCGetBool != NULL);
         }
@@ -218,7 +244,7 @@ static id WAGRMCProbeObjectGraph(id root,
     [visited addObject:identity];
 
     NSArray<NSString *> *selectors = @[
-        @"mobileConfigContextManager", @"mobileConfigManager", @"mobileConfig",
+        @"mobileConfig", @"mobileConfigContextManager", @"mobileConfigManager",
         @"mcContextManager", @"contextManager", @"configManager",
         @"userContext", @"mainContext", @"sharedContext"
     ];
@@ -263,11 +289,28 @@ id WAGRMobileConfigContextManager(id userContext) {
     }
 
     id context = userContext ?: WAGRCurrentUserContext();
+
+    // Fast path proven by the live log supplied from this build:
+    // WAContextMain.mobileConfig -> FBMobileConfigUserSessionContextManager.
+    id direct = WAGRMCCallObjectNoArg(context, @"mobileConfig");
+    if (WAGRMCObjectIsContextManager(direct)) {
+        WAGRMCRememberManager(direct, @"userContext.mobileConfig");
+        return direct;
+    }
+
     NSMutableSet<NSValue *> *visited = [NSMutableSet set];
     id manager = WAGRMCProbeObjectGraph(context, visited, 0);
     if (manager) {
         WAGRMCRememberManager(manager, @"userContext graph");
         return manager;
+    }
+
+    Class base = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
+    for (NSString *selectorName in @[@"sessionlessContextManager", @"defaultValueContextManager"]) {
+        id candidate = WAGRMCCallClassObjectNoArg(base, selectorName);
+        if (!WAGRMCObjectIsContextManager(candidate)) continue;
+        WAGRMCRememberManager(candidate, [@"+FBMobileConfigContextManager." stringByAppendingString:selectorName]);
+        return candidate;
     }
     return nil;
 }
@@ -329,9 +372,7 @@ static NSDictionary *WAGRMCLoadCanonicalNames(NSString *path) {
     };
 
     if ([object isKindOfClass:NSArray.class]) {
-        for (id item in (NSArray *)object) {
-            if ([item isKindOfClass:NSString.class]) consumeLine(item);
-        }
+        for (id item in (NSArray *)object) if ([item isKindOfClass:NSString.class]) consumeLine(item);
     } else if ([object isKindOfClass:NSDictionary.class]) {
         [(NSDictionary *)object enumerateKeysAndObjectsUsingBlock:^(id key, id value, BOOL *stop) {
             (void)stop;
@@ -347,8 +388,7 @@ static NSDictionary *WAGRMCLoadCanonicalNames(NSString *path) {
                 NSArray<NSString *> *rowParts = [(NSString *)rowObject componentsSeparatedByString:@":"];
                 if (rowParts.count < 2) continue;
                 NSInteger parameterIndex = [rowParts[0] integerValue];
-                NSString *parameterName = [rowParts[1] stringByTrimmingCharactersInSet:
-                    NSCharacterSet.whitespaceAndNewlineCharacterSet];
+                NSString *parameterName = [rowParts[1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
                 if (parameterName.length) {
                     parameterNames[[NSString stringWithFormat:@"%llu:%ld", configId, (long)parameterIndex]] = parameterName;
                 }
@@ -370,8 +410,7 @@ static NSUInteger WAGRMCStableIdDomainCount(Class evaluationClass) {
     for (NSString *selectorName in countSelectors) {
         SEL selector = NSSelectorFromString(selectorName);
         Method method = class_getClassMethod(evaluationClass, selector);
-        if (!method || method_getNumberOfArguments(method) != 2 ||
-            !WAGRMCMethodReturnsInteger(method)) continue;
+        if (!method || method_getNumberOfArguments(method) != 2 || !WAGRMCMethodReturnsInteger(method)) continue;
         @try {
             uint64_t count = ((uint64_t (*)(id, SEL))objc_msgSend)((id)evaluationClass, selector);
             if (count > 0 && count <= UINT16_MAX + 1ULL) return (NSUInteger)count;
@@ -396,15 +435,12 @@ static uint64_t WAGRMCExternalStableId(id manager, uint64_t specifier) {
     if (!manager || !specifier) return 0;
     SEL selector = NSSelectorFromString(@"getStableIdFromParamSpecifier:");
     Method method = class_getInstanceMethod([manager class], selector);
-    if (!method || method_getNumberOfArguments(method) != 3 ||
-        !WAGRMCMethodArgumentFitsWord(method, 2)) return 0;
+    if (!method || method_getNumberOfArguments(method) != 3 || !WAGRMCMethodArgumentFitsWord(method, 2)) return 0;
 
     @try {
         if (WAGRMCMethodReturnsObject(method)) {
             id value = ((id (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, specifier);
-            if ([value respondsToSelector:@selector(unsignedLongLongValue)]) {
-                return [value unsignedLongLongValue];
-            }
+            if ([value respondsToSelector:@selector(unsignedLongLongValue)]) return [value unsignedLongLongValue];
             return strtoull([[value description] UTF8String] ?: "0", NULL, 10);
         }
         if (WAGRMCMethodReturnsInteger(method)) {
@@ -419,13 +455,12 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
     WAGRMobileConfigProgressBlock progress,
     NSError **outError) {
 
-    WAGRMobileConfigEnsureCaptureHooksInstalled();
     id manager = WAGRMobileConfigContextManager(userContext);
     if (!manager) {
         if (outError) {
             *outError = [NSError errorWithDomain:kWAGRMCErrorDomain code:1
                 userInfo:@{NSLocalizedDescriptionKey:
-                    @"FBMobileConfigContextManager ainda não foi capturado. Abra Developer/Internal Settings ou use o app e tente Atualizar novamente."}];
+                    @"Nenhum FBMobileConfig *ContextManager válido foi resolvido a partir do userContext atual."}];
         }
         return nil;
     }
@@ -451,8 +486,7 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
 
     for (NSUInteger stableId = 0; stableId < total; stableId++) {
         @autoreleasepool {
-            uint64_t specifier = WAGRMCClassIntegerReturnValue(
-                evaluationClass, specifierSelector, (uint64_t)stableId);
+            uint64_t specifier = WAGRMCClassIntegerReturnValue(evaluationClass, specifierSelector, (uint64_t)stableId);
             if (!specifier || (specifier & (1ULL << 62))) {
                 if (progress && ((stableId & 0xFF) == 0 || stableId + 1 == total)) {
                     progress(stableId + 1, total, mappings.count, resolved);
@@ -482,7 +516,8 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
         }
     }
 
-    WAGRLogAppendF(@"[MobileConfig] complete scan domain=%lu translated=%lu resolved=%lu names=%lu",
+    WAGRLogAppendF(@"[MobileConfig] scan manager=%@ domain=%lu translated=%lu externalResolved=%lu names=%lu",
+                   NSStringFromClass([manager class]) ?: @"?",
                    (unsigned long)total,
                    (unsigned long)mappings.count,
                    (unsigned long)resolved,
@@ -507,39 +542,31 @@ id WAGRMobileConfigCurrentValue(WAGRMobileConfigMapping *mapping, id userContext
     }
     SEL selector = NSSelectorFromString(selectorName);
     Method method = class_getInstanceMethod([manager class], selector);
-    if (!method || method_getNumberOfArguments(method) != 3 ||
-        !WAGRMCMethodArgumentFitsWord(method, 2)) return nil;
+    if (!method || method_getNumberOfArguments(method) != 3 || !WAGRMCMethodArgumentFitsWord(method, 2)) return nil;
 
     @try {
         switch (mapping.nativeType) {
             case 1:
                 if (!WAGRMCMethodReturnsInteger(method)) return nil;
-                return @(((BOOL (*)(id, SEL, uint64_t))objc_msgSend)(
-                    manager, selector, mapping.paramSpecifier));
+                return @(((BOOL (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, mapping.paramSpecifier));
             case 2:
                 if (!WAGRMCMethodReturnsInteger(method)) return nil;
-                return @(((long long (*)(id, SEL, uint64_t))objc_msgSend)(
-                    manager, selector, mapping.paramSpecifier));
+                return @(((long long (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, mapping.paramSpecifier));
             case 3:
                 if (!WAGRMCMethodReturnsObject(method)) return nil;
-                return ((id (*)(id, SEL, uint64_t))objc_msgSend)(
-                    manager, selector, mapping.paramSpecifier);
+                return ((id (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, mapping.paramSpecifier);
             case 4:
                 if (WAGRMCMethodReturnsDouble(method)) {
-                    return @(((double (*)(id, SEL, uint64_t))objc_msgSend)(
-                        manager, selector, mapping.paramSpecifier));
+                    return @(((double (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, mapping.paramSpecifier));
                 }
                 if (WAGRMCMethodReturnsFloat(method)) {
-                    return @(((float (*)(id, SEL, uint64_t))objc_msgSend)(
-                        manager, selector, mapping.paramSpecifier));
+                    return @(((float (*)(id, SEL, uint64_t))objc_msgSend)(manager, selector, mapping.paramSpecifier));
                 }
                 return nil;
             default:
                 return nil;
         }
-    } @catch (__unused NSException *exception) {
-        return nil;
-    }
+    } @catch (__unused NSException *exception) { return nil; }
 }
 
 static NSString *WAGRMCISO8601Now(void) {
@@ -554,8 +581,7 @@ NSDictionary<NSString *, id> *WAGRMobileConfigCrosswalkDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id userContext) {
     NSMutableArray *entries = [NSMutableArray arrayWithCapacity:mappings.count];
-    NSUInteger resolved = 0;
-    NSUInteger named = 0;
+    NSUInteger resolved = 0, named = 0;
     for (WAGRMobileConfigMapping *mapping in mappings) {
         [entries addObject:[mapping dictionaryRepresentation]];
         if (mapping.externalConfigStableId) resolved++;
@@ -566,7 +592,9 @@ NSDictionary<NSString *, id> *WAGRMobileConfigCrosswalkDocument(
     return @{
         @"format" : @"WATweaks WhatsApp ABProp -> FBMobileConfig live crosswalk",
         @"generated_at" : WAGRMCISO8601Now(),
-        @"source" : @"WAMCEvaluation + FBMobileConfigContextManager runtime",
+        @"source" : @"WAMCEvaluation + live FBMobileConfig *ContextManager",
+        @"manager_class" : WAGRMobileConfigContextManager(userContext)
+            ? NSStringFromClass([WAGRMobileConfigContextManager(userContext) class]) : NSNull.null,
         @"scan" : @{
             @"translated" : @(mappings.count),
             @"external_ids_resolved" : @(resolved),
@@ -597,56 +625,36 @@ NSDictionary<NSString *, id> *WAGRMobileConfigOverrideDocument(
 
     NSMutableDictionary<NSString *, NSMutableArray<NSString *> *> *result = [NSMutableDictionary dictionary];
     NSMutableSet<NSString *> *seenParameters = [NSMutableSet set];
-    NSUInteger emitted = 0;
-    NSUInteger skippedUnresolved = 0;
-    NSUInteger skippedUnsupported = 0;
-    NSUInteger deduplicated = 0;
+    NSUInteger emitted = 0, skippedUnresolved = 0, skippedUnsupported = 0, deduplicated = 0;
 
     for (WAGRMobileConfigMapping *mapping in mappings) {
-        if (!mapping.externalConfigStableId) {
-            skippedUnresolved++;
-            continue;
-        }
+        if (!mapping.externalConfigStableId) { skippedUnresolved++; continue; }
         if (mode == WAGRMobileConfigOverrideExportModeAllBooleansTrue && mapping.nativeType != 1) continue;
-        if (mapping.nativeType < 1 || mapping.nativeType > 4) {
-            skippedUnsupported++;
-            continue;
-        }
+        if (mapping.nativeType < 1 || mapping.nativeType > 4) { skippedUnsupported++; continue; }
 
         NSString *parameterUID = [NSString stringWithFormat:@"%llu:%u",
             mapping.externalConfigStableId, mapping.parameterIndex];
-        if ([seenParameters containsObject:parameterUID]) {
-            deduplicated++;
-            continue;
-        }
+        if ([seenParameters containsObject:parameterUID]) { deduplicated++; continue; }
 
         id currentValue = mode == WAGRMobileConfigOverrideExportModeAllBooleansTrue
             ? @YES : WAGRMobileConfigCurrentValue(mapping, userContext);
         NSString *valueString = WAGRMCOverrideValueString(currentValue, mapping.nativeType);
-        if (!valueString.length) {
-            skippedUnsupported++;
-            continue;
-        }
+        if (!valueString.length) { skippedUnsupported++; continue; }
 
         [seenParameters addObject:parameterUID];
         NSString *configKey = mapping.configName.length
             ? [NSString stringWithFormat:@"%llu:%@", mapping.externalConfigStableId, mapping.configName]
             : [NSString stringWithFormat:@"%llu:", mapping.externalConfigStableId];
         NSString *row = mapping.parameterName.length
-            ? [NSString stringWithFormat:@"%u: %@: %@", mapping.parameterIndex,
-               mapping.parameterName, valueString]
+            ? [NSString stringWithFormat:@"%u: %@: %@", mapping.parameterIndex, mapping.parameterName, valueString]
             : [NSString stringWithFormat:@"%u: : %@", mapping.parameterIndex, valueString];
         NSMutableArray *rows = result[configKey];
-        if (!rows) {
-            rows = [NSMutableArray array];
-            result[configKey] = rows;
-        }
+        if (!rows) { rows = [NSMutableArray array]; result[configKey] = rows; }
         [rows addObject:row];
         emitted++;
     }
 
-    [result enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSMutableArray<NSString *> *rows, BOOL *stop) {
-        (void)key; (void)stop;
+    [result enumerateKeysAndObjectsUsingBlock:^(__unused NSString *key, NSMutableArray<NSString *> *rows, __unused BOOL *stop) {
         [rows sortUsingComparator:^NSComparisonResult(NSString *left, NSString *right) {
             NSInteger a = [[[left componentsSeparatedByString:@":"] firstObject] integerValue];
             NSInteger b = [[[right componentsSeparatedByString:@":"] firstObject] integerValue];
@@ -685,10 +693,12 @@ NSString *WAGRMobileConfigDiagnosticText(void) {
         manager = gWAGRMCContextManager;
         source = [gWAGRMCContextManagerSource copy];
     }
+    id live = manager ?: WAGRMobileConfigContextManager(nil);
     return [NSString stringWithFormat:
-        @"manager=%@\nsource=%@\npathHook=%@\nboolHook=%@\noverridesPath=%@\nnamesPath=%@\nvalidatedStableIdDomain=%lu",
-        manager ? NSStringFromClass([manager class]) : @"nil",
+        @"manager=%@\nsource=%@\nfamilyValid=%@\npathHook=%@\nboolHook=%@\noverridesPath=%@\nnamesPath=%@\nvalidatedStableIdDomain=%lu",
+        live ? NSStringFromClass([live class]) : @"nil",
         source ?: @"none",
+        WAGRMCObjectIsContextManager(live) ? @"YES" : @"NO",
         gWAGRMCPathHooked ? @"YES" : @"NO",
         gWAGRMCBoolHooked ? @"YES" : @"NO",
         WAGRMobileConfigOverridesPath(nil) ?: @"unresolved",
