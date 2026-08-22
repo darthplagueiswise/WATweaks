@@ -16,10 +16,10 @@
 //       -requestFreshABProps:withCompletion:       v28@0:8B16@?20
 //
 // The native fetch resolver already asks a context for
-// -xmppConnectionABPropsRequestManager.  Some current builds expose that
-// capability on the networking/XMPP layer rather than WAContext itself.  This
-// bridge adds only the missing context-level forwarding accessor.  It does not
-// patch executable code and it never substitutes a heuristic fetch method.
+// -xmppConnectionABPropsRequestManager. Some builds expose that capability on
+// the Networking/XMPP layer rather than WAContext itself. This bridge adds only
+// the missing context-level forwarding accessor. It never patches executable
+// pages and never substitutes a heuristic fetch method.
 
 static const char *WAGRABBridgeSkipQualifiers(const char *type) {
     if (!type) return "";
@@ -109,14 +109,9 @@ static id WAGRABBridgeConstructManager(id context, id connection) {
 static id WAGRABBridgeResolveFromContext(id context, NSString **route) {
     if (!context) return nil;
 
-    // 1. If a native context-level accessor exists after all, use it untouched.
-    id direct = WAGRABBridgeCallObject(context, @"xmppConnectionABPropsRequestManager");
-    if (WAGRABBridgeManagerABIIsExact(direct)) {
-        if (route) *route = @"context.xmppConnectionABPropsRequestManager";
-        return direct;
-    }
-
-    // 2. Current-build dependency path proven in SharedModules metadata.
+    // Current-build dependency path proven in SharedModules metadata. Do not
+    // call -xmppConnectionABPropsRequestManager on `context` here: on classes
+    // where this bridge supplied that selector it would recurse into itself.
     id provider = WAGRABBridgeCallObject(context, @"networkingDependencyProvider");
     if (!provider) provider = WAGRABBridgeCallObject(context, @"networking");
     if (!provider) provider = context;
@@ -129,23 +124,26 @@ static id WAGRABBridgeResolveFromContext(id context, NSString **route) {
     id manager = WAGRABBridgeCallObject(connection, @"xmppConnectionABPropsRequestManager");
     if (WAGRABBridgeManagerABIIsExact(manager)) {
         if (route) {
-            *route = [NSString stringWithFormat:@"%@ -> %@ -> %@",
-                NSStringFromClass([provider class]) ?: @"provider",
-                NSStringFromClass([connection class]) ?: @"XMPPConnection",
-                NSStringFromClass([manager class]) ?: @"XMPPConnectionABPropsRequestManager"];
+            *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ manager=%@",
+                NSStringFromClass([context class]) ?: @"?",
+                NSStringFromClass([provider class]) ?: @"?",
+                NSStringFromClass([connection class]) ?: @"?",
+                NSStringFromClass([manager class]) ?: @"?"];
         }
         return manager;
     }
 
-    // 3. The class initializer/ABI is also present in the same Mach-O.  Only use
-    // it when the exact live XMPPConnection was resolved and the result validates
-    // the exact fresh-fetch selector; this is deterministic, not a lookalike scan.
+    // The exact initializer/ABI is also present in this Mach-O. Only use it with
+    // the real live XMPPConnection and only accept the result if the exact
+    // requestFreshABProps:withCompletion: ABI validates.
     manager = WAGRABBridgeConstructManager(context, connection);
     if (manager) {
         if (route) {
-            *route = [NSString stringWithFormat:@"constructed %@ with live %@",
-                NSStringFromClass([manager class]) ?: @"XMPPConnectionABPropsRequestManager",
-                NSStringFromClass([connection class]) ?: @"XMPPConnection"];
+            *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ constructed=%@",
+                NSStringFromClass([context class]) ?: @"?",
+                NSStringFromClass([provider class]) ?: @"?",
+                NSStringFromClass([connection class]) ?: @"?",
+                NSStringFromClass([manager class]) ?: @"?"];
         }
         return manager;
     }
@@ -172,7 +170,7 @@ static BOOL WAGRABBridgeInstallOnClass(Class cls) {
     SEL selector = NSSelectorFromString(@"xmppConnectionABPropsRequestManager");
     Method existing = class_getInstanceMethod(cls, selector);
     if (existing) {
-        // Never override a native implementation.
+        // Never override a native or inherited implementation.
         return WAGRABBridgeReturnsObject(existing) &&
                method_getNumberOfArguments(existing) == 2;
     }
@@ -203,7 +201,7 @@ static void WAGRABPropsRequestManagerBridgeCtor(void) {
     @autoreleasepool {
         WAGRABBridgeInstall();
         // Classes may be registered after tweak constructors in some sideload
-        // layouts.  Retrying class_addMethod is safe and does not touch __TEXT.
+        // layouts. Retrying class_addMethod is safe and does not touch __TEXT.
         for (NSNumber *delay in @[@0.25, @0.75, @1.5, @3.0]) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
                 (int64_t)(delay.doubleValue * NSEC_PER_SEC)),
