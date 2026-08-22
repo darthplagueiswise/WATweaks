@@ -28,6 +28,18 @@ static BOOL WAGRMCPrimeReturnsBoolLike(Method method) {
     return t == 'B' || t == 'c' || t == 'C';
 }
 
+static BOOL WAGRMCPrimeArgumentFitsWord(Method method, unsigned int index) {
+    if (!method || index >= method_getNumberOfArguments(method)) return NO;
+    char raw[64] = {0};
+    method_getArgumentType(method, index, raw, sizeof(raw));
+    const char *type = WAGRMCPrimeSkipQualifiers(raw);
+    if (!*type) return NO;
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
+    return size > 0 && size <= sizeof(uint64_t);
+}
+
 static id WAGRMCPrimeClassObject(Class cls, NSString *selectorName) {
     if (!cls || !selectorName.length) return nil;
     SEL selector = NSSelectorFromString(selectorName);
@@ -47,17 +59,34 @@ static BOOL WAGRMCPrimeBool(id object, NSString *selectorName, BOOL *available) 
     @catch (__unused NSException *exception) { return NO; }
 }
 
+static BOOL WAGRMCPrimeDescendsFromContextManager(Class cls) {
+    Class base = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
+    if (!base || !cls) return NO;
+    for (Class current = cls; current; current = class_getSuperclass(current)) {
+        if (current == base) return YES;
+    }
+    return NO;
+}
+
 static BOOL WAGRMCPrimeUsable(id manager) {
     if (!manager) return NO;
-    NSString *name = NSStringFromClass([manager class]) ?: @"";
-    if (![name containsString:@"FBMobileConfigContextManager"]) return NO;
+    Class cls = [manager class];
+    NSString *name = NSStringFromClass(cls) ?: @"";
+    BOOL family = WAGRMCPrimeDescendsFromContextManager(cls) ||
+        ([name hasPrefix:@"FBMobileConfig"] && [name hasSuffix:@"ContextManager"]);
+    if (!family) return NO;
+
     BOOL managerAvailable = NO, configAvailable = NO;
     BOOL hasManager = WAGRMCPrimeBool(manager, @"hasValidManager", &managerAvailable);
     BOOL hasConfig = WAGRMCPrimeBool(manager, @"hasValidConfig", &configAvailable);
     if (managerAvailable && !hasManager) return NO;
     if (configAvailable && !hasConfig) return NO;
-    Method stable = class_getInstanceMethod([manager class], NSSelectorFromString(@"getStableIdFromParamSpecifier:"));
-    return stable && method_getNumberOfArguments(stable) == 3;
+
+    Method stable = class_getInstanceMethod(cls, NSSelectorFromString(@"getStableIdFromParamSpecifier:"));
+    Method path = class_getInstanceMethod(cls, NSSelectorFromString(@"getOverridesTablePath"));
+    return stable && method_getNumberOfArguments(stable) == 3 &&
+           WAGRMCPrimeArgumentFitsWord(stable, 2) &&
+           path && method_getNumberOfArguments(path) == 2 && WAGRMCPrimeReturnsObject(path);
 }
 
 static void WAGRMobileConfigPrimeDeterministicManager(void) {
@@ -66,16 +95,14 @@ static void WAGRMobileConfigPrimeDeterministicManager(void) {
     dispatch_once(&once, ^{ lock = [NSObject new]; });
     @synchronized (lock) {
         WAGRMobileConfigEnsureCaptureHooksInstalled();
-        if (WAGRMobileConfigContextManager(nil)) return;
+        id already = WAGRMobileConfigContextManager(nil);
+        if (WAGRMCPrimeUsable(already)) return;
 
         Class cls = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
         for (NSString *selectorName in @[@"sessionlessContextManager", @"defaultValueContextManager"]) {
             id candidate = WAGRMCPrimeClassObject(cls, selectorName);
             if (!WAGRMCPrimeUsable(candidate)) continue;
 
-            // getOverridesTablePath is already observed by WAGRMobileConfigBridge.
-            // Calling it is read-only and lets the bridge remember this deterministic
-            // manager without patching any WATweaks executable page.
             SEL pathSelector = NSSelectorFromString(@"getOverridesTablePath");
             Method pathMethod = class_getInstanceMethod([candidate class], pathSelector);
             if (pathMethod && method_getNumberOfArguments(pathMethod) == 2 && WAGRMCPrimeReturnsObject(pathMethod)) {
@@ -83,8 +110,10 @@ static void WAGRMobileConfigPrimeDeterministicManager(void) {
                 @catch (__unused NSException *exception) {}
             }
 
-            if (WAGRMobileConfigContextManager(nil)) {
-                WAGRLogAppendF(@"[MobileConfig][SideloadSafe] primed via +%@", selectorName);
+            id resolved = WAGRMobileConfigContextManager(nil);
+            if (WAGRMCPrimeUsable(resolved)) {
+                WAGRLogAppendF(@"[MobileConfig][SideloadSafe] primed via +%@ -> %@",
+                               selectorName, NSStringFromClass([resolved class]) ?: @"?");
                 return;
             }
         }
