@@ -1,6 +1,9 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #import "WAGRMobileConfigBridge.h"
 #import "WAGRLog.h"
