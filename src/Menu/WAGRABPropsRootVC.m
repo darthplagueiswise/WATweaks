@@ -10,6 +10,7 @@
 #import "../Runtime/WAGRLog.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <string.h>
 
 extern BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
 extern NSString *WAGRCurrentUserContextDiagnostic(void);
