@@ -80,6 +80,14 @@ jobs:
             src/Menu/WAGRRuntimeValueEditor.m
             src/Menu/WAGRSurfaceBrowserVC.h
             src/Menu/WAGRSurfaceBrowserVC.m
+            src/Menu/WAGRMenuTheme.h
+            src/Menu/WAGRMenuTheme.m
+            src/Runtime/WAGRABPropsNativeStore.h
+            src/Runtime/WAGRABPropsNativeStore.m
+            src/Runtime/WAGRABPropsCanonicalNamesV2.h
+            src/Runtime/WAGRABPropsCanonicalNamesV2.m
+            src/Runtime/WAGRABPropsRequestManagerBridge.m
+            src/Runtime/WAGRUserContextLinkage.h
             src/Runtime/WAGRABPropsRuntime.h
             src/Runtime/WAGRABPropsRuntime.m
             src/Runtime/WAGRNativeABPropsResolver.h
@@ -142,16 +150,43 @@ jobs:
           ! grep -q 'WAGRGateRegistry' src/Menu/WAGRABPropsRootVC.m
           grep -q 'WAGRABPropsBrowserVC' src/Menu/WAGRABPropsRootVC.m
 
-          # Native AB Props is always attempted first. Class enumeration occurs
-          # only from the explicit row handler; the typed browser is fallback.
-          grep -q 'WAGRResolveNativeABPropsController' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'WAGRNativeABPropsResolverDiagnosticText' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'objc_copyClassList' src/Runtime/WAGRNativeABPropsResolver.m
-          grep -q 'WADebugABPropertiesTableViewController' src/Runtime/WAGRNativeABPropsResolver.m
-          grep -q 'runtime fallback' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          ! grep -q 'AB Props Runtime completo' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          ! grep -q 'resetAllOverriddenABProps' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          ! grep -q 'Reinstalar overrides tipados' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          # Native Developer UI belongs to WhatsApp. Instrumentation may capture
+          # the real userContext, but must not insert/remove an AB Props row.
+          grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'WAGRRememberUserContext' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'Developer UI untouched' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'viewDidLoad' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          grep -q 'viewDidAppear:' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          ! grep -q 'addTableRowWithCellStyle' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          ! grep -q 'deleteRow:' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          ! grep -q 'watweaks.native.abprops.entry' src/Hooks/WAGRDebugMenuInstrumentation.xm
+          ! grep -q 'WAGRRowIsRCWarning' src/Hooks/WAGRDebugMenuInstrumentation.xm
+
+          # Current-build ABProps fetch path comes from the supplied Mach-O:
+          # context -> networkingDependencyProvider -> xmppConnection ->
+          # xmppConnectionABPropsRequestManager -> exact requestFreshABProps ABI.
+          grep -q 'networkingDependencyProvider' src/Runtime/WAGRABPropsRequestManagerBridge.m
+          grep -q 'xmppConnectionABPropsRequestManager' src/Runtime/WAGRABPropsRequestManagerBridge.m
+          grep -q 'initWithUserContext:xmppConnection:' src/Runtime/WAGRABPropsRequestManagerBridge.m
+          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsRequestManagerBridge.m
+          grep -q 'class_addMethod' src/Runtime/WAGRABPropsRequestManagerBridge.m
+          ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsRequestManagerBridge.m
+          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsNativeStore.m
+          grep -q 'no heuristic fetch/sync method was invoked' src/Runtime/WAGRABPropsNativeStore.m
+
+          # Native ABProp naming remains read-only and is decoded from getter
+          # descriptors in current app-owned images.
+          grep -q 'WAGRABPropsCanonicalNameForCode' src/Runtime/WAGRABPropsCanonicalNamesV2.m
+          grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsCanonicalNamesV2.m
+          ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsCanonicalNamesV2.m
+
+          # iOS 26 internal UI uses the public UIKit Liquid Glass API; older OSes
+          # retain a material fallback.
+          grep -q 'UIGlassEffect' src/Menu/WAGRMenuTheme.m
+          grep -q 'UIGlassEffectStyleRegular' src/Menu/WAGRMenuTheme.m
+          grep -q 'UIGlassEffectStyleClear' src/Menu/WAGRMenuTheme.m
+          grep -q 'UIBlurEffectStyleSystemMaterialDark' src/Menu/WAGRMenuTheme.m
+          grep -q 'backgroundEffect' src/Menu/WAGRMenuTheme.m
 
           # Runtime image shortcuts resolve the current Mach-O snapshot instead
           # of looking up removed IDs such as exec/sharedmodules.
@@ -204,14 +239,6 @@ jobs:
           ! grep -q '%hook WASDEKotlinSelectorsHolder' src/Hooks/WAGRDebugBuildHooks.xm
           ! grep -q 'objc_getClass("WASDEKotlinSelectorsHolder")' src/Hooks/WAGRDebugBuildHooks.xm
           grep -q 'WAGRDebugBuildEnsureInstalled' src/Hooks/WAGREmployeeHooks.xm
-
-          # The RC warning replacement survives lifecycle timing, but may only
-          # remove the warning row and add one native-first entry.
-          grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'createSections' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'viewDidLoad' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'viewDidAppear:' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'WAGRRowIsRCWarning' src/Hooks/WAGRDebugMenuInstrumentation.xm
 
       - name: Build rootless package
         run: |
