@@ -44,15 +44,11 @@ $(TWEAK_NAME)_LOGOSFLAGS = --c warnings=none
 CCFLAGS += -std=c++11
 
 # Sideload hardening: never inline-patch a function that lives in WATweaks itself.
-# Those writes dirty a signed __TEXT page and on modern sideloaded iOS can turn the
-# whole 16 KiB page RW-/NX, producing CODESIGNING / Invalid Page on the next fetch.
+# The validator parses MSHookFunction calls (including multiline calls) and rejects
+# any first argument that references a WAGR* symbol. Self inline patches dirty a
+# signed __TEXT page and can turn the whole 16 KiB page RW-/NX on modern iOS.
 before-all::
-	@bad="$$(grep -R -n -E 'MSHookFunction[[:space:]]*\([^;]*(WAGRABProps|WAGRMobileConfig|WAGRWAABDisplayName|WAGRDF)' src 2>/dev/null || true)"; \
-	if [ -n "$$bad" ]; then \
-		echo "ERROR: sideload-unsafe self inline hook detected:"; \
-		echo "$$bad"; \
-		exit 1; \
-	fi
+	@python3 scripts/wagr_validate_sideload_hooks.py
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
