@@ -3,6 +3,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
+#include <string.h>
 
 static NSString *(*orig_WAGRMCParameterName)(WAGRMobileConfigMapping *, SEL) = NULL;
 static NSString *(*orig_WAGRMCConfigName)(WAGRMobileConfigMapping *, SEL) = NULL;
