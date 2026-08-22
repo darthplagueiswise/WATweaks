@@ -1,29 +1,70 @@
 #import "WAGRMenuTheme.h"
+#import <QuartzCore/QuartzCore.h>
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
+#import <UIKit/UIGlassEffect.h>
+#endif
+
+static UIVisualEffect *WAGRMenuGlassEffect(BOOL clearStyle, UIColor *tint, BOOL interactive) {
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
+    if (@available(iOS 26.0, *)) {
+        UIGlassEffect *effect = [UIGlassEffect effectWithStyle:
+            clearStyle ? UIGlassEffectStyleClear : UIGlassEffectStyleRegular];
+        effect.interactive = interactive;
+        effect.tintColor = tint;
+        return effect;
+    }
+#endif
+    if (@available(iOS 13.0, *)) {
+        return [UIBlurEffect effectWithStyle:clearStyle
+            ? UIBlurEffectStyleSystemThinMaterialDark
+            : UIBlurEffectStyleSystemMaterialDark];
+    }
+    return [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
+}
+
+static UIVisualEffectView *WAGRMenuGlassView(BOOL clearStyle,
+                                             UIColor *tint,
+                                             BOOL interactive,
+                                             CGFloat cornerRadius) {
+    UIVisualEffectView *view = [[UIVisualEffectView alloc]
+        initWithEffect:WAGRMenuGlassEffect(clearStyle, tint, interactive)];
+    view.userInteractionEnabled = NO;
+    view.backgroundColor = UIColor.clearColor;
+    view.layer.cornerRadius = cornerRadius;
+    if (@available(iOS 13.0, *)) view.layer.cornerCurve = kCACornerCurveContinuous;
+    view.layer.masksToBounds = YES;
+    return view;
+}
 
 UIColor *WAGRMenuBackgroundColor(void) {
-    return [UIColor colorWithRed:0.0 green:0.0 blue:0.0 alpha:1.0];
+    if (@available(iOS 13.0, *)) return UIColor.systemBackgroundColor;
+    return UIColor.blackColor;
 }
 
 UIColor *WAGRMenuCellColor(void) {
-    // Match WhatsApp's native dark grouped cards more closely: lighter than pure
-    // black and stable across all rows inside a group.
-    return [UIColor colorWithRed:0.110 green:0.110 blue:0.118 alpha:1.0];
+    if (@available(iOS 13.0, *)) return UIColor.secondarySystemGroupedBackgroundColor;
+    return [UIColor colorWithWhite:0.11 alpha:1.0];
 }
 
 UIColor *WAGRMenuSecondaryCellColor(void) {
+    if (@available(iOS 13.0, *)) return UIColor.tertiarySystemGroupedBackgroundColor;
     return WAGRMenuCellColor();
 }
 
 UIColor *WAGRMenuTextColor(void) {
+    if (@available(iOS 13.0, *)) return UIColor.labelColor;
     return UIColor.whiteColor;
 }
 
 UIColor *WAGRMenuSecondaryTextColor(void) {
+    if (@available(iOS 13.0, *)) return UIColor.secondaryLabelColor;
     return [UIColor colorWithWhite:0.74 alpha:1.0];
 }
 
 UIColor *WAGRMenuSeparatorColor(void) {
-    return [UIColor colorWithRed:0.235 green:0.235 blue:0.250 alpha:1.0];
+    if (@available(iOS 13.0, *)) return UIColor.separatorColor;
+    return [UIColor colorWithWhite:0.25 alpha:1.0];
 }
 
 static NSArray<UIColor *> *WAGRMenuPalette(void) {
@@ -83,54 +124,85 @@ UIFont *WAGRMenuRuntimeDetailFont(void) {
     return [UIFont systemFontOfSize:10.5 weight:UIFontWeightRegular];
 }
 
+static void WAGRMenuInstallTableGlass(UITableView *tableView) {
+    if (!tableView) return;
+    UIColor *tint = [UIColor.systemBlueColor colorWithAlphaComponent:0.035];
+    UIVisualEffectView *background = WAGRMenuGlassView(NO, tint, NO, 0.0);
+    background.frame = tableView.bounds;
+    background.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    tableView.backgroundView = background;
+}
+
 void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
     if (tableView) {
-        tableView.backgroundColor = WAGRMenuBackgroundColor();
-        tableView.separatorColor = WAGRMenuSeparatorColor();
-        tableView.indicatorStyle = UIScrollViewIndicatorStyleWhite;
-        if (@available(iOS 15.0, *)) {
-            tableView.sectionHeaderTopPadding = 10.0;
-        }
+        tableView.backgroundColor = UIColor.clearColor;
+        tableView.separatorColor = [WAGRMenuSeparatorColor() colorWithAlphaComponent:0.34];
+        tableView.indicatorStyle = UIScrollViewIndicatorStyleDefault;
+        if (@available(iOS 15.0, *)) tableView.sectionHeaderTopPadding = 8.0;
+        WAGRMenuInstallTableGlass(tableView);
     }
+
     if (owner) {
         owner.view.backgroundColor = WAGRMenuBackgroundColor();
-        owner.navigationController.navigationBar.tintColor = UIColor.whiteColor;
+        UINavigationBar *bar = owner.navigationController.navigationBar;
+        bar.tintColor = WAGRMenuTextColor();
         if (@available(iOS 13.0, *)) {
-            UINavigationBarAppearance *ap = [UINavigationBarAppearance new];
-            [ap configureWithTransparentBackground];
-            ap.backgroundColor = [UIColor colorWithWhite:0 alpha:0.70];
-            ap.titleTextAttributes = @{ NSForegroundColorAttributeName: UIColor.whiteColor };
-            owner.navigationController.navigationBar.standardAppearance = ap;
-            owner.navigationController.navigationBar.scrollEdgeAppearance = ap;
-            owner.navigationController.navigationBar.compactAppearance = ap;
+            UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
+            [appearance configureWithTransparentBackground];
+            appearance.backgroundColor = UIColor.clearColor;
+            appearance.shadowColor = UIColor.clearColor;
+            appearance.titleTextAttributes = @{
+                NSForegroundColorAttributeName: WAGRMenuTextColor(),
+                NSFontAttributeName: [UIFont systemFontOfSize:17.0 weight:UIFontWeightSemibold]
+            };
+            appearance.backgroundEffect = WAGRMenuGlassEffect(NO,
+                [UIColor.systemBlueColor colorWithAlphaComponent:0.025], NO);
+            bar.standardAppearance = appearance;
+            bar.scrollEdgeAppearance = appearance;
+            bar.compactAppearance = appearance;
         }
     }
 }
 
 void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *key) {
     if (!cell) return;
-    cell.backgroundColor = WAGRMenuCellColor();
+    UIColor *accent = WAGRMenuAccentForKey(key, index);
+
+    cell.backgroundColor = UIColor.clearColor;
     cell.contentView.backgroundColor = UIColor.clearColor;
     cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
     cell.textLabel.font = WAGRMenuTitleFont();
     cell.detailTextLabel.font = WAGRMenuDetailFont();
     cell.detailTextLabel.numberOfLines = 0;
-    UIView *selected = [UIView new];
-    selected.backgroundColor = [WAGRMenuAccentForKey(key, index) colorWithAlphaComponent:0.18];
-    cell.selectedBackgroundView = selected;
-    cell.imageView.tintColor = WAGRMenuAccentForKey(key, index);
+    cell.imageView.tintColor = accent;
+
+    // iOS 26: real public UIGlassEffect. Earlier systems receive the closest
+    // system material fallback. backgroundView avoids stacking subviews when
+    // UITableView reuses cells.
+    cell.backgroundView = WAGRMenuGlassView(YES,
+        [accent colorWithAlphaComponent:0.055], YES, 16.0);
+    cell.selectedBackgroundView = WAGRMenuGlassView(NO,
+        [accent colorWithAlphaComponent:0.20], YES, 16.0);
+
+    cell.layer.cornerRadius = 16.0;
+    if (@available(iOS 13.0, *)) cell.layer.cornerCurve = kCACornerCurveContinuous;
+    cell.layer.masksToBounds = YES;
 }
 
 UIImage *WAGRMenuSymbol(NSString *name, UIColor *tint) {
-    UIImage *img = name.length ? [UIImage systemImageNamed:name] : nil;
-    if (!img) img = [UIImage systemImageNamed:@"sparkles"];
+    UIImage *image = name.length ? [UIImage systemImageNamed:name] : nil;
+    if (!image) image = [UIImage systemImageNamed:@"sparkles"];
     if (@available(iOS 13.0, *)) {
-        UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightSemibold scale:UIImageSymbolScaleMedium];
-        img = [img imageByApplyingSymbolConfiguration:cfg] ?: img;
+        UIImageSymbolConfiguration *configuration =
+            [UIImageSymbolConfiguration configurationWithPointSize:19.0
+                                                             weight:UIImageSymbolWeightSemibold
+                                                              scale:UIImageSymbolScaleMedium];
+        image = [image imageByApplyingSymbolConfiguration:configuration] ?: image;
     }
-    img = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    return img;
+    image = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    (void)tint;
+    return image;
 }
 
 BOOL WAGRMenuIsNegativeGateName(NSString *name) {
