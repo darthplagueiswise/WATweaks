@@ -6,6 +6,7 @@
 
 static NSString *(*orig_WAGRMCParameterName)(WAGRMobileConfigMapping *, SEL) = NULL;
 static NSString *(*orig_WAGRMCConfigName)(WAGRMobileConfigMapping *, SEL) = NULL;
+static NSDictionary *(*orig_WAGRMCMappingDictionary)(WAGRMobileConfigMapping *, SEL) = NULL;
 static BOOL gWAGRMCNameHooksInstalled = NO;
 static const void *kWAGRMCEmbeddedNameCacheKey = &kWAGRMCEmbeddedNameCacheKey;
 static const void *kWAGRMCEmbeddedNameMissKey = &kWAGRMCEmbeddedNameMissKey;
@@ -94,6 +95,18 @@ static NSString *hook_WAGRMCConfigName(WAGRMobileConfigMapping *self, SEL _cmd) 
     return config;
 }
 
+static NSDictionary *hook_WAGRMCMappingDictionary(WAGRMobileConfigMapping *self, SEL _cmd) {
+    NSDictionary *base = orig_WAGRMCMappingDictionary ? orig_WAGRMCMappingDictionary(self, _cmd) : @{};
+    if (![base isKindOfClass:NSDictionary.class]) return base ?: @{};
+    NSMutableDictionary *dictionary = [base mutableCopy];
+    id compact = dictionary[@"parameter_stable_id"];
+    if (compact) {
+        dictionary[@"compact_parameter_token"] = compact;
+        [dictionary removeObjectForKey:@"parameter_stable_id"];
+    }
+    return dictionary;
+}
+
 static BOOL WAGRMCInstallSideloadSafeMethod(Class cls, SEL selector, IMP replacement, IMP *original) {
     Method method = class_getInstanceMethod(cls, selector);
     if (!WAGRMCNameMethodReturnsObject(method)) return NO;
@@ -114,9 +127,12 @@ static void WAGRMobileConfigNameEnrichmentCtor(void) {
             cls, @selector(parameterName), (IMP)hook_WAGRMCParameterName, (IMP *)&orig_WAGRMCParameterName);
         BOOL configInstalled = WAGRMCInstallSideloadSafeMethod(
             cls, @selector(configName), (IMP)hook_WAGRMCConfigName, (IMP *)&orig_WAGRMCConfigName);
-        gWAGRMCNameHooksInstalled = parameterInstalled || configInstalled;
+        BOOL dictionaryInstalled = WAGRMCInstallSideloadSafeMethod(
+            cls, @selector(dictionaryRepresentation), (IMP)hook_WAGRMCMappingDictionary,
+            (IMP *)&orig_WAGRMCMappingDictionary);
+        gWAGRMCNameHooksInstalled = parameterInstalled || configInstalled || dictionaryInstalled;
         if (gWAGRMCNameHooksInstalled) {
-            WAGRLogAppend(@"[MobileConfig] sideload-safe method-table name enrichment installed");
+            WAGRLogAppend(@"[MobileConfig] sideload-safe method-table enrichment installed");
         }
     }
 }
