@@ -18,11 +18,6 @@
 // the WA stable ID for 16,907 primary mappings. Do not generalize that equality
 // beyond the validated build/domain.
 
-@interface WAGRMobileConfigMapping (SemanticsV3)
-@property(nonatomic, readonly) uint16_t compactParameterToken;
-@property(nonatomic, readonly) uint64_t configStableId;
-@end
-
 @implementation WAGRMobileConfigMapping (SemanticsV3)
 - (uint16_t)compactParameterToken { return self.parameterStableId; }
 - (uint64_t)configStableId { return self.externalConfigStableId; }
