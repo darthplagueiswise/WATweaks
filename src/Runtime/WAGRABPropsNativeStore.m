@@ -560,7 +560,7 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
         @"source" : @"group.net.whatsapp.WhatsApp.shared / account-scoped gabp.*p",
         @"suite" : snapshot.suiteName ?: kWAGRABPropsSharedSuite,
         @"payload_key" : snapshot.payloadKey ?: @"",
-        @"metadata_key" : metadataKey ?: NSNull.null,
+        @"metadata_key" : snapshot.metadataKey ?: NSNull.null,
         @"prop_count" : @(snapshot.numericPropCount),
         @"fingerprint" : snapshot.fingerprint ?: @"",
         @"loaded_at" : snapshot.loadedAt.description ?: @"",
