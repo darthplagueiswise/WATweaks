@@ -25,8 +25,10 @@ static UITableViewCell *hook_WAGRABResolvedMCCell(id self,
         ? visible[(NSUInteger)indexPath.row] : nil;
     NSDictionary *mc = [entry[@"mobileconfig"] isKindOfClass:NSDictionary.class]
         ? entry[@"mobileconfig"] : nil;
-    id external = mc[@"external_config_stable_id"];
-    if (!external) return cell;
+
+    // v3 canonical key. Legacy fallback keeps older snapshot documents readable.
+    id configStableId = mc[@"config_stable_id"] ?: mc[@"external_config_stable_id"];
+    if (!configStableId) return cell;
 
     NSString *config = [mc[@"config_name"] isKindOfClass:NSString.class] ? mc[@"config_name"] : nil;
     NSString *parameter = [mc[@"parameter_name"] isKindOfClass:NSString.class] ? mc[@"parameter_name"] : nil;
@@ -35,10 +37,12 @@ static UITableViewCell *hook_WAGRABResolvedMCCell(id self,
     else canonical = config.length ? config : parameter;
 
     NSString *resolved = canonical.length
-        ? [NSString stringWithFormat:@"MC external=%@ · %@", external, canonical]
-        : [NSString stringWithFormat:@"MC external=%@", external];
+        ? [NSString stringWithFormat:@"MC config=%@ · p=%@ · %@",
+           configStableId, mc[@"parameter_index"] ?: @"?", canonical]
+        : [NSString stringWithFormat:@"MC config=%@ · p=%@",
+           configStableId, mc[@"parameter_index"] ?: @"?"];
     NSString *current = cell.detailTextLabel.text ?: @"";
-    if (![current containsString:@"MC external="]) {
+    if (![current containsString:@"MC config="]) {
         cell.detailTextLabel.text = current.length ? [current stringByAppendingFormat:@"\n%@", resolved] : resolved;
         cell.detailTextLabel.numberOfLines = 5;
     }
@@ -65,7 +69,7 @@ static void WAGRInstallABPropsResolvedMCUI(void) {
     method_setImplementation(method, (IMP)hook_WAGRABResolvedMCCell);
     gWAGRABResolvedMCUIInstalled = method_getImplementation(method) == (IMP)hook_WAGRABResolvedMCCell;
     if (gWAGRABResolvedMCUIInstalled) {
-        WAGRLogAppend(@"[ABProps][MCUI] sideload-safe method-table enrichment installed");
+        WAGRLogAppend(@"[ABProps][MCUI] config-stable-ID terminology installed");
     }
 }
 
