@@ -9,9 +9,22 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, assign) uint64_t paramSpecifier;
 @property(nonatomic, assign) uint16_t localConfigIndex;
 @property(nonatomic, assign) uint16_t parameterIndex;
+
+/// Canonical semantics for the current WhatsApp/FBMobileConfig bridge.
+/// `compactParameterToken` is the low 16 bits of the translated paramSpecifier.
+/// It is translation metadata and is NOT the mc_overrides row index.
+@property(nonatomic, readonly) uint16_t compactParameterToken;
+
+/// Stable ID of the parent FBMobileConfig config. This is the integer used as
+/// the top-level mc_overrides identity: "<configStableId>:<optional name>".
+@property(nonatomic, readonly) uint64_t configStableId;
+
+/// Legacy storage/accessor names retained for ABI/source compatibility inside
+/// the tweak. New code must use compactParameterToken/configStableId.
 @property(nonatomic, assign) uint16_t parameterStableId;
-@property(nonatomic, assign) uint8_t nativeType;
 @property(nonatomic, assign) uint64_t externalConfigStableId;
+
+@property(nonatomic, assign) uint8_t nativeType;
 @property(nonatomic, copy, nullable) NSString *configName;
 @property(nonatomic, copy, nullable) NSString *parameterName;
 - (NSDictionary<NSString *, id> *)dictionaryRepresentation;
@@ -59,6 +72,10 @@ NSDictionary<NSString *, id> *WAGRMobileConfigCrosswalkDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id _Nullable userContext);
 
+/// Builds the exact FBMobileConfig override grammar:
+///   "<configStableId>:<optional config name>" ->
+///       ["<parameterIndex>: <optional parameter name>: <value>"]
+/// Names are optional enrichment; configStableId + parameterIndex are authoritative.
 NSDictionary<NSString *, id> *WAGRMobileConfigOverrideDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id _Nullable userContext,
