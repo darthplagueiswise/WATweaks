@@ -303,10 +303,24 @@ static BOOL WAGRABMCBoolean(id manager, NSString *selectorName, BOOL *available)
     @catch (__unused NSException *exception) { return NO; }
 }
 
+static BOOL WAGRABMCClassIsContextManagerFamily(Class cls) {
+    if (!cls) return NO;
+    Class base = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
+    if (base) {
+        for (Class current = cls; current; current = class_getSuperclass(current)) {
+            if (current == base) return YES;
+        }
+    }
+    NSString *name = NSStringFromClass(cls) ?: @"";
+    Method stable = class_getInstanceMethod(cls, NSSelectorFromString(@"getStableIdFromParamSpecifier:"));
+    Method path = class_getInstanceMethod(cls, NSSelectorFromString(@"getOverridesTablePath"));
+    return [name hasPrefix:@"FBMobileConfig"] && [name hasSuffix:@"ContextManager"] &&
+           stable && method_getNumberOfArguments(stable) == 3 && WAGRABMethodWordArgument(stable, 2) &&
+           path && method_getNumberOfArguments(path) == 2 && WAGRABMethodReturnsObject(path);
+}
+
 static BOOL WAGRABMCManagerIsUsable(id manager) {
-    if (!manager) return NO;
-    NSString *name = NSStringFromClass([manager class]) ?: @"";
-    if (![name containsString:@"FBMobileConfigContextManager"]) return NO;
+    if (!manager || !WAGRABMCClassIsContextManagerFamily([manager class])) return NO;
     BOOL hasManagerSelector = NO, hasConfigSelector = NO;
     BOOL hasManager = WAGRABMCBoolean(manager, @"hasValidManager", &hasManagerSelector);
     BOOL hasConfig = WAGRABMCBoolean(manager, @"hasValidConfig", &hasConfigSelector);
@@ -331,7 +345,7 @@ static id WAGRABResolveMCManager(id userContext) {
     return nil;
 }
 
-static uint64_t WAGRABExternalStableId(id manager, uint64_t specifier) {
+static uint64_t WAGRABConfigStableId(id manager, uint64_t specifier) {
     if (!WAGRABMCManagerIsUsable(manager) || !specifier) return 0;
     SEL selector = NSSelectorFromString(@"getStableIdFromParamSpecifier:");
     Method method = class_getInstanceMethod([manager class], selector);
@@ -488,7 +502,7 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
 
     NSMutableArray *entries = [NSMutableArray arrayWithCapacity:sortedKeys.count];
     NSUInteger translated = 0;
-    NSUInteger externalResolved = 0;
+    NSUInteger configResolved = 0;
     NSUInteger canonicalNamed = 0;
 
     for (id keyObject in sortedKeys) {
@@ -520,12 +534,12 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
                 @"native_type" : @((specifier >> 48) & 0x3F),
             } mutableCopy];
 
-            uint64_t external = WAGRABExternalStableId(manager, specifier);
-            if (external) {
-                externalResolved++;
-                mc[@"external_config_stable_id"] = @(external);
-                NSString *configName = configNames[@(external)];
-                NSString *parameterName = parameterNames[[NSString stringWithFormat:@"%llu:%u", external, parameterIndex]];
+            uint64_t configStableId = WAGRABConfigStableId(manager, specifier);
+            if (configStableId) {
+                configResolved++;
+                mc[@"config_stable_id"] = @(configStableId);
+                NSString *configName = configNames[@(configStableId)];
+                NSString *parameterName = parameterNames[[NSString stringWithFormat:@"%llu:%u", configStableId, parameterIndex]];
                 if (!configName.length || !parameterName.length) {
                     NSString *embedded = WAGRABEmbeddedMCName(specifier);
                     NSString *embeddedConfig = nil, *embeddedParameter = nil;
@@ -542,11 +556,11 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
     }
 
     return @{
-        @"format" : @"WATweaks WhatsApp native ABProps snapshot v2",
+        @"format" : @"WATweaks WhatsApp native ABProps snapshot v3",
         @"source" : @"group.net.whatsapp.WhatsApp.shared / account-scoped gabp.*p",
         @"suite" : snapshot.suiteName ?: kWAGRABPropsSharedSuite,
         @"payload_key" : snapshot.payloadKey ?: @"",
-        @"metadata_key" : snapshot.metadataKey ?: NSNull.null,
+        @"metadata_key" : metadataKey ?: NSNull.null,
         @"prop_count" : @(snapshot.numericPropCount),
         @"fingerprint" : snapshot.fingerprint ?: @"",
         @"loaded_at" : snapshot.loadedAt.description ?: @"",
@@ -554,10 +568,10 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
         @"mobileconfig_resolution" : @{
             @"manager_resolved" : @(manager != nil),
             @"translated" : @(translated),
-            @"external_config_stable_ids_resolved" : @(externalResolved),
+            @"config_stable_ids_resolved" : @(configResolved),
             @"canonical_abprop_names" : @(canonicalNamed),
             @"canonical_catalog_size" : @(WAGRABPropsCanonicalNameCount()),
-            @"semantic_note" : @"compact_parameter_token is the low-16 compact translation token; external_config_stable_id is resolved separately by FBMobileConfigContextManager"
+            @"semantic_note" : @"config_stable_id + parameter_index identify mc_overrides; compact_parameter_token is low-16 translation metadata; names are optional"
         },
         @"entries" : entries,
     };
