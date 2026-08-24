@@ -93,8 +93,8 @@ static UIView *WAGRMenuFindSubviewOfClass(UIView *root, Class cls) {
 
 void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
     if (!searchBar) return;
-
     searchBar.tintColor = UIColor.whiteColor;
+
     if (@available(iOS 26.0, *)) {
         // UISearchController/UISearchBar and UISegmentedControl already receive
         // the system Liquid Glass treatment from UIKit. Do NOT insert an extra
@@ -117,19 +117,18 @@ void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
                 NSFontAttributeName: [UIFont systemFontOfSize:11.5 weight:UIFontWeightMedium]
             } forState:UIControlStateSelected];
         }
-        return;
-    }
-
-    searchBar.barStyle = UIBarStyleBlack;
-    searchBar.barTintColor = UIColor.blackColor;
-    searchBar.backgroundColor = UIColor.blackColor;
-    if (@available(iOS 13.0, *)) {
-        UITextField *field = searchBar.searchTextField;
-        field.textColor = UIColor.whiteColor;
-        field.tintColor = UIColor.whiteColor;
-        field.backgroundColor = [UIColor colorWithWhite:0.12 alpha:1.0];
-        field.leftView.tintColor = [UIColor colorWithWhite:0.90 alpha:1.0];
-        field.clearButtonMode = UITextFieldViewModeWhileEditing;
+    } else {
+        searchBar.barStyle = UIBarStyleBlack;
+        searchBar.barTintColor = UIColor.blackColor;
+        searchBar.backgroundColor = UIColor.blackColor;
+        if (@available(iOS 13.0, *)) {
+            UITextField *field = searchBar.searchTextField;
+            field.textColor = UIColor.whiteColor;
+            field.tintColor = UIColor.whiteColor;
+            field.backgroundColor = [UIColor colorWithWhite:0.12 alpha:1.0];
+            field.leftView.tintColor = [UIColor colorWithWhite:0.90 alpha:1.0];
+            field.clearButtonMode = UITextFieldViewModeWhileEditing;
+        }
     }
 }
 
@@ -152,17 +151,17 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
         bar.tintColor = UIColor.whiteColor;
         bar.translucent = YES;
 
-        if (!@available(iOS 26.0, *)) {
-            if (@available(iOS 13.0, *)) {
-                UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
-                [appearance configureWithOpaqueBackground];
-                appearance.backgroundColor = UIColor.blackColor;
-                appearance.shadowColor = WAGRMenuSeparatorColor();
-                appearance.titleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
-                bar.standardAppearance = appearance;
-                bar.scrollEdgeAppearance = appearance;
-                bar.compactAppearance = appearance;
-            }
+        if (@available(iOS 26.0, *)) {
+            // Native UINavigationBar / UIBarButtonItem Liquid Glass.
+        } else if (@available(iOS 13.0, *)) {
+            UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
+            [appearance configureWithOpaqueBackground];
+            appearance.backgroundColor = UIColor.blackColor;
+            appearance.shadowColor = WAGRMenuSeparatorColor();
+            appearance.titleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
+            bar.standardAppearance = appearance;
+            bar.scrollEdgeAppearance = appearance;
+            bar.compactAppearance = appearance;
         }
     }
 }
