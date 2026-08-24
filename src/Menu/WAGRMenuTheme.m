@@ -5,11 +5,12 @@ UIColor *WAGRMenuBackgroundColor(void) {
 }
 
 UIColor *WAGRMenuCellColor(void) {
+    // WhatsApp dark settings cards are neutral, not accent-tinted.
     return [UIColor colorWithWhite:0.095 alpha:1.0];
 }
 
 UIColor *WAGRMenuSecondaryCellColor(void) {
-    return [UIColor colorWithWhite:0.125 alpha:1.0];
+    return [UIColor colorWithWhite:0.095 alpha:1.0];
 }
 
 UIColor *WAGRMenuTextColor(void) {
@@ -24,61 +25,39 @@ UIColor *WAGRMenuSeparatorColor(void) {
     return [UIColor colorWithWhite:1.0 alpha:0.10];
 }
 
-static NSArray<UIColor *> *WAGRMenuPalette(void) {
-    static NSArray<UIColor *> *colors = nil;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        colors = @[
-            UIColor.systemCyanColor,
-            UIColor.systemMintColor,
-            UIColor.systemPurpleColor,
-            UIColor.systemOrangeColor,
-            UIColor.systemPinkColor,
-            UIColor.systemBlueColor,
-            UIColor.systemGreenColor,
-            UIColor.systemYellowColor,
-            UIColor.systemTealColor,
-            UIColor.systemIndigoColor,
-            UIColor.systemRedColor
-        ];
-    });
-    return colors;
+// Menu chrome/content is deliberately neutral, like WhatsApp Settings.
+// Semantic state remains on native controls (UISwitch green), destructive text
+// and explicit diagnostics; category names must not paint every icon differently.
+UIColor *WAGRMenuAccentForIndex(__unused NSInteger index) {
+    return UIColor.whiteColor;
 }
 
-UIColor *WAGRMenuAccentForIndex(NSInteger index) {
-    NSArray<UIColor *> *colors = WAGRMenuPalette();
-    if (!colors.count) return UIColor.systemBlueColor;
-    NSInteger i = labs((long)index) % (NSInteger)colors.count;
-    return colors[(NSUInteger)i];
-}
-
-UIColor *WAGRMenuAccentForKey(NSString *key, NSInteger fallbackIndex) {
-    NSString *s = key.lowercaseString ?: @"";
-    if ([s containsString:@"liquid"] || [s containsString:@"glass"] || [s containsString:@"wds"]) return UIColor.systemCyanColor;
-    if ([s containsString:@"aura"] || [s containsString:@"plus"] || [s containsString:@"subscription"]) return UIColor.systemPurpleColor;
-    if ([s containsString:@"username"] || [s containsString:@"identity"]) return UIColor.systemMintColor;
-    if ([s containsString:@"online"] || [s containsString:@"contacts"] || [s containsString:@"presence"]) return UIColor.systemGreenColor;
-    if ([s containsString:@"about"] || [s containsString:@"evolve"] || [s containsString:@"evolution"]) return UIColor.systemOrangeColor;
-    if ([s containsString:@"tab"] || [s containsString:@"profile"]) return UIColor.systemPinkColor;
-    if ([s containsString:@"debug"] || [s containsString:@"developer"] || [s containsString:@"internal"]) return UIColor.systemBlueColor;
-    if ([s containsString:@"kill"] || [s containsString:@"negative"] || [s containsString:@"disable"] || [s containsString:@"block"]) return UIColor.systemRedColor;
-    return WAGRMenuAccentForIndex(fallbackIndex);
+UIColor *WAGRMenuAccentForKey(__unused NSString *key, __unused NSInteger fallbackIndex) {
+    return UIColor.whiteColor;
 }
 
 UIFont *WAGRMenuTitleFont(void) {
-    return [UIFont systemFontOfSize:14.0 weight:UIFontWeightRegular];
+    UIFont *preferred = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    return [UIFont systemFontOfSize:MAX(17.0, preferred.pointSize)
+                             weight:UIFontWeightRegular];
 }
 
 UIFont *WAGRMenuDetailFont(void) {
-    return [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular];
+    UIFont *preferred = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    return [UIFont systemFontOfSize:MAX(13.0, preferred.pointSize)
+                             weight:UIFontWeightRegular];
 }
 
 UIFont *WAGRMenuRuntimeTitleFont(void) {
-    return [UIFont systemFontOfSize:12.5 weight:UIFontWeightMedium];
+    UIFont *preferred = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    return [UIFont systemFontOfSize:MAX(16.0, preferred.pointSize)
+                             weight:UIFontWeightRegular];
 }
 
 UIFont *WAGRMenuRuntimeDetailFont(void) {
-    return [UIFont systemFontOfSize:10.5 weight:UIFontWeightRegular];
+    UIFont *preferred = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    return [UIFont systemFontOfSize:MAX(13.0, preferred.pointSize)
+                             weight:UIFontWeightRegular];
 }
 
 static UIView *WAGRMenuFindSubviewOfClass(UIView *root, Class cls) {
@@ -96,10 +75,8 @@ void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
     searchBar.tintColor = UIColor.whiteColor;
 
     if (@available(iOS 26.0, *)) {
-        // UISearchController/UISearchBar and UISegmentedControl already receive
-        // the system Liquid Glass treatment from UIKit. Do NOT insert an extra
-        // UIVisualEffectView/UIGlassEffectStyleRegular inside searchTextField:
-        // that creates the visible "pill inside a pill" regression.
+        // UIKit already supplies UIGlassEffectStyleRegular-style navigation/search
+        // chrome on iOS 26+. Never add a second glass view inside searchTextField.
         UITextField *field = searchBar.searchTextField;
         field.textColor = UIColor.whiteColor;
         field.tintColor = UIColor.whiteColor;
@@ -110,11 +87,11 @@ void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
         if (scope) {
             [scope setTitleTextAttributes:@{
                 NSForegroundColorAttributeName: [UIColor colorWithWhite:0.82 alpha:1.0],
-                NSFontAttributeName: [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular]
+                NSFontAttributeName: [UIFont systemFontOfSize:13.0 weight:UIFontWeightRegular]
             } forState:UIControlStateNormal];
             [scope setTitleTextAttributes:@{
                 NSForegroundColorAttributeName: UIColor.whiteColor,
-                NSFontAttributeName: [UIFont systemFontOfSize:11.5 weight:UIFontWeightMedium]
+                NSFontAttributeName: [UIFont systemFontOfSize:13.0 weight:UIFontWeightMedium]
             } forState:UIControlStateSelected];
         }
     } else {
@@ -139,8 +116,8 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
         tableView.separatorColor = WAGRMenuSeparatorColor();
         tableView.indicatorStyle = UIScrollViewIndicatorStyleWhite;
         tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
-        tableView.sectionHeaderHeight = 0.0;
-        tableView.sectionFooterHeight = 0.0;
+        // Do not collapse inset-grouped section spacing globally. UIKit's grouped
+        // geometry is part of the native WhatsApp Settings hierarchy.
         if (@available(iOS 15.0, *)) tableView.sectionHeaderTopPadding = 0.0;
     }
 
@@ -166,9 +143,8 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
     }
 }
 
-void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *key) {
+void WAGRMenuApplyCellStyle(UITableViewCell *cell, __unused NSInteger index, __unused NSString *key) {
     if (!cell) return;
-    UIColor *accent = WAGRMenuAccentForKey(key, index);
     cell.backgroundView = nil;
     cell.backgroundColor = WAGRMenuCellColor();
     cell.contentView.backgroundColor = UIColor.clearColor;
@@ -179,24 +155,23 @@ void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *ke
     cell.textLabel.font = WAGRMenuTitleFont();
     cell.detailTextLabel.font = WAGRMenuDetailFont();
     cell.detailTextLabel.numberOfLines = 0;
-    cell.imageView.tintColor = accent;
+    cell.imageView.tintColor = UIColor.whiteColor;
 
     UIView *selected = [UIView new];
-    selected.backgroundColor = [accent colorWithAlphaComponent:0.08];
+    selected.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.055];
     cell.selectedBackgroundView = selected;
 }
 
-UIImage *WAGRMenuSymbol(NSString *name, UIColor *tint) {
+UIImage *WAGRMenuSymbol(NSString *name, __unused UIColor *tint) {
     UIImage *image = name.length ? [UIImage systemImageNamed:name] : nil;
-    if (!image) image = [UIImage systemImageNamed:@"sparkles"];
+    if (!image) image = [UIImage systemImageNamed:@"circle"];
     if (@available(iOS 13.0, *)) {
         UIImageSymbolConfiguration *configuration =
-            [UIImageSymbolConfiguration configurationWithPointSize:16.0
-                                                             weight:UIImageSymbolWeightMedium
-                                                              scale:UIImageSymbolScaleSmall];
+            [UIImageSymbolConfiguration configurationWithPointSize:21.0
+                                                             weight:UIImageSymbolWeightRegular
+                                                              scale:UIImageSymbolScaleMedium];
         image = [image imageByApplyingSymbolConfiguration:configuration] ?: image;
     }
-    (void)tint;
     return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 }
 
