@@ -1,6 +1,7 @@
 #import "WAGRRuntimeValueStore.h"
 #import "../WAPrefix.h"
 #import <objc/runtime.h>
+#import <substrate.h>
 #include <string.h>
 
 NSString * const kWAGRRuntimeValueOverridesKey = WA_PREF_RUNTIME_VALUE_OVERRIDES;
@@ -382,21 +383,6 @@ static IMP WAGRRuntimeValueReplacement(WAGRRuntimeValueHookDescriptor *descripto
     }
 }
 
-static Method WAGRRuntimeValueOwnMethod(Class target, SEL selector) {
-    if (!target || !selector) return NULL;
-    unsigned int count = 0;
-    Method *methods = class_copyMethodList(target, &count);
-    Method found = NULL;
-    for (unsigned int index = 0; index < count; index++) {
-        if (method_getName(methods[index]) == selector) {
-            found = methods[index];
-            break;
-        }
-    }
-    free(methods);
-    return found;
-}
-
 BOOL WAGRRuntimeValueInstallHook(NSString *className,
                                  NSString *selectorName,
                                  BOOL isClassMethod,
@@ -412,18 +398,11 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
     Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
     if (!cls) return NO;
     SEL selector = NSSelectorFromString(selectorName);
-    Class target = isClassMethod ? object_getClass(cls) : cls;
-    if (!target) return NO;
-
-    // Work against the method table directly. This is both more deterministic
-    // for sideloaded iOS 26/27 processes and avoids inline text patching. If the
-    // selector is inherited, class_addMethod creates a local override while the
-    // descriptor keeps the inherited IMP as the exact original fallback.
-    Method resolved = class_getInstanceMethod(target, selector);
-    if (!resolved || method_getNumberOfArguments(resolved) != 2) return NO;
+    Method method = isClassMethod ? class_getClassMethod(cls, selector) : class_getInstanceMethod(cls, selector);
+    if (!method || method_getNumberOfArguments(method) != 2) return NO;
 
     char actual[64] = {0};
-    method_getReturnType(resolved, actual, sizeof(actual));
+    method_getReturnType(method, actual, sizeof(actual));
     NSString *actualType = WAGRRuntimeValueNormalizedType([NSString stringWithUTF8String:actual]);
     if (![actualType isEqualToString:normalized]) return NO;
 
@@ -431,22 +410,14 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
     descriptor.uid = uid;
     descriptor.selector = selector;
     descriptor.typeCode = (char)[normalized characterAtIndex:0];
-    descriptor.original = method_getImplementation(resolved);
-    if (!descriptor.original) return NO;
-
     IMP replacement = WAGRRuntimeValueReplacement(descriptor);
     if (!replacement) return NO;
 
-    Method own = WAGRRuntimeValueOwnMethod(target, selector);
-    if (own) {
-        IMP previous = method_setImplementation(own, replacement);
-        if (!previous || previous == replacement) return NO;
-        descriptor.original = previous;
-    } else {
-        const char *types = method_getTypeEncoding(resolved);
-        if (!types || !class_addMethod(target, selector, replacement, types)) return NO;
-    }
-
+    Class target = isClassMethod ? object_getClass(cls) : cls;
+    IMP original = NULL;
+    MSHookMessageEx(target, selector, replacement, &original);
+    if (!original || original == replacement) return NO;
+    descriptor.original = original;
     @synchronized (gWAGRValueLock) {
         gWAGRValueHooks[uid] = descriptor;
     }
