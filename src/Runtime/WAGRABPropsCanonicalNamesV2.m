@@ -1,6 +1,7 @@
 #import "WAGRABPropsCanonicalNamesV2.h"
 #import "WAGRLog.h"
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import <dlfcn.h>
 #import <mach-o/loader.h>
 #include <stdint.h>
@@ -9,11 +10,50 @@
 
 static NSDictionary<NSString *, NSString *> *gWAGRCanonicalCodeNames = nil;
 static NSObject *gWAGRCanonicalCodeNamesLock = nil;
+static NSMutableDictionary<NSString *, NSString *> *gWAGRCanonicalSchemaFallback = nil;
+static NSObject *gWAGRCanonicalSchemaFallbackLock = nil;
 
 static BOOL WAGRCanonicalStringIsDecimal(NSString *value) {
     if (![value isKindOfClass:NSString.class] || !value.length) return NO;
     NSCharacterSet *nonDigits = [NSCharacterSet.decimalDigitCharacterSet invertedSet];
     return [value rangeOfCharacterFromSet:nonDigits].location == NSNotFound;
+}
+
+static const char *WAGRCanonicalSkipQualifiers(const char *type) {
+    if (!type) return "";
+    while (*type && strchr("rnNoORV", *type)) type++;
+    return type;
+}
+
+static BOOL WAGRCanonicalMethodReturnsObject(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    return WAGRCanonicalSkipQualifiers(raw)[0] == '@';
+}
+
+static BOOL WAGRCanonicalMethodWordArgument(Method method, unsigned int index) {
+    if (!method || index >= method_getNumberOfArguments(method)) return NO;
+    char raw[64] = {0};
+    method_getArgumentType(method, index, raw, sizeof(raw));
+    const char *type = WAGRCanonicalSkipQualifiers(raw);
+    if (!*type) return NO;
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
+    return size > 0 && size <= sizeof(uint64_t);
+}
+
+static BOOL WAGRCanonicalMethodWordReturn(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    const char *type = WAGRCanonicalSkipQualifiers(raw);
+    if (!*type || type[0] == '@' || type[0] == 'v' || type[0] == 'f' || type[0] == 'd') return NO;
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
+    return size > 0 && size <= sizeof(uint64_t);
 }
 
 static BOOL WAGRCanonicalRuntimeAddressRange(const struct mach_header_64 *header,
@@ -180,9 +220,90 @@ static NSDictionary<NSString *, NSString *> *WAGRCanonicalMap(void) {
     }
 }
 
+static NSString *WAGRCanonicalParameterPart(NSString *fullName) {
+    if (!fullName.length) return nil;
+    NSRange dot = [fullName rangeOfString:@"." options:NSBackwardsSearch];
+    if (dot.location != NSNotFound && dot.location > 0 && NSMaxRange(dot) < fullName.length) {
+        return [fullName substringFromIndex:NSMaxRange(dot)];
+    }
+    return fullName;
+}
+
+// Independent fallback through WhatsApp's own current-build MobileConfig schema:
+// AB stable ID -> WAMCEvaluation paramSpecifier -> StartupConfigs param name.
+// It is read-only, requires neither id_name_mapping.json nor an external config
+// stable ID, and therefore still works before Developer/Internal Settings has
+// materialized any name-map file in the AppGroup.
+static NSString *WAGRCanonicalSchemaNameForCode(NSString *code) {
+    if (!WAGRCanonicalStringIsDecimal(code)) return nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        gWAGRCanonicalSchemaFallbackLock = [NSObject new];
+        gWAGRCanonicalSchemaFallback = [NSMutableDictionary dictionary];
+    });
+
+    @synchronized (gWAGRCanonicalSchemaFallbackLock) {
+        NSString *cached = gWAGRCanonicalSchemaFallback[code];
+        if (cached.length) return cached;
+    }
+
+    Class evaluation = NSClassFromString(@"WAMCEvaluation") ?: objc_getClass("WAMCEvaluation");
+    SEL specifierSelector = NSSelectorFromString(@"getMCSpecifierForStableId:");
+    Method specifierMethod = class_getClassMethod(evaluation, specifierSelector);
+    if (!evaluation || !specifierMethod || method_getNumberOfArguments(specifierMethod) != 3 ||
+        !WAGRCanonicalMethodWordArgument(specifierMethod, 2) ||
+        !WAGRCanonicalMethodWordReturn(specifierMethod)) return nil;
+
+    uint64_t stableId = strtoull(code.UTF8String ?: "0", NULL, 10);
+    uint64_t specifier = 0;
+    @try {
+        specifier = ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)evaluation,
+                                                                    specifierSelector,
+                                                                    stableId);
+    } @catch (__unused NSException *exception) {
+        return nil;
+    }
+    if (!specifier || (specifier & (1ULL << 62))) return nil;
+
+    Class startup = NSClassFromString(@"FBMobileConfigStartupConfigs") ?:
+                    objc_getClass("FBMobileConfigStartupConfigs");
+    SEL instanceSelector = NSSelectorFromString(@"getInstance");
+    Method instanceMethod = class_getClassMethod(startup, instanceSelector);
+    if (!startup || !instanceMethod || method_getNumberOfArguments(instanceMethod) != 2 ||
+        !WAGRCanonicalMethodReturnsObject(instanceMethod)) return nil;
+
+    id instance = nil;
+    @try { instance = ((id (*)(id, SEL))objc_msgSend)((id)startup, instanceSelector); }
+    @catch (__unused NSException *exception) { instance = nil; }
+    if (!instance) return nil;
+
+    SEL nameSelector = NSSelectorFromString(@"convertSpecifierToParamName:");
+    Method nameMethod = class_getInstanceMethod([instance class], nameSelector);
+    if (!nameMethod || method_getNumberOfArguments(nameMethod) != 3 ||
+        !WAGRCanonicalMethodReturnsObject(nameMethod) ||
+        !WAGRCanonicalMethodWordArgument(nameMethod, 2)) return nil;
+
+    NSString *fullName = nil;
+    @try {
+        id value = ((id (*)(id, SEL, uint64_t))objc_msgSend)(instance, nameSelector, specifier);
+        if ([value isKindOfClass:NSString.class]) fullName = value;
+    } @catch (__unused NSException *exception) {
+        fullName = nil;
+    }
+    NSString *name = WAGRCanonicalParameterPart(fullName);
+    if (!name.length) return nil;
+
+    @synchronized (gWAGRCanonicalSchemaFallbackLock) {
+        gWAGRCanonicalSchemaFallback[code] = name;
+    }
+    return name;
+}
+
 NSString *WAGRABPropsCanonicalNameForCode(NSString *code) {
     if (!WAGRCanonicalStringIsDecimal(code)) return nil;
-    return WAGRCanonicalMap()[code];
+    NSString *nativeGetter = WAGRCanonicalMap()[code];
+    if (nativeGetter.length) return nativeGetter;
+    return WAGRCanonicalSchemaNameForCode(code);
 }
 
 NSUInteger WAGRABPropsCanonicalNameCount(void) {
