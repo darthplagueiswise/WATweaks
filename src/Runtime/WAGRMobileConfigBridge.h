@@ -10,17 +10,25 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, assign) uint16_t localConfigIndex;
 @property(nonatomic, assign) uint16_t parameterIndex;
 
-/// Canonical semantics for the current WhatsApp/FBMobileConfig bridge.
-/// `compactParameterToken` is the low 16 bits of the translated paramSpecifier.
-/// It is translation metadata and is NOT the mc_overrides row index.
+/// Low 16 bits of WAMCEvaluation's translated paramSpecifier.
+/// This is compact translation metadata; it is not the mc_overrides row index
+/// and must not be relabelled as an independent stable ID.
 @property(nonatomic, readonly) uint16_t compactParameterToken;
 
-/// Stable ID of the parent FBMobileConfig config. This is the integer used as
-/// the top-level mc_overrides identity: "<configStableId>:<optional name>".
+/// Direct result of -[FBMobileConfigContextManager getStableIdFromParamSpecifier:].
+/// On the analyzed WhatsApp ABProp domain this round-trips to waStableId for
+/// every non-zero result observed. Keep the raw method semantics explicit so we
+/// do not infer an ID from localConfigIndex or compactParameterToken.
+@property(nonatomic, readonly) uint64_t stableIdFromParamSpecifier;
+
+/// Compatibility alias used by existing override/export code. It resolves to
+/// the same value as stableIdFromParamSpecifier; it is never derived from
+/// localConfigIndex.
 @property(nonatomic, readonly) uint64_t configStableId;
 
 /// Legacy storage/accessor names retained for ABI/source compatibility inside
-/// the tweak. New code must use compactParameterToken/configStableId.
+/// the tweak. Canonical callers should use compactParameterToken,
+/// stableIdFromParamSpecifier and configStableId.
 @property(nonatomic, assign) uint16_t parameterStableId;
 @property(nonatomic, assign) uint64_t externalConfigStableId;
 
@@ -72,10 +80,9 @@ NSDictionary<NSString *, id> *WAGRMobileConfigCrosswalkDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id _Nullable userContext);
 
-/// Builds the exact FBMobileConfig override grammar:
-///   "<configStableId>:<optional config name>" ->
-///       ["<parameterIndex>: <optional parameter name>: <value>"]
-/// Names are optional enrichment; configStableId + parameterIndex are authoritative.
+/// Builds FBMobileConfig's override grammar from the stable ID returned by the
+/// live manager plus parameterIndex. Names are optional enrichment and are not
+/// required to prove the numeric crosswalk.
 NSDictionary<NSString *, id> *WAGRMobileConfigOverrideDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id _Nullable userContext,
