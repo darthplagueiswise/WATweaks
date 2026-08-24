@@ -1,27 +1,15 @@
 #import "WAGRMenuTheme.h"
-#import <objc/runtime.h>
-
-#if __has_include(<UIKit/UIGlassEffect.h>)
-#import <UIKit/UIGlassEffect.h>
-#define WAGR_HAS_UIKIT_GLASS 1
-#else
-#define WAGR_HAS_UIKIT_GLASS 0
-#endif
-
-static const void *kWAGRMenuGlassViewKey = &kWAGRMenuGlassViewKey;
 
 UIColor *WAGRMenuBackgroundColor(void) {
-    // WATweaks deliberately uses a true-black canvas. System grouped colors are
-    // dark gray and made the runtime browser look washed out on OLED devices.
     return UIColor.blackColor;
 }
 
 UIColor *WAGRMenuCellColor(void) {
-    return [UIColor colorWithWhite:0.105 alpha:1.0];
+    return [UIColor colorWithWhite:0.095 alpha:1.0];
 }
 
 UIColor *WAGRMenuSecondaryCellColor(void) {
-    return [UIColor colorWithWhite:0.14 alpha:1.0];
+    return [UIColor colorWithWhite:0.125 alpha:1.0];
 }
 
 UIColor *WAGRMenuTextColor(void) {
@@ -29,11 +17,11 @@ UIColor *WAGRMenuTextColor(void) {
 }
 
 UIColor *WAGRMenuSecondaryTextColor(void) {
-    return [UIColor colorWithWhite:0.68 alpha:1.0];
+    return [UIColor colorWithWhite:0.62 alpha:1.0];
 }
 
 UIColor *WAGRMenuSeparatorColor(void) {
-    return [UIColor colorWithWhite:1.0 alpha:0.12];
+    return [UIColor colorWithWhite:1.0 alpha:0.10];
 }
 
 static NSArray<UIColor *> *WAGRMenuPalette(void) {
@@ -78,19 +66,19 @@ UIColor *WAGRMenuAccentForKey(NSString *key, NSInteger fallbackIndex) {
 }
 
 UIFont *WAGRMenuTitleFont(void) {
-    return [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    return [UIFont systemFontOfSize:14.0 weight:UIFontWeightRegular];
 }
 
 UIFont *WAGRMenuDetailFont(void) {
-    return [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    return [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular];
 }
 
 UIFont *WAGRMenuRuntimeTitleFont(void) {
-    return [UIFont systemFontOfSize:13.5 weight:UIFontWeightMedium];
+    return [UIFont systemFontOfSize:12.5 weight:UIFontWeightMedium];
 }
 
 UIFont *WAGRMenuRuntimeDetailFont(void) {
-    return [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular];
+    return [UIFont systemFontOfSize:10.5 weight:UIFontWeightRegular];
 }
 
 static UIView *WAGRMenuFindSubviewOfClass(UIView *root, Class cls) {
@@ -103,61 +91,45 @@ static UIView *WAGRMenuFindSubviewOfClass(UIView *root, Class cls) {
     return nil;
 }
 
-static void WAGRMenuInstallGlassBackground(UIView *host, CGFloat cornerRadius) {
-    if (!host) return;
-#if WAGR_HAS_UIKIT_GLASS
-    if (@available(iOS 26.0, *)) {
-        UIVisualEffectView *glass = objc_getAssociatedObject(host, kWAGRMenuGlassViewKey);
-        if (!glass) {
-            UIGlassEffect *effect = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
-            effect.interactive = YES;
-            effect.tintColor = [UIColor colorWithWhite:0.08 alpha:0.18];
-            glass = [[UIVisualEffectView alloc] initWithEffect:effect];
-            glass.userInteractionEnabled = NO;
-            glass.clipsToBounds = YES;
-            [host insertSubview:glass atIndex:0];
-            objc_setAssociatedObject(host, kWAGRMenuGlassViewKey, glass,
-                                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        }
-        glass.frame = host.bounds;
-        glass.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        glass.layer.cornerRadius = cornerRadius;
-        host.layer.cornerRadius = cornerRadius;
-        host.clipsToBounds = YES;
-    }
-#else
-    (void)cornerRadius;
-#endif
-}
-
 void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
     if (!searchBar) return;
-    searchBar.barStyle = UIBarStyleBlack;
-    searchBar.tintColor = UIColor.whiteColor;
-    searchBar.barTintColor = UIColor.clearColor;
-    searchBar.backgroundColor = UIColor.clearColor;
-    searchBar.backgroundImage = [UIImage new];
 
-    if (@available(iOS 13.0, *)) {
+    searchBar.tintColor = UIColor.whiteColor;
+    if (@available(iOS 26.0, *)) {
+        // UISearchController/UISearchBar and UISegmentedControl already receive
+        // the system Liquid Glass treatment from UIKit. Do NOT insert an extra
+        // UIVisualEffectView/UIGlassEffectStyleRegular inside searchTextField:
+        // that creates the visible "pill inside a pill" regression.
         UITextField *field = searchBar.searchTextField;
-        field.backgroundColor = UIColor.clearColor;
         field.textColor = UIColor.whiteColor;
         field.tintColor = UIColor.whiteColor;
-        field.borderStyle = UITextBorderStyleNone;
-        field.leftView.tintColor = [UIColor colorWithWhite:0.92 alpha:1.0];
+        field.leftView.tintColor = [UIColor colorWithWhite:0.90 alpha:1.0];
         field.clearButtonMode = UITextFieldViewModeWhileEditing;
-        WAGRMenuInstallGlassBackground(field, MAX(18.0, CGRectGetHeight(field.bounds) * 0.5));
+
+        UISegmentedControl *scope = (UISegmentedControl *)WAGRMenuFindSubviewOfClass(searchBar, UISegmentedControl.class);
+        if (scope) {
+            [scope setTitleTextAttributes:@{
+                NSForegroundColorAttributeName: [UIColor colorWithWhite:0.82 alpha:1.0],
+                NSFontAttributeName: [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular]
+            } forState:UIControlStateNormal];
+            [scope setTitleTextAttributes:@{
+                NSForegroundColorAttributeName: UIColor.whiteColor,
+                NSFontAttributeName: [UIFont systemFontOfSize:11.5 weight:UIFontWeightMedium]
+            } forState:UIControlStateSelected];
+        }
+        return;
     }
 
-    UISegmentedControl *scope = (UISegmentedControl *)WAGRMenuFindSubviewOfClass(searchBar, UISegmentedControl.class);
-    if (scope) {
-        scope.backgroundColor = UIColor.clearColor;
-        scope.selectedSegmentTintColor = [UIColor colorWithWhite:0.17 alpha:0.72];
-        [scope setTitleTextAttributes:@{NSForegroundColorAttributeName: UIColor.whiteColor}
-                             forState:UIControlStateNormal];
-        [scope setTitleTextAttributes:@{NSForegroundColorAttributeName: UIColor.whiteColor}
-                             forState:UIControlStateSelected];
-        WAGRMenuInstallGlassBackground(scope, MAX(16.0, CGRectGetHeight(scope.bounds) * 0.5));
+    searchBar.barStyle = UIBarStyleBlack;
+    searchBar.barTintColor = UIColor.blackColor;
+    searchBar.backgroundColor = UIColor.blackColor;
+    if (@available(iOS 13.0, *)) {
+        UITextField *field = searchBar.searchTextField;
+        field.textColor = UIColor.whiteColor;
+        field.tintColor = UIColor.whiteColor;
+        field.backgroundColor = [UIColor colorWithWhite:0.12 alpha:1.0];
+        field.leftView.tintColor = [UIColor colorWithWhite:0.90 alpha:1.0];
+        field.clearButtonMode = UITextFieldViewModeWhileEditing;
     }
 }
 
@@ -168,7 +140,9 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
         tableView.separatorColor = WAGRMenuSeparatorColor();
         tableView.indicatorStyle = UIScrollViewIndicatorStyleWhite;
         tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
-        if (@available(iOS 15.0, *)) tableView.sectionHeaderTopPadding = 8.0;
+        tableView.sectionHeaderHeight = 0.0;
+        tableView.sectionFooterHeight = 0.0;
+        if (@available(iOS 15.0, *)) tableView.sectionHeaderTopPadding = 0.0;
     }
 
     if (owner) {
@@ -178,19 +152,17 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
         bar.tintColor = UIColor.whiteColor;
         bar.translucent = YES;
 
-        if (@available(iOS 26.0, *)) {
-            // Keep UINavigationBar/UIBarButtonItem native so UIKit supplies its
-            // own system Liquid Glass. Explicit UIGlassEffect is added only to
-            // search/scope chrome via WAGRMenuApplySearchGlass().
-        } else if (@available(iOS 13.0, *)) {
-            UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
-            [appearance configureWithOpaqueBackground];
-            appearance.backgroundColor = UIColor.blackColor;
-            appearance.shadowColor = WAGRMenuSeparatorColor();
-            appearance.titleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
-            bar.standardAppearance = appearance;
-            bar.scrollEdgeAppearance = appearance;
-            bar.compactAppearance = appearance;
+        if (!@available(iOS 26.0, *)) {
+            if (@available(iOS 13.0, *)) {
+                UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
+                [appearance configureWithOpaqueBackground];
+                appearance.backgroundColor = UIColor.blackColor;
+                appearance.shadowColor = WAGRMenuSeparatorColor();
+                appearance.titleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
+                bar.standardAppearance = appearance;
+                bar.scrollEdgeAppearance = appearance;
+                bar.compactAppearance = appearance;
+            }
         }
     }
 }
@@ -198,15 +170,11 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
 void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *key) {
     if (!cell) return;
     UIColor *accent = WAGRMenuAccentForKey(key, index);
-
-    // Content stays readable and stable: Liquid Glass is chrome, not one bright
-    // visual-effect capsule per scrolling row.
     cell.backgroundView = nil;
     cell.backgroundColor = WAGRMenuCellColor();
     cell.contentView.backgroundColor = UIColor.clearColor;
     cell.layer.cornerRadius = 0.0;
     cell.layer.masksToBounds = NO;
-
     cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
     cell.textLabel.font = WAGRMenuTitleFont();
@@ -215,7 +183,7 @@ void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *ke
     cell.imageView.tintColor = accent;
 
     UIView *selected = [UIView new];
-    selected.backgroundColor = [accent colorWithAlphaComponent:0.10];
+    selected.backgroundColor = [accent colorWithAlphaComponent:0.08];
     cell.selectedBackgroundView = selected;
 }
 
@@ -224,9 +192,9 @@ UIImage *WAGRMenuSymbol(NSString *name, UIColor *tint) {
     if (!image) image = [UIImage systemImageNamed:@"sparkles"];
     if (@available(iOS 13.0, *)) {
         UIImageSymbolConfiguration *configuration =
-            [UIImageSymbolConfiguration configurationWithPointSize:18.0
+            [UIImageSymbolConfiguration configurationWithPointSize:16.0
                                                              weight:UIImageSymbolWeightMedium
-                                                              scale:UIImageSymbolScaleMedium];
+                                                              scale:UIImageSymbolScaleSmall];
         image = [image imageByApplyingSymbolConfiguration:configuration] ?: image;
     }
     (void)tint;
