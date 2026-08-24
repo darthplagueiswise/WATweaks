@@ -46,7 +46,7 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
-    self.tableView.estimatedRowHeight = 78;
+    self.tableView.estimatedRowHeight = 108;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
 
     UISearchController *search = [[UISearchController alloc] initWithSearchResultsController:nil];
@@ -60,6 +60,7 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
     self.definesPresentationContext = YES;
     self.search = search;
+    WAGRMenuApplySearchGlass(search.searchBar);
 
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
@@ -75,6 +76,14 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
     UIRefreshControl *pull = [UIRefreshControl new];
     [pull addTarget:self action:@selector(scanNow) forControlEvents:UIControlEventValueChanged];
     self.refreshControl = pull;
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    // UISearchBar creates/recreates the scope segmented control lazily. Reapply
+    // after layout so both the search field and scope selector receive the real
+    // iOS 26 UIGlassEffect even after entering/leaving search mode.
+    WAGRMenuApplySearchGlass(self.search.searchBar);
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -224,6 +233,16 @@ static BOOL WAGRLiveEntryMatchesScope(WAGREntry *entry, WAGRLiveBrowserScope sco
         (unsigned long)self.sections[key].count];
 }
 
+- (void)tableView:(__unused UITableView *)tableView
+ willDisplayHeaderView:(UIView *)view
+        forSection:(__unused NSInteger)section {
+    if (![view isKindOfClass:UITableViewHeaderFooterView.class]) return;
+    UITableViewHeaderFooterView *header = (UITableViewHeaderFooterView *)view;
+    header.textLabel.numberOfLines = 0;
+    header.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
+    header.textLabel.textColor = WAGRMenuSecondaryTextColor();
+}
+
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
     return @"Este conteúdo é reconstruído ao abrir ou atualizar: imagem Mach-O, classe, selector, "
@@ -299,8 +318,13 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
     cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
     cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
-    cell.textLabel.numberOfLines = 1;
-    cell.detailTextLabel.numberOfLines = 4;
+    // Selector names are underscore-heavy and can be much wider than the cell.
+    // Never ellipsize them: automatic row height + char wrapping keeps the full
+    // runtime identity readable even with a UISwitch occupying the trailing side.
+    cell.textLabel.numberOfLines = 0;
+    cell.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
+    cell.detailTextLabel.numberOfLines = 0;
+    cell.detailTextLabel.lineBreakMode = NSLineBreakByCharWrapping;
     if (!entry) return cell;
 
     id raw = nil;
@@ -348,13 +372,49 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
     return cell;
 }
 
+- (void)presentHookFailureForEntry:(WAGREntry *)entry readback:(NSString *)readback {
+    NSString *target = [NSString stringWithFormat:@"%@ %@%@",
+        entry.className ?: @"?", entry.isClassMethod ? @"+" : @"-", entry.selectorName ?: @"?"];
+    NSString *message = readback.length
+        ? [NSString stringWithFormat:@"O override não foi mantido porque o hook não produziu o valor solicitado.\n\n%@\nReadback: %@", target, readback]
+        : [NSString stringWithFormat:@"O override não foi mantido porque o hook exato não pôde ser instalado.\n\n%@", target];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Hook não aplicado"
+                                                                   message:message
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)switchChanged:(UISwitch *)sender {
     WAGREntry *entry = objc_getAssociatedObject(sender, kWAGRSurfaceEntryKey);
     if (!entry) return;
+    BOOL requested = sender.isOn;
     WAGRRuntimeValueSetOverride(entry.className, entry.selectorName,
-                                entry.isClassMethod, entry.typeCode, @(sender.isOn));
-    (void)WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
-                                      entry.isClassMethod, entry.typeCode);
+                                entry.isClassMethod, entry.typeCode, @(requested));
+    BOOL installed = WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
+                                                  entry.isClassMethod, entry.typeCode);
+    if (!installed) {
+        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.isClassMethod);
+        id originalRaw = nil;
+        (void)[self currentForEntry:entry raw:&originalRaw];
+        sender.on = [originalRaw boolValue];
+        [self presentHookFailureForEntry:entry readback:nil];
+        [self applyCurrentFilter];
+        return;
+    }
+
+    // Do not paint an override as successful merely because an IMP was changed.
+    // Read through the same live receiver used by the row and require the forced
+    // value to round-trip before keeping the persisted override.
+    id readbackRaw = nil;
+    NSString *readback = [self currentForEntry:entry raw:&readbackRaw];
+    BOOL verified = [readbackRaw respondsToSelector:@selector(boolValue)] &&
+                    ([readbackRaw boolValue] == requested);
+    if (!verified) {
+        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.isClassMethod);
+        sender.on = [readbackRaw boolValue];
+        [self presentHookFailureForEntry:entry readback:readback];
+    }
     [self applyCurrentFilter];
 }
 
@@ -395,9 +455,10 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
                                             entry.isClassMethod, entry.typeCode)) installed++;
         }
     }
+    NSUInteger failed = active >= installed ? active - installed : 0;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Aplicar Runtime"
-        message:[NSString stringWithFormat:@"Overrides visíveis: %lu\nHooks exatos instalados: %lu",
-                 (unsigned long)active, (unsigned long)installed]
+        message:[NSString stringWithFormat:@"Overrides visíveis: %lu\nHooks exatos instalados: %lu\nFalharam: %lu",
+                 (unsigned long)active, (unsigned long)installed, (unsigned long)failed]
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK"
         style:UIAlertActionStyleCancel handler:nil]];
