@@ -1,33 +1,39 @@
 #import "WAGRMenuTheme.h"
+#import <objc/runtime.h>
+
+#if __has_include(<UIKit/UIGlassEffect.h>)
+#import <UIKit/UIGlassEffect.h>
+#define WAGR_HAS_UIKIT_GLASS 1
+#else
+#define WAGR_HAS_UIKIT_GLASS 0
+#endif
+
+static const void *kWAGRMenuGlassViewKey = &kWAGRMenuGlassViewKey;
 
 UIColor *WAGRMenuBackgroundColor(void) {
-    if (@available(iOS 13.0, *)) return UIColor.systemGroupedBackgroundColor;
+    // WATweaks deliberately uses a true-black canvas. System grouped colors are
+    // dark gray and made the runtime browser look washed out on OLED devices.
     return UIColor.blackColor;
 }
 
 UIColor *WAGRMenuCellColor(void) {
-    if (@available(iOS 13.0, *)) return UIColor.secondarySystemGroupedBackgroundColor;
-    return [UIColor colorWithWhite:0.11 alpha:1.0];
+    return [UIColor colorWithWhite:0.105 alpha:1.0];
 }
 
 UIColor *WAGRMenuSecondaryCellColor(void) {
-    if (@available(iOS 13.0, *)) return UIColor.tertiarySystemGroupedBackgroundColor;
-    return WAGRMenuCellColor();
+    return [UIColor colorWithWhite:0.14 alpha:1.0];
 }
 
 UIColor *WAGRMenuTextColor(void) {
-    if (@available(iOS 13.0, *)) return UIColor.labelColor;
     return UIColor.whiteColor;
 }
 
 UIColor *WAGRMenuSecondaryTextColor(void) {
-    if (@available(iOS 13.0, *)) return UIColor.secondaryLabelColor;
-    return [UIColor colorWithWhite:0.72 alpha:1.0];
+    return [UIColor colorWithWhite:0.68 alpha:1.0];
 }
 
 UIColor *WAGRMenuSeparatorColor(void) {
-    if (@available(iOS 13.0, *)) return UIColor.separatorColor;
-    return [UIColor colorWithWhite:0.22 alpha:1.0];
+    return [UIColor colorWithWhite:1.0 alpha:0.12];
 }
 
 static NSArray<UIColor *> *WAGRMenuPalette(void) {
@@ -80,42 +86,108 @@ UIFont *WAGRMenuDetailFont(void) {
 }
 
 UIFont *WAGRMenuRuntimeTitleFont(void) {
-    return [UIFont systemFontOfSize:14.0 weight:UIFontWeightMedium];
+    return [UIFont systemFontOfSize:13.5 weight:UIFontWeightMedium];
 }
 
 UIFont *WAGRMenuRuntimeDetailFont(void) {
     return [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular];
 }
 
+static UIView *WAGRMenuFindSubviewOfClass(UIView *root, Class cls) {
+    if (!root || !cls) return nil;
+    if ([root isKindOfClass:cls]) return root;
+    for (UIView *child in root.subviews) {
+        UIView *found = WAGRMenuFindSubviewOfClass(child, cls);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static void WAGRMenuInstallGlassBackground(UIView *host, CGFloat cornerRadius) {
+    if (!host) return;
+#if WAGR_HAS_UIKIT_GLASS
+    if (@available(iOS 26.0, *)) {
+        UIVisualEffectView *glass = objc_getAssociatedObject(host, kWAGRMenuGlassViewKey);
+        if (!glass) {
+            UIGlassEffect *effect = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
+            effect.interactive = YES;
+            effect.tintColor = [UIColor colorWithWhite:0.08 alpha:0.18];
+            glass = [[UIVisualEffectView alloc] initWithEffect:effect];
+            glass.userInteractionEnabled = NO;
+            glass.clipsToBounds = YES;
+            [host insertSubview:glass atIndex:0];
+            objc_setAssociatedObject(host, kWAGRMenuGlassViewKey, glass,
+                                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
+        glass.frame = host.bounds;
+        glass.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        glass.layer.cornerRadius = cornerRadius;
+        host.layer.cornerRadius = cornerRadius;
+        host.clipsToBounds = YES;
+    }
+#else
+    (void)cornerRadius;
+#endif
+}
+
+void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
+    if (!searchBar) return;
+    searchBar.barStyle = UIBarStyleBlack;
+    searchBar.tintColor = UIColor.whiteColor;
+    searchBar.barTintColor = UIColor.clearColor;
+    searchBar.backgroundColor = UIColor.clearColor;
+    searchBar.backgroundImage = [UIImage new];
+
+    if (@available(iOS 13.0, *)) {
+        UITextField *field = searchBar.searchTextField;
+        field.backgroundColor = UIColor.clearColor;
+        field.textColor = UIColor.whiteColor;
+        field.tintColor = UIColor.whiteColor;
+        field.borderStyle = UITextBorderStyleNone;
+        field.leftView.tintColor = [UIColor colorWithWhite:0.92 alpha:1.0];
+        field.clearButtonMode = UITextFieldViewModeWhileEditing;
+        WAGRMenuInstallGlassBackground(field, MAX(18.0, CGRectGetHeight(field.bounds) * 0.5));
+    }
+
+    UISegmentedControl *scope = (UISegmentedControl *)WAGRMenuFindSubviewOfClass(searchBar, UISegmentedControl.class);
+    if (scope) {
+        scope.backgroundColor = UIColor.clearColor;
+        scope.selectedSegmentTintColor = [UIColor colorWithWhite:0.17 alpha:0.72];
+        [scope setTitleTextAttributes:@{NSForegroundColorAttributeName: UIColor.whiteColor}
+                             forState:UIControlStateNormal];
+        [scope setTitleTextAttributes:@{NSForegroundColorAttributeName: UIColor.whiteColor}
+                             forState:UIControlStateSelected];
+        WAGRMenuInstallGlassBackground(scope, MAX(16.0, CGRectGetHeight(scope.bounds) * 0.5));
+    }
+}
+
 void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
     if (tableView) {
-        // Inset-grouped tables already provide the correct grouped geometry and
-        // corner treatment. Do not put a UIVisualEffectView behind every row or
-        // behind the entire table: that creates the washed-out "glass card"
-        // appearance seen in the previous build.
         tableView.backgroundView = nil;
-        tableView.backgroundColor = WAGRMenuBackgroundColor();
+        tableView.backgroundColor = UIColor.blackColor;
         tableView.separatorColor = WAGRMenuSeparatorColor();
-        tableView.indicatorStyle = UIScrollViewIndicatorStyleDefault;
+        tableView.indicatorStyle = UIScrollViewIndicatorStyleWhite;
+        tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
         if (@available(iOS 15.0, *)) tableView.sectionHeaderTopPadding = 8.0;
     }
 
     if (owner) {
-        owner.view.backgroundColor = WAGRMenuBackgroundColor();
+        if (@available(iOS 13.0, *)) owner.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+        owner.view.backgroundColor = UIColor.blackColor;
         UINavigationBar *bar = owner.navigationController.navigationBar;
-        bar.tintColor = WAGRMenuTextColor();
+        bar.tintColor = UIColor.whiteColor;
         bar.translucent = YES;
 
         if (@available(iOS 26.0, *)) {
-            // On iOS 26 UIKit's own UINavigationBar / UIBarButtonItem / search
-            // chrome adopts Liquid Glass automatically. Leaving the appearance
-            // native is the correct implementation; forcing UIGlassEffect as a
-            // backgroundEffect double-renders the material and destroys contrast.
+            // Keep UINavigationBar/UIBarButtonItem native so UIKit supplies its
+            // own system Liquid Glass. Explicit UIGlassEffect is added only to
+            // search/scope chrome via WAGRMenuApplySearchGlass().
         } else if (@available(iOS 13.0, *)) {
             UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
-            [appearance configureWithDefaultBackground];
-            appearance.backgroundColor = UIColor.systemGroupedBackgroundColor;
-            appearance.titleTextAttributes = @{NSForegroundColorAttributeName: WAGRMenuTextColor()};
+            [appearance configureWithOpaqueBackground];
+            appearance.backgroundColor = UIColor.blackColor;
+            appearance.shadowColor = WAGRMenuSeparatorColor();
+            appearance.titleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
             bar.standardAppearance = appearance;
             bar.scrollEdgeAppearance = appearance;
             bar.compactAppearance = appearance;
@@ -127,9 +199,8 @@ void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString *ke
     if (!cell) return;
     UIColor *accent = WAGRMenuAccentForKey(key, index);
 
-    // Let UITableViewStyleInsetGrouped own the card/group shape. The cell itself
-    // is a normal system grouped row; Liquid Glass belongs to navigation/search/
-    // action chrome, not to every scrolling content row.
+    // Content stays readable and stable: Liquid Glass is chrome, not one bright
+    // visual-effect capsule per scrolling row.
     cell.backgroundView = nil;
     cell.backgroundColor = WAGRMenuCellColor();
     cell.contentView.backgroundColor = UIColor.clearColor;
