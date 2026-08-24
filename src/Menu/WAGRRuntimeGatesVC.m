@@ -15,7 +15,7 @@
 
 - (instancetype)init {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = @"Runtime em Tempo Real";
+    self.title = @"Runtime";
     _allSurfaces = @[];
     _visibleSurfaces = @[];
     return self;
@@ -24,14 +24,17 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
+    self.tableView.estimatedRowHeight = 54.0;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
 
     UISearchController *search = [[UISearchController alloc] initWithSearchResultsController:nil];
     search.searchResultsUpdater = self;
     search.obscuresBackgroundDuringPresentation = NO;
-    search.searchBar.placeholder = @"Buscar família carregada agora";
+    search.searchBar.placeholder = @"Buscar família";
     self.navigationItem.searchController = search;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
     self.searchController = search;
+    WAGRMenuApplySearchGlass(search.searchBar);
 
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
@@ -44,6 +47,11 @@
     [self reloadRuntime];
 }
 
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    WAGRMenuApplySearchGlass(self.searchController.searchBar);
+}
+
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.tableView reloadData];
@@ -52,7 +60,7 @@
 - (void)reloadRuntime {
     if (self.scanning) return;
     self.scanning = YES;
-    self.title = @"Lendo runtime carregado…";
+    self.title = @"Lendo runtime…";
     self.navigationItem.rightBarButtonItem.enabled = NO;
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
@@ -86,14 +94,11 @@ static NSArray<NSString *> *WAGRLiveSearchTokens(NSString *query) {
                                                    __unused NSDictionary *bindings) {
                 NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@",
                     surface.title ?: @"", surface.subtitle ?: @"", surface.runtimeFamilyKey ?: @""].lowercaseString;
-                for (NSString *token in tokens) {
-                    if (![haystack containsString:token]) return NO;
-                }
+                for (NSString *token in tokens) if (![haystack containsString:token]) return NO;
                 return YES;
             }]];
     }
-    self.title = [NSString stringWithFormat:@"Runtime (%lu famílias)",
-        (unsigned long)self.visibleSurfaces.count];
+    self.title = [NSString stringWithFormat:@"Runtime (%lu)", (unsigned long)self.visibleSurfaces.count];
     [self.tableView reloadData];
 }
 
@@ -113,43 +118,34 @@ static NSUInteger WAGRLiveOverrideCountForFamily(NSString *family) {
     return count;
 }
 
-- (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tableView {
-    return 1;
-}
+- (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tableView { return 1; }
 
 - (NSInteger)tableView:(__unused UITableView *)tableView numberOfRowsInSection:(__unused NSInteger)section {
     return (NSInteger)self.visibleSurfaces.count;
 }
 
-- (NSString *)tableView:(__unused UITableView *)tableView titleForHeaderInSection:(__unused NSInteger)section {
-    return @"Famílias descobertas agora";
-}
-
-- (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(__unused NSInteger)section {
-    return @"As categorias não vêm mais de registry, JSON ou lista de palavras do tweak. "
-            "Elas são reconstruídas dos selectors zero-arg, classes e imagens Mach-O que estão carregados neste processo. "
-            "Puxe para atualizar depois que outro framework ou módulo for carregado.";
-}
+- (NSString *)tableView:(__unused UITableView *)tableView titleForHeaderInSection:(__unused NSInteger)section { return nil; }
+- (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(__unused NSInteger)section { return nil; }
+- (CGFloat)tableView:(__unused UITableView *)tableView heightForHeaderInSection:(__unused NSInteger)section { return CGFLOAT_MIN; }
+- (CGFloat)tableView:(__unused UITableView *)tableView heightForFooterInSection:(__unused NSInteger)section { return CGFLOAT_MIN; }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     WAGRSurfaceSpec *surface = self.visibleSurfaces[(NSUInteger)indexPath.row];
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"WAGRLiveFamilyCell"];
-    if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
-                                      reuseIdentifier:@"WAGRLiveFamilyCell"];
-    }
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"WAGRCompactFamilyCell"];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"WAGRCompactFamilyCell"];
     WAGRMenuApplyCellStyle(cell, indexPath.row, surface.surfaceID ?: surface.title);
+    cell.textLabel.font = WAGRMenuRuntimeTitleFont();
+    cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
+    cell.textLabel.numberOfLines = 0;
     cell.textLabel.text = surface.title;
+
     NSUInteger overrides = WAGRLiveOverrideCountForFamily(surface.runtimeFamilyKey);
-    cell.detailTextLabel.text = overrides
-        ? [NSString stringWithFormat:@"%@ · %lu overrides tipados", surface.subtitle ?: @"",
-                                      (unsigned long)overrides]
-        : (surface.subtitle ?: @"");
-    cell.detailTextLabel.numberOfLines = 0;
-    cell.detailTextLabel.textColor = overrides ? UIColor.systemGreenColor : WAGRMenuSecondaryTextColor();
-    cell.imageView.image = WAGRMenuSymbol(surface.icon ?: @"line.3.horizontal.decrease.circle", nil);
-    cell.imageView.tintColor = overrides ? UIColor.systemGreenColor
-                                         : WAGRMenuAccentForKey(surface.title, indexPath.row);
+    NSMutableString *detail = [NSMutableString stringWithFormat:@"%lu getters · %lu classes",
+        (unsigned long)surface.runtimeEntryCount, (unsigned long)surface.runtimeClassCount];
+    if (overrides) [detail appendFormat:@" · %lu overrides", (unsigned long)overrides];
+    cell.detailTextLabel.text = detail;
+    cell.detailTextLabel.textColor = overrides ? UIColor.systemCyanColor : WAGRMenuSecondaryTextColor();
+    cell.imageView.image = nil;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }
