@@ -28,18 +28,20 @@ WAGRABPropsNativeSnapshot * _Nullable WAGRABPropsReadNativeSnapshot(
 
 /// Invokes WhatsApp's exact fresh-fetch entrypoint for the current build:
 /// -[XMPPConnectionABPropsRequestManager requestFreshABProps:NO withCompletion:].
-/// The runtime captures/resolves the real XMPPConnectionABPropsRequestManager,
-/// validates the Objective-C ABI, and returns NO rather than invoking a
-/// fetch/sync/refresh lookalike when that exact entrypoint cannot be resolved.
+/// Returning YES proves dispatch through that exact Objective-C entrypoint. A
+/// changed gabp.*p fingerprint is separate evidence that a local cache delta was
+/// materialized; an unchanged fingerprint is not reported as a network failure.
 BOOL WAGRABPropsTriggerNativeFetch(id _Nullable userContext,
                                    NSString * _Nullable * _Nullable diagnostic);
 
-/// Produces a portable JSON-ready v2 document containing every property from
-/// the live native cache, canonical code->selector names when the native getter
-/// descriptor is available, and ABProp -> MobileConfig translation data.
-/// `compact_parameter_token` is the low-16 translation token; the external
-/// config/admin stable ID is separately resolved through
-/// FBMobileConfigContextManager.getStableIdFromParamSpecifier: when available.
+/// Produces the portable JSON-ready v3 document from the native account cache.
+/// Each numeric ABProp is enriched, when available, with the canonical getter
+/// decoded from the current Mach-O and with WAMCEvaluation/MobileConfig metadata:
+/// paramSpecifier, localConfigIndex, parameterIndex, compact parameter token,
+/// stable ID returned by the live context manager, config name and parameter name.
+/// Names are enrichment; the numeric translation remains available without an
+/// id_name_mapping.json file when the current runtime exposes the embedded name
+/// converter.
 NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(
     WAGRABPropsNativeSnapshot *snapshot);
 
