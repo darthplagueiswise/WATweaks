@@ -63,6 +63,8 @@ jobs:
 
       - name: Validate dogfood and live typed runtime sources
         run: |
+          set -euxo pipefail
+
           files=(
             src/Hooks/WAGREmployeeHooks.xm
             src/Hooks/WAGRDebugBuildHooks.xm
@@ -191,11 +193,11 @@ jobs:
           grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsCanonicalNamesV2.m
           ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsCanonicalNamesV2.m
 
-          # iOS 26 presentation follows UIKit instead of forcing a glass material
-          # onto every scrolling row. Standard navigation/search/bar controls own
-          # Liquid Glass; inset-grouped content keeps system grouped surfaces.
-          grep -q 'systemGroupedBackgroundColor' src/Menu/WAGRMenuTheme.m
-          grep -q 'secondarySystemGroupedBackgroundColor' src/Menu/WAGRMenuTheme.m
+          # WATweaks uses a true-black canvas. Liquid Glass belongs to navigation,
+          # search and scope chrome; scrolling rows stay opaque/readable.
+          grep -q 'return UIColor.blackColor' src/Menu/WAGRMenuTheme.m
+          grep -q 'UIGlassEffectStyleRegular' src/Menu/WAGRMenuTheme.m
+          grep -q 'WAGRMenuApplySearchGlass' src/Menu/WAGRMenuTheme.m
           grep -q 'backgroundView = nil' src/Menu/WAGRMenuTheme.m
           ! grep -q 'UIGlassEffectStyleClear' src/Menu/WAGRMenuTheme.m
           ! grep -q 'backgroundEffect = WAGRMenuGlassEffect' src/Menu/WAGRMenuTheme.m
