@@ -1,7 +1,4 @@
-// WAGRMainSettingsVC.m — Settings principal do WATweaks, estilo RyukGram.
-// Seções: Liquid Glass · Dogfood/Internal · WA Plus/Aura · WAABProperties ·
-//         Runtime Gates · Ferramentas.
-// Nav bar: botão "Aplicar" que reinstala todos os hooks persistidos.
+// WAGRMainSettingsVC.m — WATweaks settings using WhatsApp-native grouped UIKit hierarchy.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
@@ -12,9 +9,9 @@
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRLogViewController.h"
 #import "WAGRMainSettingsVC.h"
+#import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRSurface.h"
 
-// External decls
 extern NSString *WAGRLGDiagnosticText(void);
 extern NSString *WAGRDogfoodDiagnosticText(void);
 extern NSString *WAGRAuraDiagnostic(void);
@@ -29,13 +26,13 @@ extern void WAGRGateHooksEnsureInstalled(void);
 extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
 
-// ── Cell model ───────────────────────────────────────────────────────────────
 typedef NS_ENUM(NSInteger, WATCellType) {
     WATCellSwitch,
     WATCellNav,
     WATCellAction,
     WATCellDestructive,
 };
+
 @interface WATCell : NSObject
 @property(nonatomic) WATCellType type;
 @property(nonatomic,copy) NSString *title, *subtitle, *icon;
@@ -51,7 +48,6 @@ typedef NS_ENUM(NSInteger, WATCellType) {
 @end
 @implementation WATSection @end
 
-// ── Factories ─────────────────────────────────────────────────────────────────
 static WATCell *sw(NSString *t, NSString *s, NSString *ico, BOOL(^g)(void), void(^set)(BOOL)) {
     WATCell *c=[WATCell new]; c.type=WATCellSwitch;
     c.title=t; c.subtitle=s; c.icon=ico; c.getValue=g; c.onToggle=set; return c;
@@ -69,16 +65,13 @@ static WATCell *dtr(NSString *t, NSString *s, NSString *ico, void(^tap)(UIViewCo
     c.title=t; c.subtitle=s; c.icon=ico; c.onTap=tap; return c;
 }
 
-// ── Prefs helpers ─────────────────────────────────────────────────────────────
-static BOOL bp(NSString *k)        { return [[NSUserDefaults standardUserDefaults] boolForKey:k]; }
-static void setBp(NSString *k, BOOL v) { [[NSUserDefaults standardUserDefaults] setBool:v forKey:k]; [[NSUserDefaults standardUserDefaults] synchronize]; }
-static BOOL gp(NSString *k)        { return WAGRGateIsSet(k)?WAGRGateGet(k):bp(k); }
-static void setGp(NSString *k,BOOL v) { WAGRGateSet(k,v); setBp(k,v); }
-
-static UIImage *icon(NSString *n) {
-    if (@available(iOS 13.0,*)) return [UIImage systemImageNamed:n ?: @"circle"];
-    return nil;
+static BOOL bp(NSString *k) { return [[NSUserDefaults standardUserDefaults] boolForKey:k]; }
+static void setBp(NSString *k, BOOL v) {
+    [[NSUserDefaults standardUserDefaults] setBool:v forKey:k];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 }
+static BOOL gp(NSString *k) { return WAGRGateIsSet(k) ? WAGRGateGet(k) : bp(k); }
+static void setGp(NSString *k,BOOL v) { WAGRGateSet(k,v); setBp(k,v); }
 
 static WAGRSurfaceSpec *surface(NSString *sid) {
     for (WAGRSurfaceSpec *s in [WAGRSurfaceSpec allSurfaces])
@@ -98,22 +91,17 @@ static void alert(UIViewController *from, NSString *title, NSString *msg) {
     });
 }
 
-// ── Section builders ──────────────────────────────────────────────────────────
 static WATSection *secLG(void) {
     WATSection *s=[WATSection new];
     s.header=@"Liquid Glass";
-    s.footer=@"WDSLiquidGlass (class methods) + WAAB keys ios_liquid_glass_*. Efeito imediato via hooks + NSUserDefaults. Reinicie para aplicação visual completa.";
     s.rows=@[
-        sw(@"Liquid Glass",@"Master — WDSLiquidGlass + todas as WAAB keys LG",
-           @"sparkles",
+        sw(@"Liquid Glass",@"Master — WDSLiquidGlass + todas as WAAB keys LG", @"sparkles",
            ^BOOL{ return bp(kWAGRLiquidGlassMaster); },
            ^(BOOL on){ setBp(kWAGRLiquidGlassMaster,on); WAGRLGPrefsDidChange(); }),
-        sw(@"Method hooks",@"Só os hooks nos class methods de WDSLiquidGlass",
-           @"function",
+        sw(@"Method hooks",@"Só os hooks nos class methods de WDSLiquidGlass", @"function",
            ^BOOL{ return bp(WA_PREF_LIQUID_GLASS_METHOD_HOOKS); },
            ^(BOOL on){ setBp(WA_PREF_LIQUID_GLASS_METHOD_HOOKS,on); WAGRLGPrefsDidChange(); }),
-        sw(@"NSUserDefaults overrides",@"Escreve ios_liquid_glass_* = YES em defaults",
-           @"internaldrive",
+        sw(@"NSUserDefaults overrides",@"Escreve ios_liquid_glass_* = YES em defaults", @"internaldrive",
            ^BOOL{ return bp(WA_PREF_LIQUID_GLASS_USERDEFAULTS); },
            ^(BOOL on){ setBp(WA_PREF_LIQUID_GLASS_USERDEFAULTS,on); WAGRLGPrefsDidChange(); }),
     ];
@@ -123,26 +111,20 @@ static WATSection *secLG(void) {
 static WATSection *secDogfood(void) {
     WATSection *s=[WATSection new];
     s.header=@"Dogfood / Internal";
-    s.footer=@"WAServerProperties.isInternalUser (confirmado SharedModules) · isMetaEmployeeOrInternalTester · Debug menu: _TtC15WADebugMenuMain17DebugMenuProvider.isDebugMenuAllowed.";
     s.rows=@[
-        sw(@"★ Employee master",@"Todos os gates abaixo de uma vez",
-           @"person.badge.shield.checkmark.fill",
+        sw(@"★ Employee master",@"Todos os gates abaixo de uma vez", @"person.badge.shield.checkmark.fill",
            ^BOOL{ return bp(kWAGREmployeeMaster); },
            ^(BOOL on){ setBp(kWAGREmployeeMaster,on); WAGRDogfoodEnsureHooksInstalled(); WAGRNativeDevMenuEnsureHooksInstalled(); }),
-        sw(@"isInternalUser",@"WAServerProperties +isInternalUser (class method)",
-           @"person.fill.checkmark",
+        sw(@"isInternalUser",@"WAServerProperties +isInternalUser (class method)", @"person.fill.checkmark",
            ^BOOL{ return gp(kWAGRDogfoodGateInternalUser); },
            ^(BOOL on){ setGp(kWAGRDogfoodGateInternalUser,on); WAGRDogfoodEnsureHooksInstalled(); }),
-        sw(@"isMetaEmployeeOrInternalTester",@"Gate de acesso a features internas Meta",
-           @"building.2.fill",
+        sw(@"isMetaEmployeeOrInternalTester",@"Gate de acesso a features internas Meta", @"building.2.fill",
            ^BOOL{ return gp(kWAGRDogfoodGateMetaEmployee); },
            ^(BOOL on){ setGp(kWAGRDogfoodGateMetaEmployee,on); WAGRDogfoodEnsureHooksInstalled(); }),
-        sw(@"isInternalMaster",@"watweak_bundle_internal_master — modo interno geral",
-           @"building.columns.fill",
+        sw(@"isInternalMaster",@"watweak_bundle_internal_master — modo interno geral", @"building.columns.fill",
            ^BOOL{ return bp(kWAGRInternalMaster); },
            ^(BOOL on){ setBp(kWAGRInternalMaster,on); }),
-        sw(@"Debug menu nativo",@"isDebugMenuAllowed + isDebugMenuShortcutEnabled",
-           @"ladybug.fill",
+        sw(@"Debug menu nativo",@"isDebugMenuAllowed + isDebugMenuShortcutEnabled", @"ladybug.fill",
            ^BOOL{ return bp(kWAGRDebugMenuNative); },
            ^(BOOL on){ setBp(kWAGRDebugMenuNative,on); WAGRNativeDevMenuEnsureHooksInstalled(); }),
     ];
@@ -152,51 +134,41 @@ static WATSection *secDogfood(void) {
 static WATSection *secAura(void) {
     WATSection *s=[WATSection new];
     s.header=@"WA Plus / Aura";
-    s.footer=@"WAAuraGating — seletores snake_case confirmados via __objc_methname (SharedModules). aura_subscription_simulation_enabled simula assinatura para UI local. Ações server ainda requerem assinatura.";
     s.rows=@[
-        sw(@"★ Aura Simulation",@"Master — aura_enabled + aura_subscription_simulation",
-           @"crown.fill",
+        sw(@"★ Aura Simulation",@"Master — aura_enabled + aura_subscription_simulation", @"crown.fill",
            ^BOOL{ return bp(kWAGRAuraSimulation); },
            ^(BOOL on){
                setBp(kWAGRAuraSimulation,on);
                for(NSString*k in @[@"aura_enabled",@"aura_settings_row_enabled",
-                                   @"aura_subscription_simulation_enabled",
-                                   @"aura_app_icon_enabled",@"aura_app_themes_enabled",
-                                   @"aura_ringtones_enabled",@"aura_stickers_enabled",
-                                   @"aura_enhanced_lists_enabled",@"aura_pinned_chats_enabled"])
+                                   @"aura_subscription_simulation_enabled",@"aura_app_icon_enabled",
+                                   @"aura_app_themes_enabled",@"aura_ringtones_enabled",
+                                   @"aura_stickers_enabled",@"aura_enhanced_lists_enabled",
+                                   @"aura_pinned_chats_enabled"])
                    on ? WAGRGateSet(k,YES) : WAGRGateClear(k);
                WAGRAuraEnsureHooksInstalled();
            }),
-        sw(@"aura_enabled",@"Gate principal da UI do Aura",
-           @"star.fill",
+        sw(@"aura_enabled",@"Gate principal da UI do Aura", @"star.fill",
            ^BOOL{ return gp(@"aura_enabled"); },
            ^(BOOL on){ setGp(@"aura_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_subscription_simulation_enabled",@"Simula assinatura — unlock de UI local",
-           @"creditcard.fill",
+        sw(@"aura_subscription_simulation_enabled",@"Simula assinatura — unlock de UI local", @"creditcard.fill",
            ^BOOL{ return gp(@"aura_subscription_simulation_enabled"); },
            ^(BOOL on){ setGp(@"aura_subscription_simulation_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_app_themes_enabled",@"Temas do aplicativo",
-           @"paintpalette.fill",
+        sw(@"aura_app_themes_enabled",@"Temas do aplicativo", @"paintpalette.fill",
            ^BOOL{ return gp(@"aura_app_themes_enabled"); },
            ^(BOOL on){ setGp(@"aura_app_themes_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_app_icon_enabled",@"Ícones do aplicativo",
-           @"app.badge.fill",
+        sw(@"aura_app_icon_enabled",@"Ícones do aplicativo", @"app.badge.fill",
            ^BOOL{ return gp(@"aura_app_icon_enabled"); },
            ^(BOOL on){ setGp(@"aura_app_icon_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_ringtones_enabled",@"Toques personalizados",
-           @"music.note",
+        sw(@"aura_ringtones_enabled",@"Toques personalizados", @"music.note",
            ^BOOL{ return gp(@"aura_ringtones_enabled"); },
            ^(BOOL on){ setGp(@"aura_ringtones_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_stickers_enabled",@"Stickers premium Aura",
-           @"face.smiling.fill",
+        sw(@"aura_stickers_enabled",@"Stickers premium Aura", @"face.smiling.fill",
            ^BOOL{ return gp(@"aura_stickers_enabled"); },
            ^(BOOL on){ setGp(@"aura_stickers_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_enhanced_lists_enabled",@"Listas aprimoradas",
-           @"list.bullet.indent",
+        sw(@"aura_enhanced_lists_enabled",@"Listas aprimoradas", @"list.bullet.indent",
            ^BOOL{ return gp(@"aura_enhanced_lists_enabled"); },
            ^(BOOL on){ setGp(@"aura_enhanced_lists_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_pinned_chats_enabled",@"Chats fixados extras",
-           @"pin.fill",
+        sw(@"aura_pinned_chats_enabled",@"Chats fixados extras", @"pin.fill",
            ^BOOL{ return gp(@"aura_pinned_chats_enabled"); },
            ^(BOOL on){ setGp(@"aura_pinned_chats_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
     ];
@@ -206,11 +178,11 @@ static WATSection *secAura(void) {
 static WATSection *secWAAB(void) {
     WATSection *s=[WATSection new];
     s.header=@"WAABProperties";
-    s.footer=@"FOAWAABPropertiesImpl.boolForKey:defaultValue: — intercepta e sobrescreve qualquer AB flag do WhatsApp em runtime.";
     s.rows=@[
-        nav(@"Abrir browser WAAB",@"Todos os flags AB em ordem alfabética com busca",
-            @"switch.2",
-            ^(UIViewController *from){ [from.navigationController pushViewController:[WAGRABPropsRootVC new] animated:YES]; }),
+        nav(@"AB Props",@"Runtime, cache account-scoped, fetch e export", @"switch.2",
+            ^(UIViewController *from){
+                [from.navigationController pushViewController:[WAGRABPropsRootVC new] animated:YES];
+            }),
     ];
     return s;
 }
@@ -218,20 +190,17 @@ static WATSection *secWAAB(void) {
 static WATSection *secRuntime(void) {
     WATSection *s=[WATSection new];
     s.header=@"Runtime Gates";
-    s.footer=@"Browser de BOOL getters por imagem Mach-O. Busca + toggle + apply por classe. Long press = detalhes/limpar.";
     s.rows=@[
-        nav(@"WhatsApp Executable",@"Gates e classes do executável principal",
-            @"app.dashed",
+        nav(@"WhatsApp Executable",@"Gates e classes do executável principal", @"app.dashed",
             ^(UIViewController *from){
                 WAGRSurfaceSpec *sp=surface(@"exec");
-                if(sp)[from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
+                if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
                 else alert(from,@"Runtime",@"Surface 'exec' não encontrada.");
             }),
-        nav(@"SharedModules",@"Gates e classes do framework (WAAuraGating, WDSLiquidGlass, etc.)",
-            @"shippingbox.fill",
+        nav(@"SharedModules",@"Gates e classes do framework", @"shippingbox.fill",
             ^(UIViewController *from){
                 WAGRSurfaceSpec *sp=surface(@"sharedmodules");
-                if(sp)[from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
+                if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
                 else alert(from,@"Runtime",@"Surface 'sharedmodules' não encontrada.");
             }),
     ];
@@ -241,26 +210,22 @@ static WATSection *secRuntime(void) {
 static WATSection *secTools(void) {
     WATSection *s=[WATSection new];
     s.header=@"Ferramentas";
-    s.footer=@"Reset remove apenas chaves watweak_*. O botão Aplicar no topo reaplicar todos os hooks persistidos.";
     s.rows=@[
-        nav(@"Logs",@"Log interno da sessão atual",
-            @"list.bullet.rectangle.portrait.fill",
-            ^(UIViewController *from){ [from.navigationController pushViewController:[WAGRLogViewController new] animated:YES]; }),
+        nav(@"Logs",@"Log interno da sessão atual", @"list.bullet.rectangle.portrait.fill",
+            ^(UIViewController *from){
+                [from.navigationController pushViewController:[WAGRLogViewController new] animated:YES];
+            }),
         act(@"Diagnóstico completo",@"GateStore · LG · Aura · Dogfood · Settings row · Keychain",
             @"doc.text.magnifyingglass",
             ^(UIViewController *from){
                 NSString *msg=[NSString stringWithFormat:
                     @"[LiquidGlass]\n%@\n\n[Aura]\n%@\n\n[Dogfood]\n%@\n\n[GateStore]\n%@\n\n[Settings row]\n%@\n\n[Keychain]\n%@",
-                    WAGRLGDiagnosticText()?:@"n/a",
-                    WAGRAuraDiagnostic()?:@"n/a",
-                    WAGRDogfoodDiagnosticText()?:@"n/a",
-                    WAGRGateStoreDiagnostic()?:@"n/a",
-                    WAGRSettingsRowsNativeDiagnosticText()?:@"n/a",
-                    WAKeychainAccessGroupDiagnostic()?:@"n/a"];
+                    WAGRLGDiagnosticText()?:@"n/a", WAGRAuraDiagnostic()?:@"n/a",
+                    WAGRDogfoodDiagnosticText()?:@"n/a", WAGRGateStoreDiagnostic()?:@"n/a",
+                    WAGRSettingsRowsNativeDiagnosticText()?:@"n/a", WAKeychainAccessGroupDiagnostic()?:@"n/a"];
                 alert(from,@"Diagnóstico",msg);
             }),
-        dtr(@"Reset WATweaks",@"Remove todos os overrides watweak_* e índices runtime",
-            @"trash.fill",
+        dtr(@"Reset WATweaks",@"Remove todos os overrides watweak_* e índices runtime", @"trash.fill",
             ^(UIViewController *from){
                 UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Reset"
                     message:@"Remove todos os overrides watweak_*.\nReinicie o WA depois."
@@ -278,8 +243,7 @@ static WATSection *secTools(void) {
                 [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
                 [from presentViewController:a animated:YES completion:nil];
             }),
-        dtr(@"Reiniciar WhatsApp",@"Fecha o app — descarrega hooks desta sessão",
-            @"power",
+        dtr(@"Reiniciar WhatsApp",@"Fecha o app — descarrega hooks desta sessão", @"power",
             ^(__unused UIViewController *from){
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.3*NSEC_PER_SEC)),
                                dispatch_get_main_queue(),^{exit(0);});
@@ -288,7 +252,6 @@ static WATSection *secTools(void) {
     return s;
 }
 
-// ── VC ────────────────────────────────────────────────────────────────────────
 @implementation WAGRMainSettingsVC {
     NSArray<WATSection *> *_sections;
 }
@@ -301,20 +264,18 @@ static WATSection *secTools(void) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.tableView.estimatedRowHeight=74;
-    self.tableView.rowHeight=UITableViewAutomaticDimension;
+    WAGRMenuApplyTableStyle(self.tableView, self);
+    self.tableView.estimatedRowHeight=60.0;
+    self.tableView.rowHeight=60.0;
+    self.tableView.separatorInset=UIEdgeInsetsMake(0, 56.0, 0, 16.0);
+    if (@available(iOS 15.0,*)) self.tableView.sectionHeaderTopPadding=0.0;
 
-    // Close button (left)
     self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemClose target:self action:@selector(done)];
 
-    // Apply button (right) — reinstala todos os hooks persistidos
-    UIBarButtonItem *applyBtn=[[UIBarButtonItem alloc]
-        initWithTitle:@"Aplicar"
-               style:UIBarButtonItemStyleDone
-              target:self
-              action:@selector(applyAllHooks)];
-    self.navigationItem.rightBarButtonItem=applyBtn;
+    self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc]
+        initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone
+        target:self action:@selector(applyAllHooks)];
 
     [self rebuildSections];
 }
@@ -345,28 +306,48 @@ static WATSection *secTools(void) {
     _sections=@[secLG(),secDogfood(),secAura(),secWAAB(),secRuntime(),secTools()];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return(NSInteger)_sections.count; }
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)sec { return(NSInteger)_sections[sec].rows.count; }
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)sec { return _sections[sec].header; }
-- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)sec { return _sections[sec].footer; }
+- (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tv {
+    return (NSInteger)_sections.count;
+}
+
+- (NSInteger)tableView:(__unused UITableView *)tv numberOfRowsInSection:(NSInteger)sec {
+    return (NSInteger)_sections[(NSUInteger)sec].rows.count;
+}
+
+// Section names remain model metadata for the Dogfood patch, but are not drawn.
+// WhatsApp Settings communicates grouping through inset cards and whitespace.
+- (NSString *)tableView:(__unused UITableView *)tv titleForHeaderInSection:(__unused NSInteger)sec { return nil; }
+- (NSString *)tableView:(__unused UITableView *)tv titleForFooterInSection:(__unused NSInteger)sec { return nil; }
+
+- (CGFloat)tableView:(__unused UITableView *)tv heightForHeaderInSection:(NSInteger)section {
+    return section == 0 ? 12.0 : 28.0;
+}
+
+- (CGFloat)tableView:(__unused UITableView *)tv heightForFooterInSection:(__unused NSInteger)section {
+    return 8.0;
+}
+
+- (CGFloat)tableView:(__unused UITableView *)tv heightForRowAtIndexPath:(__unused NSIndexPath *)ip {
+    return 60.0;
+}
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    WATCell *row=_sections[ip.section].rows[ip.row];
-    NSString *rid=[@(row.type) stringValue];
+    WATCell *row=_sections[(NSUInteger)ip.section].rows[(NSUInteger)ip.row];
+    NSString *rid=[NSString stringWithFormat:@"WATNative-%ld",(long)row.type];
     UITableViewCell *cell=[tv dequeueReusableCellWithIdentifier:rid];
-    if(!cell){
-        UITableViewCellStyle st=row.subtitle.length?UITableViewCellStyleSubtitle:UITableViewCellStyleDefault;
-        cell=[[UITableViewCell alloc] initWithStyle:st reuseIdentifier:rid];
-    }
+    if(!cell) cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:rid];
+
+    WAGRMenuApplyCellStyle(cell, ip.row, row.title);
     cell.textLabel.text=row.title;
-    cell.textLabel.numberOfLines=2;
-    if(row.subtitle.length){ cell.detailTextLabel.text=row.subtitle; cell.detailTextLabel.numberOfLines=3; }
-    cell.imageView.image=icon(row.icon);
-    cell.imageView.tintColor=nil;
+    cell.textLabel.font=WAGRMenuTitleFont();
+    cell.textLabel.numberOfLines=1;
+    cell.textLabel.lineBreakMode=NSLineBreakByTruncatingTail;
+    cell.imageView.image=WAGRMenuSymbol(row.icon, UIColor.whiteColor);
+    cell.imageView.tintColor=UIColor.whiteColor;
     cell.accessoryView=nil;
     cell.accessoryType=UITableViewCellAccessoryNone;
     cell.selectionStyle=UITableViewCellSelectionStyleDefault;
-    cell.textLabel.textColor=nil;
+    cell.textLabel.textColor=WAGRMenuTextColor();
 
     switch(row.type){
         case WATCellSwitch:{
@@ -390,15 +371,15 @@ static WATSection *secTools(void) {
     return cell;
 }
 
-- (void)switchChanged:(UISwitch *)sw {
-    WATCell *row=objc_getAssociatedObject(sw,"wrow");
-    if(row.onToggle)row.onToggle(sw.isOn);
+- (void)switchChanged:(UISwitch *)sender {
+    WATCell *row=objc_getAssociatedObject(sender,"wrow");
+    if(row.onToggle) row.onToggle(sender.isOn);
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
-    WATCell *row=_sections[ip.section].rows[ip.row];
-    if(row.onTap)row.onTap(self);
+    WATCell *row=_sections[(NSUInteger)ip.section].rows[(NSUInteger)ip.row];
+    if(row.onTap) row.onTap(self);
 }
 
 @end
