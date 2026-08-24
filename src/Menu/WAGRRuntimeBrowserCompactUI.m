@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #import "WAGRMenuTheme.h"
@@ -12,6 +13,8 @@
 
 static const void *kWAGRNativeABEntryKey = &kWAGRNativeABEntryKey;
 static const void *kWAGRNativeSurfaceEntryKey = &kWAGRNativeSurfaceEntryKey;
+static const void *kWAGRNativeTitlePrimaryKey = &kWAGRNativeTitlePrimaryKey;
+static const void *kWAGRNativeTitleSecondaryKey = &kWAGRNativeTitleSecondaryKey;
 
 static void (*orig_WAGRABViewDidLoad)(id, SEL) = NULL;
 static void (*orig_WAGRSurfaceViewDidLoad)(id, SEL) = NULL;
@@ -30,22 +33,77 @@ static void WAGRNativeSetKVC(id object, NSString *key, id value) {
     @catch (__unused NSException *exception) {}
 }
 
+// The account browser is a dense diagnostic/settings list. Do not inherit the
+// user's Body Dynamic Type size here: on the current iPhone it made selector
+// names materially larger than WhatsApp's own Settings rows.
 static UIFont *WAGRNativeRowTitleFont(void) {
-    UIFont *font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
-    return [UIFont systemFontOfSize:MAX(16.0, font.pointSize) weight:UIFontWeightRegular];
+    return [UIFont systemFontOfSize:15.0 weight:UIFontWeightRegular];
 }
 
 static UIFont *WAGRNativeRowDetailFont(void) {
-    UIFont *font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    return [UIFont systemFontOfSize:MAX(13.0, font.pointSize) weight:UIFontWeightRegular];
+    return [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular];
+}
+
+static void WAGRNativeSetCenteredTitle(UIViewController *controller,
+                                       NSString *title,
+                                       NSString *subtitle) {
+    if (!controller) return;
+    UILabel *primary = objc_getAssociatedObject(controller, kWAGRNativeTitlePrimaryKey);
+    UILabel *secondary = objc_getAssociatedObject(controller, kWAGRNativeTitleSecondaryKey);
+    if (!primary || !secondary || !controller.navigationItem.titleView) {
+        UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 176, 42)];
+        container.translatesAutoresizingMaskIntoConstraints = NO;
+        [container.widthAnchor constraintEqualToConstant:176].active = YES;
+        [container.heightAnchor constraintEqualToConstant:42].active = YES;
+
+        primary = [UILabel new];
+        primary.translatesAutoresizingMaskIntoConstraints = NO;
+        primary.font = [UIFont systemFontOfSize:15.5 weight:UIFontWeightSemibold];
+        primary.textColor = UIColor.labelColor;
+        primary.textAlignment = NSTextAlignmentCenter;
+        primary.adjustsFontSizeToFitWidth = YES;
+        primary.minimumScaleFactor = 0.86;
+
+        secondary = [UILabel new];
+        secondary.translatesAutoresizingMaskIntoConstraints = NO;
+        secondary.font = [UIFont systemFontOfSize:10.5 weight:UIFontWeightRegular];
+        secondary.textColor = UIColor.secondaryLabelColor;
+        secondary.textAlignment = NSTextAlignmentCenter;
+        secondary.adjustsFontSizeToFitWidth = YES;
+        secondary.minimumScaleFactor = 0.82;
+
+        [container addSubview:primary];
+        [container addSubview:secondary];
+        [NSLayoutConstraint activateConstraints:@[
+            [primary.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
+            [primary.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+            [primary.topAnchor constraintEqualToAnchor:container.topAnchor constant:3],
+            [secondary.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
+            [secondary.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+            [secondary.topAnchor constraintEqualToAnchor:primary.bottomAnchor constant:1],
+            [secondary.bottomAnchor constraintLessThanOrEqualToAnchor:container.bottomAnchor constant:-2],
+        ]];
+        controller.navigationItem.titleView = container;
+        objc_setAssociatedObject(controller, kWAGRNativeTitlePrimaryKey, primary,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(controller, kWAGRNativeTitleSecondaryKey, secondary,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    primary.text = title ?: @"";
+    secondary.text = subtitle ?: @"";
+    controller.navigationItem.accessibilityLabel = subtitle.length
+        ? [NSString stringWithFormat:@"%@, %@", title ?: @"", subtitle]
+        : title;
+    // titleView is inside UINavigationBar, so iOS 26 supplies the native
+    // Liquid Glass navigation chrome. Do not add a second glass capsule here.
 }
 
 static void WAGRNativeStyleController(UITableViewController *controller, BOOL hasSearch) {
     if (!controller) return;
-    controller.tableView.estimatedRowHeight = 68.0;
+    controller.tableView.estimatedRowHeight = 54.0;
     controller.tableView.rowHeight = UITableViewAutomaticDimension;
-    controller.tableView.sectionHeaderHeight = 16.0;
-    controller.tableView.sectionFooterHeight = 5.0;
+    controller.tableView.sectionHeaderHeight = UITableViewAutomaticDimension;
+    controller.tableView.sectionFooterHeight = UITableViewAutomaticDimension;
     if (@available(iOS 15.0, *)) controller.tableView.sectionHeaderTopPadding = 0.0;
 
     if (hasSearch) {
@@ -62,13 +120,20 @@ static NSString *WAGRNativeNoHeader(id self, SEL _cmd, UITableView *table, NSInt
 }
 
 static CGFloat WAGRNativeHeaderHeight(id self, SEL _cmd, UITableView *table, NSInteger section) {
-    (void)self; (void)_cmd; (void)table; (void)section;
-    return 16.0;
+    (void)_cmd; (void)table;
+    if ([self isKindOfClass:NSClassFromString(@"WAGRABPropsBrowserVC")]) {
+        UISearchController *search = WAGRNativeKVC(self, @"searchController");
+        // Conta and Overrides are deliberately one inset-grouped section. Runtime
+        // may still have real family sections and gets normal inter-group spacing.
+        if (search.searchBar.selectedScopeButtonIndex != 1) return section == 0 ? 10.0 : 0.01;
+        return section == 0 ? 10.0 : 22.0;
+    }
+    return section == 0 ? 10.0 : 22.0;
 }
 
 static CGFloat WAGRNativeFooterHeight(id self, SEL _cmd, UITableView *table, NSInteger section) {
     (void)self; (void)_cmd; (void)table; (void)section;
-    return 5.0;
+    return 0.01;
 }
 
 static NSArray<NSString *> *WAGRNativeTokens(NSString *query) {
@@ -109,6 +174,15 @@ static NSString *WAGRNativeMCName(NSDictionary *mc) {
     return WAGRMobileConfigRuntimeNameForSpecifier(WAGRNativeSpecifierFromMC(mc));
 }
 
+static NSString *WAGRNativeParameterPart(NSString *fullName) {
+    if (!fullName.length) return nil;
+    NSRange dot = [fullName rangeOfString:@"." options:NSBackwardsSearch];
+    if (dot.location != NSNotFound && NSMaxRange(dot) < fullName.length) {
+        return [fullName substringFromIndex:NSMaxRange(dot)];
+    }
+    return fullName;
+}
+
 static BOOL WAGRNativeBoolFromWireValue(id value, BOOL *known) {
     if (known) *known = NO;
     if ([value isKindOfClass:NSNumber.class]) {
@@ -117,15 +191,63 @@ static BOOL WAGRNativeBoolFromWireValue(id value, BOOL *known) {
     }
     if (![value isKindOfClass:NSString.class]) return NO;
     NSString *lower = [(NSString *)value lowercaseString];
-    if ([lower isEqualToString:@"1"] || [lower isEqualToString:@"true"] || [lower isEqualToString:@"yes"]) {
+    if ([lower isEqualToString:@"1"] || [lower isEqualToString:@"true"] ||
+        [lower isEqualToString:@"yes"]) {
         if (known) *known = YES;
         return YES;
     }
-    if ([lower isEqualToString:@"0"] || [lower isEqualToString:@"false"] || [lower isEqualToString:@"no"]) {
+    if ([lower isEqualToString:@"0"] || [lower isEqualToString:@"false"] ||
+        [lower isEqualToString:@"no"]) {
         if (known) *known = YES;
         return NO;
     }
     return NO;
+}
+
+// WAMCEvaluation encodes the semantic parameter family in bits 48..53:
+// 1=bool, 2=int64, 3=string, 4=double. That metadata is authoritative for
+// how an account ABProp should be presented. The Objective-C getter ABI remains
+// authoritative for how WAGRRuntimeValueStore installs the actual hook.
+static uint8_t WAGRNativeABSemanticType(WAGRABPropEntry *entry, NSDictionary *native) {
+    NSDictionary *mc = [native[@"mobileconfig"] isKindOfClass:NSDictionary.class]
+        ? native[@"mobileconfig"] : nil;
+    uint8_t nativeType = [mc[@"native_type"] respondsToSelector:@selector(unsignedCharValue)]
+        ? [mc[@"native_type"] unsignedCharValue] : 0;
+    if (nativeType >= 1 && nativeType <= 4) return nativeType;
+
+    if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) return 1;
+    if (WAGRRuntimeValueTypeIsSignedInteger(entry.typeCode) ||
+        WAGRRuntimeValueTypeIsUnsignedInteger(entry.typeCode)) return 2;
+    if (WAGRRuntimeValueTypeIsObject(entry.typeCode)) return 3;
+    if (WAGRRuntimeValueTypeIsFloatingPoint(entry.typeCode)) return 4;
+    return 0;
+}
+
+static NSString *WAGRNativeABDisplayName(WAGRABPropEntry *entry,
+                                         NSDictionary *native,
+                                         NSDictionary *mc) {
+    NSString *nativeName = [native[@"name"] isKindOfClass:NSString.class]
+        ? native[@"name"] : nil;
+    if (nativeName.length && ![nativeName hasPrefix:@"ABProp "]) return nativeName;
+
+    NSString *schemaName = WAGRNativeParameterPart(WAGRNativeMCName(mc));
+    if (schemaName.length) return schemaName;
+    return entry.selectorName.length ? entry.selectorName : @"ABProp";
+}
+
+static NSString *WAGRNativeABDisplayValue(uint8_t semanticType,
+                                          id raw,
+                                          NSString *runtimeText,
+                                          NSDictionary *native) {
+    if (semanticType == 1) {
+        if ([raw respondsToSelector:@selector(boolValue)]) return [raw boolValue] ? @"YES" : @"NO";
+        BOOL known = NO;
+        BOOL value = WAGRNativeBoolFromWireValue(native[@"value"], &known);
+        if (known) return value ? @"YES" : @"NO";
+    }
+    if (raw && raw != NSNull.null) return [raw description] ?: (runtimeText ?: @"?");
+    if (native[@"value"] && native[@"value"] != NSNull.null) return [native[@"value"] description] ?: @"?";
+    return runtimeText ?: @"?";
 }
 
 #pragma mark - WAAB account/runtime filter
@@ -145,15 +267,18 @@ static void WAGRNativeABApplyFilter(id self, SEL _cmd) {
             ? nativeIndex[entry.selectorName] : nil;
         BOOL overridden = WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.classMethod);
 
-        if (scope == 0 && !native) continue;      // Conta: only current gabp.*p entries.
-        if (scope == 2 && !overridden) continue; // Overrides.
+        if (scope == 0 && !native) continue;
+        if (scope == 2 && !overridden) continue;
 
         NSDictionary *mc = [native[@"mobileconfig"] isKindOfClass:NSDictionary.class]
             ? native[@"mobileconfig"] : @{};
         NSString *runtimeMCName = WAGRNativeMCName(mc) ?: @"";
-        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@",
+        NSString *nativeDisplayName = [native[@"name"] isKindOfClass:NSString.class]
+            ? native[@"name"] : @"";
+        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@",
             entry.selectorName ?: @"", entry.className ?: @"", entry.categoryName ?: @"",
-            native[@"code"] ?: @"", native[@"value"] ?: @"", runtimeMCName].lowercaseString;
+            native[@"code"] ?: @"", native[@"value"] ?: @"", runtimeMCName,
+            nativeDisplayName].lowercaseString;
         BOOL matches = YES;
         for (NSString *token in tokens) {
             if (![haystack containsString:token]) { matches = NO; break; }
@@ -168,32 +293,69 @@ static void WAGRNativeABApplyFilter(id self, SEL _cmd) {
 
     NSArray<WAGRABPropEntry *> *filtered = [bestBySelector.allValues sortedArrayUsingComparator:
         ^NSComparisonResult(WAGRABPropEntry *left, WAGRABPropEntry *right) {
-            NSString *leftFamily = WAGRLiveRuntimeFamilyForSelector(left.selectorName, left.className) ?: @"";
-            NSString *rightFamily = WAGRLiveRuntimeFamilyForSelector(right.selectorName, right.className) ?: @"";
-            NSComparisonResult result = [leftFamily localizedCaseInsensitiveCompare:rightFamily];
-            if (result != NSOrderedSame) return result;
+            if (scope == 1) {
+                NSString *leftFamily = WAGRLiveRuntimeFamilyForSelector(left.selectorName, left.className) ?: @"";
+                NSString *rightFamily = WAGRLiveRuntimeFamilyForSelector(right.selectorName, right.className) ?: @"";
+                NSComparisonResult familyResult = [leftFamily localizedCaseInsensitiveCompare:rightFamily];
+                if (familyResult != NSOrderedSame) return familyResult;
+            }
             return [left.selectorName localizedCaseInsensitiveCompare:right.selectorName];
         }];
 
     NSMutableDictionary<NSString *, NSMutableArray<WAGRABPropEntry *> *> *groups = [NSMutableDictionary dictionary];
-    for (WAGRABPropEntry *entry in filtered) {
-        NSString *family = WAGRLiveRuntimeFamilyForSelector(entry.selectorName, entry.className);
-        if (!family.length) family = @"Runtime";
-        if (!groups[family]) groups[family] = [NSMutableArray array];
-        [groups[family] addObject:entry];
+    NSArray<NSString *> *sectionKeys = nil;
+    if (scope == 1) {
+        for (WAGRABPropEntry *entry in filtered) {
+            NSString *family = WAGRLiveRuntimeFamilyForSelector(entry.selectorName, entry.className);
+            if (!family.length) family = @"Runtime";
+            if (!groups[family]) groups[family] = [NSMutableArray array];
+            [groups[family] addObject:entry];
+        }
+        sectionKeys = [groups.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    } else {
+        // A Conta is one native inset-grouped list. Previously every hidden
+        // runtime-family section became its own rounded card, which produced the
+        // large black gaps visible in the screenshot.
+        groups[@"Conta"] = [filtered mutableCopy] ?: [NSMutableArray array];
+        sectionKeys = @[ @"Conta" ];
     }
-    NSArray<NSString *> *sectionKeys = [groups.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
     WAGRNativeSetKVC(self, @"sectionKeys", sectionKeys ?: @[]);
     WAGRNativeSetKVC(self, @"sections", groups ?: @{});
 
     WAGRABPropsNativeSnapshot *snapshot = WAGRNativeKVC(self, @"nativeSnapshot");
     NSUInteger cacheCount = snapshot.numericPropCount;
     search.searchBar.placeholder = cacheCount
-        ? [NSString stringWithFormat:@"Buscar · %lu cache · %lu métodos", (unsigned long)cacheCount, (unsigned long)allEntries.count]
-        : [NSString stringWithFormat:@"Buscar · %lu métodos runtime", (unsigned long)allEntries.count];
+        ? [NSString stringWithFormat:@"Buscar em %lu ABProps", (unsigned long)cacheCount]
+        : [NSString stringWithFormat:@"Buscar em %lu getters", (unsigned long)allEntries.count];
 
     UIViewController *controller = (UIViewController *)self;
-    controller.title = scope == 0 ? @"WAAB · Conta" : (scope == 1 ? @"WAAB · Runtime" : @"WAAB · Overrides");
+    NSString *title = scope == 0 ? @"WAAB · Conta" : (scope == 1 ? @"WAAB · Runtime" : @"WAAB · Overrides");
+    NSString *subtitle = nil;
+    BOOL fetching = [WAGRNativeKVC(self, @"fetching") boolValue];
+    NSString *lastFetch = [WAGRNativeKVC(self, @"lastFetchNote") isKindOfClass:NSString.class]
+        ? WAGRNativeKVC(self, @"lastFetchNote") : nil;
+    if (fetching) {
+        subtitle = cacheCount ? [NSString stringWithFormat:@"%lu ABProps · buscando…", (unsigned long)cacheCount]
+                              : @"Buscando ABProps…";
+    } else if (scope == 0) {
+        if (tokens.count) {
+            subtitle = [NSString stringWithFormat:@"%lu resultados · %lu ABProps",
+                (unsigned long)filtered.count, (unsigned long)cacheCount];
+        } else if ([lastFetch containsString:@"recebeu delta"] || [lastFetch containsString:@"cache atualizado"]) {
+            subtitle = [NSString stringWithFormat:@"%lu ABProps · cache atualizado", (unsigned long)cacheCount];
+        } else if ([lastFetch containsString:@"nenhum delta"] || [lastFetch containsString:@"request enviado"]) {
+            subtitle = [NSString stringWithFormat:@"%lu ABProps · request concluído", (unsigned long)cacheCount];
+        } else {
+            subtitle = [NSString stringWithFormat:@"%lu ABProps · %lu correlacionadas",
+                (unsigned long)cacheCount, (unsigned long)filtered.count];
+        }
+    } else if (scope == 2) {
+        subtitle = [NSString stringWithFormat:@"%lu overrides", (unsigned long)filtered.count];
+    } else {
+        subtitle = [NSString stringWithFormat:@"%lu getters", (unsigned long)filtered.count];
+    }
+    controller.title = title;
+    WAGRNativeSetCenteredTitle(controller, title, subtitle);
     [((UITableViewController *)self).tableView reloadData];
 }
 
@@ -226,11 +388,14 @@ static UITableViewCell *WAGRNativeABCell(id self, SEL _cmd, UITableView *table, 
     WAGRMenuApplyCellStyle(cell, indexPath.row, entry.selectorName ?: @"abprop");
     cell.textLabel.font = WAGRNativeRowTitleFont();
     cell.detailTextLabel.font = WAGRNativeRowDetailFont();
-    cell.textLabel.numberOfLines = 0;
-    cell.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
-    cell.detailTextLabel.numberOfLines = 0;
+    cell.textLabel.numberOfLines = 2;
+    cell.textLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    cell.detailTextLabel.numberOfLines = 1;
+    cell.detailTextLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     cell.textLabel.textColor = UIColor.labelColor;
     cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    cell.accessoryView = nil;
+    cell.accessoryType = UITableViewCellAccessoryNone;
     if (!entry) return cell;
 
     NSArray *runtimeObjects = WAGRNativeKVC(self, @"runtimeObjects") ?: @[];
@@ -240,39 +405,47 @@ static UITableViewCell *WAGRNativeABCell(id self, SEL _cmd, UITableView *table, 
     id forced = WAGRRuntimeValueOverride(entry.className, entry.selectorName, entry.classMethod);
     NSDictionary *native = WAGRNativeEntryForAB(self, entry);
     NSDictionary *mc = [native[@"mobileconfig"] isKindOfClass:NSDictionary.class] ? native[@"mobileconfig"] : @{};
+    uint8_t semanticType = WAGRNativeABSemanticType(entry, native ?: @{});
 
-    cell.textLabel.text = entry.selectorName ?: @"?";
-    NSMutableString *detail = [NSMutableString stringWithString:current];
-    if (overridden) [detail appendString:@" · Override"];
+    cell.textLabel.text = WAGRNativeABDisplayName(entry, native ?: @{}, mc);
+    id effectiveRaw = overridden ? forced : raw;
+    NSString *displayValue = WAGRNativeABDisplayValue(semanticType, effectiveRaw, current, native ?: @{});
+    NSMutableString *detail = [NSMutableString stringWithString:displayValue ?: @"?"];
     if (native) [detail appendFormat:@" · AB %@", native[@"code"] ?: @"?"];
+    if (overridden) [detail appendString:@" · override"];
 
     BOOL cacheMismatch = NO;
-    if (!overridden && native && WAGRRuntimeValueTypeIsBoolean(entry.typeCode) &&
-        [raw respondsToSelector:@selector(boolValue)]) {
+    if (!overridden && native && semanticType == 1 && [raw respondsToSelector:@selector(boolValue)]) {
         BOOL known = NO;
         BOOL cacheValue = WAGRNativeBoolFromWireValue(native[@"value"], &known);
-        if (known && cacheValue != [raw boolValue]) {
-            cacheMismatch = YES;
-            [detail appendFormat:@" · cache %@", cacheValue ? @"YES" : @"NO"];
-        }
+        if (known && cacheValue != [raw boolValue]) cacheMismatch = YES;
     }
-
-    NSString *mcName = WAGRNativeMCName(mc);
-    if (mcName.length) [detail appendFormat:@"\n%@", mcName];
     cell.detailTextLabel.text = detail;
-    cell.detailTextLabel.textColor = cacheMismatch ? UIColor.systemOrangeColor : UIColor.secondaryLabelColor;
+    cell.detailTextLabel.textColor = overridden ? UIColor.systemBlueColor
+        : (cacheMismatch ? UIColor.systemOrangeColor : UIColor.secondaryLabelColor);
 
-    if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
-        UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class]
-            ? (UISwitch *)cell.accessoryView : [UISwitch new];
-        if (toggle != cell.accessoryView) {
-            [toggle addTarget:self action:NSSelectorFromString(@"wagr_nativeABSwitchChanged:")
-              forControlEvents:UIControlEventValueChanged];
-            cell.accessoryView = toggle;
+    if (semanticType == 1) {
+        UISwitch *toggle = [UISwitch new];
+        [toggle addTarget:self action:NSSelectorFromString(@"wagr_nativeABSwitchChanged:")
+          forControlEvents:UIControlEventValueChanged];
+        objc_setAssociatedObject(toggle, kWAGRNativeABEntryKey, entry,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+        BOOL known = NO;
+        BOOL on = NO;
+        if (overridden && [forced respondsToSelector:@selector(boolValue)]) {
+            on = [forced boolValue];
+            known = YES;
+        } else if ([raw respondsToSelector:@selector(boolValue)]) {
+            on = [raw boolValue];
+            known = YES;
+        } else if (native) {
+            on = WAGRNativeBoolFromWireValue(native[@"value"], &known);
         }
-        objc_setAssociatedObject(toggle, kWAGRNativeABEntryKey, entry, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        toggle.on = overridden ? [forced boolValue] : [raw boolValue];
-        toggle.onTintColor = UIColor.systemGreenColor;
+        toggle.on = known ? on : NO;
+        // WhatsApp/native value = green. WATweaks forced value = blue.
+        toggle.onTintColor = overridden ? UIColor.systemBlueColor : UIColor.systemGreenColor;
+        cell.accessoryView = toggle;
         cell.accessoryType = UITableViewCellAccessoryNone;
     } else {
         cell.accessoryView = nil;
@@ -285,8 +458,12 @@ static void WAGRNativeABSwitchChanged(id self, SEL _cmd, UISwitch *sender) {
     (void)_cmd;
     WAGRABPropEntry *entry = objc_getAssociatedObject(sender, kWAGRNativeABEntryKey);
     if (!entry) return;
-    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName, entry.classMethod, entry.typeCode, @(sender.isOn));
-    if (!WAGRRuntimeValueInstallHook(entry.className, entry.selectorName, entry.classMethod, entry.typeCode)) {
+    // Use the getter's real ABI typeCode for the hook. Semantic bool only controls
+    // the UI/value we request; it must never lie about the Objective-C ABI.
+    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName,
+                                entry.classMethod, entry.typeCode, @(sender.isOn));
+    if (!WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
+                                     entry.classMethod, entry.typeCode)) {
         WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.classMethod);
     }
     ((void (*)(id, SEL))objc_msgSend)(self, NSSelectorFromString(@"applyCurrentFilter"));
@@ -302,9 +479,9 @@ static UITableViewCell *WAGRNativeSurfaceCell(id self, SEL _cmd, UITableView *ta
     WAGRMenuApplyCellStyle(cell, indexPath.row, entry.selectorName ?: @"runtime");
     cell.textLabel.font = WAGRNativeRowTitleFont();
     cell.detailTextLabel.font = WAGRNativeRowDetailFont();
-    cell.textLabel.numberOfLines = 0;
-    cell.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
-    cell.detailTextLabel.numberOfLines = 0;
+    cell.textLabel.numberOfLines = 2;
+    cell.textLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    cell.detailTextLabel.numberOfLines = 1;
     cell.textLabel.textColor = UIColor.labelColor;
     cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
     if (!entry) return cell;
@@ -317,19 +494,18 @@ static UITableViewCell *WAGRNativeSurfaceCell(id self, SEL _cmd, UITableView *ta
 
     cell.textLabel.text = entry.selectorName ?: @"?";
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@%@",
-        entry.className ?: @"Runtime", current, overridden ? @" · Override" : @""];
+        entry.className ?: @"Runtime", current, overridden ? @" · override" : @""];
+    cell.detailTextLabel.textColor = overridden ? UIColor.systemBlueColor : UIColor.secondaryLabelColor;
 
     if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
-        UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class]
-            ? (UISwitch *)cell.accessoryView : [UISwitch new];
-        if (toggle != cell.accessoryView) {
-            [toggle addTarget:self action:NSSelectorFromString(@"wagr_nativeSurfaceSwitchChanged:")
-              forControlEvents:UIControlEventValueChanged];
-            cell.accessoryView = toggle;
-        }
-        objc_setAssociatedObject(toggle, kWAGRNativeSurfaceEntryKey, entry, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        UISwitch *toggle = [UISwitch new];
+        [toggle addTarget:self action:NSSelectorFromString(@"wagr_nativeSurfaceSwitchChanged:")
+          forControlEvents:UIControlEventValueChanged];
+        objc_setAssociatedObject(toggle, kWAGRNativeSurfaceEntryKey, entry,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         toggle.on = overridden ? [forced boolValue] : [raw boolValue];
-        toggle.onTintColor = UIColor.systemGreenColor;
+        toggle.onTintColor = overridden ? UIColor.systemBlueColor : UIColor.systemGreenColor;
+        cell.accessoryView = toggle;
         cell.accessoryType = UITableViewCellAccessoryNone;
     } else {
         cell.accessoryView = nil;
@@ -342,8 +518,10 @@ static void WAGRNativeSurfaceSwitchChanged(id self, SEL _cmd, UISwitch *sender) 
     (void)_cmd;
     WAGREntry *entry = objc_getAssociatedObject(sender, kWAGRNativeSurfaceEntryKey);
     if (!entry) return;
-    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName, entry.isClassMethod, entry.typeCode, @(sender.isOn));
-    if (!WAGRRuntimeValueInstallHook(entry.className, entry.selectorName, entry.isClassMethod, entry.typeCode)) {
+    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName,
+                                entry.isClassMethod, entry.typeCode, @(sender.isOn));
+    if (!WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
+                                     entry.isClassMethod, entry.typeCode)) {
         WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.isClassMethod);
     }
     ((void (*)(id, SEL))objc_msgSend)(self, NSSelectorFromString(@"applyCurrentFilter"));
@@ -412,6 +590,7 @@ static void WAGRNativeABViewDidLoad(id self, SEL _cmd) {
     search.searchBar.selectedScopeButtonIndex = 0;
     search.searchBar.delegate = self;
     ((UIViewController *)self).title = @"WAAB · Conta";
+    WAGRNativeSetCenteredTitle((UIViewController *)self, @"WAAB · Conta", @"Carregando ABProps…");
 }
 
 static void WAGRNativeSurfaceViewDidLoad(id self, SEL _cmd) {
