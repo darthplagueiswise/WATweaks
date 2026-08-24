@@ -54,9 +54,7 @@ static void WAGRDogfoodMenuAlert(UIViewController *from,
                                   NSString *message) {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *presenter = from;
-        while (presenter.presentedViewController) {
-            presenter = presenter.presentedViewController;
-        }
+        while (presenter.presentedViewController) presenter = presenter.presentedViewController;
         UIAlertController *alert = [UIAlertController
             alertControllerWithTitle:title ?: @"Dogfood"
             message:message ?: @""
@@ -141,10 +139,8 @@ static BOOL WAGRRuntimePathIsSharedModules(NSString *path) {
 static WAGRSurfaceSpec *WAGRRuntimeSurfaceForKind(WAGRRuntimeImageKind kind) {
     for (WAGRSurfaceSpec *surface in [WAGRScanner runtimeImageSurfaces]) {
         NSString *path = surface.runtimeImagePath ?: @"";
-        if (kind == WAGRRuntimeImageKindExecutable &&
-            WAGRRuntimePathIsExecutable(path)) return surface;
-        if (kind == WAGRRuntimeImageKindSharedModules &&
-            WAGRRuntimePathIsSharedModules(path)) return surface;
+        if (kind == WAGRRuntimeImageKindExecutable && WAGRRuntimePathIsExecutable(path)) return surface;
+        if (kind == WAGRRuntimeImageKindSharedModules && WAGRRuntimePathIsSharedModules(path)) return surface;
     }
     return nil;
 }
@@ -153,8 +149,7 @@ static NSString *WAGRRuntimeAvailableImages(void) {
     NSMutableArray<NSString *> *lines = [NSMutableArray array];
     for (WAGRSurfaceSpec *surface in [WAGRScanner runtimeImageSurfaces]) {
         [lines addObject:[NSString stringWithFormat:@"%@\n%@",
-            surface.title ?: @"Runtime",
-            surface.runtimeImagePath ?: @"sem path"]];
+            surface.title ?: @"Runtime", surface.runtimeImagePath ?: @"sem path"]];
     }
     return lines.count ? [lines componentsJoinedByString:@"\n\n"]
                        : @"Nenhuma imagem com getters tipados foi descoberta agora.";
@@ -164,17 +159,14 @@ static void WAGROpenRuntimeImage(UIViewController *from,
                                  WAGRRuntimeImageKind kind) {
     WAGRSurfaceSpec *surface = WAGRRuntimeSurfaceForKind(kind);
     if (!surface) {
-        NSString *wanted = kind == WAGRRuntimeImageKindExecutable
-            ? @"WhatsApp Executable" : @"SharedModules";
+        NSString *wanted = kind == WAGRRuntimeImageKindExecutable ? @"WhatsApp" : @"SharedModules";
         WAGRDogfoodMenuAlert(from, @"Runtime",
-            [NSString stringWithFormat:
-                @"Imagem %@ não encontrada no snapshot atual.\n\nImagens descobertas:\n%@",
+            [NSString stringWithFormat:@"Imagem %@ não encontrada no snapshot atual.\n\nImagens descobertas:\n%@",
                 wanted, WAGRRuntimeAvailableImages()]);
         return;
     }
     [from.navigationController pushViewController:
-        [[WAGRSurfaceBrowserVC alloc] initWithSpec:surface]
-        animated:YES];
+        [[WAGRSurfaceBrowserVC alloc] initWithSpec:surface] animated:YES];
 }
 
 %hook WAGRMainSettingsVC
@@ -183,17 +175,12 @@ static void WAGROpenRuntimeImage(UIViewController *from,
     %orig;
 
     NSArray<WATSection *> *sections = nil;
-    @try {
-        sections = [self valueForKey:@"_sections"];
-    } @catch (__unused NSException *exception) {
-        return;
-    }
+    @try { sections = [self valueForKey:@"_sections"]; }
+    @catch (__unused NSException *exception) { return; }
     if (![sections isKindOfClass:NSArray.class]) return;
 
     NSMutableArray<WATSection *> *patchedSections = [sections mutableCopy];
-    for (NSUInteger sectionIndex = 0;
-         sectionIndex < patchedSections.count;
-         sectionIndex++) {
+    for (NSUInteger sectionIndex = 0; sectionIndex < patchedSections.count; sectionIndex++) {
         WATSection *section = patchedSections[sectionIndex];
 
         if ([section.header isEqualToString:@"Dogfood / Internal"]) {
@@ -202,117 +189,84 @@ static void WAGROpenRuntimeImage(UIViewController *from,
                 if (WAGRDogfoodRowIsRedundant(row)) continue;
                 if ([row.title isEqualToString:@"★ Employee master"] ||
                     [row.title isEqualToString:@"Employee / Internal"]) {
-                    row.title = @"Employee / Internal / Tester / Dogfood";
-                    row.subtitle =
-                        @"Identidade interna, build Debug object, AB Props dogfood, "
-                         "Private Experimentation e Developer Menu";
+                    row.title = @"Employee / Internal / Dogfood";
+                    row.subtitle = nil;
                 }
                 [rows addObject:row];
             }
 
             WATCell *sweep = WAGRDogfoodSwitch(
-                @"Employee sweep runtime",
-                @"Descoberta pós-launch restrita a getters BOOL allowlisted",
-                @"scope",
-                ^BOOL{
-                    return WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP);
-                },
+                @"Employee runtime sweep", nil, @"scope",
+                ^BOOL{ return WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP); },
                 ^(BOOL enabled) {
                     NSUInteger changed = WAGREmployeeSweepSetEnabled(enabled);
                     NSLog(@"[WATweaks][EmployeeSweep] %@ changed=%lu",
-                          enabled ? @"enabled" : @"disabled",
-                          (unsigned long)changed);
+                          enabled ? @"enabled" : @"disabled", (unsigned long)changed);
                 });
 
             NSUInteger insertIndex = rows.count > 0 ? 1 : 0;
             [rows insertObject:sweep atIndex:MIN(insertIndex, rows.count)];
 
             [rows addObject:WAGRDogfoodAction(
-                @"Abrir Developer Menu nativo",
-                @"Usa DebugMenuProvider.presentDebugControllerIfNeeded",
-                @"ladybug.fill",
+                @"Developer Menu", nil, @"ladybug",
                 ^(UIViewController *from) {
                     NSError *error = nil;
                     if (!WAGRLaunchNativeDeveloperMenu(from, &error)) {
                         WAGRDogfoodMenuAlert(from, @"Developer Menu",
-                            error.localizedDescription ?:
-                                @"O opener nativo não ficou disponível.");
+                            error.localizedDescription ?: @"O opener nativo não ficou disponível.");
                     }
                 })];
 
             [rows addObject:WAGRDogfoodAction(
-                @"Abrir Private Experimentation",
-                @"Reutiliza o userContext real capturado pelo Developer Menu",
-                @"testtube.2",
+                @"Private Experimentation", nil, @"testtube.2",
                 ^(UIViewController *from) {
                     NSError *error = nil;
                     if (!WAGRLaunchPrivateExperimentationDebug(from, &error)) {
                         WAGRDogfoodMenuAlert(from, @"Private Experimentation",
-                            error.localizedDescription ?:
-                                @"Abra o Developer Menu nativo primeiro.");
+                            error.localizedDescription ?: @"Abra o Developer Menu nativo primeiro.");
                     }
                 })];
 
             [rows addObject:WAGRDogfoodAction(
-                @"Diagnóstico Employee / Dogfood",
-                @"Build type object, hooks determinísticos, gates e sweep da sessão",
-                @"stethoscope",
+                @"Diagnóstico Employee / Dogfood", nil, @"stethoscope",
                 ^(UIViewController *from) {
-                    NSString *message = [NSString stringWithFormat:
-                        @"%@\n\n[Sweep]\n%@",
+                    NSString *message = [NSString stringWithFormat:@"%@\n\n[Sweep]\n%@",
                         WAGRDogfoodDiagnosticText() ?: @"n/a",
                         WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
-                    WAGRDogfoodMenuAlert(from,
-                        @"Employee / Internal / Tester / Dogfood", message);
+                    WAGRDogfoodMenuAlert(from, @"Employee / Internal / Dogfood", message);
                 })];
 
-            section.footer =
-                @"O master é live para predicates Objective-C e para o build-type "
-                 "object. O browser AB Props tenta primeiro o controller/factory "
-                 "nativo e usa enumeração runtime apenas como fallback.";
+            section.footer = nil;
             section.rows = rows;
             patchedSections[sectionIndex] = section;
             continue;
         }
 
         if ([section.header isEqualToString:@"Runtime Gates"]) {
-            section.footer =
-                @"As imagens são resolvidas em runtime a cada toque. "
-                 "Não existem IDs fixos exec/sharedmodules.";
+            section.footer = nil;
             section.rows = @[
                 WAGRDogfoodNav(
-                    @"Runtime em Tempo Real",
-                    @"Famílias reconstruídas das classes, imagens, selectors e ABIs carregados agora",
-                    @"waveform.path.ecg",
+                    @"Runtime em tempo real", nil, @"waveform.path.ecg",
                     ^(UIViewController *from) {
-                        [from.navigationController pushViewController:
-                            [WAGRRuntimeGatesVC new] animated:YES];
+                        [from.navigationController pushViewController:[WAGRRuntimeGatesVC new] animated:YES];
                     }),
                 WAGRDogfoodNav(
-                    @"WhatsApp Executable",
-                    @"Resolve o Mach-O principal no snapshot atual",
-                    @"app.dashed",
+                    @"WhatsApp", nil, @"app.dashed",
                     ^(UIViewController *from) {
-                        WAGROpenRuntimeImage(from,
-                            WAGRRuntimeImageKindExecutable);
+                        WAGROpenRuntimeImage(from, WAGRRuntimeImageKindExecutable);
                     }),
                 WAGRDogfoodNav(
-                    @"SharedModules",
-                    @"Resolve SharedModules.framework no snapshot atual",
-                    @"shippingbox.fill",
+                    @"SharedModules", nil, @"shippingbox",
                     ^(UIViewController *from) {
-                        WAGROpenRuntimeImage(from,
-                            WAGRRuntimeImageKindSharedModules);
+                        WAGROpenRuntimeImage(from, WAGRRuntimeImageKindSharedModules);
                     }),
             ];
             patchedSections[sectionIndex] = section;
         }
     }
 
-    @try {
-        [self setValue:patchedSections forKey:@"_sections"];
-    } @catch (__unused NSException *exception) {
-    }
+    @try { [self setValue:patchedSections forKey:@"_sections"]; }
+    @catch (__unused NSException *exception) {}
 }
 
 %end
