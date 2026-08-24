@@ -2,6 +2,7 @@
 #import "WAGRMenuTheme.h"
 #import "WAGRRuntimeValueEditor.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
+#import "../Runtime/WAGRABPropsNativeStore.h"
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRSurface.h"
 #import <objc/runtime.h>
@@ -23,9 +24,14 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 @property(nonatomic, strong) NSArray<WAGRABPropEntry *> *allEntries;
 @property(nonatomic, strong) NSArray<NSString *> *sectionKeys;
 @property(nonatomic, strong) NSDictionary<NSString *, NSArray<WAGRABPropEntry *> *> *sections;
+@property(nonatomic, strong) NSDictionary<NSString *, NSDictionary *> *nativeEntriesBySelector;
+@property(nonatomic, strong) WAGRABPropsNativeSnapshot *nativeSnapshot;
 @property(nonatomic, strong) UISearchController *searchController;
+@property(nonatomic, strong) UIBarButtonItem *fetchButton;
 @property(nonatomic, assign) BOOL didScan;
 @property(nonatomic, assign) BOOL scanning;
+@property(nonatomic, assign) BOOL fetching;
+@property(nonatomic, copy) NSString *lastFetchNote;
 @end
 
 @implementation WAGRABPropsBrowserVC
@@ -38,64 +44,185 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
     _allEntries = @[];
     _sectionKeys = @[];
     _sections = @{};
-    self.title = @"AB Props · Runtime";
+    _nativeEntriesBySelector = @{};
+    _lastFetchNote = @"";
+    self.title = @"WAAB Runtime";
     return self;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
-    self.tableView.estimatedRowHeight = 76.0;
+    self.tableView.estimatedRowHeight = 94.0;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
 
     UISearchController *search = [[UISearchController alloc] initWithSearchResultsController:nil];
     search.searchResultsUpdater = self;
     search.obscuresBackgroundDuringPresentation = NO;
     search.searchBar.delegate = self;
-    search.searchBar.placeholder = @"Buscar família, classe, selector ou tipo";
+    search.searchBar.placeholder = @"Buscar selector, AB ID ou param";
     search.searchBar.scopeButtonTitles = @[ @"Todos", @"BOOL", @"Números", @"Objetos", @"Overrides" ];
     search.searchBar.selectedScopeButtonIndex = WAGRABBrowserScopeAll;
     self.navigationItem.searchController = search;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
     self.definesPresentationContext = YES;
     self.searchController = search;
+    WAGRMenuApplySearchGlass(search.searchBar);
 
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
         target:self action:@selector(scanNow)];
-    UIBarButtonItem *active = [[UIBarButtonItem alloc]
-        initWithTitle:@"Ativos" style:UIBarButtonItemStylePlain
-        target:self action:@selector(showActiveOverrides)];
-    self.navigationItem.rightBarButtonItems = @[refresh, active];
+    self.fetchButton = [[UIBarButtonItem alloc]
+        initWithTitle:@"Fetch" style:UIBarButtonItemStyleDone
+        target:self action:@selector(fetchNow)];
+    self.navigationItem.rightBarButtonItems = @[refresh, self.fetchButton];
 
     UIRefreshControl *pull = [UIRefreshControl new];
     [pull addTarget:self action:@selector(scanNow) forControlEvents:UIControlEventValueChanged];
     self.refreshControl = pull;
 }
 
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    WAGRMenuApplySearchGlass(self.searchController.searchBar);
+}
+
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    if (!self.didScan) [self scanNow];
+    // Re-read both the loaded Objective-C layer and gabp.*p whenever this screen
+    // becomes visible. Fetch may have happened in the native snapshot screen.
+    [self scanNow];
+}
+
+#pragma mark - Live/native correlation
+
+static NSDictionary<NSString *, NSDictionary *> *WAGRABNativeIndexForSnapshot(
+    WAGRABPropsNativeSnapshot *snapshot) {
+    if (!snapshot) return @{};
+    NSDictionary *document = WAGRABPropsNativeExportDocument(snapshot);
+    NSArray *entries = [document[@"entries"] isKindOfClass:NSArray.class]
+        ? document[@"entries"] : @[];
+    NSMutableDictionary<NSString *, NSDictionary *> *index = [NSMutableDictionary dictionary];
+    for (id object in entries) {
+        if (![object isKindOfClass:NSDictionary.class]) continue;
+        NSDictionary *entry = object;
+        NSString *name = [entry[@"name"] isKindOfClass:NSString.class] ? entry[@"name"] : nil;
+        if (!name.length || [name hasPrefix:@"ABProp "]) continue;
+        if (!index[name]) index[name] = entry;
+    }
+    return index;
+}
+
+- (NSDictionary *)nativeEntryForRuntimeEntry:(WAGRABPropEntry *)entry {
+    if (!entry.selectorName.length) return nil;
+    return self.nativeEntriesBySelector[entry.selectorName];
+}
+
+static NSString *WAGRABCompactValue(id value) {
+    if (!value || value == NSNull.null) return @"nil";
+    NSString *text = [value description] ?: @"?";
+    text = [text stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+    if (text.length > 72) text = [[text substringToIndex:72] stringByAppendingString:@"…"];
+    return text;
+}
+
+static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
+    if (known) *known = NO;
+    if ([value isKindOfClass:NSNumber.class]) {
+        if (known) *known = YES;
+        return [value boolValue];
+    }
+    if (![value isKindOfClass:NSString.class]) return NO;
+    NSString *lower = [(NSString *)value lowercaseString];
+    if ([lower isEqualToString:@"1"] || [lower isEqualToString:@"true"] ||
+        [lower isEqualToString:@"yes"]) {
+        if (known) *known = YES;
+        return YES;
+    }
+    if ([lower isEqualToString:@"0"] || [lower isEqualToString:@"false"] ||
+        [lower isEqualToString:@"no"]) {
+        if (known) *known = YES;
+        return NO;
+    }
+    return NO;
 }
 
 - (void)scanNow {
     if (self.scanning) return;
     self.scanning = YES;
     self.didScan = YES;
-    self.title = @"Lendo WAABProperties vivo…";
+    self.title = @"Lendo WAAB + cache…";
+
     id context = self.userContext;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSArray *objects = WAGRABPropsResolveRuntimeObjects(context);
         NSArray<WAGRABPropEntry *> *entries = WAGRABPropsScan(objects);
+        WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshot(NULL);
+        NSDictionary *nativeIndex = WAGRABNativeIndexForSnapshot(snapshot);
+
         dispatch_async(dispatch_get_main_queue(), ^{
             self.scanning = NO;
             [self.refreshControl endRefreshing];
             self.runtimeObjects = objects ?: @[];
             self.allEntries = entries ?: @[];
+            self.nativeSnapshot = snapshot;
+            self.nativeEntriesBySelector = nativeIndex ?: @{};
             [self applyCurrentFilter];
         });
     });
 }
+
+#pragma mark - Fetch
+
+- (void)fetchNow {
+    if (self.fetching) return;
+    self.fetching = YES;
+    self.fetchButton.enabled = NO;
+
+    WAGRABPropsNativeSnapshot *beforeSnapshot = self.nativeSnapshot ?: WAGRABPropsReadNativeSnapshot(NULL);
+    NSString *before = beforeSnapshot.fingerprint ?: @"";
+    self.title = @"Enviando Fetch ABProps…";
+
+    NSString *diagnostic = nil;
+    BOOL invoked = WAGRABPropsTriggerNativeFetch(self.userContext, &diagnostic);
+    if (!invoked) {
+        self.fetching = NO;
+        self.fetchButton.enabled = YES;
+        self.lastFetchNote = diagnostic ?: @"Fetch nativo não enviado.";
+        [self applyCurrentFilter];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"ABProps Fetch"
+            message:self.lastFetchNote preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        BOOL changed = NO;
+        WAGRABPropsNativeSnapshot *latest = nil;
+        for (NSUInteger attempt = 0; attempt < 8; attempt++) {
+            [NSThread sleepForTimeInterval:0.5];
+            latest = WAGRABPropsReadNativeSnapshot(NULL);
+            NSString *fingerprint = latest.fingerprint ?: @"";
+            changed = fingerprint.length && ![fingerprint isEqualToString:before];
+            if (changed) break;
+        }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            self.fetching = NO;
+            self.fetchButton.enabled = YES;
+            self.lastFetchNote = changed
+                ? @"Último Fetch: cache gabp.*p recebeu delta; runtime e cache foram relidos."
+                : @"Último Fetch: request enviado; nenhum delta local observado. Runtime e cache foram relidos.";
+            [self scanNow];
+        });
+    });
+}
+
+#pragma mark - Filter
 
 static NSArray<NSString *> *WAGRABSearchTokens(NSString *query) {
     NSMutableArray<NSString *> *tokens = [NSMutableArray array];
@@ -133,15 +260,16 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
     NSMutableArray<WAGRABPropEntry *> *filtered = [NSMutableArray array];
     for (WAGRABPropEntry *entry in self.allEntries) {
         if (!WAGRABEntryMatchesScope(entry, scope)) continue;
+        NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
+        NSDictionary *mc = [native[@"mobileconfig"] isKindOfClass:NSDictionary.class]
+            ? native[@"mobileconfig"] : @{};
         NSString *liveFamily = WAGRLiveRuntimeFamilyForSelector(entry.selectorName,
                                                                  entry.className);
-        NSString *liveSubcategory = WAGRLiveRuntimeSubcategoryForEntry(entry.selectorName,
-                                                                        entry.className,
-                                                                        nil);
-        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@",
-            liveFamily ?: @"", liveSubcategory ?: @"", entry.categoryName ?: @"",
-            entry.selectorName ?: @"", entry.className ?: @"", entry.typeName ?: @"",
-            entry.sourceImage ?: @"", entry.classMethod ? @"class" : @"instance"].lowercaseString;
+        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@ %@ %@",
+            liveFamily ?: @"", entry.categoryName ?: @"", entry.selectorName ?: @"",
+            entry.className ?: @"", entry.typeName ?: @"", entry.sourceImage ?: @"",
+            native[@"code"] ?: @"", native[@"value"] ?: @"",
+            mc[@"parameter_name"] ?: @"", mc[@"config_name"] ?: @""].lowercaseString;
         BOOL matches = YES;
         for (NSString *token in tokens) {
             if (![haystack containsString:token]) { matches = NO; break; }
@@ -162,14 +290,7 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
                         @selector(localizedCaseInsensitiveCompare:)];
     self.sections = groups;
 
-    NSUInteger active = 0;
-    for (WAGRABPropEntry *entry in filtered) {
-        if (WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
-                                        entry.classMethod)) active++;
-    }
-    self.title = [NSString stringWithFormat:@"AB Props (%lu%@)",
-        (unsigned long)filtered.count,
-        active ? [NSString stringWithFormat:@" · %lu ativos", (unsigned long)active] : @""];
+    self.title = [NSString stringWithFormat:@"WAAB (%lu)", (unsigned long)filtered.count];
     [self.tableView reloadData];
 }
 
@@ -181,6 +302,8 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
  selectedScopeButtonIndexDidChange:(__unused NSInteger)selectedScope {
     [self applyCurrentFilter];
 }
+
+#pragma mark - Table
 
 - (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tableView {
     return (NSInteger)self.sectionKeys.count;
@@ -198,11 +321,24 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
         (unsigned long)self.sections[key].count];
 }
 
+- (void)tableView:(__unused UITableView *)tableView
+ willDisplayHeaderView:(UIView *)view
+        forSection:(__unused NSInteger)section {
+    if (![view isKindOfClass:UITableViewHeaderFooterView.class]) return;
+    UITableViewHeaderFooterView *header = (UITableViewHeaderFooterView *)view;
+    header.textLabel.numberOfLines = 0;
+    header.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
+}
+
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
-    return @"As seções são geradas dos selectors WAAB presentes agora, não das categorias do JSON. "
-            "O catálogo apenas enriquece origem e ABI conhecida; métodos novos entram pela enumeração viva. "
-            "Toque para editar qualquer retorno suportado e use Atualizar após carregar novos módulos.";
+    NSString *base = [NSString stringWithFormat:
+        @"WAAB = getters Objective-C carregados agora. Cache nativo = %lu ABProps em gabp.*p; %lu getters desta tela têm correlação direta por stable ID. Fetch relê os dois lados.",
+        (unsigned long)self.nativeSnapshot.numericPropCount,
+        (unsigned long)self.nativeEntriesBySelector.count];
+    return self.lastFetchNote.length
+        ? [base stringByAppendingFormat:@"\n%@", self.lastFetchNote]
+        : base;
 }
 
 - (WAGRABPropEntry *)entryAtIndexPath:(NSIndexPath *)indexPath {
@@ -216,8 +352,8 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     if (!overridden) return @"";
     if (!value) return @" · FORCE nil";
     NSString *description = [value description] ?: @"?";
-    if (description.length > 120) {
-        description = [[description substringToIndex:120] stringByAppendingString:@"…"];
+    if (description.length > 80) {
+        description = [[description substringToIndex:80] stringByAppendingString:@"…"];
     }
     return [NSString stringWithFormat:@" · FORCE %@", description];
 }
@@ -236,8 +372,10 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
     cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
-    cell.textLabel.numberOfLines = 1;
-    cell.detailTextLabel.numberOfLines = 4;
+    cell.textLabel.numberOfLines = 0;
+    cell.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
+    cell.detailTextLabel.numberOfLines = 0;
+    cell.detailTextLabel.lineBreakMode = NSLineBreakByCharWrapping;
     if (!entry) return cell;
 
     id raw = nil;
@@ -248,17 +386,39 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     id forced = WAGRRuntimeValueOverride(entry.className,
                                          entry.selectorName,
                                          entry.classMethod);
-    NSString *family = WAGRLiveRuntimeFamilyForSelector(entry.selectorName,
-                                                         entry.className);
+    NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
+    NSDictionary *mc = [native[@"mobileconfig"] isKindOfClass:NSDictionary.class]
+        ? native[@"mobileconfig"] : @{};
 
     cell.textLabel.text = [NSString stringWithFormat:@"%@%@",
         entry.classMethod ? @"+ " : @"- ", entry.selectorName];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\n%@ · %@\nAtual: %@%@",
-        entry.sourceImage ?: @"runtime", family ?: @"Other Runtime",
-        entry.className ?: @"Unknown", entry.typeName ?: @"?", current ?: @"?",
-        WAGRABOverrideDescription(forced, overridden)];
+
+    NSMutableString *detail = [NSMutableString stringWithFormat:@"Atual: %@%@",
+        current ?: @"?", WAGRABOverrideDescription(forced, overridden)];
+    if (native) {
+        [detail appendFormat:@"\nAB #%@ · cache %@",
+            native[@"code"] ?: @"?", WAGRABCompactValue(native[@"value"])];
+        NSString *parameterName = [mc[@"parameter_name"] isKindOfClass:NSString.class]
+            ? mc[@"parameter_name"] : nil;
+        NSString *configName = [mc[@"config_name"] isKindOfClass:NSString.class]
+            ? mc[@"config_name"] : nil;
+        if (parameterName.length) {
+            if (configName.length) [detail appendFormat:@"\nMC: %@.%@", configName, parameterName];
+            else [detail appendFormat:@"\nMC param: %@", parameterName];
+        }
+    }
+    cell.detailTextLabel.text = detail;
+
+    BOOL cacheMismatch = NO;
+    if (!overridden && native && WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
+        BOOL known = NO;
+        BOOL cacheBool = WAGRABNativeBoolValue(native[@"value"], &known);
+        if (known && [raw respondsToSelector:@selector(boolValue)]) {
+            cacheMismatch = ([raw boolValue] != cacheBool);
+        }
+    }
     cell.detailTextLabel.textColor = overridden ? UIColor.systemCyanColor
-                                                 : WAGRMenuSecondaryTextColor();
+        : (cacheMismatch ? UIColor.systemOrangeColor : WAGRMenuSecondaryTextColor());
 
     if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
         UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class]
@@ -290,13 +450,47 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     return cell;
 }
 
+#pragma mark - Overrides
+
+- (void)presentHookFailureForEntry:(WAGRABPropEntry *)entry readback:(NSString *)readback {
+    NSString *target = [NSString stringWithFormat:@"%@ %@%@",
+        entry.className ?: @"?", entry.classMethod ? @"+" : @"-", entry.selectorName ?: @"?"];
+    NSString *message = readback.length
+        ? [NSString stringWithFormat:@"O override não foi mantido.\n\n%@\nReadback: %@", target, readback]
+        : [NSString stringWithFormat:@"O hook exato não pôde ser instalado.\n\n%@", target];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Hook não aplicado"
+        message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)boolSwitchChanged:(UISwitch *)sender {
     WAGRABPropEntry *entry = objc_getAssociatedObject(sender, kWAGRABSwitchEntryKey);
     if (!entry) return;
+    BOOL requested = sender.isOn;
     WAGRRuntimeValueSetOverride(entry.className, entry.selectorName,
-                                entry.classMethod, entry.typeCode, @(sender.isOn));
-    (void)WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
-                                      entry.classMethod, entry.typeCode);
+                                entry.classMethod, entry.typeCode, @(requested));
+    BOOL installed = WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
+                                                  entry.classMethod, entry.typeCode);
+    if (!installed) {
+        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.classMethod);
+        id originalRaw = nil;
+        (void)WAGRABPropsCurrentValue(entry, self.runtimeObjects, &originalRaw);
+        sender.on = [originalRaw boolValue];
+        [self presentHookFailureForEntry:entry readback:nil];
+        [self applyCurrentFilter];
+        return;
+    }
+
+    id readbackRaw = nil;
+    NSString *readback = WAGRABPropsCurrentValue(entry, self.runtimeObjects, &readbackRaw);
+    BOOL verified = [readbackRaw respondsToSelector:@selector(boolValue)] &&
+                    ([readbackRaw boolValue] == requested);
+    if (!verified) {
+        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.classMethod);
+        sender.on = [readbackRaw boolValue];
+        [self presentHookFailureForEntry:entry readback:readback];
+    }
     [self applyCurrentFilter];
 }
 
@@ -323,12 +517,6 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     UITableViewCell *cell = (UITableViewCell *)gesture.view;
     NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
     if (indexPath) [self presentEditorForEntry:[self entryAtIndexPath:indexPath] fromView:cell];
-}
-
-- (void)showActiveOverrides {
-    self.searchController.searchBar.text = @"";
-    self.searchController.searchBar.selectedScopeButtonIndex = WAGRABBrowserScopeOverrides;
-    [self applyCurrentFilter];
 }
 
 @end
