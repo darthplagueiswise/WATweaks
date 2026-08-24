@@ -33,18 +33,19 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
-    self.tableView.estimatedRowHeight = 72.0;
+    self.tableView.estimatedRowHeight = 82.0;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
 
     UISearchController *search = [[UISearchController alloc] initWithSearchResultsController:nil];
     search.searchResultsUpdater = self;
     search.obscuresBackgroundDuringPresentation = NO;
-    search.searchBar.placeholder = @"Código, nome ou MobileConfig";
+    search.searchBar.placeholder = @"Código, getter ou param MobileConfig";
     self.navigationItem.searchController = search;
     self.navigationItem.hidesSearchBarWhenScrolling = YES;
     self.definesPresentationContext = YES;
     self.searchController = search;
+    WAGRMenuApplySearchGlass(search.searchBar);
 
     self.fetchButton = [[UIBarButtonItem alloc] initWithTitle:@"Fetch"
         style:UIBarButtonItemStyleDone target:self action:@selector(fetchNow)];
@@ -66,6 +67,11 @@
 
     [self installHeader];
     [self reloadLocalSnapshot];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    WAGRMenuApplySearchGlass(self.searchController.searchBar);
 }
 
 - (void)installHeader {
@@ -141,13 +147,27 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
 
     NSDictionary *mcResolution = [self.exportDocument[@"mobileconfig_resolution"]
         isKindOfClass:NSDictionary.class] ? self.exportDocument[@"mobileconfig_resolution"] : @{};
-    NSUInteger external = [mcResolution[@"external_config_stable_ids_resolved"] unsignedIntegerValue];
-    NSString *summary = external
-        ? [NSString stringWithFormat:@"%lu ABProps · %lu MC externos resolvidos",
-           (unsigned long)snapshot.numericPropCount, (unsigned long)external]
-        : [NSString stringWithFormat:@"%lu ABProps · %@",
-           (unsigned long)snapshot.numericPropCount,
-           WAGRABRedactedPayloadKey(snapshot.payloadKey)];
+    NSUInteger stableResolved = [mcResolution[@"config_stable_ids_resolved"] unsignedIntegerValue];
+    __block NSUInteger parameterNames = 0;
+    for (NSDictionary *entry in self.allEntries) {
+        NSDictionary *mc = [entry[@"mobileconfig"] isKindOfClass:NSDictionary.class]
+            ? entry[@"mobileconfig"] : nil;
+        if ([mc[@"parameter_name"] isKindOfClass:NSString.class] && [mc[@"parameter_name"] length]) {
+            parameterNames++;
+        }
+    }
+
+    NSString *summary = nil;
+    if (stableResolved || parameterNames) {
+        summary = [NSString stringWithFormat:@"%lu ABProps · %lu stable IDs · %lu param names",
+            (unsigned long)snapshot.numericPropCount,
+            (unsigned long)stableResolved,
+            (unsigned long)parameterNames];
+    } else {
+        summary = [NSString stringWithFormat:@"%lu ABProps · %@",
+            (unsigned long)snapshot.numericPropCount,
+            WAGRABRedactedPayloadKey(snapshot.payloadKey)];
+    }
     [self setStatus:summary progress:1.0f busy:NO];
 }
 
@@ -172,9 +192,6 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
         return;
     }
 
-    // Important semantic distinction: returning YES means the exact native
-    // requestFreshABProps:NO was dispatched. A changed local fingerprint is only
-    // evidence of a cache delta, not evidence that the network fetch happened.
     [self setStatus:@"Request ABProps enviado. Verificando se houve delta local…"
             progress:0.20f busy:YES];
 
@@ -182,8 +199,7 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         BOOL changed = NO;
         WAGRABPropsNativeSnapshot *latest = nil;
-        const NSUInteger attempts = 8; // 4 s; do not turn a no-delta response into a 12 s fake failure.
-        for (NSUInteger attempt = 0; attempt < attempts; attempt++) {
+        for (NSUInteger attempt = 0; attempt < 8; attempt++) {
             [NSThread sleepForTimeInterval:0.5];
             latest = WAGRABPropsReadNativeSnapshot(NULL);
             NSString *fingerprint = latest.fingerprint ?: @"";
@@ -228,11 +244,12 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
         for (NSDictionary *entry in self.allEntries) {
             NSDictionary *mc = [entry[@"mobileconfig"] isKindOfClass:NSDictionary.class]
                 ? entry[@"mobileconfig"] : @{};
-            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@ %@",
+            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@ %@ %@",
                 entry[@"code"] ?: @"", entry[@"name"] ?: @"", entry[@"value"] ?: @"",
                 entry[@"expoKey"] ?: @"", mc[@"local_config_index"] ?: @"",
                 mc[@"parameter_index"] ?: @"", mc[@"param_specifier_hex"] ?: @"",
-                mc[@"external_config_stable_id"] ?: @"", mc[@"parameter_name"] ?: @""].lowercaseString;
+                mc[@"config_stable_id"] ?: @"", mc[@"config_name"] ?: @"",
+                mc[@"parameter_name"] ?: @""].lowercaseString;
             BOOL matches = YES;
             for (NSString *token in tokens) {
                 if (token.length && ![haystack containsString:token]) {
@@ -281,24 +298,30 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
     WAGRMenuApplyCellStyle(cell, indexPath.row, name);
     cell.textLabel.font = WAGRMenuRuntimeTitleFont();
     cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
-    cell.textLabel.numberOfLines = 1;
-    cell.detailTextLabel.numberOfLines = 2;
+    cell.textLabel.numberOfLines = 0;
+    cell.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
+    cell.detailTextLabel.numberOfLines = 0;
+    cell.detailTextLabel.lineBreakMode = NSLineBreakByCharWrapping;
     cell.textLabel.text = name;
 
     NSDictionary *mc = [entry[@"mobileconfig"] isKindOfClass:NSDictionary.class]
         ? entry[@"mobileconfig"] : nil;
-    NSString *external = mc[@"external_config_stable_id"]
-        ? [mc[@"external_config_stable_id"] description] : nil;
+    NSString *stable = mc[@"config_stable_id"] ? [mc[@"config_stable_id"] description] : nil;
     NSString *parameterName = [mc[@"parameter_name"] isKindOfClass:NSString.class]
         ? mc[@"parameter_name"] : nil;
+    NSString *configName = [mc[@"config_name"] isKindOfClass:NSString.class]
+        ? mc[@"config_name"] : nil;
 
     NSMutableString *detail = [NSMutableString stringWithFormat:@"#%@ · valor %@",
         code, entry[@"value"] ?: @"nil"];
-    if (external.length) {
-        [detail appendFormat:@" · MC %@", external];
-        if (parameterName.length) [detail appendFormat:@" · %@", parameterName];
+    if (parameterName.length) {
+        if (configName.length) [detail appendFormat:@"\nMC: %@.%@", configName, parameterName];
+        else [detail appendFormat:@"\nMC param: %@", parameterName];
+    } else if (stable.length) {
+        [detail appendFormat:@" · MC %@ · p%@", stable, mc[@"parameter_index"] ?: @"?"];
     } else if (mc) {
-        [detail appendFormat:@" · local %@", mc[@"local_config_index"] ?: @"?"];
+        [detail appendFormat:@" · local %@ · p%@",
+            mc[@"local_config_index"] ?: @"?", mc[@"parameter_index"] ?: @"?"];
     }
     cell.detailTextLabel.text = detail;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
