@@ -18,9 +18,9 @@ UIFont *WAGRMenuRuntimeDetailFont(void);
 void WAGRMenuApplyTableStyle(UITableView * _Nullable tableView, UIViewController * _Nullable owner);
 void WAGRMenuApplyCellStyle(UITableViewCell *cell, NSInteger index, NSString * _Nullable key);
 
-/// Applies real UIKit Liquid Glass to the public UISearchBar chrome on iOS 26+.
-/// The search text field and scope UISegmentedControl receive UIGlassEffect;
-/// scrolling content rows intentionally remain ordinary inset-grouped cells.
+/// Keeps UISearchBar / scope controls on UIKit's native iOS 26+ Liquid Glass.
+/// It intentionally does not inject another visual-effect view into the text
+/// field, avoiding nested glass capsules while retaining the system material.
 void WAGRMenuApplySearchGlass(UISearchBar * _Nullable searchBar);
 
 UIImage * _Nullable WAGRMenuSymbol(NSString * _Nullable name, UIColor * _Nullable tint);
