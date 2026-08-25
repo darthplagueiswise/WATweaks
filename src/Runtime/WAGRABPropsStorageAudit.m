@@ -132,12 +132,25 @@ NSDictionary<NSString *, id> *WAGRABPropsStorageAudit(void) {
     // The purpose is to observe divergence before any explicit flush/reload can
     // destroy the evidence.
     NSUserDefaults *suiteDefaults = [[NSUserDefaults alloc] initWithSuiteName:kWAGRABAuditSuite];
-    NSDictionary *defaultsDomain = nil;
-    @try { defaultsDomain = suiteDefaults.dictionaryRepresentation ?: @{}; }
-    @catch (__unused NSException *exception) { defaultsDomain = @{}; }
+    NSDictionary *defaultsDomain = @{};
+    NSDictionary *persistentDomain = @{};
+    @try {
+        defaultsDomain = suiteDefaults.dictionaryRepresentation ?: @{};
+        persistentDomain = [suiteDefaults persistentDomainForName:kWAGRABAuditSuite] ?: @{};
+    } @catch (__unused NSException *exception) {
+        defaultsDomain = @{};
+        persistentDomain = @{};
+    }
 
     NSDictionary *anyHostDomain = WAGRABAuditCFDomain(kCFPreferencesAnyHost);
     NSDictionary *currentHostDomain = WAGRABAuditCFDomain(kCFPreferencesCurrentHost);
+
+    // Reconstruct WAGRABPropsNativeStore's current read order exactly:
+    // dictionaryRepresentation first, then CurrentUser/AnyHost values overwrite
+    // keys with the same name. The "Reader merged domain" count is therefore the
+    // number that can actually become AB Props (N) in the current snapshot UI.
+    NSMutableDictionary *readerMergedDomain = [defaultsDomain mutableCopy] ?: [NSMutableDictionary dictionary];
+    [readerMergedDomain addEntriesFromDictionary:anyHostDomain ?: @{}];
 
     NSURL *groupURL = [NSFileManager.defaultManager
         containerURLForSecurityApplicationGroupIdentifier:kWAGRABAuditSuite];
@@ -149,23 +162,29 @@ NSDictionary<NSString *, id> *WAGRABPropsStorageAudit(void) {
         : nil;
     NSDictionary *directDomain = WAGRABAuditReadPlist(directURL);
 
-    NSDictionary *defaultsSource = WAGRABAuditSource(@"NSUserDefaults suite", defaultsDomain);
+    NSDictionary *readerSource = WAGRABAuditSource(@"Reader merged domain", readerMergedDomain);
+    NSDictionary *defaultsSource = WAGRABAuditSource(@"NSUserDefaults dictionaryRepresentation", defaultsDomain);
+    NSDictionary *persistentSource = WAGRABAuditSource(@"NSUserDefaults persistentDomain", persistentDomain);
     NSDictionary *anyHostSource = WAGRABAuditSource(@"CFPreferences AnyHost", anyHostDomain);
     NSDictionary *currentHostSource = WAGRABAuditSource(@"CFPreferences CurrentHost", currentHostDomain);
     NSDictionary *directSource = WAGRABAuditSource(@"Physical AppGroup plist", directDomain);
 
-    NSUInteger liveCount = MAX([defaultsSource[@"numeric_count"] unsignedIntegerValue],
-                               [anyHostSource[@"numeric_count"] unsignedIntegerValue]);
+    NSUInteger readerCount = [readerSource[@"numeric_count"] unsignedIntegerValue];
+    NSUInteger persistentCount = [persistentSource[@"numeric_count"] unsignedIntegerValue];
     NSUInteger diskCount = [directSource[@"numeric_count"] unsignedIntegerValue];
-    BOOL diverged = liveCount != diskCount;
+    BOOL readerVsDisk = readerCount != diskCount;
+    BOOL persistentVsDisk = persistentCount != diskCount;
 
     return @{
         @"suite": kWAGRABAuditSuite,
         @"app_group_path": groupURL.path ?: @"",
-        @"live_count": @(liveCount),
+        @"reader_count": @(readerCount),
+        @"persistent_domain_count": @(persistentCount),
         @"physical_plist_count": @(diskCount),
-        @"live_vs_physical_diverged": @(diverged),
-        @"sources": @[defaultsSource, anyHostSource, currentHostSource, directSource],
+        @"reader_vs_physical_diverged": @(readerVsDisk),
+        @"persistent_vs_physical_diverged": @(persistentVsDisk),
+        @"sources": @[readerSource, defaultsSource, persistentSource,
+                       anyHostSource, currentHostSource, directSource],
         @"physical_plist": WAGRABAuditFileInfo(directURL),
         @"by_host_files": WAGRABAuditByHostFiles(preferencesURL),
         @"note": @"Read-only audit. No synchronize/write was performed before measurement."
@@ -215,11 +234,20 @@ NSString *WAGRABPropsStorageAuditText(void) {
         }
     }
 
-    BOOL diverged = [audit[@"live_vs_physical_diverged"] boolValue];
-    [text appendFormat:@"\nVerdict: %@\n",
-        diverged
-            ? @"CFPreferences/NSUserDefaults and the physical plist expose different ABProp counts."
-            : @"Live preference APIs and the physical plist expose the same ABProp count."];
+    NSUInteger readerCount = [audit[@"reader_count"] unsignedIntegerValue];
+    NSUInteger persistentCount = [audit[@"persistent_domain_count"] unsignedIntegerValue];
+    NSUInteger diskCount = [audit[@"physical_plist_count"] unsignedIntegerValue];
+    [text appendString:@"\nVerdict\n"];
+    [text appendFormat:@"  reader=%lu · persistent=%lu · physical=%lu\n",
+        (unsigned long)readerCount, (unsigned long)persistentCount, (unsigned long)diskCount];
+    if (readerCount != diskCount) {
+        [text appendString:@"  The exact preference view used by the snapshot differs from the physical main plist.\n"];
+    } else {
+        [text appendString:@"  The exact preference view used by the snapshot matches the physical main plist.\n"];
+    }
+    if (persistentCount != diskCount) {
+        [text appendString:@"  Even persistentDomain differs from direct file bytes; inspect cfprefsd/ByHost entries above.\n"];
+    }
     [text appendString:@"Measurement is read-only; no synchronize/write ran before this comparison."];
     return text;
 }
