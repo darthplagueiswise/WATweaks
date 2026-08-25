@@ -29,14 +29,17 @@ typedef NS_ENUM(NSInteger, WAGRResetScope) {
 typedef struct {
     NSUInteger runtimeValues;
     NSUInteger gateValues;
+    NSUInteger gateHookSpecs;
     NSUInteger preferences;
 } WAGRResetCounts;
 
-static NSString *WAGRResetUIDForSpec(NSDictionary *spec) {
-    NSString *className = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : nil;
-    NSString *selector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : nil;
-    BOOL meta = [spec[@"meta"] boolValue];
+static NSString *WAGRResetUID(NSString *className, NSString *selector, BOOL meta) {
     return WAGRRuntimeValueUID(className ?: @"", selector ?: @"", meta);
+}
+
+static NSString *WAGRResetUIDForSpec(NSDictionary *spec) {
+    return WAGRResetUID([spec[@"class"] description], [spec[@"selector"] description],
+                        [spec[@"meta"] boolValue]);
 }
 
 static NSString *WAGRResetImagePathForClass(NSString *className) {
@@ -60,27 +63,46 @@ static BOOL WAGRResetIsSharedModulesPath(NSString *path) {
     return [path.lastPathComponent caseInsensitiveCompare:@"SharedModules"] == NSOrderedSame;
 }
 
-static NSSet<NSString *> *WAGRResetABRuntimeUIDs(void) {
+// The live WAAB catalog is used only to distinguish ABProps from image-scoped
+// runtime overrides. This matters because most WAAB providers themselves live in
+// SharedModules: "remove SharedModules" must not silently mean "remove ABProps".
+static NSDictionary<NSString *, NSSet<NSString *> *> *WAGRResetABCatalog(void) {
     NSMutableSet<NSString *> *uids = [NSMutableSet set];
+    NSMutableSet<NSString *> *selectors = [NSMutableSet set];
     @try {
         id context = WAGRCurrentUserContext();
         NSArray *objects = WAGRABPropsResolveRuntimeObjects(context) ?: @[];
         for (WAGRABPropEntry *entry in WAGRABPropsScan(objects) ?: @[]) {
-            NSString *uid = WAGRRuntimeValueUID(entry.className ?: @"",
-                                                entry.selectorName ?: @"",
-                                                entry.classMethod);
+            NSString *uid = WAGRResetUID(entry.className, entry.selectorName, entry.classMethod);
             if (uid.length) [uids addObject:uid];
+            if (entry.selectorName.length) [selectors addObject:entry.selectorName];
         }
     } @catch (__unused NSException *exception) {}
-    return uids;
+    return @{ @"uids": uids, @"selectors": selectors };
 }
 
-static BOOL WAGRResetSpecLooksAB(NSDictionary *spec, NSSet<NSString *> *abUIDs) {
+static BOOL WAGRResetSpecLooksAB(NSDictionary *spec, NSDictionary *abCatalog) {
     NSString *uid = WAGRResetUIDForSpec(spec);
-    if (uid.length && [abUIDs containsObject:uid]) return YES;
+    if (uid.length && [abCatalog[@"uids"] containsObject:uid]) return YES;
     NSString *className = [[spec[@"class"] description] lowercaseString] ?: @"";
     return [className containsString:@"waabproperties"] ||
            [className containsString:@"foawaabproperties"];
+}
+
+static BOOL WAGRResetSpecMatchesImageScope(NSDictionary *spec,
+                                           WAGRResetScope scope,
+                                           NSDictionary *abCatalog) {
+    BOOL isAB = WAGRResetSpecLooksAB(spec, abCatalog);
+    if (scope == WAGRResetScopeABProps) return isAB;
+    if (isAB) return NO;
+
+    NSString *path = WAGRResetImagePathForClass([spec[@"class"] description] ?: @"");
+    BOOL isExec = WAGRResetIsExecutablePath(path);
+    BOOL isShared = WAGRResetIsSharedModulesPath(path);
+    if (scope == WAGRResetScopeExecutable) return isExec;
+    if (scope == WAGRResetScopeSharedModules) return isShared;
+    if (scope == WAGRResetScopeOtherRuntime) return path.length && !isExec && !isShared;
+    return NO;
 }
 
 static BOOL WAGRResetSpecContainsTokens(NSDictionary *spec, NSArray<NSString *> *tokens) {
@@ -94,8 +116,7 @@ static BOOL WAGRResetSpecContainsTokens(NSDictionary *spec, NSArray<NSString *> 
 
 static NSUInteger WAGRResetClearRuntimeMatching(BOOL (^matches)(NSDictionary *spec)) {
     NSUInteger removed = 0;
-    NSArray<NSDictionary *> *snapshot = WAGRRuntimeValueAllOverrideSpecs();
-    for (NSDictionary *spec in snapshot) {
+    for (NSDictionary *spec in [WAGRRuntimeValueAllOverrideSpecs() copy] ?: @[]) {
         if (matches && !matches(spec)) continue;
         NSString *className = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : nil;
         NSString *selector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : nil;
@@ -108,14 +129,52 @@ static NSUInteger WAGRResetClearRuntimeMatching(BOOL (^matches)(NSDictionary *sp
 
 static NSUInteger WAGRResetClearGateMatching(BOOL (^matches)(NSString *displayKey)) {
     NSUInteger removed = 0;
-    NSArray<NSString *> *snapshot = WAGRGateAllOverrides();
-    for (NSString *storedKey in snapshot) {
+    for (NSString *storedKey in [WAGRGateAllOverrides() copy] ?: @[]) {
         NSString *display = WAGRGateDisplayKey(storedKey) ?: storedKey;
         if (matches && !matches(display ?: @"")) continue;
         WAGRGateClear(storedKey);
         removed++;
     }
     return removed;
+}
+
+static NSUInteger WAGRResetForgetGateSpecsMatching(BOOL (^matches)(NSDictionary *spec)) {
+    NSUInteger removed = 0;
+    for (NSDictionary *spec in [WAGRGatePersistedHookSpecs() copy] ?: @[]) {
+        if (matches && !matches(spec)) continue;
+        NSString *className = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : nil;
+        NSString *selector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : nil;
+        if (!className.length || !selector.length) continue;
+        WAGRGateForgetHook(className, selector, [spec[@"meta"] boolValue]);
+        removed++;
+    }
+    return removed;
+}
+
+static void WAGRResetClearImageScopedGates(WAGRResetScope scope,
+                                            NSDictionary *abCatalog,
+                                            WAGRResetCounts *counts) {
+    if (!counts) return;
+    NSMutableSet<NSString *> *matchingSelectors = [NSMutableSet set];
+    for (NSDictionary *spec in WAGRGatePersistedHookSpecs() ?: @[]) {
+        if (!WAGRResetSpecMatchesImageScope(spec, scope, abCatalog)) continue;
+        NSString *selector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : nil;
+        if (selector.length) [matchingSelectors addObject:selector];
+    }
+
+    // ABProps can also have flat GateStore keys learned through the WAAB central
+    // key-based accessors. Include live AB selector names even if a concrete hook
+    // spec was not remembered for that exact key.
+    if (scope == WAGRResetScopeABProps) {
+        [matchingSelectors unionSet:abCatalog[@"selectors"] ?: [NSSet set]];
+    }
+
+    counts->gateValues += WAGRResetClearGateMatching(^BOOL(NSString *displayKey) {
+        return [matchingSelectors containsObject:displayKey];
+    });
+    counts->gateHookSpecs += WAGRResetForgetGateSpecsMatching(^BOOL(NSDictionary *spec) {
+        return WAGRResetSpecMatchesImageScope(spec, scope, abCatalog);
+    });
 }
 
 static NSUInteger WAGRResetRemovePreferenceKeys(NSSet<NSString *> *keys) {
@@ -133,9 +192,8 @@ static NSUInteger WAGRResetRemovePreferenceKeys(NSSet<NSString *> *keys) {
 
 static NSUInteger WAGRResetRemovePreferencesMatching(BOOL (^matches)(NSString *key)) {
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
-    NSArray<NSString *> *keys = ud.dictionaryRepresentation.allKeys;
     NSUInteger removed = 0;
-    for (NSString *key in keys) {
+    for (NSString *key in [ud.dictionaryRepresentation.allKeys copy] ?: @[]) {
         if (![key isKindOfClass:NSString.class] || (matches && !matches(key))) continue;
         [ud removeObjectForKey:key];
         removed++;
@@ -164,12 +222,9 @@ static NSSet<NSString *> *WAGRResetDogfoodKnownPreferences(void) {
 static NSMutableSet<NSString *> *WAGRResetDogfoodManagedGateNames(void) {
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
     NSMutableSet<NSString *> *names = [NSMutableSet setWithArray:@[
-        @"isInternalUser",
-        @"isMetaEmployeeOrInternalTester",
-        @"is_meta_employee_or_internal_tester",
-        @"graphQLEmployeeC1Disabled",
-        @"isDebugMenuAllowed",
-        @"isDebugMenuShortcutEnabled",
+        @"isInternalUser", @"isMetaEmployeeOrInternalTester",
+        @"is_meta_employee_or_internal_tester", @"graphQLEmployeeC1Disabled",
+        @"isDebugMenuAllowed", @"isDebugMenuShortcutEnabled",
     ]];
     for (NSString *backupKey in @[WA_PREF_EMPLOYEE_MANAGED_GATE_BACKUP,
                                   WA_PREF_INTERNAL_TOOLS_SWEEP_BACKUP]) {
@@ -193,12 +248,12 @@ static NSArray<NSString *> *WAGRResetAuraKeys(void) {
 }
 
 static WAGRResetCounts WAGRResetPerform(WAGRResetScope scope) {
-    WAGRResetCounts counts = {0, 0, 0};
-    NSSet<NSString *> *abUIDs = nil;
+    WAGRResetCounts counts = {0, 0, 0, 0};
 
     if (scope == WAGRResetScopeAll) {
         counts.runtimeValues += WAGRResetClearRuntimeMatching(nil);
         counts.gateValues += WAGRGateClearAll();
+        counts.gateHookSpecs += WAGRResetForgetGateSpecsMatching(nil);
 
         NSMutableSet<NSString *> *managed = [NSMutableSet setWithArray:WADefaultsDictionary().allKeys];
         [managed addObjectsFromArray:WAGRResetAuraKeys()];
@@ -212,38 +267,38 @@ static WAGRResetCounts WAGRResetPerform(WAGRResetScope scope) {
 
     if (scope == WAGRResetScopeABProps || scope == WAGRResetScopeExecutable ||
         scope == WAGRResetScopeSharedModules || scope == WAGRResetScopeOtherRuntime) {
-        abUIDs = WAGRResetABRuntimeUIDs();
+        NSDictionary *abCatalog = WAGRResetABCatalog();
         counts.runtimeValues += WAGRResetClearRuntimeMatching(^BOOL(NSDictionary *spec) {
-            BOOL isAB = WAGRResetSpecLooksAB(spec, abUIDs);
-            if (scope == WAGRResetScopeABProps) return isAB;
-            if (isAB) return NO; // ABProps is its own independent scope.
-
-            NSString *className = [spec[@"class"] description] ?: @"";
-            NSString *path = WAGRResetImagePathForClass(className);
-            BOOL isExec = WAGRResetIsExecutablePath(path);
-            BOOL isShared = WAGRResetIsSharedModulesPath(path);
-            if (scope == WAGRResetScopeExecutable) return isExec;
-            if (scope == WAGRResetScopeSharedModules) return isShared;
-            return !isExec && !isShared;
+            return WAGRResetSpecMatchesImageScope(spec, scope, abCatalog);
         });
+        WAGRResetClearImageScopedGates(scope, abCatalog, &counts);
+        if (scope == WAGRResetScopeABProps) {
+            counts.preferences += WAGRResetRemovePreferenceKeys([NSSet setWithObject:WA_PREF_AB_OBSERVER]);
+        }
         return counts;
     }
 
     if (scope == WAGRResetScopeGateStore) {
         counts.gateValues += WAGRGateClearAll();
+        counts.gateHookSpecs += WAGRResetForgetGateSpecsMatching(nil);
         return counts;
     }
 
     if (scope == WAGRResetScopeDogfood) {
         NSMutableSet<NSString *> *managedNames = WAGRResetDogfoodManagedGateNames();
-        counts.gateValues += WAGRResetClearGateMatching(^BOOL(NSString *displayKey) {
+        BOOL (^matchesDogfoodName)(NSString *) = ^BOOL(NSString *displayKey) {
             if ([managedNames containsObject:displayKey]) return YES;
             NSString *lower = displayKey.lowercaseString;
             return [lower containsString:@"employee"] ||
                    [lower containsString:@"internaltester"] ||
                    [lower containsString:@"internal_tester"] ||
                    [lower isEqualToString:@"isinternaluser"] ||
-                   [lower containsString:@"debugmenu"];
+                   [lower containsString:@"debugmenu"] ||
+                   [lower containsString:@"dogfood"] || [lower containsString:@"fishfood"];
+        };
+        counts.gateValues += WAGRResetClearGateMatching(matchesDogfoodName);
+        counts.gateHookSpecs += WAGRResetForgetGateSpecsMatching(^BOOL(NSDictionary *spec) {
+            return matchesDogfoodName([spec[@"selector"] description] ?: @"");
         });
         counts.preferences += WAGRResetRemovePreferenceKeys(WAGRResetDogfoodKnownPreferences());
         counts.runtimeValues += WAGRResetClearRuntimeMatching(^BOOL(NSDictionary *spec) {
@@ -255,20 +310,23 @@ static WAGRResetCounts WAGRResetPerform(WAGRResetScope scope) {
     }
 
     if (scope == WAGRResetScopeLiquidGlass) {
+        BOOL (^matchesLG)(NSString *) = ^BOOL(NSString *name) {
+            NSString *lower = name.lowercaseString;
+            return [lower containsString:@"liquid_glass"] || [lower containsString:@"liquidglass"];
+        };
         counts.preferences += WAGRResetRemovePreferenceKeys([NSSet setWithArray:@[
-            WA_PREF_LIQUID_GLASS,
-            WA_PREF_LIQUID_GLASS_USERDEFAULTS,
+            WA_PREF_LIQUID_GLASS, WA_PREF_LIQUID_GLASS_USERDEFAULTS,
             WA_PREF_LIQUID_GLASS_METHOD_HOOKS,
         ]]);
-        counts.gateValues += WAGRResetClearGateMatching(^BOOL(NSString *displayKey) {
-            NSString *lower = displayKey.lowercaseString;
-            return [lower containsString:@"liquid_glass"] || [lower containsString:@"liquidglass"];
+        counts.gateValues += WAGRResetClearGateMatching(matchesLG);
+        counts.gateHookSpecs += WAGRResetForgetGateSpecsMatching(^BOOL(NSDictionary *spec) {
+            return matchesLG([spec[@"selector"] description] ?: @"");
         });
         counts.runtimeValues += WAGRResetClearRuntimeMatching(^BOOL(NSDictionary *spec) {
             return WAGRResetSpecContainsTokens(spec, @[@"liquid_glass", @"liquidglass"]);
         });
-        // This also removes the concrete ios_liquid_glass_* defaults written by
-        // WAGRLiquidGlassHooks when the master becomes OFF.
+        // With the master absent/OFF, the existing LG owner removes concrete
+        // ios_liquid_glass_* defaults it previously wrote.
         WAGRLGPrefsDidChange();
         return counts;
     }
@@ -279,6 +337,9 @@ static WAGRResetCounts WAGRResetPerform(WAGRResetScope scope) {
         counts.preferences += WAGRResetRemovePreferenceKeys(prefs);
         counts.gateValues += WAGRResetClearGateMatching(^BOOL(NSString *displayKey) {
             return [displayKey.lowercaseString containsString:@"aura"];
+        });
+        counts.gateHookSpecs += WAGRResetForgetGateSpecsMatching(^BOOL(NSDictionary *spec) {
+            return [[[spec[@"selector"] description] lowercaseString] containsString:@"aura"];
         });
         counts.runtimeValues += WAGRResetClearRuntimeMatching(^BOOL(NSDictionary *spec) {
             return WAGRResetSpecContainsTokens(spec, @[@"aura"]);
@@ -308,9 +369,10 @@ static void WAGRResetShowResult(UIViewController *presenter,
                                 WAGRResetScope scope,
                                 WAGRResetCounts counts) {
     NSString *message = [NSString stringWithFormat:
-        @"Runtime overrides removidos: %lu\nGateStore removidos: %lu\nPreferências removidas: %lu\n\nOs hooks já instalados passam a usar o valor original quando o override some. Reiniciar garante que caches do WhatsApp também sejam reconstruídos.",
+        @"Runtime overrides removidos: %lu\nGateStore overrides removidos: %lu\nGate hook specs esquecidos: %lu\nPreferências removidas: %lu\n\nOs hooks já instalados passam a usar o valor original quando o override some. Reiniciar garante que caches do WhatsApp também sejam reconstruídos.",
         (unsigned long)counts.runtimeValues,
         (unsigned long)counts.gateValues,
+        (unsigned long)counts.gateHookSpecs,
         (unsigned long)counts.preferences];
     UIAlertController *done = [UIAlertController alertControllerWithTitle:WAGRResetScopeTitle(scope)
                                                                    message:message
@@ -330,7 +392,7 @@ static void WAGRResetShowResult(UIViewController *presenter,
 static void WAGRResetConfirm(UIViewController *presenter, WAGRResetScope scope) {
     NSString *title = WAGRResetScopeTitle(scope);
     NSString *message = scope == WAGRResetScopeAll
-        ? @"Remove todos os overrides e preferências gerenciados pelo WATweaks. Não toca no cache nativo gabp.* do WhatsApp."
+        ? @"Remove todos os overrides, hook specs e preferências gerenciados pelo WATweaks. Não toca no cache nativo gabp.* do WhatsApp."
         : @"Remove somente este escopo. Os demais overrides permanecem intactos.";
     UIAlertController *confirm = [UIAlertController alertControllerWithTitle:title
                                                                       message:message
