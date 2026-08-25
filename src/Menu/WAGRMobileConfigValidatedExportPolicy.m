@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <string.h>
 
 #import "../Runtime/WAGRMobileConfigBridge.h"
 
@@ -39,7 +40,7 @@ static void WAGRMCPolicyInvoke(id target, NSString *selectorName) {
     if ([target respondsToSelector:selector]) ((void (*)(id, SEL))objc_msgSend)(target, selector);
 }
 
-static BOOL WAGRMCPolicyObjectNoArg(Method method) {
+static BOOL WAGRMCPolicyMethodIsObjectNoArg(Method method) {
     if (!method || method_getNumberOfArguments(method) != 2) return NO;
     char raw[32] = {0}; method_getReturnType(method, raw, sizeof(raw));
     const char *type = raw;
@@ -51,16 +52,16 @@ static id WAGRMCPolicyClassObjectNoArg(Class cls, NSString *selectorName) {
     if (!cls || !selectorName.length) return nil;
     SEL selector = NSSelectorFromString(selectorName);
     Method method = class_getClassMethod(cls, selector);
-    if (!WAGRMCPolicyObjectNoArg(method)) return nil;
+    if (!WAGRMCPolicyMethodIsObjectNoArg(method)) return nil;
     @try { return ((id (*)(id, SEL))objc_msgSend)((id)cls, selector); }
     @catch (__unused NSException *exception) { return nil; }
 }
 
-static id WAGRMCPolicyObjectNoArg(id object, NSString *selectorName) {
+static id WAGRMCPolicyCallObjectNoArg(id object, NSString *selectorName) {
     if (!object || !selectorName.length) return nil;
     SEL selector = NSSelectorFromString(selectorName);
     Method method = class_getInstanceMethod([object class], selector);
-    if (!WAGRMCPolicyObjectNoArg(method)) return nil;
+    if (!WAGRMCPolicyMethodIsObjectNoArg(method)) return nil;
     @try { return ((id (*)(id, SEL))objc_msgSend)(object, selector); }
     @catch (__unused NSException *exception) { return nil; }
 }
@@ -131,7 +132,7 @@ static void WAGRMCPolicyShareNativeStartupJSON(UIViewController *controller) {
         WAGRMCPolicyAlert(controller, @"Native StartupConfigs", @"FBMobileConfigStartupConfigs +getInstance não retornou uma instância viva.");
         return;
     }
-    id json = WAGRMCPolicyObjectNoArg(startup, @"toJSON");
+    id json = WAGRMCPolicyCallObjectNoArg(startup, @"toJSON");
     NSData *data = WAGRMCPolicyDataForObject(json);
     WAGRMCPolicyShareData(controller, data, @"FBMobileConfigStartupConfigs-toJSON.json");
 }
@@ -142,7 +143,7 @@ static void WAGRMCPolicyShareNativeOverrideDictionary(UIViewController *controll
         WAGRMCPolicyAlert(controller, @"Native configValuesOverride", @"FBMobileConfigStartupConfigs +getInstance não retornou uma instância viva.");
         return;
     }
-    id overrides = WAGRMCPolicyObjectNoArg(startup, @"configValuesOverride");
+    id overrides = WAGRMCPolicyCallObjectNoArg(startup, @"configValuesOverride");
     NSData *data = WAGRMCPolicyDataForObject(overrides ?: @{});
     WAGRMCPolicyShareData(controller, data, @"FBMobileConfigStartupConfigs-configValuesOverride.json");
 }
@@ -151,8 +152,8 @@ static void WAGRMCPolicyCompareNativeArtifacts(UIViewController *controller, id 
     NSString *path = WAGRMobileConfigOverridesPath(userContext);
     NSData *disk = path.length ? [NSData dataWithContentsOfFile:path] : nil;
     id startup = WAGRMCPolicyStartupConfigsInstance();
-    id nativeJSON = startup ? WAGRMCPolicyObjectNoArg(startup, @"toJSON") : nil;
-    id nativeOverrides = startup ? WAGRMCPolicyObjectNoArg(startup, @"configValuesOverride") : nil;
+    id nativeJSON = startup ? WAGRMCPolicyCallObjectNoArg(startup, @"toJSON") : nil;
+    id nativeOverrides = startup ? WAGRMCPolicyCallObjectNoArg(startup, @"configValuesOverride") : nil;
     NSData *toJSONData = WAGRMCPolicyDataForObject(nativeJSON);
     NSData *overrideData = WAGRMCPolicyDataForObject(nativeOverrides);
 
