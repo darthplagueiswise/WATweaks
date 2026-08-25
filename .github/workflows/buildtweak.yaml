@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - exp2
+      - dogfood2-repair-8150
   workflow_dispatch:
 
 concurrency:
