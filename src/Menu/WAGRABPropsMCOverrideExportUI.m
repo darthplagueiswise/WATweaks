@@ -187,7 +187,8 @@ static NSDictionary *WAGRABMCMergeOverrideDocuments(NSDictionary *existing, NSDi
 
         NSString *oldKey = nil;
         for (NSString *candidate in merged.allKeys) {
-            if ([[WAGRABMCStablePrefix(candidate) ?: @""] isEqualToString:stable]) {
+            NSString *candidateStable = WAGRABMCStablePrefix(candidate) ?: @"";
+            if ([candidateStable isEqualToString:stable]) {
                 oldKey = candidate;
                 break;
             }
