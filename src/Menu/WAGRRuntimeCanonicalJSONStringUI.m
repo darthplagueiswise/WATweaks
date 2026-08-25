@@ -13,8 +13,12 @@
  *   - Apply canonicalizes only this typed ABProps document back to compact JSON;
  *   - the outer Objective-C value remains NSString.
  *
- * We deliberately do NOT use NSJSONWritingSortedKeys here.  The native document
- * is not sorted by the tweak and changing stable-id order is unnecessary churn.
+ * IMPORTANT: do NOT parse+re-serialize merely to compact it. NSDictionary key
+ * enumeration is not a wire-format contract and JSON serialization may also
+ * normalize numeric/string lexical forms.  The native string's stable-id order
+ * and lexical tokens should remain unchanged when the user only flips values.
+ * We therefore remove JSON whitespace lexically, outside quoted strings only.
+ * The original editor immediately parses and validates the resulting document.
  */
 
 static void (*gWAGRCanonicalOriginalApply)(id, SEL) = NULL;
@@ -30,39 +34,40 @@ static BOOL WAGRCanonicalBoolKVC(id object, NSString *key) {
     return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO;
 }
 
-static NSString *WAGRCanonicalCompactJSON(NSString *text, NSError **outError) {
-    NSData *input = [text dataUsingEncoding:NSUTF8StringEncoding];
-    if (!input.length) return nil;
-    NSError *error = nil;
-    id root = [NSJSONSerialization JSONObjectWithData:input
-                                               options:NSJSONReadingFragmentsAllowed
-                                                 error:&error];
-    if (!root || error) {
-        if (outError) *outError = error;
-        return nil;
-    }
-    if (![NSJSONSerialization isValidJSONObject:root]) {
-        if (outError) {
-            *outError = [NSError errorWithDomain:@"WATweaks.RuntimeJSON"
-                                            code:1
-                                        userInfo:@{NSLocalizedDescriptionKey:
-                                            @"O valor não é um objeto/array JSON serializável."}];
-        }
-        return nil;
-    }
-    NSData *output = [NSJSONSerialization dataWithJSONObject:root options:0 error:&error];
-    if (!output.length || error) {
-        if (outError) *outError = error;
-        return nil;
-    }
-    return [[NSString alloc] initWithData:output encoding:NSUTF8StringEncoding];
+static BOOL WAGRCanonicalJSONWhitespace(unichar ch) {
+    return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t';
 }
 
-static void WAGRCanonicalShowError(UIViewController *controller, NSString *message) {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"wamo_abprops_list"
-        message:message ?: @"JSON inválido." preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-    [controller presentViewController:alert animated:YES completion:nil];
+static NSString *WAGRCanonicalCompactJSONLexically(NSString *text) {
+    if (![text isKindOfClass:NSString.class] || text.length == 0) return text ?: @"";
+    NSMutableString *output = [NSMutableString stringWithCapacity:text.length];
+    BOOL inString = NO;
+    BOOL escaped = NO;
+
+    for (NSUInteger index = 0; index < text.length; index++) {
+        unichar ch = [text characterAtIndex:index];
+        if (inString) {
+            [output appendFormat:@"%C", ch];
+            if (escaped) {
+                escaped = NO;
+            } else if (ch == '\\') {
+                escaped = YES;
+            } else if (ch == '"') {
+                inString = NO;
+            }
+            continue;
+        }
+
+        if (ch == '"') {
+            inString = YES;
+            escaped = NO;
+            [output appendFormat:@"%C", ch];
+            continue;
+        }
+        if (WAGRCanonicalJSONWhitespace(ch)) continue;
+        [output appendFormat:@"%C", ch];
+    }
+    return output;
 }
 
 static void WAGRCanonicalApply(id self, SEL _cmd) {
@@ -74,15 +79,10 @@ static void WAGRCanonicalApply(id self, SEL _cmd) {
         UITextView *textView = WAGRCanonicalKVC(self, @"textView");
         NSString *editingText = [textView isKindOfClass:UITextView.class] ? textView.text : nil;
         if (editingText.length) {
-            NSError *error = nil;
-            NSString *compact = WAGRCanonicalCompactJSON(editingText, &error);
-            if (!compact.length) {
-                WAGRCanonicalShowError(self, error.localizedDescription ?: @"JSON inválido.");
-                return;
-            }
-            // The original editor performs the typed per-entry validation next.
-            // We only normalize the representation passed to it.
-            textView.text = compact;
+            // Preserve stable-id ordering, escaping and numeric lexical form.
+            // The original applyPressed performs JSON + typed-schema validation
+            // after this normalization and refuses malformed content.
+            textView.text = WAGRCanonicalCompactJSONLexically(editingText);
         }
     }
 
