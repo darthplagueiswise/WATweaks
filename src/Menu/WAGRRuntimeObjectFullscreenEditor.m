@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRRuntimeValueStore.h"
@@ -9,15 +10,25 @@
 /*
  * Full-screen editor for long Foundation/JSON values.
  *
- * In particular, current WhatsApp exposes WAABProperties.wamo_abprops_list as
- * an Objective-C object getter whose live value is an NSString containing a
- * large JSON document.  UIAlertController.message + one text field is not an
- * acceptable editor for that value: it truncates the document and makes it
- * effectively impossible to inspect or modify safely.
+ * IMPORTANT CURRENT-BUILD FACT (WhatsApp(4), arm64):
+ *   WAABProperties.wamo_abprops_list
+ *     AB stable id : 19470
+ *     ObjC ABI      : @16@0:8
+ *     return kind   : object (live value is NSString)
  *
- * This layer keeps the original Objective-C return kind.  A JSON-looking
- * NSString is formatted for editing, but Apply still stores an NSString rather
- * than silently changing the getter into NSDictionary/NSArray.
+ * So wamo_abprops_list itself is NOT an int64 getter.  The JSON STRING returned
+ * by that getter is a schema whose individual entries can declare e.g.
+ *   {"type":"bool",  "default":false, ...}
+ *   {"type":"string","default":"...", ...}
+ *   {"type":"int64", "default":123, ...}
+ *
+ * By contrast, ordinary WAMO int64 getters really have q16@0:8; for example the
+ * supplied executable has AB 25130/25131 as q16@0:8.  Replacing the outer
+ * wamo_abprops_list ABI with q would therefore be wrong and crash-prone.
+ *
+ * This editor preserves the outer NSString ABI while validating the INTERNAL
+ * JSON values against each entry's declared `type`.  That is the distinction
+ * the previous generic JSON editor was missing.
  */
 
 @interface WAGRFullValueEditorVC : UIViewController <UITextViewDelegate>
@@ -28,6 +39,7 @@
 @property(nonatomic, strong) id sourceValue;
 @property(nonatomic, assign) BOOL preserveString;
 @property(nonatomic, assign) BOOL validateJSON;
+@property(nonatomic, assign) BOOL typedABPropsSchema;
 @property(nonatomic, strong) UITextView *textView;
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, copy) dispatch_block_t completion;
@@ -59,6 +71,135 @@ static BOOL WAGRFullLooksJSON(NSString *text) {
     NSString *trimmed = [text stringByTrimmingCharactersInSet:
         NSCharacterSet.whitespaceAndNewlineCharacterSet];
     return [trimmed hasPrefix:@"{"] || [trimmed hasPrefix:@"["];
+}
+
+static BOOL WAGRFullIsJSONBool(id value) {
+    if (![value isKindOfClass:NSNumber.class]) return NO;
+    return CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID();
+}
+
+static BOOL WAGRFullIsJSONNumber(id value) {
+    return [value isKindOfClass:NSNumber.class] && !WAGRFullIsJSONBool(value);
+}
+
+static BOOL WAGRFullIsJSONInteger(id value) {
+    if (!WAGRFullIsJSONNumber(value)) return NO;
+    return !CFNumberIsFloatType((__bridge CFNumberRef)value);
+}
+
+static BOOL WAGRFullDecimalString(NSString *value) {
+    if (![value isKindOfClass:NSString.class] || value.length == 0) return NO;
+    return [value rangeOfCharacterFromSet:NSCharacterSet.decimalDigitCharacterSet.invertedSet].location == NSNotFound;
+}
+
+static BOOL WAGRFullValidateTypedValue(NSString *type,
+                                       id value,
+                                       NSString *stableID,
+                                       NSString *field,
+                                       NSString **errorText) {
+    if (!value || value == NSNull.null) return YES; // nullable fields are preserved
+    NSString *t = type.lowercaseString ?: @"";
+    BOOL ok = YES;
+
+    if ([t isEqualToString:@"bool"] || [t isEqualToString:@"boolean"]) {
+        ok = WAGRFullIsJSONBool(value);
+    } else if ([t isEqualToString:@"int64"] || [t isEqualToString:@"int"] ||
+               [t isEqualToString:@"integer"] || [t isEqualToString:@"long"] ||
+               [t isEqualToString:@"int32"]) {
+        ok = WAGRFullIsJSONInteger(value);
+    } else if ([t isEqualToString:@"uint64"] || [t isEqualToString:@"uint"] ||
+               [t isEqualToString:@"uint32"]) {
+        ok = WAGRFullIsJSONInteger(value) && [value longLongValue] >= 0;
+    } else if ([t isEqualToString:@"double"] || [t isEqualToString:@"float"] ||
+               [t isEqualToString:@"number"]) {
+        ok = WAGRFullIsJSONNumber(value);
+    } else if ([t isEqualToString:@"string"] || [t isEqualToString:@"str"]) {
+        ok = [value isKindOfClass:NSString.class];
+    } else if ([t isEqualToString:@"json"] || [t isEqualToString:@"object"] ||
+               [t isEqualToString:@"dictionary"] || [t isEqualToString:@"array"]) {
+        ok = [NSJSONSerialization isValidJSONObject:value] ||
+             [value isKindOfClass:NSString.class] ||
+             [value isKindOfClass:NSNumber.class];
+    } else {
+        // Unknown current/future WAMO type: preserve it.  We only reject types
+        // whose semantics are known from the document itself.
+        return YES;
+    }
+
+    if (!ok && errorText) {
+        *errorText = [NSString stringWithFormat:
+            @"AB %@ · %@ não corresponde ao tipo declarado '%@'.\n\nValor recebido: %@ (%@)",
+            stableID ?: @"?", field ?: @"valor", type ?: @"?",
+            [value description] ?: @"nil", NSStringFromClass([value class]) ?: @"?"];
+    }
+    return ok;
+}
+
+static BOOL WAGRFullValidateABPropsSchema(id root,
+                                          NSUInteger *entryCount,
+                                          NSUInteger *knownTypedCount,
+                                          NSString **errorText) {
+    if (entryCount) *entryCount = 0;
+    if (knownTypedCount) *knownTypedCount = 0;
+    if (![root isKindOfClass:NSDictionary.class]) {
+        if (errorText) *errorText = @"wamo_abprops_list exige um objeto JSON no topo (dicionário stableID → descriptor).";
+        return NO;
+    }
+
+    NSDictionary *dictionary = (NSDictionary *)root;
+    __block NSString *failure = nil;
+    __block NSUInteger total = 0;
+    __block NSUInteger typed = 0;
+
+    [dictionary enumerateKeysAndObjectsUsingBlock:^(id rawKey, id rawEntry, BOOL *stop) {
+        NSString *stableID = [rawKey isKindOfClass:NSString.class] ? rawKey : [rawKey description];
+        if (!WAGRFullDecimalString(stableID)) {
+            failure = [NSString stringWithFormat:@"Chave '%@' não é um stable ID decimal válido.", stableID ?: @"?"];
+            *stop = YES;
+            return;
+        }
+        if (![rawEntry isKindOfClass:NSDictionary.class]) {
+            failure = [NSString stringWithFormat:@"AB %@ deve apontar para um objeto descriptor.", stableID];
+            *stop = YES;
+            return;
+        }
+
+        NSDictionary *entry = (NSDictionary *)rawEntry;
+        NSString *type = [entry[@"type"] isKindOfClass:NSString.class] ? entry[@"type"] : nil;
+        if (!type.length) {
+            failure = [NSString stringWithFormat:@"AB %@ não possui campo string 'type'.", stableID];
+            *stop = YES;
+            return;
+        }
+
+        total++;
+        NSString *lower = type.lowercaseString;
+        NSSet *known = [NSSet setWithArray:@[
+            @"bool", @"boolean", @"int64", @"int", @"integer", @"long", @"int32",
+            @"uint64", @"uint", @"uint32", @"double", @"float", @"number",
+            @"string", @"str", @"json", @"object", @"dictionary", @"array"
+        ]];
+        if ([known containsObject:lower]) typed++;
+
+        for (NSString *field in @[@"default", @"debugDefault"]) {
+            id value = entry[field];
+            if (!value) continue;
+            NSString *fieldError = nil;
+            if (!WAGRFullValidateTypedValue(type, value, stableID, field, &fieldError)) {
+                failure = fieldError;
+                *stop = YES;
+                return;
+            }
+        }
+    }];
+
+    if (failure.length) {
+        if (errorText) *errorText = failure;
+        return NO;
+    }
+    if (entryCount) *entryCount = total;
+    if (knownTypedCount) *knownTypedCount = typed;
+    return YES;
 }
 
 static NSString *WAGRFullInitialText(id value, BOOL *preserveString, BOOL *json) {
@@ -116,13 +257,21 @@ static NSString *WAGRFullInitialText(id value, BOOL *preserveString, BOOL *json)
     status.translatesAutoresizingMaskIntoConstraints = NO;
     status.font = [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular];
     status.textColor = UIColor.secondaryLabelColor;
-    status.numberOfLines = 2;
-    status.text = [NSString stringWithFormat:@"%@ · %@ method · %@\nObjeto original: %@%@",
-        self.targetClassName ?: @"Runtime",
-        self.targetMeta ? @"class" : @"instance",
-        WAGRRuntimeValueTypeName(self.targetTypeCode) ?: self.targetTypeCode ?: @"object",
-        self.sourceValue ? NSStringFromClass([self.sourceValue class]) : @"nil",
-        self.preserveString && self.validateJSON ? @" · JSON armazenado como NSString" : @""];
+    status.numberOfLines = self.typedABPropsSchema ? 4 : 2;
+    if (self.typedABPropsSchema) {
+        status.text = [NSString stringWithFormat:
+            @"%@ · %@ method · %@\nOuter ABI: NSString/object (@), não int64\nJSON interno: stableID → {type, default, debugDefault}\nTipos internos são validados antes de aplicar.",
+            self.targetClassName ?: @"Runtime",
+            self.targetMeta ? @"class" : @"instance",
+            WAGRRuntimeValueTypeName(self.targetTypeCode) ?: self.targetTypeCode ?: @"object"];
+    } else {
+        status.text = [NSString stringWithFormat:@"%@ · %@ method · %@\nObjeto original: %@%@",
+            self.targetClassName ?: @"Runtime",
+            self.targetMeta ? @"class" : @"instance",
+            WAGRRuntimeValueTypeName(self.targetTypeCode) ?: self.targetTypeCode ?: @"object",
+            self.sourceValue ? NSStringFromClass([self.sourceValue class]) : @"nil",
+            self.preserveString && self.validateJSON ? @" · JSON armazenado como NSString" : @""];
+    }
     [self.view addSubview:status];
     self.statusLabel = status;
 
@@ -143,19 +292,25 @@ static NSString *WAGRFullInitialText(id value, BOOL *preserveString, BOOL *json)
 
     UIButton *format = [UIButton buttonWithType:UIButtonTypeSystem];
     format.translatesAutoresizingMaskIntoConstraints = NO;
-    [format setTitle:@"Formatar JSON" forState:UIControlStateNormal];
+    [format setTitle:@"Formatar" forState:UIControlStateNormal];
     [format addTarget:self action:@selector(formatPressed) forControlEvents:UIControlEventTouchUpInside];
+
+    UIButton *validate = [UIButton buttonWithType:UIButtonTypeSystem];
+    validate.translatesAutoresizingMaskIntoConstraints = NO;
+    [validate setTitle:self.typedABPropsSchema ? @"Validar tipos" : @"Validar JSON"
+              forState:UIControlStateNormal];
+    [validate addTarget:self action:@selector(validatePressed) forControlEvents:UIControlEventTouchUpInside];
 
     UIButton *original = [UIButton buttonWithType:UIButtonTypeSystem];
     original.translatesAutoresizingMaskIntoConstraints = NO;
-    [original setTitle:@"Usar original" forState:UIControlStateNormal];
+    [original setTitle:@"Original" forState:UIControlStateNormal];
     [original addTarget:self action:@selector(originalPressed) forControlEvents:UIControlEventTouchUpInside];
 
-    UIStackView *buttons = [[UIStackView alloc] initWithArrangedSubviews:@[format, original]];
+    UIStackView *buttons = [[UIStackView alloc] initWithArrangedSubviews:@[format, validate, original]];
     buttons.translatesAutoresizingMaskIntoConstraints = NO;
     buttons.axis = UILayoutConstraintAxisHorizontal;
     buttons.distribution = UIStackViewDistributionFillEqually;
-    buttons.spacing = 12;
+    buttons.spacing = 8;
     [self.view addSubview:buttons];
 
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
@@ -164,8 +319,8 @@ static NSString *WAGRFullInitialText(id value, BOOL *preserveString, BOOL *json)
         [status.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
         [status.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
 
-        [buttons.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
-        [buttons.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
+        [buttons.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:12],
+        [buttons.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-12],
         [buttons.topAnchor constraintEqualToAnchor:status.bottomAnchor constant:8],
         [buttons.heightAnchor constraintEqualToConstant:36],
 
@@ -192,6 +347,33 @@ static NSString *WAGRFullInitialText(id value, BOOL *preserveString, BOOL *json)
     [self showError:error ?: @"O texto não é JSON válido."];
 }
 
+- (void)validatePressed {
+    NSString *error = nil;
+    id object = WAGRFullParseJSON(self.textView.text ?: @"", &error);
+    if (!object) {
+        [self showError:error ?: @"JSON inválido."];
+        return;
+    }
+    if (self.typedABPropsSchema) {
+        NSUInteger entries = 0, typed = 0;
+        if (!WAGRFullValidateABPropsSchema(object, &entries, &typed, &error)) {
+            [self showError:error ?: @"Schema WAMO inválido."];
+            return;
+        }
+        UIAlertController *ok = [UIAlertController alertControllerWithTitle:@"Schema válido"
+            message:[NSString stringWithFormat:@"%lu entries · %lu com tipo conhecido/validado.\nO getter externo continua NSString (@16@0:8).",
+                     (unsigned long)entries, (unsigned long)typed]
+            preferredStyle:UIAlertControllerStyleAlert];
+        [ok addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:ok animated:YES completion:nil];
+        return;
+    }
+    UIAlertController *ok = [UIAlertController alertControllerWithTitle:@"JSON válido"
+        message:@"A estrutura JSON é válida." preferredStyle:UIAlertControllerStyleAlert];
+    [ok addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:ok animated:YES completion:nil];
+}
+
 - (void)originalPressed {
     WAGRRuntimeValueClearOverride(self.targetClassName,
                                   self.targetSelectorName,
@@ -207,13 +389,22 @@ static NSString *WAGRFullInitialText(id value, BOOL *preserveString, BOOL *json)
     if (self.preserveString) {
         if (self.validateJSON || WAGRFullLooksJSON(text)) {
             NSString *error = nil;
-            if (!WAGRFullParseJSON(text, &error)) {
+            id parsed = WAGRFullParseJSON(text, &error);
+            if (!parsed) {
                 [self showError:error ?: @"JSON inválido."];
                 return;
             }
+            if (self.typedABPropsSchema) {
+                NSUInteger entries = 0, typed = 0;
+                if (!WAGRFullValidateABPropsSchema(parsed, &entries, &typed, &error)) {
+                    [self showError:error ?: @"Schema WAMO inválido."];
+                    return;
+                }
+            }
         }
-        // Critical: wamo_abprops_list is __NSCFString in the supplied build.
-        // Keep it a string even when its payload happens to be JSON.
+        // Outer ABI is object.  For wamo_abprops_list the live object is NSString;
+        // keep the JSON document as NSString.  int64/bool/string apply INSIDE the
+        // JSON according to each descriptor's `type`, not to the getter ABI.
         value = text;
     } else if ([self.sourceValue isKindOfClass:NSDictionary.class] ||
                [self.sourceValue isKindOfClass:NSArray.class]) {
@@ -286,6 +477,7 @@ static void WAGRPushFullEditor(UIViewController *presenter,
     editor.targetMeta = meta;
     editor.sourceValue = effective;
     editor.preserveString = preserveString;
+    editor.typedABPropsSchema = [selectorName isEqualToString:@"wamo_abprops_list"];
     editor.validateJSON = json || [selectorName.lowercaseString containsString:@"json"] ||
                           [selectorName.lowercaseString containsString:@"abprops_list"];
     editor.completion = completion;
@@ -354,7 +546,7 @@ static UITableViewCell *WAGRFullABCell(id self, SEL _cmd,
     UITextField *field = [cell.accessoryView isKindOfClass:UITextField.class]
         ? (UITextField *)cell.accessoryView : nil;
     NSString *value = field.text ?: @"";
-    // Long/structured strings belong in the full-screen editor.  Short scalar
+    // Long/structured strings belong in the full-screen editor. Short scalar
     // strings keep the convenient inline field.
     if (field && (value.length > 96 || WAGRFullLooksJSON(value))) {
         cell.accessoryView = nil;
@@ -383,8 +575,8 @@ static void WAGRInstallFullRuntimeEditors(void) {
         (IMP *)&gWAGROriginalABPresentEditor);
 
     // Capture the final ABI-aware cell renderer, then decorate only long object
-    // rows.  This makes wamo_abprops_list visibly navigable instead of squeezing
-    // thousands of JSON characters into a 138-pt text field.
+    // rows. This makes wamo_abprops_list visibly navigable instead of squeezing
+    // thousands of JSON characters into a small inline text field.
     WAGRFullInstallOnClass(ab,
         @selector(tableView:cellForRowAtIndexPath:),
         (IMP)WAGRFullABCell,
