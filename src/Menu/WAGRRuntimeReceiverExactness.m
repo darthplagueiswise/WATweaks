@@ -18,6 +18,108 @@ static void WAGRRuntimeAddControllerTree(UIViewController *controller,
         WAGRRuntimeAddControllerTree(child, objects, depth + 1);
 }
 
+static BOOL WAGRRuntimeObjectIsTraversalLeaf(id object) {
+    if (!object) return YES;
+    return [object isKindOfClass:NSString.class] ||
+           [object isKindOfClass:NSNumber.class] ||
+           [object isKindOfClass:NSData.class] ||
+           [object isKindOfClass:NSDate.class] ||
+           [object isKindOfClass:NSURL.class] ||
+           [object isKindOfClass:NSValue.class];
+}
+
+static void WAGRRuntimeCollectCollectionChildren(id object,
+                                                  NSMutableArray *queue,
+                                                  NSUInteger limit) {
+    if (!object || queue.count >= limit) return;
+    const NSUInteger perCollectionLimit = 96;
+    if ([object isKindOfClass:NSArray.class]) {
+        NSUInteger count = MIN([(NSArray *)object count], perCollectionLimit);
+        for (NSUInteger i = 0; i < count && queue.count < limit; i++) {
+            id child = [(NSArray *)object objectAtIndex:i];
+            if (child) [queue addObject:child];
+        }
+        return;
+    }
+    if ([object isKindOfClass:NSSet.class]) {
+        NSUInteger added = 0;
+        for (id child in (NSSet *)object) {
+            if (child) [queue addObject:child];
+            if (++added >= perCollectionLimit || queue.count >= limit) break;
+        }
+        return;
+    }
+    if ([object isKindOfClass:NSDictionary.class]) {
+        NSUInteger added = 0;
+        for (id child in [(NSDictionary *)object allValues]) {
+            if (child) [queue addObject:child];
+            if (++added >= perCollectionLimit || queue.count >= limit) break;
+        }
+    }
+}
+
+static void WAGRRuntimeCollectObjectIvars(id object,
+                                          NSMutableArray *queue,
+                                          NSUInteger limit) {
+    if (!object || queue.count >= limit || WAGRRuntimeObjectIsTraversalLeaf(object)) return;
+    if ([object isKindOfClass:NSArray.class] || [object isKindOfClass:NSSet.class] ||
+        [object isKindOfClass:NSDictionary.class]) {
+        WAGRRuntimeCollectCollectionChildren(object, queue, limit);
+        return;
+    }
+
+    // A bounded object-ivar walk gives the runtime browser access to service /
+    // dependency objects retained by the live app graph without scanning the
+    // heap or fabricating instances. Only Objective-C object ivars are touched.
+    Class cls = object_getClass(object);
+    for (NSUInteger inheritanceDepth = 0;
+         cls && inheritanceDepth < 7 && queue.count < limit;
+         inheritanceDepth++, cls = class_getSuperclass(cls)) {
+        unsigned int count = 0;
+        Ivar *ivars = class_copyIvarList(cls, &count);
+        for (unsigned int i = 0; i < count && queue.count < limit; i++) {
+            const char *type = ivar_getTypeEncoding(ivars[i]);
+            if (!type || type[0] != '@') continue;
+            @try {
+                id child = object_getIvar(object, ivars[i]);
+                if (child && child != object) [queue addObject:child];
+            } @catch (__unused NSException *exception) {}
+        }
+        free(ivars);
+    }
+}
+
+static void WAGRRuntimeExpandBoundedGraph(NSMutableOrderedSet *objects) {
+    const NSUInteger objectLimit = 1800;
+    const NSUInteger depthLimit = 3;
+    NSMutableArray<NSDictionary *> *queue = [NSMutableArray array];
+    for (id root in objects.array) {
+        if (queue.count >= objectLimit) break;
+        [queue addObject:@{ @"object": root, @"depth": @0 }];
+    }
+
+    NSUInteger cursor = 0;
+    while (cursor < queue.count && objects.count < objectLimit) {
+        NSDictionary *node = queue[cursor++];
+        id object = node[@"object"];
+        NSUInteger depth = [node[@"depth"] unsignedIntegerValue];
+        if (!object || [objects containsObject:object]) {
+            // Roots are already present but still need one expansion pass.
+            if (depth != 0) continue;
+        } else {
+            [objects addObject:object];
+        }
+        if (depth >= depthLimit || WAGRRuntimeObjectIsTraversalLeaf(object)) continue;
+
+        NSMutableArray *children = [NSMutableArray array];
+        WAGRRuntimeCollectObjectIvars(object, children, 160);
+        for (id child in children) {
+            if (!child || [objects containsObject:child] || queue.count >= objectLimit) continue;
+            [queue addObject:@{ @"object": child, @"depth": @(depth + 1) }];
+        }
+    }
+}
+
 static NSArray *WAGRRuntimeResolvedObjects(id self, SEL _cmd) {
     NSMutableOrderedSet *objects = [NSMutableOrderedSet orderedSet];
     if (gWAGRRuntimeOriginalObjects) {
@@ -35,6 +137,7 @@ static NSArray *WAGRRuntimeResolvedObjects(id self, SEL _cmd) {
             }
         }
     }
+    WAGRRuntimeExpandBoundedGraph(objects);
     return objects.array ?: @[];
 }
 
