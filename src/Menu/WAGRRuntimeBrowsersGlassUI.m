@@ -159,7 +159,10 @@ static void WAGRBrowserConfigureSearch(UIViewController *controller) {
 }
 
 static BOOL WAGRBrowserUsesBottomSearch(UIViewController *controller) {
-    return @available(iOS 26.0, *) && WAGRBrowserSearchController(controller) != nil;
+    if (@available(iOS 26.0, *)) {
+        return WAGRBrowserSearchController(controller) != nil;
+    }
+    return NO;
 }
 
 #pragma mark - Compact single-line browser cells
