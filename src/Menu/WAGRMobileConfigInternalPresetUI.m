@@ -106,7 +106,8 @@ static NSDictionary *WAGRMCInternalMerge(NSDictionary *existing,
         for (id rawCandidate in merged.allKeys) {
             if (![rawCandidate isKindOfClass:NSString.class]) continue;
             NSString *candidate = rawCandidate;
-            if ([[WAGRMCInternalStablePrefix(candidate) ?: @""] isEqualToString:stable]) {
+            NSString *candidateStable = WAGRMCInternalStablePrefix(candidate) ?: @"";
+            if ([candidateStable isEqualToString:stable]) {
                 existingKey = candidate;
                 break;
             }
