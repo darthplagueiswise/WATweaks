@@ -185,16 +185,19 @@ static NSString *WAGRBrowserStripStateSuffix(NSString *value) {
 
 static void WAGRBrowserApplyCompactLabels(UITableViewCell *cell) {
     if (!cell) return;
-    cell.textLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
+    // Keep the selector on one line, but do not make the browser microscopic.
+    // Start near WhatsApp's normal secondary-settings text size and only scale
+    // genuinely long selectors down as much as necessary.
+    cell.textLabel.font = [UIFont systemFontOfSize:14.5 weight:UIFontWeightRegular];
     cell.textLabel.numberOfLines = 1;
     cell.textLabel.adjustsFontSizeToFitWidth = YES;
-    cell.textLabel.minimumScaleFactor = 0.38;
+    cell.textLabel.minimumScaleFactor = 0.72;
     cell.textLabel.lineBreakMode = NSLineBreakByClipping;
 
-    cell.detailTextLabel.font = [UIFont systemFontOfSize:9.5 weight:UIFontWeightRegular];
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
     cell.detailTextLabel.numberOfLines = 1;
     cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
-    cell.detailTextLabel.minimumScaleFactor = 0.55;
+    cell.detailTextLabel.minimumScaleFactor = 0.72;
     cell.detailTextLabel.lineBreakMode = NSLineBreakByClipping;
 }
 
