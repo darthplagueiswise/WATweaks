@@ -74,7 +74,6 @@ static BOOL WAGRMCInternalSemanticMatch(NSString *canonicalName,
         @"test_user", @"test user", @"test_account", @"test account",
         @"internal_tester", @"internal tester"
     ])) return YES;
-
     return NO;
 }
 
@@ -83,7 +82,6 @@ static BOOL WAGRMCInternalDesiredValue(NSString *canonicalName,
     NSString *combined = [NSString stringWithFormat:@"%@ %@",
         canonicalName.lowercaseString ?: @"",
         parameterName.lowercaseString ?: @""];
-
     if (WAGRMCContainsAny(combined, @[
         @"disabled", @"disable_", @"_disable", @"kill_switch", @"killswitch",
         @"lockout", @"exclude_employee", @"exclude_employees",
@@ -193,12 +191,19 @@ NSDictionary<NSString *, NSArray<NSString *> *> *WAGRMobileConfigInternalPresetD
         };
     }
 
-    // Present in the user's native/reference mc_overrides grammar. It is metadata,
-    // not an ABProp/config identity, and must stay an empty array in this preset.
     document[@"_qe_overrides_"] = [NSMutableArray array];
     return document;
 }
 
+NSData *WAGRMobileConfigInternalPresetJSONData(
+    NSDictionary<NSString *, NSArray<NSString *> *> *document,
+    NSError **outError) {
+    if (!document) return nil;
+    NSJSONWritingOptions options = 0;
+    if (@available(iOS 11.0, *)) options |= NSJSONWritingSortedKeys;
+    return [NSJSONSerialization dataWithJSONObject:document options:options error:outError];
+}
+
 NSString *WAGRMobileConfigInternalPresetPolicyDescription(void) {
-    return @"Resolver-driven preset: Employee/Internal Tester/Test User/Test Account, Dogfood/Fishfood, Private Experimentation, MobileConfig/Internal Debug, What's Broken, Internal Bug Reporting and Rage Shake. Negative-polarity disabled/kill/exclude gates are emitted false. Only BOOL mappings with UserSession external config ID + id_name_mapping config/parameter names are emitted. Output preserves the mc_overrides _qe_overrides_ sentinel.";
+    return @"Resolver-driven preset: Employee/Internal Tester/Test User/Test Account, Dogfood/Fishfood, Private Experimentation, MobileConfig/Internal Debug, What's Broken, Internal Bug Reporting and Rage Shake. Negative-polarity disabled/kill/exclude gates are emitted false. Only BOOL mappings with UserSession external config ID + id_name_mapping config/parameter names are emitted. Output preserves the mc_overrides _qe_overrides_ sentinel and the compact one-line reference serialization.";
 }
