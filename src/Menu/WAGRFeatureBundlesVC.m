@@ -58,7 +58,7 @@ static NSArray<NSDictionary *> *WAGRInternalFeatureItems(void) {
     dispatch_once(&once, ^{
         items = @[
             WAGRFeatureItem(@"isInternalUser", @"Gate semântico WAServerProperties", @"WAServerProperties", YES, YES),
-            WAGRFeatureItem(@"isMetaEmployeeOrInternalTester", @"Gate semântico employee/internal", @"WAABProperties", NO, YES),
+            WAGRFeatureItem(@"isMetaEmployeeOrInternalTester", @"Gate employee/internal", @"WAABProperties", NO, YES),
             WAGRWAAB(@"is_meta_employee_or_internal_tester", @"Employee/internal tester · AB 1777"),
             WAGRWAAB(@"is_internal_tester", @"Internal tester · AB 2945"),
             WAGRWAAB(@"waios_mc_debug_ui_enabled", @"MobileConfig debug UI · AB 23336"),
@@ -188,6 +188,25 @@ static BOOL WAGRFeatureMethodIsBool(Method method) {
     return t == 'B' || t == 'c';
 }
 
+static Method WAGRFeatureMethodForItem(NSDictionary *item) {
+    NSString *className = item[kWAGRFeatureClass];
+    NSString *selectorName = item[kWAGRFeatureSelector];
+    BOOL meta = [item[kWAGRFeatureMeta] boolValue];
+    Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
+    if (!cls || !selectorName.length) return NULL;
+    SEL selector = NSSelectorFromString(selectorName);
+    return meta ? class_getClassMethod(cls, selector) : class_getInstanceMethod(cls, selector);
+}
+
+static BOOL WAGRFeatureItemIsHookableBool(NSDictionary *item) {
+    return WAGRFeatureMethodIsBool(WAGRFeatureMethodForItem(item));
+}
+
+static BOOL WAGRFeatureItemIsWAABBool(NSDictionary *item) {
+    return [item[kWAGRFeatureClass] isEqualToString:@"WAABProperties"] &&
+           ![item[kWAGRFeatureMeta] boolValue] && WAGRFeatureItemIsHookableBool(item);
+}
+
 static id WAGRFeatureReceiverForClass(Class cls, SEL selector) {
     if (!cls || !selector) return nil;
     for (id object in WAGRABPropsResolveRuntimeObjects(nil)) {
@@ -202,16 +221,26 @@ static BOOL WAGRFeatureNativeBool(NSDictionary *item, BOOL *outValue) {
     BOOL meta = [item[kWAGRFeatureMeta] boolValue];
     Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
     SEL selector = NSSelectorFromString(selectorName);
-    if (!cls || !selector) return NO;
-    Method method = meta ? class_getClassMethod(cls, selector) : class_getInstanceMethod(cls, selector);
-    if (!WAGRFeatureMethodIsBool(method)) return NO;
+    Method method = WAGRFeatureMethodForItem(item);
+    if (!cls || !selector || !WAGRFeatureMethodIsBool(method)) return NO;
     @try {
         BOOL value = NO;
         if (meta) {
             value = ((BOOL (*)(id, SEL))objc_msgSend)((id)cls, selector);
         } else {
             id receiver = WAGRFeatureReceiverForClass(cls, selector);
-            if (!receiver) return NO;
+            if (!receiver) {
+                // If this exact target has already been hooked, RuntimeValueStore
+                // may have captured the real receiver weakly during natural app use.
+                id raw = nil;
+                NSString *original = WAGRRuntimeValueReadOriginal(className, selectorName, NO, nil, &raw);
+                if ([raw respondsToSelector:@selector(boolValue)] &&
+                    ![original containsString:@"indisponível"]) {
+                    if (outValue) *outValue = [raw boolValue];
+                    return YES;
+                }
+                return NO;
+            }
             value = ((BOOL (*)(id, SEL))objc_msgSend)(receiver, selector);
         }
         if (outValue) *outValue = value;
@@ -233,14 +262,18 @@ static BOOL WAGRFeatureEffectiveBool(NSDictionary *item, BOOL *outValue, BOOL *o
 }
 
 static BOOL WAGRFeatureMasterEffective(WAGRFeatureBundleKind kind) {
-    NSUInteger known = 0;
+    NSUInteger hookable = 0;
     for (NSDictionary *item in WAGRFeatureItemsForKind(kind)) {
+        if (!WAGRFeatureItemIsHookableBool(item)) continue;
+        hookable++;
         BOOL value = NO;
-        if (!WAGRFeatureEffectiveBool(item, &value, NULL)) continue;
-        known++;
+        // Do not silently ignore an exact current-build gate merely because its
+        // live receiver has not been observed yet. Unknown required components
+        // make the derived master OFF rather than producing a false-positive ON.
+        if (!WAGRFeatureEffectiveBool(item, &value, NULL)) return NO;
         if (value != [item[kWAGRFeatureDesired] boolValue]) return NO;
     }
-    return known > 0;
+    return hookable > 0;
 }
 
 static void WAGRFeatureApplyHooks(WAGRFeatureBundleKind kind) {
@@ -263,6 +296,10 @@ static void WAGRFeatureApplyHooks(WAGRFeatureBundleKind kind) {
 
 static void WAGRFeatureSetMaster(WAGRFeatureBundleKind kind, BOOL enabled) {
     for (NSDictionary *item in WAGRFeatureItemsForKind(kind)) {
+        // Never create phantom GateStore entries for selectors that are absent or
+        // ABI-incompatible in this WhatsApp build. A curated master only mutates
+        // gates that are proven hookable in the loaded runtime.
+        if (!WAGRFeatureItemIsHookableBool(item)) continue;
         NSString *selector = item[kWAGRFeatureSelector];
         if (enabled) WAGRGateSet(selector, [item[kWAGRFeatureDesired] boolValue]);
         else WAGRGateClear(selector);
@@ -319,7 +356,7 @@ static NSString *WAGRFeatureABID(NSDictionary *item) {
 }
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section != 0) return nil;
-    return @"O master é derivado dos próprios gates. Não existe um segundo storage. Azul = override compartilhado com ABProperties Browser; verde = valor original lido do runtime. Desligar o master limpa os overrides e volta ao original.";
+    return @"O master é derivado dos próprios gates hookáveis deste build. Não existe um segundo storage. Azul = override compartilhado com ABProperties Browser; laranja = override salvo aguardando hook/receiver; verde = valor original. Desligar o master limpa os overrides e volta ao original.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -328,14 +365,14 @@ static NSString *WAGRFeatureABID(NSDictionary *item) {
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:reuse];
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     cell.accessoryView = nil;
-    cell.textLabel.font = [UIFont systemFontOfSize:14.0 weight:UIFontWeightRegular];
+    cell.textLabel.font = [UIFont systemFontOfSize:13.0 weight:UIFontWeightRegular];
     cell.textLabel.numberOfLines = 1;
     cell.textLabel.adjustsFontSizeToFitWidth = YES;
-    cell.textLabel.minimumScaleFactor = 0.62;
-    cell.detailTextLabel.font = [UIFont systemFontOfSize:10.5 weight:UIFontWeightRegular];
+    cell.textLabel.minimumScaleFactor = 0.55;
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:9.5 weight:UIFontWeightRegular];
     cell.detailTextLabel.numberOfLines = 1;
     cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
-    cell.detailTextLabel.minimumScaleFactor = 0.65;
+    cell.detailTextLabel.minimumScaleFactor = 0.58;
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
 
     UISwitch *toggle = [UISwitch new];
@@ -345,7 +382,7 @@ static NSString *WAGRFeatureABID(NSDictionary *item) {
 
     if (indexPath.section == 0) {
         cell.textLabel.text = [NSString stringWithFormat:@"★ %@", WAGRFeatureTitleForKind(self.kind)];
-        cell.detailTextLabel.text = @"Derivado; ON somente quando os componentes conhecidos estão no estado desejado";
+        cell.detailTextLabel.text = @"Derivado; exige todos os componentes hookáveis conhecidos no estado desejado";
         toggle.on = WAGRFeatureMasterEffective(self.kind);
         toggle.onTintColor = UIColor.systemBlueColor;
         return cell;
@@ -355,18 +392,29 @@ static NSString *WAGRFeatureABID(NSDictionary *item) {
     NSString *selector = item[kWAGRFeatureSelector] ?: @"?";
     BOOL value = NO, overridden = NO;
     BOOL available = WAGRFeatureEffectiveBool(item, &value, &overridden);
+    BOOL hookable = WAGRFeatureItemIsHookableBool(item);
+    BOOL runtimeInstalled = WAGRFeatureItemIsWAABBool(item) && overridden &&
+        WAGRRuntimeValueHookIsInstalled(@"WAABProperties", selector, NO);
     NSString *abID = WAGRFeatureABID(item);
     NSString *subtitle = item[kWAGRFeatureSubtitle] ?: @"";
     if (abID.length && [subtitle rangeOfString:@"AB "].location == NSNotFound) {
         subtitle = [subtitle stringByAppendingFormat:@" · AB %@", abID];
     }
 
+    NSString *state = nil;
+    if (!hookable) state = @"Ausente neste build";
+    else if (overridden && WAGRFeatureItemIsWAABBool(item) && !runtimeInstalled) state = @"Override pendente";
+    else if (overridden) state = @"Override";
+    else if (available) state = @"Original";
+    else state = @"Original aguardando receiver";
+
     cell.textLabel.text = selector;
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@",
-        overridden ? @"Override" : (available ? @"Original" : @"Indisponível"), subtitle];
-    toggle.on = available ? value : NO;
-    toggle.enabled = available || overridden;
-    toggle.onTintColor = overridden ? UIColor.systemBlueColor : UIColor.systemGreenColor;
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", state, subtitle];
+    toggle.on = available ? value : (overridden ? WAGRGateGet(selector) : NO);
+    toggle.enabled = hookable || overridden;
+    toggle.onTintColor = overridden
+        ? ((WAGRFeatureItemIsWAABBool(item) && !runtimeInstalled) ? UIColor.systemOrangeColor : UIColor.systemBlueColor)
+        : UIColor.systemGreenColor;
 
     UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc]
         initWithTarget:self action:@selector(clearOverride:)];
@@ -380,8 +428,10 @@ static NSString *WAGRFeatureABID(NSDictionary *item) {
         WAGRFeatureSetMaster(self.kind, sender.isOn);
     } else if ((NSUInteger)sender.tag < self.items.count) {
         NSDictionary *item = self.items[(NSUInteger)sender.tag];
-        WAGRGateSet(item[kWAGRFeatureSelector], sender.isOn);
-        WAGRFeatureApplyHooks(self.kind);
+        if (WAGRFeatureItemIsHookableBool(item)) {
+            WAGRGateSet(item[kWAGRFeatureSelector], sender.isOn);
+            WAGRFeatureApplyHooks(self.kind);
+        }
     }
     [self.tableView reloadData];
 }
@@ -433,7 +483,7 @@ static NSString *WAGRFeatureABID(NSDictionary *item) {
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:reuse];
     WAGRFeatureBundleKind kind = (WAGRFeatureBundleKind)indexPath.row;
     cell.textLabel.text = WAGRFeatureTitleForKind(kind);
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu gates · mesmo estado do ABProperties Browser",
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu gates curados · mesma fonte do ABProperties Browser",
         (unsigned long)WAGRFeatureItemsForKind(kind).count];
     cell.textLabel.font = WAGRMenuTitleFont();
     cell.textLabel.numberOfLines = 1;
