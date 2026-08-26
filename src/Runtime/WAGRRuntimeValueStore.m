@@ -424,6 +424,17 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
     return YES;
 }
 
+BOOL WAGRRuntimeValueHookIsInstalled(NSString *className,
+                                     NSString *selectorName,
+                                     BOOL isClassMethod) {
+    NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
+    if (!uid.length) return NO;
+    WAGRRuntimeValueEnsureStorage();
+    @synchronized (gWAGRValueLock) {
+        return gWAGRValueHooks[uid] != nil;
+    }
+}
+
 NSUInteger WAGRRuntimeValueReinstallPersistedHooks(void) {
     NSUInteger installed = 0;
     for (NSDictionary *spec in WAGRRuntimeValueAllOverrideSpecs()) {
@@ -444,7 +455,7 @@ static id WAGRRuntimeValueReceiver(NSString *className,
     if (!cls) return nil;
     SEL selector = NSSelectorFromString(selectorName);
     if (isClassMethod) return [cls respondsToSelector:selector] ? cls : nil;
-    if (instance && [instance respondsToSelector:selector]) return instance;
+    if (instance && [instance isKindOfClass:cls] && [instance respondsToSelector:selector]) return instance;
     return nil;
 }
 
@@ -455,7 +466,7 @@ NSString *WAGRRuntimeValueRead(NSString *className,
                                id *rawValue) {
     if (rawValue) *rawValue = nil;
     id receiver = WAGRRuntimeValueReceiver(className, selectorName, isClassMethod, instance);
-    if (!receiver) return @"receiver indisponível";
+    if (!receiver) return @"receiver exato indisponível";
     SEL selector = NSSelectorFromString(selectorName);
     Method method = isClassMethod
         ? class_getClassMethod((Class)receiver, selector)
