@@ -5,8 +5,14 @@
 //   getters thousands of times during launch, so WAGRGateIsSet/Get must be
 //   dictionary-only after one lazy cache load.
 // - Mutations still write NSUserDefaults + index so toggles persist.
+// - Snake-case BOOL gates that are real WAABProperties getters are not duplicated
+//   here: their canonical source is WAGRRuntimeValueStore, the same store used by
+//   the AB Props browser. GateStore remains only for semantic/non-WAAB gates.
 
 #import "WAGRGateStore.h"
+#import "WAGRRuntimeValueStore.h"
+#import <objc/runtime.h>
+#include <string.h>
 
 NSString * const kWAGRStorageWipedMarkerV2 = @"watweak.storage.wiped.v3";
 NSString * const kWATGateOverrideIndexKey = @"watweak_gate_override_index";
@@ -157,7 +163,51 @@ static BOOL WAGRGateStoreShouldRemoveOverrideKey(NSString *key) {
     return NO;
 }
 
+#pragma mark - Canonical WAAB BOOL bridge
+
+static NSString *WAGRWAABTargetForGateKey(NSString *key) {
+    NSString *target = WAGRGateDisplayKey(key);
+    if (!target.length || [target rangeOfString:@"_"].location == NSNotFound) return nil;
+
+    // If the browser already owns an exact WAABProperties override, this is
+    // unambiguously the same state even when the class is temporarily unloaded.
+    if (WAGRRuntimeValueHasOverride(@"WAABProperties", target, NO)) return target;
+
+    Class cls = NSClassFromString(@"WAABProperties") ?: objc_getClass("WAABProperties");
+    if (!cls) return nil;
+    SEL selector = NSSelectorFromString(target);
+    Method method = class_getInstanceMethod(cls, selector);
+    if (!method || method_getNumberOfArguments(method) != 2) return nil;
+
+    char raw[32] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    const char *type = raw;
+    while (*type && strchr("rnNoORV", *type)) type++;
+    return (*type == 'B' || *type == 'c') ? target : nil;
+}
+
+static BOOL WAGRWAABOverrideForGateKey(NSString *key, BOOL *outValue) {
+    NSString *target = WAGRWAABTargetForGateKey(key);
+    if (!target.length || !WAGRRuntimeValueHasOverride(@"WAABProperties", target, NO)) return NO;
+    id value = WAGRRuntimeValueOverride(@"WAABProperties", target, NO);
+    if (![value respondsToSelector:@selector(boolValue)]) return NO;
+    if (outValue) *outValue = [value boolValue];
+    return YES;
+}
+
+static void WAGRClearLocalGateDuplicate(NSString *key) {
+    NSString *ck = WAGRGateCanonicalKey(key);
+    if (!ck.length) return;
+    NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
+    [ud removeObjectForKey:ck];
+    WATIndexRemove(ud, ck);
+    WATGateCacheSet(ck, nil);
+}
+
 BOOL WAGRGateIsSet(NSString *key) {
+    BOOL runtimeValue = NO;
+    if (WAGRWAABOverrideForGateKey(key, &runtimeValue)) return YES;
+
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return NO;
     WATEnsureGateCacheLoaded();
@@ -165,6 +215,9 @@ BOOL WAGRGateIsSet(NSString *key) {
 }
 
 BOOL WAGRGateGet(NSString *key) {
+    BOOL runtimeValue = NO;
+    if (WAGRWAABOverrideForGateKey(key, &runtimeValue)) return runtimeValue;
+
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return NO;
     WATEnsureGateCacheLoaded();
@@ -173,6 +226,15 @@ BOOL WAGRGateGet(NSString *key) {
 }
 
 void WAGRGateSet(NSString *key, BOOL value) {
+    NSString *waabTarget = WAGRWAABTargetForGateKey(key);
+    if (waabTarget.length) {
+        WAGRRuntimeValueSetOverride(@"WAABProperties", waabTarget, NO, @"B", @(value));
+        (void)WAGRRuntimeValueInstallHook(@"WAABProperties", waabTarget, NO, @"B");
+        WAGRClearLocalGateDuplicate(key);
+        [NSUserDefaults.standardUserDefaults synchronize];
+        return;
+    }
+
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return;
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
@@ -183,6 +245,11 @@ void WAGRGateSet(NSString *key, BOOL value) {
 }
 
 void WAGRGateClear(NSString *key) {
+    NSString *waabTarget = WAGRWAABTargetForGateKey(key);
+    if (waabTarget.length) {
+        WAGRRuntimeValueClearOverride(@"WAABProperties", waabTarget, NO);
+    }
+
     NSString *ck = WAGRGateCanonicalKey(key);
     if (!ck.length) return;
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
@@ -196,7 +263,6 @@ NSArray<NSString *> *WAGRGateAllOverrides(void) {
     WATEnsureGateCacheLoaded();
     return [gWATGateCache.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 }
-
 
 static NSString *WAGRGateHookUID(NSString *className, NSString *selectorName, BOOL isClassMethod) {
     if (!className.length || !selectorName.length) return @"";
@@ -308,9 +374,14 @@ void WAGRWipeLegacyStorageIfNeeded(void) {
 }
 
 NSString *WAGRGateStoreDiagnostic(void) {
+    NSUInteger runtimeWAAB = 0;
+    for (NSDictionary *spec in WAGRRuntimeValueAllOverrideSpecs()) {
+        if ([spec[@"class"] isEqual:@"WAABProperties"]) runtimeWAAB++;
+    }
     return [NSString stringWithFormat:
-        @"schema=v3 cached\nactive overrides=%lu\npersisted hook specs=%lu\nlegacy wipe=%@",
+        @"schema=v3 cached\nlocal semantic overrides=%lu\nWAAB runtime overrides=%lu\npersisted hook specs=%lu\nlegacy wipe=%@",
         (unsigned long)WAGRGateAllOverrides().count,
+        (unsigned long)runtimeWAAB,
         (unsigned long)WAGRGatePersistedHookSpecs().count,
         [[NSUserDefaults standardUserDefaults] boolForKey:kWAGRStorageWipedMarkerV2] ? @"done" : @"pending"];
 }
