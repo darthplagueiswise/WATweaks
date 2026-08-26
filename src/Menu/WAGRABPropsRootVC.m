@@ -7,6 +7,7 @@
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsNativeStore.h"
 #import "../Runtime/WAGRGateStore.h"
+#import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRLog.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -64,8 +65,6 @@ static BOOL WAGRABRootLooksLikeUserContext(id object) {
         [className containsString:@"WAContext"] ||
         [className containsString:@"ContextMain"]) return YES;
 
-    // Current WhatsApp build exposes the exact ABProps request-manager accessor
-    // on its live WAContext. This is a stronger signal than a name heuristic.
     if ([object respondsToSelector:NSSelectorFromString(@"xmppConnectionABPropsRequestManager")]) return YES;
     if ([object respondsToSelector:NSSelectorFromString(@"abProperties")]) return YES;
     if ([object respondsToSelector:NSSelectorFromString(@"debugPropOverrides")]) return YES;
@@ -85,17 +84,8 @@ static id WAGRABRootProbeObject(id object) {
         if (WAGRABRootLooksLikeUserContext(candidate)) return candidate;
     }
 
-    for (NSString *ivarName in @[@"_userContext", @"userContext", @"_context", @"_waContext"]) {
-        Ivar ivar = class_getInstanceVariable([object class], ivarName.UTF8String);
-        if (!ivar) continue;
-        const char *type = ivar_getTypeEncoding(ivar);
-        if (!type || WAGRABRootSkipQualifiers(type)[0] != '@') continue;
-        id candidate = nil;
-        @try { candidate = object_getIvar(object, ivar); }
-        @catch (__unused NSException *exception) { candidate = nil; }
-        if (WAGRABRootLooksLikeUserContext(candidate)) return candidate;
-    }
-
+    // No raw object_getIvar graph walking here. KVC is only attempted for the one
+    // explicit userContext key and any result is validated before use.
     @try {
         id candidate = [object valueForKey:@"userContext"];
         if (WAGRABRootLooksLikeUserContext(candidate)) return candidate;
@@ -123,10 +113,6 @@ static id WAGRABRootResolveUserContext(void) {
     id cached = WAGRCurrentUserContext();
     if (cached) return cached;
 
-    // The WATweaks sheet is presented over WhatsApp's own Settings hierarchy.
-    // Walk both the underlying and presented controller trees before guessing any
-    // singleton. wagr_findUserContextAnywhere in the native launcher uses the same
-    // source, but this keeps ABProps Fetch independent of opening Developer first.
     for (UIWindow *window in UIApplication.sharedApplication.windows) {
         id context = WAGRABRootFindInControllerTree(window.rootViewController, 0);
         if (context) {
@@ -142,8 +128,6 @@ static id WAGRABRootResolveUserContext(void) {
         return context;
     }
 
-    // Deterministic class roots are fallback-only and every returned object is
-    // validated as a WhatsApp user context before it is cached.
     for (NSString *className in @[@"WAContext", @"WAContextMain"]) {
         Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
         if (!cls) continue;
@@ -289,7 +273,7 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
 - (NSString *)tableView:(__unused UITableView *)tableView
  titleForFooterInSection:(NSInteger)section {
     if (section != 0) return nil;
-    return @"O snapshot nativo usa o payload account-scoped gabp.*p que o próprio WhatsApp atualiza após o IQ ABPROPS. WAABProperties ao vivo é a camada de getters/hook. MobileConfig continua sendo um sistema relacionado, mas separado.";
+    return @"Snapshot nativo = cache account-scoped gabp.*p. WAABProperties ao vivo = getters/hook exatos. Overrides desta tela usam o mesmo RuntimeValueStore das telas curadas.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView
@@ -352,9 +336,24 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
 
 - (void)applyOverrides {
     WAGRGateHooksEnsureInstalled();
+    NSArray<NSDictionary<NSString *, id> *> *specs = WAGRRuntimeValueAllOverrideSpecs();
+    NSUInteger installedNow = WAGRRuntimeValueReinstallPersistedHooks();
+    NSUInteger installedTotal = 0;
+    for (NSDictionary *spec in specs) {
+        NSString *className = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : @"";
+        NSString *selectorName = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : @"";
+        BOOL meta = [spec[@"meta"] boolValue];
+        if (WAGRRuntimeValueHookIsInstalled(className, selectorName, meta)) installedTotal++;
+    }
+    NSUInteger pending = specs.count >= installedTotal ? specs.count - installedTotal : 0;
     [self showAlert:@"AB Props"
-            message:[NSString stringWithFormat:@"Overrides persistidos: %lu",
-                     (unsigned long)WAGRGateAllOverrides().count]];
+            message:[NSString stringWithFormat:
+                @"Runtime overrides persistidos: %lu\nHooks exatos instalados: %lu\nInstalados/reconfirmados agora: %lu\nPendentes: %lu\nSemantic GateStore: %lu",
+                (unsigned long)specs.count,
+                (unsigned long)installedTotal,
+                (unsigned long)installedNow,
+                (unsigned long)pending,
+                (unsigned long)WAGRGateAllOverrides().count]];
 }
 
 - (void)showContextDiagnostic {
