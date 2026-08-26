@@ -41,6 +41,9 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
                                  NSString *selectorName,
                                  BOOL isClassMethod,
                                  NSString *typeCode);
+BOOL WAGRRuntimeValueHookIsInstalled(NSString *className,
+                                     NSString *selectorName,
+                                     BOOL isClassMethod);
 NSUInteger WAGRRuntimeValueReinstallPersistedHooks(void);
 
 NSString *WAGRRuntimeValueRead(NSString *className,
