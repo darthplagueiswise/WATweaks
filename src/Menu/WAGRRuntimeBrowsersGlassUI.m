@@ -150,6 +150,8 @@ static void WAGRBrowserConfigureSearch(UIViewController *controller) {
                 UIBarButtonItem *flex = [[UIBarButtonItem alloc]
                     initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
                     target:nil action:nil];
+                // Search placement first = bottom-left. On iOS 26 UIKit owns the
+                // morphing Liquid Glass transition from compact button to field.
                 controller.toolbarItems = @[ searchPlacement, flex ];
                 objc_setAssociatedObject(controller, kWAGRBottomSearchItemKey, searchPlacement,
                                          OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -159,9 +161,7 @@ static void WAGRBrowserConfigureSearch(UIViewController *controller) {
 }
 
 static BOOL WAGRBrowserUsesBottomSearch(UIViewController *controller) {
-    if (@available(iOS 26.0, *)) {
-        return WAGRBrowserSearchController(controller) != nil;
-    }
+    if (@available(iOS 26.0, *)) return WAGRBrowserSearchController(controller) != nil;
     return NO;
 }
 
@@ -183,21 +183,33 @@ static NSString *WAGRBrowserStripStateSuffix(NSString *value) {
     return result;
 }
 
+static NSString *WAGRBrowserCompactValue(NSString *value) {
+    if (!value.length) return @"?";
+    NSString *flat = [value stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+    if (flat.length > 70) flat = [[flat substringToIndex:70] stringByAppendingString:@"…"];
+    return flat;
+}
+
+static BOOL WAGRBrowserValueUnavailable(NSString *value) {
+    if (!value.length) return YES;
+    NSString *lower = value.lowercaseString;
+    return [lower containsString:@"indisponível"] || [lower containsString:@"exception"];
+}
+
 static void WAGRBrowserApplyCompactLabels(UITableViewCell *cell) {
     if (!cell) return;
-    // Keep the selector on one line, but do not make the browser microscopic.
-    // Start near WhatsApp's normal secondary-settings text size and only scale
-    // genuinely long selectors down as much as necessary.
-    cell.textLabel.font = [UIFont systemFontOfSize:14.5 weight:UIFontWeightRegular];
+    // Runtime identities are long. Keep every selector on one physical line and
+    // scale only that line, rather than wrapping and doubling row height.
+    cell.textLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
     cell.textLabel.numberOfLines = 1;
     cell.textLabel.adjustsFontSizeToFitWidth = YES;
-    cell.textLabel.minimumScaleFactor = 0.72;
+    cell.textLabel.minimumScaleFactor = 0.42;
     cell.textLabel.lineBreakMode = NSLineBreakByClipping;
 
-    cell.detailTextLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:9.5 weight:UIFontWeightRegular];
     cell.detailTextLabel.numberOfLines = 1;
     cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
-    cell.detailTextLabel.minimumScaleFactor = 0.72;
+    cell.detailTextLabel.minimumScaleFactor = 0.58;
     cell.detailTextLabel.lineBreakMode = NSLineBreakByClipping;
 }
 
@@ -222,6 +234,14 @@ static NSString *WAGRBrowserNativeStableID(id controller, WAGRABPropEntry *entry
     return nil;
 }
 
+static NSString *WAGRBrowserOriginalText(NSString *className,
+                                         NSString *selectorName,
+                                         BOOL meta) {
+    id raw = nil;
+    NSString *value = WAGRRuntimeValueReadOriginal(className, selectorName, meta, nil, &raw);
+    return WAGRBrowserValueUnavailable(value) ? nil : WAGRBrowserCompactValue(value);
+}
+
 static void WAGRBrowserPostProcessABCell(id controller,
                                          UITableViewCell *cell,
                                          NSIndexPath *indexPath) {
@@ -239,14 +259,24 @@ static void WAGRBrowserPostProcessABCell(id controller,
                                                                     entry.classMethod);
     NSString *existing = WAGRBrowserFirstDetailLine(cell.detailTextLabel.text);
     if ([existing hasPrefix:@"Atual: "]) existing = [existing substringFromIndex:7];
-    existing = WAGRBrowserStripStateSuffix(existing);
+    existing = WAGRBrowserCompactValue(WAGRBrowserStripStateSuffix(existing));
     NSString *idText = stableID.length ? [NSString stringWithFormat:@"AB %@", stableID] : @"AB —";
     NSString *state = overridden ? (installed ? @"override" : @"pending") : @"original";
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · %@",
-                                 idText,
-                                 entry.typeName.length ? entry.typeName : entry.typeCode,
-                                 existing.length ? existing : @"valor indisponível",
-                                 state];
+
+    if (overridden) {
+        NSString *original = WAGRBrowserOriginalText(entry.className, entry.selectorName, entry.classMethod);
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · orig %@ → eff %@ · %@",
+                                     idText,
+                                     entry.typeName.length ? entry.typeName : entry.typeCode,
+                                     original.length ? original : @"aguardando receiver",
+                                     existing.length ? existing : @"?",
+                                     state];
+    } else {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · original",
+                                     idText,
+                                     entry.typeName.length ? entry.typeName : entry.typeCode,
+                                     existing.length ? existing : @"aguardando receiver"];
+    }
     cell.detailTextLabel.textColor = overridden
         ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
         : WAGRMenuSecondaryTextColor();
@@ -277,13 +307,23 @@ static void WAGRBrowserPostProcessSurfaceCell(id controller,
     for (NSString *line in [detail componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
         if ([line hasPrefix:@"Atual: "]) { current = [line substringFromIndex:7]; break; }
     }
-    current = WAGRBrowserStripStateSuffix(current);
+    current = WAGRBrowserCompactValue(WAGRBrowserStripStateSuffix(current));
     NSString *state = overridden ? (installed ? @"override" : @"pending") : @"original";
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · %@",
-                                 entry.className.length ? entry.className : @"runtime",
-                                 entry.typeName.length ? entry.typeName : entry.typeCode,
-                                 current.length ? current : @"valor indisponível",
-                                 state];
+
+    if (overridden) {
+        NSString *original = WAGRBrowserOriginalText(entry.className, entry.selectorName, entry.isClassMethod);
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · orig %@ → eff %@ · %@",
+                                     entry.className.length ? entry.className : @"runtime",
+                                     entry.typeName.length ? entry.typeName : entry.typeCode,
+                                     original.length ? original : @"aguardando receiver",
+                                     current.length ? current : @"?",
+                                     state];
+    } else {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · original",
+                                     entry.className.length ? entry.className : @"runtime",
+                                     entry.typeName.length ? entry.typeName : entry.typeCode,
+                                     current.length ? current : @"aguardando receiver"];
+    }
     cell.detailTextLabel.textColor = overridden
         ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
         : WAGRMenuSecondaryTextColor();
