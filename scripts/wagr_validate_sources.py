@@ -15,6 +15,11 @@ def read(rel: str) -> str:
     return path.read_text(errors="ignore")
 
 
+def strip_comments(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", lambda match: "\n" * match.group(0).count("\n"), text, flags=re.S)
+    return re.sub(r"//[^\n]*", "", text)
+
+
 # Canonical 8150 rebuild: validate what the branch actually compiles.  The old
 # router-era ObjectGraphScanner/ObjCHookRouter/FeatureSubmenu units were removed
 # intentionally and must not be required by this validator.
@@ -102,7 +107,7 @@ for token in [
 ]:
     if token not in menu:
         errors.append(f"WAGRMainSettingsVC.m missing canonical menu token {token}")
-if "WAGRFeatureSubmenuVC" in menu:
+if "WAGRFeatureSubmenuVC" in strip_comments(menu):
     errors.append("WAGRMainSettingsVC.m still references obsolete FeatureSubmenu router")
 
 # Live runtime model must be image-backed and ABI/type filtered; it must not
@@ -120,28 +125,31 @@ for token in [
 ]:
     if token not in surface_h + surface_m:
         errors.append(f"live runtime model missing {token}")
-if 'displayName = [@"@property "' in surface_m:
+if 'displayName = [@"@property "' in strip_comments(surface_m):
     errors.append("runtime scanner still adds @property prefix to displayName")
 
 # Runtime browser uses direct typed controls rather than the obsolete SYS/OFF/ON
 # segmented policy.
 browser = read("src/Menu/WAGRSurfaceBrowserVC.m")
-if "UISegmentedControl" in browser or '@"SYS"' in browser:
+browser_code = strip_comments(browser)
+if "UISegmentedControl" in browser_code or '@"SYS"' in browser_code:
     errors.append("WAGRSurfaceBrowserVC.m still has segmented SYS/OFF/ON UI")
-if "UISwitch" not in browser:
+if "UISwitch" not in browser_code:
     errors.append("WAGRSurfaceBrowserVC.m missing UISwitch typed boolean UI")
-if "@property @property" in browser:
+if "@property @property" in browser_code:
     errors.append("WAGRSurfaceBrowserVC.m can render duplicated @property")
 
 # The crash guard must be the conservative receiver resolver: exact live objects,
 # validated singleton factories and UIKit ownership only; never arbitrary ivar
-# graph traversal or fabricated instances.
+# graph traversal or fabricated instances. Ignore explanatory comments when
+# checking forbidden runtime calls.
 crash_guard = read("src/Menu/WAGRRuntimeBrowserCrashGuard.m")
+crash_guard_code = strip_comments(crash_guard)
 for token in ["WAGRSafeReceiverForEntry", "WAGRSafeExactReceiver", "WAGRSafeSingletonReceiver"]:
-    if token not in crash_guard:
+    if token not in crash_guard_code:
         errors.append(f"runtime crash guard missing {token}")
 for forbidden in ["object_getIvar", "class_createInstance", "[cls alloc]"]:
-    if forbidden in crash_guard:
+    if forbidden in crash_guard_code:
         errors.append(f"runtime crash guard contains unsafe receiver operation {forbidden}")
 
 # Curated feature state must resolve through the same RuntimeValueStore used by
