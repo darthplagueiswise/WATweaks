@@ -306,10 +306,9 @@ id WAGRABPropsReceiverForEntry(WAGRABPropEntry *entry, NSArray *runtimeObjects) 
     Class cls = NSClassFromString(entry.className) ?: objc_getClass(entry.className.UTF8String);
     SEL selector = NSSelectorFromString(entry.selectorName);
     if (entry.classMethod) return cls && [cls respondsToSelector:selector] ? cls : nil;
+    if (!cls) return nil;
     for (id object in runtimeObjects) {
-        if (cls && [object isKindOfClass:cls] && [object respondsToSelector:selector]) return object;
-    }
-    for (id object in runtimeObjects) {
+        if (![object isKindOfClass:cls]) continue;
         if ([object respondsToSelector:selector]) return object;
     }
     return nil;
