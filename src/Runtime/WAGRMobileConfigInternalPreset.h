@@ -17,6 +17,12 @@ NSDictionary<NSString *, NSArray<NSString *> *> *WAGRMobileConfigInternalPresetD
     NSArray<WAGRMobileConfigMapping *> *mappings,
     NSDictionary<NSString *, id> * _Nullable * _Nullable stats);
 
+/// Serializes the preset in the compact one-line mc_overrides style used by the
+/// supplied/native reference: sorted keys, no pretty-print whitespace.
+NSData * _Nullable WAGRMobileConfigInternalPresetJSONData(
+    NSDictionary<NSString *, NSArray<NSString *> *> *document,
+    NSError * _Nullable * _Nullable outError);
+
 /// Human-readable description of the semantic selector policy used by the
 /// resolver-driven preset. Useful for the export UI/diagnostics.
 NSString *WAGRMobileConfigInternalPresetPolicyDescription(void);
