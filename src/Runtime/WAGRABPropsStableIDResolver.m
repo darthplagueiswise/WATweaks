@@ -3,6 +3,7 @@
 #import <objc/runtime.h>
 #import <dlfcn.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 static NSObject *gWAGRABIDLock;
@@ -29,7 +30,6 @@ static BOOL WAGRABDecodeADRP(uint32_t instruction,
 static BOOL WAGRABDecodeADDImmediate(uint32_t instruction,
                                      uint32_t wantedRegister,
                                      uintptr_t *outImmediate) {
-    // ADD (immediate), either 32- or 64-bit, without flags.
     if ((instruction & 0x7F000000u) != 0x11000000u) return NO;
     uint32_t rd = instruction & 0x1Fu;
     uint32_t rn = (instruction >> 5) & 0x1Fu;
@@ -70,10 +70,6 @@ static NSString *WAGRABResolveFromMethod(Method method) {
     const uint32_t *words = (const uint32_t *)(const void *)implementation;
     uintptr_t basePC = (uintptr_t)(const void *)implementation;
 
-    // Current WA ABProp getters load a decimal descriptor with ADRP + ADD before
-    // tail-calling a shared typed getter. Scan a small fixed instruction window,
-    // validate candidates as in-image decimal C strings, and never dereference
-    // an address that dladdr cannot map to the same Mach-O image.
     for (NSUInteger index = 0; index < 12; index++) {
         uintptr_t page = 0;
         uint32_t reg = 0;
