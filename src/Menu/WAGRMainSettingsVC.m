@@ -1,11 +1,13 @@
-// WAGRMainSettingsVC.m — WATweaks settings using WhatsApp-native grouped UIKit hierarchy.
+// WAGRMainSettingsVC.m — canonical menu rebuilt from the exact 8150 base.
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import "../WAGramPrefix.h"
-#import "../Runtime/WAGRGateStore.h"
+#import "../Runtime/WAGRRuntimeValueStore.h"
 #import "WAGRABPropsRootVC.h"
+#import "WAGRABPropsFilteredBrowserVC.h"
+#import "WAGRValidatedNativeGatesVC.h"
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRLogViewController.h"
 #import "WAGRMainSettingsVC.h"
@@ -25,6 +27,7 @@ extern void WAGRLGPrefsDidChange(void);
 extern void WAGRGateHooksEnsureInstalled(void);
 extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern void WAGRNativeDevMenuEnsureHooksInstalled(void);
+extern id WAGRCurrentUserContext(void);
 
 typedef NS_ENUM(NSInteger, WATCellType) {
     WATCellSwitch,
@@ -68,10 +71,7 @@ static WATCell *dtr(NSString *t, NSString *s, NSString *ico, void(^tap)(UIViewCo
 static BOOL bp(NSString *k) { return [[NSUserDefaults standardUserDefaults] boolForKey:k]; }
 static void setBp(NSString *k, BOOL v) {
     [[NSUserDefaults standardUserDefaults] setBool:v forKey:k];
-    [[NSUserDefaults standardUserDefaults] synchronize];
 }
-static BOOL gp(NSString *k) { return WAGRGateIsSet(k) ? WAGRGateGet(k) : bp(k); }
-static void setGp(NSString *k,BOOL v) { WAGRGateSet(k,v); setBp(k,v); }
 
 static WAGRSurfaceSpec *surface(NSString *sid) {
     for (WAGRSurfaceSpec *s in [WAGRSurfaceSpec allSurfaces])
@@ -91,86 +91,32 @@ static void alert(UIViewController *from, NSString *title, NSString *msg) {
     });
 }
 
-static WATSection *secLG(void) {
+static WATSection *secFeatures(void) {
     WATSection *s=[WATSection new];
-    s.header=@"Liquid Glass";
+    s.header=@"Features";
     s.rows=@[
-        sw(@"Liquid Glass",@"Master — WDSLiquidGlass + todas as WAAB keys LG", @"sparkles",
-           ^BOOL{ return bp(kWAGRLiquidGlassMaster); },
-           ^(BOOL on){ setBp(kWAGRLiquidGlassMaster,on); WAGRLGPrefsDidChange(); }),
-        sw(@"Method hooks",@"Só os hooks nos class methods de WDSLiquidGlass", @"function",
-           ^BOOL{ return bp(WA_PREF_LIQUID_GLASS_METHOD_HOOKS); },
-           ^(BOOL on){ setBp(WA_PREF_LIQUID_GLASS_METHOD_HOOKS,on); WAGRLGPrefsDidChange(); }),
-        sw(@"NSUserDefaults overrides",@"Escreve ios_liquid_glass_* = YES em defaults", @"internaldrive",
-           ^BOOL{ return bp(WA_PREF_LIQUID_GLASS_USERDEFAULTS); },
-           ^(BOOL on){ setBp(WA_PREF_LIQUID_GLASS_USERDEFAULTS,on); WAGRLGPrefsDidChange(); }),
-    ];
-    return s;
-}
-
-static WATSection *secDogfood(void) {
-    WATSection *s=[WATSection new];
-    s.header=@"Dogfood / Internal";
-    s.rows=@[
-        sw(@"★ Employee master",@"Todos os gates abaixo de uma vez", @"person.badge.shield.checkmark.fill",
-           ^BOOL{ return bp(kWAGREmployeeMaster); },
-           ^(BOOL on){ setBp(kWAGREmployeeMaster,on); WAGRDogfoodEnsureHooksInstalled(); WAGRNativeDevMenuEnsureHooksInstalled(); }),
-        sw(@"isInternalUser",@"WAServerProperties +isInternalUser (class method)", @"person.fill.checkmark",
-           ^BOOL{ return gp(kWAGRDogfoodGateInternalUser); },
-           ^(BOOL on){ setGp(kWAGRDogfoodGateInternalUser,on); WAGRDogfoodEnsureHooksInstalled(); }),
-        sw(@"isMetaEmployeeOrInternalTester",@"Gate de acesso a features internas Meta", @"building.2.fill",
-           ^BOOL{ return gp(kWAGRDogfoodGateMetaEmployee); },
-           ^(BOOL on){ setGp(kWAGRDogfoodGateMetaEmployee,on); WAGRDogfoodEnsureHooksInstalled(); }),
-        sw(@"isInternalMaster",@"watweak_bundle_internal_master — modo interno geral", @"building.columns.fill",
-           ^BOOL{ return bp(kWAGRInternalMaster); },
-           ^(BOOL on){ setBp(kWAGRInternalMaster,on); }),
-        sw(@"Debug menu nativo",@"isDebugMenuAllowed + isDebugMenuShortcutEnabled", @"ladybug.fill",
+        nav(@"Employee / Internal / Dogfood",
+            @"View curada dos gates reais; lê e escreve o mesmo estado do ABProperties Browser.",
+            @"person.badge.shield.checkmark.fill", ^(UIViewController *from){
+                [from.navigationController pushViewController:[[WAGRValidatedNativeGatesVC alloc] initEmployeeInternalDogfood] animated:YES];
+            }),
+        nav(@"Aura",
+            @"Todas as aura_* no ABProperties Browser, sem master/storage paralelo.",
+            @"crown.fill", ^(UIViewController *from){
+                WAGRABPropsFilteredBrowserVC *vc=[[WAGRABPropsFilteredBrowserVC alloc]
+                    initWithUserContext:WAGRCurrentUserContext() query:@"aura_" title:@"Aura ABProps"];
+                [from.navigationController pushViewController:vc animated:YES];
+            }),
+        nav(@"Liquid Glass",
+            @"Todas as ios_liquid_glass_* no ABProperties Browser, com estado canônico compartilhado.",
+            @"sparkles", ^(UIViewController *from){
+                WAGRABPropsFilteredBrowserVC *vc=[[WAGRABPropsFilteredBrowserVC alloc]
+                    initWithUserContext:WAGRCurrentUserContext() query:@"ios_liquid_glass_" title:@"Liquid Glass ABProps"];
+                [from.navigationController pushViewController:vc animated:YES];
+            }),
+        sw(@"Debug menu nativo", @"isDebugMenuAllowed + isDebugMenuShortcutEnabled", @"ladybug.fill",
            ^BOOL{ return bp(kWAGRDebugMenuNative); },
            ^(BOOL on){ setBp(kWAGRDebugMenuNative,on); WAGRNativeDevMenuEnsureHooksInstalled(); }),
-    ];
-    return s;
-}
-
-static WATSection *secAura(void) {
-    WATSection *s=[WATSection new];
-    s.header=@"WA Plus / Aura";
-    s.rows=@[
-        sw(@"★ Aura Simulation",@"Master — aura_enabled + aura_subscription_simulation", @"crown.fill",
-           ^BOOL{ return bp(kWAGRAuraSimulation); },
-           ^(BOOL on){
-               setBp(kWAGRAuraSimulation,on);
-               for(NSString*k in @[@"aura_enabled",@"aura_settings_row_enabled",
-                                   @"aura_subscription_simulation_enabled",@"aura_app_icon_enabled",
-                                   @"aura_app_themes_enabled",@"aura_ringtones_enabled",
-                                   @"aura_stickers_enabled",@"aura_enhanced_lists_enabled",
-                                   @"aura_pinned_chats_enabled"])
-                   on ? WAGRGateSet(k,YES) : WAGRGateClear(k);
-               WAGRAuraEnsureHooksInstalled();
-           }),
-        sw(@"aura_enabled",@"Gate principal da UI do Aura", @"star.fill",
-           ^BOOL{ return gp(@"aura_enabled"); },
-           ^(BOOL on){ setGp(@"aura_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_subscription_simulation_enabled",@"Simula assinatura — unlock de UI local", @"creditcard.fill",
-           ^BOOL{ return gp(@"aura_subscription_simulation_enabled"); },
-           ^(BOOL on){ setGp(@"aura_subscription_simulation_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_app_themes_enabled",@"Temas do aplicativo", @"paintpalette.fill",
-           ^BOOL{ return gp(@"aura_app_themes_enabled"); },
-           ^(BOOL on){ setGp(@"aura_app_themes_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_app_icon_enabled",@"Ícones do aplicativo", @"app.badge.fill",
-           ^BOOL{ return gp(@"aura_app_icon_enabled"); },
-           ^(BOOL on){ setGp(@"aura_app_icon_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_ringtones_enabled",@"Toques personalizados", @"music.note",
-           ^BOOL{ return gp(@"aura_ringtones_enabled"); },
-           ^(BOOL on){ setGp(@"aura_ringtones_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_stickers_enabled",@"Stickers premium Aura", @"face.smiling.fill",
-           ^BOOL{ return gp(@"aura_stickers_enabled"); },
-           ^(BOOL on){ setGp(@"aura_stickers_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_enhanced_lists_enabled",@"Listas aprimoradas", @"list.bullet.indent",
-           ^BOOL{ return gp(@"aura_enhanced_lists_enabled"); },
-           ^(BOOL on){ setGp(@"aura_enhanced_lists_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
-        sw(@"aura_pinned_chats_enabled",@"Chats fixados extras", @"pin.fill",
-           ^BOOL{ return gp(@"aura_pinned_chats_enabled"); },
-           ^(BOOL on){ setGp(@"aura_pinned_chats_enabled",on); WAGRAuraEnsureHooksInstalled(); }),
     ];
     return s;
 }
@@ -179,7 +125,7 @@ static WATSection *secWAAB(void) {
     WATSection *s=[WATSection new];
     s.header=@"WAABProperties";
     s.rows=@[
-        nav(@"AB Props",@"Runtime, cache account-scoped, fetch e export", @"switch.2",
+        nav(@"AB Props", @"Conta, Runtime e Overrides; fetch/cache account-scoped e export.", @"switch.2",
             ^(UIViewController *from){
                 [from.navigationController pushViewController:[WAGRABPropsRootVC new] animated:YES];
             }),
@@ -191,13 +137,13 @@ static WATSection *secRuntime(void) {
     WATSection *s=[WATSection new];
     s.header=@"Runtime Gates";
     s.rows=@[
-        nav(@"WhatsApp Executable",@"Gates e classes do executável principal", @"app.dashed",
+        nav(@"WhatsApp", @"Getters elegíveis do executável principal", @"app.dashed",
             ^(UIViewController *from){
                 WAGRSurfaceSpec *sp=surface(@"exec");
                 if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
                 else alert(from,@"Runtime",@"Surface 'exec' não encontrada.");
             }),
-        nav(@"SharedModules",@"Gates e classes do framework", @"shippingbox.fill",
+        nav(@"SharedModules", @"Getters elegíveis do framework SharedModules", @"shippingbox.fill",
             ^(UIViewController *from){
                 WAGRSurfaceSpec *sp=surface(@"sharedmodules");
                 if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
@@ -212,41 +158,34 @@ static WATSection *secTools(void) {
     s.header=@"Ferramentas";
     s.rows=@[
         nav(@"Logs",@"Log interno da sessão atual", @"list.bullet.rectangle.portrait.fill",
-            ^(UIViewController *from){
-                [from.navigationController pushViewController:[WAGRLogViewController new] animated:YES];
-            }),
-        act(@"Diagnóstico completo",@"GateStore · LG · Aura · Dogfood · Settings row · Keychain",
-            @"doc.text.magnifyingglass",
-            ^(UIViewController *from){
+            ^(UIViewController *from){ [from.navigationController pushViewController:[WAGRLogViewController new] animated:YES]; }),
+        act(@"Diagnóstico completo",@"RuntimeValue · LG · Aura · Dogfood · Settings row · Keychain",
+            @"doc.text.magnifyingglass", ^(UIViewController *from){
                 NSString *msg=[NSString stringWithFormat:
-                    @"[LiquidGlass]\n%@\n\n[Aura]\n%@\n\n[Dogfood]\n%@\n\n[GateStore]\n%@\n\n[Settings row]\n%@\n\n[Keychain]\n%@",
+                    @"[RuntimeValue]\n%lu overrides\n\n[LiquidGlass]\n%@\n\n[Aura]\n%@\n\n[Dogfood]\n%@\n\n[Gate hooks]\n%@\n\n[Settings row]\n%@\n\n[Keychain]\n%@",
+                    (unsigned long)WAGRRuntimeValueAllOverrideSpecs().count,
                     WAGRLGDiagnosticText()?:@"n/a", WAGRAuraDiagnostic()?:@"n/a",
-                    WAGRDogfoodDiagnosticText()?:@"n/a", WAGRGateStoreDiagnostic()?:@"n/a",
+                    WAGRDogfoodDiagnosticText()?:@"n/a", WAGRGateHooksDiagnostic()?:@"n/a",
                     WAGRSettingsRowsNativeDiagnosticText()?:@"n/a", WAKeychainAccessGroupDiagnostic()?:@"n/a"];
                 alert(from,@"Diagnóstico",msg);
             }),
-        dtr(@"Reset WATweaks",@"Remove todos os overrides watweak_* e índices runtime", @"trash.fill",
+        dtr(@"Remover tweaks",@"Remove overrides gerenciados pelo WATweaks", @"trash.fill",
             ^(UIViewController *from){
-                UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Reset"
-                    message:@"Remove todos os overrides watweak_*.\nReinicie o WA depois."
+                UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Remover tweaks"
+                    message:@"Remove os overrides watweak_* e runtime persistidos. Reinicie o WhatsApp depois."
                     preferredStyle:UIAlertControllerStyleAlert];
-                [a addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(__unused id _){
-                    NSUInteger n=WAGRGateClearAll();
+                [a addAction:[UIAlertAction actionWithTitle:@"Remover" style:UIAlertActionStyleDestructive handler:^(__unused id _){
                     NSUserDefaults *ud=NSUserDefaults.standardUserDefaults;
-                    for(NSString*k in ud.dictionaryRepresentation.allKeys)
-                        if([k hasPrefix:@"watweak_"]||[k hasPrefix:@"watweak."]){[ud removeObjectForKey:k];n++;}
-                    [ud synchronize];
-                    NSLog(@"[WATweaks] reset removed %lu managed keys", (unsigned long)n);
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.8*NSEC_PER_SEC)),
-                                   dispatch_get_main_queue(),^{exit(0);});
+                    for(NSString*k in [ud.dictionaryRepresentation.allKeys copy])
+                        if([k hasPrefix:@"watweak_"]||[k hasPrefix:@"watweak."]){[ud removeObjectForKey:k];}
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.6*NSEC_PER_SEC)), dispatch_get_main_queue(),^{exit(0);});
                 }]];
                 [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
                 [from presentViewController:a animated:YES completion:nil];
             }),
-        dtr(@"Reiniciar WhatsApp",@"Fecha o app — descarrega hooks desta sessão", @"power",
+        dtr(@"Reiniciar WhatsApp",@"Fecha o app para descarregar e reaplicar hooks no próximo launch", @"power",
             ^(__unused UIViewController *from){
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.3*NSEC_PER_SEC)),
-                               dispatch_get_main_queue(),^{exit(0);});
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.25*NSEC_PER_SEC)), dispatch_get_main_queue(),^{exit(0);});
             }),
     ];
     return s;
@@ -265,18 +204,15 @@ static WATSection *secTools(void) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
-    self.tableView.estimatedRowHeight=60.0;
-    self.tableView.rowHeight=60.0;
+    self.tableView.estimatedRowHeight=66.0;
+    self.tableView.rowHeight=UITableViewAutomaticDimension;
     self.tableView.separatorInset=UIEdgeInsetsMake(0, 56.0, 0, 16.0);
     if (@available(iOS 15.0,*)) self.tableView.sectionHeaderTopPadding=0.0;
 
     self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemClose target:self action:@selector(done)];
-
     self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc]
-        initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone
-        target:self action:@selector(applyAllHooks)];
-
+        initWithTitle:@"Aplicar" style:UIBarButtonItemStyleDone target:self action:@selector(applyAllHooks)];
     [self rebuildSections];
 }
 
@@ -291,57 +227,44 @@ static WATSection *secTools(void) {
 - (void)applyAllHooks {
     WAGRGateHooksEnsureInstalled();
     NSUInteger waab=WAGRWAABInstallHooksForAllRuntimeImages();
+    NSUInteger typed=WAGRRuntimeValueReinstallPersistedHooks();
     WAGRAuraEnsureHooksInstalled();
     WAGRDogfoodEnsureHooksInstalled();
     WAGRLGPrefsDidChange();
-    NSUInteger n=WAGRReinstallPersistedHooks();
+    NSUInteger legacy=WAGRReinstallPersistedHooks();
     NSString *msg=[NSString stringWithFormat:
-        @"%lu hooks/overrides reaplicados.\nWAAB central hooks: %lu\n\nGateStore overrides ativos: %lu",
-        (unsigned long)n,(unsigned long)waab,(unsigned long)WAGRGateAllOverrides().count];
+        @"RuntimeValue reaplicados: %lu\nHooks WAAB centrais: %lu\nHooks legados compatíveis: %lu",
+        (unsigned long)typed,(unsigned long)waab,(unsigned long)legacy];
     alert(self,@"Aplicar",msg);
     [self.tableView reloadData];
 }
 
 - (void)rebuildSections {
-    _sections=@[secLG(),secDogfood(),secAura(),secWAAB(),secRuntime(),secTools()];
+    _sections=@[secFeatures(),secWAAB(),secRuntime(),secTools()];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tv {
-    return (NSInteger)_sections.count;
-}
-
-- (NSInteger)tableView:(__unused UITableView *)tv numberOfRowsInSection:(NSInteger)sec {
-    return (NSInteger)_sections[(NSUInteger)sec].rows.count;
-}
-
-// Section names remain model metadata for the Dogfood patch, but are not drawn.
-// WhatsApp Settings communicates grouping through inset cards and whitespace.
+- (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tv { return (NSInteger)_sections.count; }
+- (NSInteger)tableView:(__unused UITableView *)tv numberOfRowsInSection:(NSInteger)sec { return (NSInteger)_sections[(NSUInteger)sec].rows.count; }
 - (NSString *)tableView:(__unused UITableView *)tv titleForHeaderInSection:(__unused NSInteger)sec { return nil; }
 - (NSString *)tableView:(__unused UITableView *)tv titleForFooterInSection:(__unused NSInteger)sec { return nil; }
-
-- (CGFloat)tableView:(__unused UITableView *)tv heightForHeaderInSection:(NSInteger)section {
-    return section == 0 ? 12.0 : 28.0;
-}
-
-- (CGFloat)tableView:(__unused UITableView *)tv heightForFooterInSection:(__unused NSInteger)section {
-    return 8.0;
-}
-
-- (CGFloat)tableView:(__unused UITableView *)tv heightForRowAtIndexPath:(__unused NSIndexPath *)ip {
-    return 60.0;
-}
+- (CGFloat)tableView:(__unused UITableView *)tv heightForHeaderInSection:(NSInteger)section { return section == 0 ? 12.0 : 28.0; }
+- (CGFloat)tableView:(__unused UITableView *)tv heightForFooterInSection:(__unused NSInteger)section { return 8.0; }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     WATCell *row=_sections[(NSUInteger)ip.section].rows[(NSUInteger)ip.row];
-    NSString *rid=[NSString stringWithFormat:@"WATNative-%ld",(long)row.type];
+    NSString *rid=[NSString stringWithFormat:@"WATCanonical-%ld",(long)row.type];
     UITableViewCell *cell=[tv dequeueReusableCellWithIdentifier:rid];
-    if(!cell) cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:rid];
+    if(!cell) cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:rid];
 
     WAGRMenuApplyCellStyle(cell, ip.row, row.title);
     cell.textLabel.text=row.title;
     cell.textLabel.font=WAGRMenuTitleFont();
-    cell.textLabel.numberOfLines=1;
-    cell.textLabel.lineBreakMode=NSLineBreakByTruncatingTail;
+    cell.textLabel.numberOfLines=0;
+    cell.textLabel.lineBreakMode=NSLineBreakByWordWrapping;
+    cell.detailTextLabel.text=row.subtitle;
+    cell.detailTextLabel.font=WAGRMenuRuntimeDetailFont();
+    cell.detailTextLabel.numberOfLines=0;
+    cell.detailTextLabel.textColor=WAGRMenuSecondaryTextColor();
     cell.imageView.image=WAGRMenuSymbol(row.icon, UIColor.whiteColor);
     cell.imageView.tintColor=UIColor.whiteColor;
     cell.accessoryView=nil;
@@ -351,22 +274,17 @@ static WATSection *secTools(void) {
 
     switch(row.type){
         case WATCellSwitch:{
-            UISwitch *s=[[UISwitch alloc]init];
-            s.on=row.getValue?row.getValue():NO;
-            [s addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
-            objc_setAssociatedObject(s,"wrow",row,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            cell.accessoryView=s;
+            UISwitch *control=[UISwitch new];
+            control.on=row.getValue?row.getValue():NO;
+            [control addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+            objc_setAssociatedObject(control,"wrow",row,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            cell.accessoryView=control;
             cell.selectionStyle=UITableViewCellSelectionStyleNone;
             break;
         }
-        case WATCellNav:
-            cell.accessoryType=UITableViewCellAccessoryDisclosureIndicator;
-            break;
-        case WATCellDestructive:
-            cell.textLabel.textColor=UIColor.systemRedColor;
-            break;
-        case WATCellAction:
-            break;
+        case WATCellNav: cell.accessoryType=UITableViewCellAccessoryDisclosureIndicator; break;
+        case WATCellDestructive: cell.textLabel.textColor=UIColor.systemRedColor; break;
+        case WATCellAction: break;
     }
     return cell;
 }

@@ -29,6 +29,13 @@ static NSArray<NSDictionary *> *WAGRFeatureTargets(NSArray<NSDictionary *> *targ
     return targets.count ? targets : WAGRFeatureDefaultWAABTargets();
 }
 
+static NSObject *WAGRFeatureStateLock(void) {
+    static NSObject *lock = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ lock = [NSObject new]; });
+    return lock;
+}
+
 static const char *WAGRFeatureSkipQualifiers(const char *type) {
     if (!type) return "";
     while (*type && strchr("rnNoORV", *type)) type++;
@@ -62,7 +69,8 @@ static id WAGRFeatureExactReceiver(Class cls, NSString *selectorName) {
 }
 
 static BOOL WAGRFeatureParseBool(id raw, BOOL *outValue) {
-    if ([raw respondsToSelector:@selector(boolValue)] && ![raw isKindOfClass:NSString.class]) {
+    if (!raw || raw == NSNull.null) return NO;
+    if ([raw isKindOfClass:NSNumber.class]) {
         if (outValue) *outValue = [raw boolValue];
         return YES;
     }
@@ -86,27 +94,32 @@ static NSDictionary<NSString *, NSNumber *> *WAGRFeatureNameToCode(void) {
     static NSString *cachedFingerprint = nil;
     WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshot(NULL);
     if (!snapshot) return cached ?: @{};
-    @synchronized ([WAGRFeatureStateSource class]) {
-        if (cached && [cachedFingerprint isEqualToString:snapshot.fingerprint ?: @""]) return cached;
+
+    @synchronized (WAGRFeatureStateLock()) {
+        NSString *fingerprint = snapshot.fingerprint ?: @"";
+        if (cached && [cachedFingerprint isEqualToString:fingerprint]) return cached;
+
         NSDictionary *document = WAGRABPropsNativeExportDocument(snapshot);
         NSArray *entries = [document[@"entries"] isKindOfClass:NSArray.class] ? document[@"entries"] : @[];
         NSMutableDictionary *map = [NSMutableDictionary dictionary];
-        for (NSDictionary *entry in entries) {
-            if (![entry isKindOfClass:NSDictionary.class]) continue;
+        for (id object in entries) {
+            if (![object isKindOfClass:NSDictionary.class]) continue;
+            NSDictionary *entry = object;
             NSString *name = [entry[@"name"] isKindOfClass:NSString.class] ? entry[@"name"] : nil;
-            NSNumber *code = [entry[@"code"] respondsToSelector:@selector(unsignedIntegerValue)]
-                ? @([entry[@"code"] unsignedIntegerValue]) : nil;
-            if (name.length && code.unsignedIntegerValue && !map[name]) map[name] = code;
+            NSUInteger numericCode = [entry[@"code"] respondsToSelector:@selector(unsignedIntegerValue)]
+                ? [entry[@"code"] unsignedIntegerValue] : 0;
+            if (name.length && numericCode && !map[name]) map[name] = @(numericCode);
         }
         cached = [map copy];
-        cachedFingerprint = [snapshot.fingerprint copy] ?: @"";
+        cachedFingerprint = [fingerprint copy];
         return cached;
     }
 }
 
 NSUInteger WAGRFeatureResolvedABID(NSString *selectorName, NSUInteger fallbackStableID) {
     NSNumber *code = selectorName.length ? WAGRFeatureNameToCode()[selectorName] : nil;
-    return code.unsignedIntegerValue ?: fallbackStableID;
+    NSUInteger resolved = code.unsignedIntegerValue;
+    return resolved ? resolved : fallbackStableID;
 }
 
 static BOOL WAGRFeatureNativeBool(NSUInteger stableID, BOOL *outValue) {
@@ -120,31 +133,36 @@ static BOOL WAGRFeatureNativeBool(NSUInteger stableID, BOOL *outValue) {
     return WAGRFeatureParseBool(node, outValue);
 }
 
+static BOOL WAGRFeatureClassLooksLikeABProperties(NSString *className) {
+    NSString *lower = className.lowercaseString ?: @"";
+    return [lower containsString:@"abpropert"] || [lower containsString:@"foawaab"];
+}
+
 static BOOL WAGRFeatureOverrideForSelector(NSString *selectorName,
                                            NSArray<NSDictionary *> *targets,
                                            BOOL *outValue) {
     if (!selectorName.length) return NO;
     NSArray *specs = WAGRRuntimeValueAllOverrideSpecs();
     NSArray *resolvedTargets = WAGRFeatureTargets(targets);
+
     for (NSDictionary *target in resolvedTargets) {
         NSString *wantedClass = [target[@"class"] isKindOfClass:NSString.class] ? target[@"class"] : @"";
         BOOL wantedMeta = [target[@"meta"] boolValue];
         for (NSDictionary *spec in specs) {
-            if (![spec[@"selector"] isEqual:selectorName] ||
-                ![spec[@"class"] isEqual:wantedClass] ||
+            NSString *specSelector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : @"";
+            NSString *specClass = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : @"";
+            if (![specSelector isEqualToString:selectorName] || ![specClass isEqualToString:wantedClass] ||
                 [spec[@"meta"] boolValue] != wantedMeta) continue;
             id value = WAGRRuntimeValueOverride(wantedClass, selectorName, wantedMeta);
             if (WAGRFeatureParseBool(value, outValue)) return YES;
         }
     }
-    // Compatibility with an exact ABProperties implementation that differs from
-    // the declared facade class. Do not accept an unrelated same-selector class.
+
     for (NSDictionary *spec in specs) {
+        NSString *specSelector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : @"";
         NSString *className = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : @"";
-        if (![spec[@"selector"] isEqual:selectorName] ||
-            ![className.lowercaseString containsString:@"abpropert"]) continue;
-        BOOL meta = [spec[@"meta"] boolValue];
-        id value = WAGRRuntimeValueOverride(className, selectorName, meta);
+        if (![specSelector isEqualToString:selectorName] || !WAGRFeatureClassLooksLikeABProperties(className)) continue;
+        id value = WAGRRuntimeValueOverride(className, selectorName, [spec[@"meta"] boolValue]);
         if (WAGRFeatureParseBool(value, outValue)) return YES;
     }
     return NO;
@@ -172,6 +190,7 @@ BOOL WAGRFeatureReadBool(NSString *selectorName,
         NSString *type = WAGRFeatureMethodType(cls, selectorName, meta);
         if (!type.length) continue;
         id receiver = meta ? (id)cls : WAGRFeatureExactReceiver(cls, selectorName);
+        if (!meta && !receiver) continue;
         id raw = nil;
         (void)WAGRRuntimeValueRead(className, selectorName, meta, receiver, &raw);
         if (WAGRFeatureParseBool(raw, &value)) {
@@ -195,16 +214,15 @@ BOOL WAGRFeatureSetBool(NSString *selectorName,
                         BOOL value) {
     if (!selectorName.length) return NO;
     NSArray *resolvedTargets = WAGRFeatureTargets(targets);
-    NSArray *specs = WAGRRuntimeValueAllOverrideSpecs();
+    NSArray *specs = [WAGRRuntimeValueAllOverrideSpecs() copy];
 
-    // If the ABProperties Browser already owns an exact selector override, update
-    // that exact record instead of creating a parallel key.
     for (NSDictionary *target in resolvedTargets) {
         NSString *wantedClass = [target[@"class"] isKindOfClass:NSString.class] ? target[@"class"] : @"";
         BOOL wantedMeta = [target[@"meta"] boolValue];
         for (NSDictionary *spec in specs) {
-            if (![spec[@"selector"] isEqual:selectorName] ||
-                ![spec[@"class"] isEqual:wantedClass] ||
+            NSString *specSelector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : @"";
+            NSString *specClass = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : @"";
+            if (![specSelector isEqualToString:selectorName] || ![specClass isEqualToString:wantedClass] ||
                 [spec[@"meta"] boolValue] != wantedMeta) continue;
             NSString *type = [spec[@"type"] isKindOfClass:NSString.class] ? spec[@"type"] : nil;
             if (!type.length) continue;
@@ -213,10 +231,11 @@ BOOL WAGRFeatureSetBool(NSString *selectorName,
             return YES;
         }
     }
+
     for (NSDictionary *spec in specs) {
+        NSString *specSelector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : @"";
         NSString *className = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : @"";
-        if (![spec[@"selector"] isEqual:selectorName] ||
-            ![className.lowercaseString containsString:@"abpropert"]) continue;
+        if (![specSelector isEqualToString:selectorName] || !WAGRFeatureClassLooksLikeABProperties(className)) continue;
         BOOL meta = [spec[@"meta"] boolValue];
         NSString *type = [spec[@"type"] isKindOfClass:NSString.class] ? spec[@"type"] : nil;
         if (!type.length) continue;
@@ -241,12 +260,16 @@ BOOL WAGRFeatureSetBool(NSString *selectorName,
 void WAGRFeatureClearBool(NSString *selectorName,
                           NSArray<NSDictionary *> *targets) {
     if (!selectorName.length) return;
-    NSSet *wanted = [NSSet setWithArray:[WAGRFeatureTargets(targets) valueForKey:@"class"] ?: @[]];
+    NSMutableSet<NSString *> *wantedClasses = [NSMutableSet set];
+    for (NSDictionary *target in WAGRFeatureTargets(targets)) {
+        NSString *className = [target[@"class"] isKindOfClass:NSString.class] ? target[@"class"] : nil;
+        if (className.length) [wantedClasses addObject:className];
+    }
     for (NSDictionary *spec in [WAGRRuntimeValueAllOverrideSpecs() copy]) {
         NSString *className = [spec[@"class"] isKindOfClass:NSString.class] ? spec[@"class"] : @"";
         NSString *selector = [spec[@"selector"] isKindOfClass:NSString.class] ? spec[@"selector"] : @"";
         if (![selector isEqualToString:selectorName]) continue;
-        if (![wanted containsObject:className] && ![className.lowercaseString containsString:@"abpropert"]) continue;
+        if (![wantedClasses containsObject:className] && !WAGRFeatureClassLooksLikeABProperties(className)) continue;
         WAGRRuntimeValueClearOverride(className, selectorName, [spec[@"meta"] boolValue]);
     }
 }
