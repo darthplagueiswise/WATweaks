@@ -1,18 +1,18 @@
-name: Build WATweaks dogfood2 rootless
+name: Build WATweaks canonical 8150 rebuild
 
 on:
   push:
     branches:
-      - dogfood2
+      - dogfood2-rebuild-8df
   workflow_dispatch:
 
 concurrency:
-  group: watweaks-dogfood2-${{ github.ref }}
+  group: watweaks-8150-rebuild-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Build dogfood2 rootless
+    name: Build canonical 8150 rebuild rootless
     runs-on: macos-15
     timeout-minutes: 45
     permissions:
@@ -23,11 +23,11 @@ jobs:
       THEOS_PACKAGE_SCHEME: rootless
 
     steps:
-      - name: Checkout
+      - name: Checkout exact pushed ref
         uses: actions/checkout@v4
         with:
-          ref: dogfood2
-          fetch-depth: 1
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
           submodules: recursive
 
       - name: Install dependencies
@@ -54,6 +54,7 @@ jobs:
       - name: Download iPhoneOS 26.2 SDK
         if: steps.sdk.outputs.cache-hit != 'true'
         run: |
+          set -euxo pipefail
           git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/xybp888/iOS-SDKs.git sdk-source
           cd sdk-source
           git sparse-checkout set --no-cone iPhoneOS26.2.sdk
@@ -61,202 +62,102 @@ jobs:
           mkdir -p "$THEOS/sdks"
           mv iPhoneOS26.2.sdk "$THEOS/sdks/"
 
-      - name: Validate dogfood and live typed runtime sources
+      - name: Validate canonical 8150 rebuild sources
         run: |
           set -euxo pipefail
 
           files=(
-            src/Hooks/WAGREmployeeHooks.xm
-            src/Hooks/WAGRDebugBuildHooks.xm
-            src/Hooks/WAGRDogfoodKnownWAABHooks.xm
-            src/Hooks/WAGREmployeeSweep.xm
-            src/Hooks/WAGRInternalToolsSweep.xm
-            src/Hooks/WAGRDebugMenuInstrumentation.xm
-            src/Menu/WAGRDogfoodMenuPatch.xm
+            Makefile
+            src/Menu/WAGRMainSettingsVC.h
+            src/Menu/WAGRMainSettingsVC.m
+            src/Menu/WAGRABPropsRootVC.h
             src/Menu/WAGRABPropsRootVC.m
             src/Menu/WAGRABPropsBrowserVC.h
             src/Menu/WAGRABPropsBrowserVC.m
-            src/Menu/WAGRABPropsSnapshotVC.m
-            src/Menu/WAGRRuntimeGatesVC.h
-            src/Menu/WAGRRuntimeGatesVC.m
-            src/Menu/WAGRRuntimeValueEditor.h
-            src/Menu/WAGRRuntimeValueEditor.m
+            src/Menu/WAGRABPropsFilteredBrowserVC.h
+            src/Menu/WAGRABPropsFilteredBrowserVC.m
+            src/Menu/WAGRValidatedNativeGatesVC.h
+            src/Menu/WAGRValidatedNativeGatesVC.m
             src/Menu/WAGRSurfaceBrowserVC.h
             src/Menu/WAGRSurfaceBrowserVC.m
-            src/Menu/WAGRMenuTheme.h
-            src/Menu/WAGRMenuTheme.m
-            src/Menu/WAGRMainSettingsLiquidGlass.m
-            src/Runtime/WAGRABPropsNativeStore.h
-            src/Runtime/WAGRABPropsNativeStore.m
-            src/Runtime/WAGRABPropsCanonicalNamesV2.h
-            src/Runtime/WAGRABPropsCanonicalNamesV2.m
-            src/Runtime/WAGRABPropsRequestManagerBridge.m
-            src/Runtime/WAGRABPropsNetworkingBridge.m
-            src/Runtime/WAGRUserContextLinkage.h
+            src/Menu/WAGRRuntimeBrowserCrashGuard.m
+            src/Menu/WAGRRuntimeObjectFullscreenEditor.m
+            src/Runtime/WAGRFeatureState.h
+            src/Runtime/WAGRFeatureState.m
             src/Runtime/WAGRABPropsRuntime.h
             src/Runtime/WAGRABPropsRuntime.m
-            src/Runtime/WAGRNativeABPropsResolver.h
-            src/Runtime/WAGRNativeABPropsResolver.m
-            src/Runtime/WAGRRuntimeClassifier.h
-            src/Runtime/WAGRRuntimeClassifier.m
+            src/Runtime/WAGRABPropsNativeStore.h
+            src/Runtime/WAGRABPropsNativeStore.m
+            src/Runtime/WAGRABPropsStorageAudit.h
+            src/Runtime/WAGRABPropsStorageAudit.m
             src/Runtime/WAGRRuntimeValueStore.h
             src/Runtime/WAGRRuntimeValueStore.m
-            src/Runtime/WAGRSurface.h
-            src/Runtime/WAGRSurface.m
-            src/WADefaults.m
-            src/WAUtils.m
+            src/Runtime/WAGRMobileConfigBridge.h
+            src/Runtime/WAGRMobileConfigBridge.m
+            src/Hooks/WAAuraHooks.xm
+            src/Hooks/WAGRLiquidGlassHooks.xm
+            src/Hooks/WAGREmployeeHooks.xm
+            src/Hooks/WAGRDogfoodKnownWAABHooks.xm
+            src/Hooks/WAGREmployeeSweep.xm
+            src/Hooks/WAGRInternalToolsSweep.xm
           )
           for file in "${files[@]}"; do
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
           done
 
-          ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' "${files[@]}"
+          # The rebuild intentionally restores the 8150 root hierarchy. The
+          # removed FeatureSubmenu translation unit must not be resurrected just
+          # to satisfy a stale CI list: Aura/Liquid Glass are filtered views of
+          # the canonical ABProperties browser, while Employee/Internal is the
+          # curated view backed by the same RuntimeValueStore.
+          test ! -e src/Menu/WAGRFeatureSubmenuVC.h
+          test ! -e src/Menu/WAGRFeatureSubmenuVC.m
+          grep -q 'WAGRABPropsFilteredBrowserVC' src/Menu/WAGRMainSettingsVC.m
+          grep -q 'WAGRValidatedNativeGatesVC' src/Menu/WAGRMainSettingsVC.m
+          grep -q 'query:@"aura_"' src/Menu/WAGRMainSettingsVC.m
+          grep -q 'query:@"ios_liquid_glass_"' src/Menu/WAGRMainSettingsVC.m
+          grep -q 'WAGRABPropsRootVC' src/Menu/WAGRMainSettingsVC.m
+          grep -q 'WAGRSurfaceBrowserVC' src/Menu/WAGRMainSettingsVC.m
 
-          if grep -n -E '\bnullable[[:space:]]+id\b' \
-              src/Runtime/WAGRABPropsRuntime.h \
-              src/Runtime/WAGRNativeABPropsResolver.h \
-              src/Runtime/WAGRRuntimeValueStore.h \
-              src/Menu/WAGRABPropsBrowserVC.h \
-              src/Menu/WAGRRuntimeValueEditor.h; then
-            echo 'ERRO: use id _Nullable em APIs C; nullable id não compila nesta toolchain.'
-            exit 1
-          fi
+          # Curated Employee/Internal/Dogfood state and the ABProperties browser
+          # share one typed override store instead of parallel gate persistence.
+          grep -q 'WAGRFeatureReadBool' src/Menu/WAGRValidatedNativeGatesVC.m
+          grep -q 'WAGRFeatureSetBool' src/Menu/WAGRValidatedNativeGatesVC.m
+          grep -q 'WAGRRuntimeValueAllOverrideSpecs' src/Runtime/WAGRFeatureState.m
+          grep -q 'WAGRRuntimeValueSetOverride' src/Runtime/WAGRFeatureState.m
+          grep -q 'WAGRRuntimeValueClearOverride' src/Runtime/WAGRFeatureState.m
+          grep -q 'WAGRABPropsNativeExportDocument' src/Runtime/WAGRFeatureState.m
 
-          if grep -R -n \
-              --include='*.x' --include='*.xm' \
-              -E '\{[[:space:]]*[A-Z_][A-Z0-9_]*\([^;]*\);[[:space:]]*return[[:space:]]+%orig;[[:space:]]*\}[[:space:]]*$' \
-              src; then
-            echo 'ERRO: hook Logos em uma linha com macro + %orig; use corpo multiline explícito.'
-            exit 1
-          fi
+          # Runtime browser receiver resolution remains conservative. This guard
+          # is the effective final receiverForEntry: implementation and never
+          # fabricates unknown WhatsApp objects.
+          grep -q 'WAGRSafeReceiverForEntry' src/Menu/WAGRRuntimeBrowserCrashGuard.m
+          grep -q 'WAGRSafeExactReceiver' src/Menu/WAGRRuntimeBrowserCrashGuard.m
+          ! grep -q 'class_createInstance' src/Menu/WAGRRuntimeBrowserCrashGuard.m
+          ! grep -q '\[cls alloc\]' src/Menu/WAGRRuntimeBrowserCrashGuard.m
 
-          if grep -R -n -E 'read[- ]only|somente leitura' \
-              src/Menu/WAGRABPropsBrowserVC.m \
-              src/Menu/WAGRSurfaceBrowserVC.m \
-              src/Runtime/WAGRABPropsRuntime.m; then
-            echo 'ERRO: o browser runtime não pode regredir para read-only.'
-            exit 1
-          fi
+          # Long Foundation values, including wamo_abprops_list, retain their
+          # outer object ABI while typed JSON entries are validated internally.
+          grep -q 'wamo_abprops_list' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
+          grep -q 'typedABPropsSchema' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
+          grep -q 'WAGRFullValidateABPropsSchema' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
+          grep -q 'WAGRRuntimeValueSetOverride' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
+
+          # Native fetch/storage diagnostics stay on the real ABProps path.
+          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsNativeStore.m
+          grep -q 'gabp.o' src/Runtime/WAGRABPropsNativeStore.m
+          grep -q 'volatileDomainNames' src/Runtime/WAGRABPropsStorageAudit.m
 
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
           grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
-          grep -q 'WA_PREF_RUNTIME_VALUE_OVERRIDES' src/WADefaults.m
-          grep -q 'WA_PREF_INTERNAL_TOOLS_SWEEP_BACKUP' src/WADefaults.m
 
-          # WAAB discovery/categorization is runtime-only. JSON is not a source,
-          # dependency or CI gate.
-          grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsRuntime.m
-          grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Runtime/WAGRABPropsRuntime.m
-          grep -q 'WAGRABPropsScan' src/Runtime/WAGRABPropsRuntime.m
-          grep -q 'method_getNumberOfArguments(method) != 2' src/Runtime/WAGRABPropsRuntime.m
-          grep -q '#import "WAGRSurface.h"' src/Runtime/WAGRABPropsRuntime.h
-          ! grep -R -n 'WAABProperties.json' src/Runtime src/Menu src/Hooks
-          ! grep -q 'WAGRGateRegistry' src/Menu/WAGRABPropsRootVC.m
-          grep -q 'WAGRABPropsBrowserVC' src/Menu/WAGRABPropsRootVC.m
-
-          # Native Developer UI belongs to WhatsApp. Instrumentation may capture
-          # the real userContext, but must not insert/remove an AB Props row.
-          grep -q 'WADebugViewController' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'WAGRRememberUserContext' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'Developer UI untouched' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'viewDidLoad' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          grep -q 'viewDidAppear:' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          ! grep -q 'addTableRowWithCellStyle' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          ! grep -q 'deleteRow:' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          ! grep -q 'watweaks.native.abprops.entry' src/Hooks/WAGRDebugMenuInstrumentation.xm
-          ! grep -q 'WAGRRowIsRCWarning' src/Hooks/WAGRDebugMenuInstrumentation.xm
-
-          # Current-build ABProps fetch path comes from the supplied Mach-O and
-          # stays exact: live XMPP -> networkingDependencyProvider -> request
-          # manager -> requestFreshABProps:withCompletion:.
-          grep -q 'networkingDependencyProvider' src/Runtime/WAGRABPropsRequestManagerBridge.m
-          grep -q 'xmppConnectionABPropsRequestManager' src/Runtime/WAGRABPropsRequestManagerBridge.m
-          grep -q 'initWithUserContext:xmppConnection:' src/Runtime/WAGRABPropsRequestManagerBridge.m
-          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsRequestManagerBridge.m
-          grep -q 'class_addMethod' src/Runtime/WAGRABPropsRequestManagerBridge.m
-          ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsRequestManagerBridge.m
-          grep -q 'networkingDependencyProvider' src/Runtime/WAGRABPropsNetworkingBridge.m
-          grep -q 'xmppConnectionABPropsRequestManager' src/Runtime/WAGRABPropsNetworkingBridge.m
-          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsNativeStore.m
-          grep -q 'no heuristic fetch/sync method was invoked' src/Runtime/WAGRABPropsNativeStore.m
-
-          # Fetch dispatch and local cache delta are different signals. The UI
-          # must not report a 12-second fingerprint timeout as a network failure.
-          grep -q 'Request ABProps enviado' src/Menu/WAGRABPropsSnapshotVC.m
-          grep -q 'nenhum delta local observado' src/Menu/WAGRABPropsSnapshotVC.m
-          ! grep -q 'fingerprint não mudou em 12 s' src/Menu/WAGRABPropsSnapshotVC.m
-
-          # Native ABProp naming remains read-only and is decoded from getter
-          # descriptors in current app-owned images.
-          grep -q 'WAGRABPropsCanonicalNameForCode' src/Runtime/WAGRABPropsCanonicalNamesV2.m
-          grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsCanonicalNamesV2.m
-          ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsCanonicalNamesV2.m
-
-          # WATweaks uses a true-black canvas. Liquid Glass belongs to navigation,
-          # search and scope chrome; scrolling rows stay opaque/readable.
-          grep -q 'return UIColor.blackColor' src/Menu/WAGRMenuTheme.m
-          grep -q 'UIGlassEffectStyleRegular' src/Menu/WAGRMenuTheme.m
-          grep -q 'WAGRMenuApplySearchGlass' src/Menu/WAGRMenuTheme.m
-          grep -q 'backgroundView = nil' src/Menu/WAGRMenuTheme.m
-          ! grep -q 'UIGlassEffectStyleClear' src/Menu/WAGRMenuTheme.m
-          ! grep -q 'backgroundEffect = WAGRMenuGlassEffect' src/Menu/WAGRMenuTheme.m
-          ! grep -q 'cellForRowAtIndexPath' src/Menu/WAGRMainSettingsLiquidGlass.m
-
-          # Runtime image shortcuts resolve the current Mach-O snapshot instead
-          # of looking up removed IDs such as exec/sharedmodules.
-          grep -q 'runtimeImageSurfaces' src/Menu/WAGRDogfoodMenuPatch.xm
-          grep -q 'runtimeImagePath' src/Menu/WAGRDogfoodMenuPatch.xm
-          grep -q 'SharedModules.framework/SharedModules' src/Menu/WAGRDogfoodMenuPatch.xm
-
-          # Categories and subcategories come from the loaded Objective-C runtime.
-          grep -q 'objc_copyClassList' src/Runtime/WAGRSurface.m
-          grep -q 'class_getImageName' src/Runtime/WAGRSurface.m
-          grep -q 'runtimeImageSurfaces' src/Runtime/WAGRSurface.m
-          grep -q 'runtimeFamilySurfaces' src/Runtime/WAGRSurface.m
-          grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Runtime/WAGRSurface.m
-          grep -q 'WAGRLiveRuntimeSubcategoryForEntry' src/Runtime/WAGRSurface.m
-          grep -q 'runtimeFamilySurfaces' src/Menu/WAGRRuntimeGatesVC.m
-          ! grep -q 'WAGRGateRegistry' src/Menu/WAGRRuntimeGatesVC.m
-          grep -q 'scanSurface:spec' src/Menu/WAGRSurfaceBrowserVC.m
-          grep -q 'scopeButtonTitles' src/Menu/WAGRSurfaceBrowserVC.m
-          grep -q 'WAGRLiveRuntimeFamilyForSelector' src/Menu/WAGRABPropsBrowserVC.m
-          grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
-
-          # One master owns Employee/Internal/Tester/Dogfood and the complete
-          # current-build internal/debug/tool surface. The fresh sweep only walks
-          # WAABProperties after an explicit user action; launch reinstalls exact
-          # persisted hooks and never scans all classes.
-          grep -q '%hook WAABProperties' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
-          grep -q 'username_dogfooding_pn_privacy_enabled' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
-          grep -q 'graphQLEmployeeC1Disabled' src/Hooks/WAGRDogfoodKnownWAABHooks.xm
-          grep -q 'wa_asteria_tools_tab_entrypoint_enabled' src/Hooks/WAGREmployeeHooks.xm
-          grep -q 'stella_filebus_enabled' src/Hooks/WAGREmployeeHooks.xm
-          grep -q 'ai_meta_ai_in_app_tab_main_gate_enabled' src/Hooks/WAGREmployeeHooks.xm
-          grep -q 'bonsai_remove_meta_ai_shortcut_setting_switch" : @NO' src/Hooks/WAGREmployeeHooks.xm
-          grep -q 'WAGRInternalToolsSweepSetEnabled(YES)' src/Hooks/WAGREmployeeHooks.xm
-          grep -q 'class_copyMethodList' src/Hooks/WAGRInternalToolsSweep.xm
-          grep -q 'WAGRInternalToolsMethodIsZeroArgBool' src/Hooks/WAGRInternalToolsSweep.xm
-          grep -q 'WAGRGateInstallHookForSelector' src/Hooks/WAGRInternalToolsSweep.xm
-          grep -q 'WAGRGateForgetHook' src/Hooks/WAGRInternalToolsSweep.xm
-          ! grep -q 'objc_copyClassList' src/Hooks/WAGRInternalToolsSweep.xm
-          ! grep -q 'dispatch_after' src/Hooks/WAGRInternalToolsSweep.xm
-
-          # Debug build uses only the object-ABI Kotlin source. The C build-type
-          # symbol was tied to telemetry and must not be rebound.
-          grep -q '_TtC21WAAppStateSyncContext17KmpAppleBuildInfo' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'getBuildType' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'WASDEKmpBuildType' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'sel_registerName("debug")' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'MSHookMessageEx' src/Hooks/WAGRDebugBuildHooks.xm
-          ! grep -q 'rebind_symbols' src/Hooks/WAGRDebugBuildHooks.xm
-          ! grep -q 'WAGRHookBuildTypeValue' src/Hooks/WAGRDebugBuildHooks.xm
-          ! grep -q '%hook WASDEKotlinSelectorsHolder' src/Hooks/WAGRDebugBuildHooks.xm
-          ! grep -q 'objc_getClass("WASDEKotlinSelectorsHolder")' src/Hooks/WAGRDebugBuildHooks.xm
-          grep -q 'WAGRDebugBuildEnsureInstalled' src/Hooks/WAGREmployeeHooks.xm
+          python3 scripts/wagr_validate_sources.py
+          python3 scripts/wagr_validate_sideload_hooks.py
 
       - name: Build rootless package
         run: |
+          set -euxo pipefail
           chmod +x build.sh
           make clean
           ./build.sh THEOS_PACKAGE_SCHEME=rootless
@@ -264,18 +165,19 @@ jobs:
       - name: Verify package
         id: package
         run: |
+          set -euxo pipefail
           deb="$(find packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
           test -n "$deb"
           dpkg-deb --info "$deb"
           dpkg-deb --contents "$deb" | tee package-contents.txt
-          name="WATweaks_dogfood2_rootless_${GITHUB_RUN_NUMBER}.deb"
+          name="WATweaks_8150_rebuild_rootless_${GITHUB_RUN_NUMBER}.deb"
           cp "$deb" "packages/$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WATweaks-dogfood2-rootless-${{ github.run_number }}
+          name: WATweaks-8150-rebuild-rootless-${{ github.run_number }}
           path: |
             packages/${{ steps.package.outputs.name }}
             package-contents.txt
