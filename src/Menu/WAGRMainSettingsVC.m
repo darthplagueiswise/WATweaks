@@ -13,6 +13,8 @@
 #import "../Runtime/WAGRSurface.h"
 
 extern NSString *WAGRLGDiagnosticText(void);
+extern BOOL WAGRLGEffectiveMasterEnabled(void);
+extern void WAGRLGSetMasterEnabled(BOOL enabled);
 extern NSString *WAGRDogfoodDiagnosticText(void);
 extern NSString *WAGRAuraDiagnostic(void);
 extern NSString *WAGRGateHooksDiagnostic(void);
@@ -71,7 +73,7 @@ static void setBp(NSString *k, BOOL v) {
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 static BOOL gp(NSString *k) { return WAGRGateIsSet(k) ? WAGRGateGet(k) : bp(k); }
-static void setGp(NSString *k,BOOL v) { WAGRGateSet(k,v); setBp(k,v); }
+static void setGp(NSString *k,BOOL v) { WAGRGateSet(k,v); }
 
 static WAGRSurfaceSpec *surface(NSString *sid) {
     for (WAGRSurfaceSpec *s in [WAGRSurfaceSpec allSurfaces])
@@ -95,13 +97,13 @@ static WATSection *secLG(void) {
     WATSection *s=[WATSection new];
     s.header=@"Liquid Glass";
     s.rows=@[
-        sw(@"Liquid Glass",@"Master — WDSLiquidGlass + todas as WAAB keys LG", @"sparkles",
-           ^BOOL{ return bp(kWAGRLiquidGlassMaster); },
-           ^(BOOL on){ setBp(kWAGRLiquidGlassMaster,on); WAGRLGPrefsDidChange(); }),
-        sw(@"Method hooks",@"Só os hooks nos class methods de WDSLiquidGlass", @"function",
+        sw(@"Liquid Glass",@"Estado efetivo — WAAB ios_liquid_glass_enabled + bridges opcionais", @"sparkles",
+           ^BOOL{ return WAGRLGEffectiveMasterEnabled(); },
+           ^(BOOL on){ WAGRLGSetMasterEnabled(on); }),
+        sw(@"Method hooks",@"Bridge semântico WDSLiquidGlass; não é um segundo ABProp store", @"function",
            ^BOOL{ return bp(WA_PREF_LIQUID_GLASS_METHOD_HOOKS); },
            ^(BOOL on){ setBp(WA_PREF_LIQUID_GLASS_METHOD_HOOKS,on); WAGRLGPrefsDidChange(); }),
-        sw(@"NSUserDefaults overrides",@"Escreve ios_liquid_glass_* = YES em defaults", @"internaldrive",
+        sw(@"NSUserDefaults overrides",@"Compatibilidade legada WALiquidGlassOverride; WAAB continua no RuntimeValueStore", @"internaldrive",
            ^BOOL{ return bp(WA_PREF_LIQUID_GLASS_USERDEFAULTS); },
            ^(BOOL on){ setBp(WA_PREF_LIQUID_GLASS_USERDEFAULTS,on); WAGRLGPrefsDidChange(); }),
     ];
@@ -135,8 +137,8 @@ static WATSection *secAura(void) {
     WATSection *s=[WATSection new];
     s.header=@"WA Plus / Aura";
     s.rows=@[
-        sw(@"★ Aura Simulation",@"Master — aura_enabled + aura_subscription_simulation", @"crown.fill",
-           ^BOOL{ return bp(kWAGRAuraSimulation); },
+        sw(@"★ Aura Simulation",@"Master efetivo — local OU aura_enabled/subscription runtime", @"crown.fill",
+           ^BOOL{ return bp(kWAGRAuraSimulation) || gp(@"aura_enabled") || gp(@"aura_subscription_simulation_enabled"); },
            ^(BOOL on){
                setBp(kWAGRAuraSimulation,on);
                for(NSString*k in @[@"aura_enabled",@"aura_settings_row_enabled",
@@ -314,8 +316,6 @@ static WATSection *secTools(void) {
     return (NSInteger)_sections[(NSUInteger)sec].rows.count;
 }
 
-// Section names remain model metadata for the Dogfood patch, but are not drawn.
-// WhatsApp Settings communicates grouping through inset cards and whitespace.
 - (NSString *)tableView:(__unused UITableView *)tv titleForHeaderInSection:(__unused NSInteger)sec { return nil; }
 - (NSString *)tableView:(__unused UITableView *)tv titleForFooterInSection:(__unused NSInteger)sec { return nil; }
 
