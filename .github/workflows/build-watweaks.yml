@@ -143,10 +143,11 @@ jobs:
           grep -q 'WAGRFullValidateABPropsSchema' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
           grep -q 'WAGRRuntimeValueSetOverride' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
 
-          # Native fetch/storage diagnostics stay on the real ABProps path.
+          # Native fetch/storage diagnostics stay on the real ABProps path and
+          # the audit remains observational (no explicit preference flush).
           grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsNativeStore.m
           grep -q 'gabp.o' src/Runtime/WAGRABPropsNativeStore.m
-          grep -q 'volatileDomainNames' src/Runtime/WAGRABPropsStorageAudit.m
+          grep -q 'Deliberately do NOT call -synchronize' src/Runtime/WAGRABPropsStorageAudit.m
 
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
           grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
