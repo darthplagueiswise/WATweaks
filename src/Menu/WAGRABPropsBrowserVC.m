@@ -89,8 +89,6 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    // Re-read both the loaded Objective-C layer and gabp.*p whenever this screen
-    // becomes visible. Fetch may have happened in the native snapshot screen.
     [self scanNow];
 }
 
@@ -383,6 +381,9 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     BOOL overridden = WAGRRuntimeValueHasOverride(entry.className,
                                                    entry.selectorName,
                                                    entry.classMethod);
+    BOOL installed = overridden && WAGRRuntimeValueHookIsInstalled(entry.className,
+                                                                    entry.selectorName,
+                                                                    entry.classMethod);
     id forced = WAGRRuntimeValueOverride(entry.className,
                                          entry.selectorName,
                                          entry.classMethod);
@@ -393,8 +394,9 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     cell.textLabel.text = [NSString stringWithFormat:@"%@%@",
         entry.classMethod ? @"+ " : @"- ", entry.selectorName];
 
-    NSMutableString *detail = [NSMutableString stringWithFormat:@"Atual: %@%@",
-        current ?: @"?", WAGRABOverrideDescription(forced, overridden)];
+    NSString *state = overridden ? (installed ? @"INSTALLED" : @"PENDING") : @"ORIGINAL";
+    NSMutableString *detail = [NSMutableString stringWithFormat:@"Atual: %@%@ · %@",
+        current ?: @"?", WAGRABOverrideDescription(forced, overridden), state];
     if (native) {
         [detail appendFormat:@"\nAB #%@ · cache %@",
             native[@"code"] ?: @"?", WAGRABCompactValue(native[@"value"])];
@@ -417,7 +419,8 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
             cacheMismatch = ([raw boolValue] != cacheBool);
         }
     }
-    cell.detailTextLabel.textColor = overridden ? UIColor.systemCyanColor
+    cell.detailTextLabel.textColor = overridden
+        ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
         : (cacheMismatch ? UIColor.systemOrangeColor : WAGRMenuSecondaryTextColor());
 
     if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
@@ -431,7 +434,9 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
         objc_setAssociatedObject(toggle, kWAGRABSwitchEntryKey, entry,
                                  OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         toggle.on = overridden ? [forced boolValue] : [raw boolValue];
-        toggle.onTintColor = overridden ? UIColor.systemCyanColor : UIColor.systemGreenColor;
+        toggle.onTintColor = overridden
+            ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
+            : UIColor.systemGreenColor;
         cell.accessoryType = UITableViewCellAccessoryNone;
     } else {
         cell.accessoryView = nil;
@@ -452,13 +457,13 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
 
 #pragma mark - Overrides
 
-- (void)presentHookFailureForEntry:(WAGRABPropEntry *)entry readback:(NSString *)readback {
+- (void)presentPendingForEntry:(WAGRABPropEntry *)entry readback:(NSString *)readback {
     NSString *target = [NSString stringWithFormat:@"%@ %@%@",
         entry.className ?: @"?", entry.classMethod ? @"+" : @"-", entry.selectorName ?: @"?"];
     NSString *message = readback.length
-        ? [NSString stringWithFormat:@"O override não foi mantido.\n\n%@\nReadback: %@", target, readback]
-        : [NSString stringWithFormat:@"O hook exato não pôde ser instalado.\n\n%@", target];
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Hook não aplicado"
+        ? [NSString stringWithFormat:@"O override foi preservado, mas ainda não pôde ser validado no receiver exato.\n\n%@\nReadback: %@\n\nEle permanece PENDING e será tentado novamente quando o runtime estiver disponível.", target, readback]
+        : [NSString stringWithFormat:@"O override foi preservado, mas o hook exato ainda não pôde ser instalado.\n\n%@\n\nEle permanece PENDING e será tentado novamente quando o runtime estiver disponível.", target];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Override pendente"
         message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -473,11 +478,8 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     BOOL installed = WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
                                                   entry.classMethod, entry.typeCode);
     if (!installed) {
-        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.classMethod);
-        id originalRaw = nil;
-        (void)WAGRABPropsCurrentValue(entry, self.runtimeObjects, &originalRaw);
-        sender.on = [originalRaw boolValue];
-        [self presentHookFailureForEntry:entry readback:nil];
+        sender.on = requested;
+        [self presentPendingForEntry:entry readback:nil];
         [self applyCurrentFilter];
         return;
     }
@@ -487,9 +489,8 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     BOOL verified = [readbackRaw respondsToSelector:@selector(boolValue)] &&
                     ([readbackRaw boolValue] == requested);
     if (!verified) {
-        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.classMethod);
-        sender.on = [readbackRaw boolValue];
-        [self presentHookFailureForEntry:entry readback:readback];
+        sender.on = requested;
+        [self presentPendingForEntry:entry readback:readback];
     }
     [self applyCurrentFilter];
 }
