@@ -5,30 +5,27 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface WAGRMobileConfigMapping : NSObject
+/// WhatsApp/ABProp stable ID passed to WAMCEvaluation.getMCSpecifierForStableId:.
 @property(nonatomic, assign) NSUInteger waStableId;
 @property(nonatomic, assign) uint64_t paramSpecifier;
 @property(nonatomic, assign) uint16_t localConfigIndex;
 @property(nonatomic, assign) uint16_t parameterIndex;
 
 /// Low 16 bits of WAMCEvaluation's translated paramSpecifier.
-/// This is compact translation metadata; it is not the mc_overrides row index
-/// and must not be relabelled as an independent stable ID.
+/// Compact translation metadata only: not the mc_overrides parameter index and
+/// not an external MobileConfig stable/admin/config ID.
 @property(nonatomic, readonly) uint16_t compactParameterToken;
 
-/// Direct result of -[FBMobileConfigContextManager getStableIdFromParamSpecifier:].
-/// On the analyzed WhatsApp ABProp domain this round-trips to waStableId for
-/// every non-zero result observed. Keep the raw method semantics explicit so we
-/// do not infer an ID from localConfigIndex or compactParameterToken.
+/// Direct result of -[FBMobileConfigUserSessionContextManager
+/// getStableIdFromParamSpecifier:]. This is the external MobileConfig config/admin
+/// identity used at the top level of mc_overrides; it must not be assumed equal
+/// to waStableId and must never be derived from localConfigIndex/token fields.
 @property(nonatomic, readonly) uint64_t stableIdFromParamSpecifier;
 
-/// Compatibility alias used by existing override/export code. It resolves to
-/// the same value as stableIdFromParamSpecifier; it is never derived from
-/// localConfigIndex.
+/// Canonical alias for stableIdFromParamSpecifier used by mc_overrides emitters.
 @property(nonatomic, readonly) uint64_t configStableId;
 
-/// Legacy storage/accessor names retained for ABI/source compatibility inside
-/// the tweak. Canonical callers should use compactParameterToken,
-/// stableIdFromParamSpecifier and configStableId.
+/// Legacy internal storage names retained for source/ABI compatibility.
 @property(nonatomic, assign) uint16_t parameterStableId;
 @property(nonatomic, assign) uint64_t externalConfigStableId;
 
@@ -56,23 +53,26 @@ extern "C" {
 /// remember the live manager and always forward the original return value.
 void WAGRMobileConfigEnsureCaptureHooksInstalled(void);
 
-/// Returns the best live FBMobileConfigContextManager available for this session.
+/// Returns the best valid context manager for generic path/diagnostic work,
+/// preferring the account-scoped user-session manager.
 id _Nullable WAGRMobileConfigContextManager(id _Nullable userContext);
 
-/// Runtime paths returned by WhatsApp's own context manager. These functions do
-/// not guess a path when a live manager exposes getOverridesTablePath.
+/// Returns only FBMobileConfigUserSessionContextManager (or a subclass). The
+/// ABProp -> external config-ID crosswalk requires this account-scoped manager;
+/// sessionless/default managers are not accepted as proof for mc_overrides IDs.
+id _Nullable WAGRMobileConfigUserSessionContextManager(id _Nullable userContext);
+
 NSString * _Nullable WAGRMobileConfigOverridesPath(id _Nullable userContext);
 NSString * _Nullable WAGRMobileConfigNamesPath(id _Nullable userContext);
 
-/// Resolves the complete current-build WA stable-ID domain through
-/// WAMCEvaluation -> FBMobileConfigContextManager. Work should be performed off
-/// the main thread. Untranslated stable IDs are omitted.
+/// Resolves the current-build WA stable-ID domain through:
+/// WA stable ID -> WAMCEvaluation paramSpecifier -> account-scoped
+/// FBMobileConfigUserSessionContextManager -> external config stable ID.
 NSArray<WAGRMobileConfigMapping *> * _Nullable WAGRMobileConfigResolveAll(
     id _Nullable userContext,
     WAGRMobileConfigProgressBlock _Nullable progress,
     NSError * _Nullable * _Nullable outError);
 
-/// Reads the effective MobileConfig value using the native typed getter family.
 id _Nullable WAGRMobileConfigCurrentValue(WAGRMobileConfigMapping *mapping,
                                            id _Nullable userContext);
 
@@ -80,9 +80,9 @@ NSDictionary<NSString *, id> *WAGRMobileConfigCrosswalkDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id _Nullable userContext);
 
-/// Builds FBMobileConfig's override grammar from the stable ID returned by the
-/// live manager plus parameterIndex. Names are optional enrichment and are not
-/// required to prove the numeric crosswalk.
+/// Emits the real FBMobileConfig override grammar:
+/// "<external config stable id>:<config name>" ->
+/// ["<parameter index>: <parameter name>: <typed value>", ...].
 NSDictionary<NSString *, id> *WAGRMobileConfigOverrideDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id _Nullable userContext,
