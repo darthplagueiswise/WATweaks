@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - exp2
-      - dogfood2
   workflow_dispatch:
 
 concurrency:
