@@ -50,23 +50,18 @@ static BOOL WAGRMCInternalSemanticMatch(NSString *canonicalName,
     NSString *combined = [NSString stringWithFormat:@"%@ %@", name, param];
     if ([WAGRMCInternalExactSelectors() containsObject:name]) return YES;
 
-    // Dogfood/fishfood/employee flags are intrinsically internal cohort gates.
     if (WAGRMCContainsAny(combined, @[
         @"dogfood", @"dogfooding", @"fishfood", @"fishfooding", @"employee"
     ])) return YES;
 
-    // Private experimentation and internal QA/debug surfaces.
     if ([combined containsString:@"private_experimentation"] ||
         [combined containsString:@"private_abprop_for_dev_only"] ||
         [combined containsString:@"whatsbroken"]) return YES;
 
-    // Bug-report / rage-shake infrastructure requested for the internal preset.
     if (WAGRMCContainsAny(combined, @[
         @"bug_reporting", @"bug_report", @"rage_shake", @"rage shake"
     ])) return YES;
 
-    // "internal" alone is too broad. Restrict it to tooling/test/settings/debug
-    // semantics so unrelated production features are not enabled accidentally.
     if ([combined containsString:@"internal"]) {
         if (WAGRMCContainsAny(combined, @[
             @"tester", @"test_user", @"test user", @"test_account", @"test account",
@@ -75,8 +70,6 @@ static BOOL WAGRMCInternalSemanticMatch(NSString *canonicalName,
         ])) return YES;
     }
 
-    // Explicit test-user/test-account cohort gates without broad matching on
-    // every feature containing the word "test".
     if (WAGRMCContainsAny(combined, @[
         @"test_user", @"test user", @"test_account", @"test account",
         @"internal_tester", @"internal tester"
@@ -91,7 +84,6 @@ static BOOL WAGRMCInternalDesiredValue(NSString *canonicalName,
         canonicalName.lowercaseString ?: @"",
         parameterName.lowercaseString ?: @""];
 
-    // Negative polarity gates must remain false in an enable-internal preset.
     if (WAGRMCContainsAny(combined, @[
         @"disabled", @"disable_", @"_disable", @"kill_switch", @"killswitch",
         @"lockout", @"exclude_employee", @"exclude_employees",
@@ -138,12 +130,9 @@ NSDictionary<NSString *, NSArray<NSString *> *> *WAGRMobileConfigInternalPresetD
         if (!WAGRMCInternalSemanticMatch(canonical, mapping.parameterName)) continue;
         selected++;
 
-        // Grammar must be based on resolved MobileConfig identity. Never emit a
-        // WA stable ID, localConfigIndex or compact token as the top-level key.
+        // Grammar is resolver-driven. AB stable ID, localConfigIndex and compact
+        // parameter token are never emitted as the top-level identity.
         if (!mapping.configStableId) { skippedUnresolved++; continue; }
-
-        // The user's reference grammar carries semantic names in both levels.
-        // Do not invent names when id_name_mapping has not resolved them.
         if (!mapping.configName.length || !mapping.parameterName.length) {
             skippedUnnamed++;
             continue;
@@ -185,13 +174,14 @@ NSDictionary<NSString *, NSArray<NSString *> *> *WAGRMobileConfigInternalPresetD
         }];
     }];
 
+    NSUInteger configCount = document.count;
     if (stats) {
         *stats = @{
             @"input_mappings" : @(mappings.count),
             @"semantic_candidates" : @(considered),
             @"semantic_selected" : @(selected),
             @"emitted" : @(seen.count),
-            @"configs" : @(document.count),
+            @"configs" : @(configCount),
             @"negative_polarity_false" : @(falsePolarity),
             @"skipped_non_bool" : @(skippedNonBool),
             @"skipped_unresolved_external_config_id" : @(skippedUnresolved),
@@ -199,11 +189,16 @@ NSDictionary<NSString *, NSArray<NSString *> *> *WAGRMobileConfigInternalPresetD
             @"deduplicated" : @(deduplicated),
             @"categories" : categoryCounts,
             @"identity" : @"top-level key = FBMobileConfigUserSessionContextManager external config stable ID; row key = parameterIndex",
+            @"grammar" : @"<configStableId>:<configName> -> [<parameterIndex>: <parameterName>: <typedValue>] + _qe_overrides_:[]",
         };
     }
+
+    // Present in the user's native/reference mc_overrides grammar. It is metadata,
+    // not an ABProp/config identity, and must stay an empty array in this preset.
+    document[@"_qe_overrides_"] = [NSMutableArray array];
     return document;
 }
 
 NSString *WAGRMobileConfigInternalPresetPolicyDescription(void) {
-    return @"Resolver-driven preset: Employee/Internal Tester/Test User/Test Account, Dogfood/Fishfood, Private Experimentation, MobileConfig/Internal Debug, What's Broken, Internal Bug Reporting and Rage Shake. Negative-polarity disabled/kill/exclude gates are emitted false. Only BOOL mappings with UserSession external config ID + id_name_mapping config/parameter names are emitted.";
+    return @"Resolver-driven preset: Employee/Internal Tester/Test User/Test Account, Dogfood/Fishfood, Private Experimentation, MobileConfig/Internal Debug, What's Broken, Internal Bug Reporting and Rage Shake. Negative-polarity disabled/kill/exclude gates are emitted false. Only BOOL mappings with UserSession external config ID + id_name_mapping config/parameter names are emitted. Output preserves the mc_overrides _qe_overrides_ sentinel.";
 }
