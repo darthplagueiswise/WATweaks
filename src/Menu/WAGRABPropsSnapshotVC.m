@@ -1,6 +1,8 @@
 #import "WAGRABPropsSnapshotVC.h"
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRABPropsNativeStore.h"
+#import "../Runtime/WAGRMobileConfigBridge.h"
+#import "../Runtime/WAGRMobileConfigInternalPreset.h"
 #import "../Runtime/WAGRLog.h"
 
 @interface WAGRABPropsSnapshotVC ()
@@ -15,6 +17,7 @@
 @property(nonatomic, strong) UIBarButtonItem *fetchButton;
 @property(nonatomic, strong) UIBarButtonItem *exportButton;
 @property(nonatomic, assign) BOOL fetching;
+@property(nonatomic, assign) BOOL exportingPreset;
 @end
 
 @implementation WAGRABPropsSnapshotVC
@@ -142,7 +145,7 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
     self.exportDocument = WAGRABPropsNativeExportDocument(snapshot) ?: @{};
     NSArray *entries = self.exportDocument[@"entries"];
     self.allEntries = [entries isKindOfClass:NSArray.class] ? entries : @[];
-    self.exportButton.enabled = self.allEntries.count > 0;
+    self.exportButton.enabled = self.allEntries.count > 0 && !self.exportingPreset;
     [self applyFilter];
 
     NSDictionary *mcResolution = [self.exportDocument[@"mobileconfig_resolution"]
@@ -159,7 +162,7 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
 
     NSString *summary = nil;
     if (stableResolved || parameterNames) {
-        summary = [NSString stringWithFormat:@"%lu ABProps · %lu stable IDs · %lu param names",
+        summary = [NSString stringWithFormat:@"%lu ABProps · %lu external config IDs · %lu param names",
             (unsigned long)snapshot.numericPropCount,
             (unsigned long)stableResolved,
             (unsigned long)parameterNames];
@@ -172,7 +175,7 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
 }
 
 - (void)fetchNow {
-    if (self.fetching) return;
+    if (self.fetching || self.exportingPreset) return;
     self.fetching = YES;
     self.fetchButton.enabled = NO;
     self.exportButton.enabled = NO;
@@ -344,7 +347,7 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
 }
 
 - (void)showExportMenu:(UIBarButtonItem *)sender {
-    if (!self.snapshot) return;
+    if (!self.snapshot || self.exportingPreset) return;
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Exportar ABProps"
         message:[NSString stringWithFormat:@"Snapshot: %lu propriedades.",
                  (unsigned long)self.snapshot.numericPropCount]
@@ -354,9 +357,19 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
         style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
             [weakSelf exportJSON];
         }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"mc_overrides · Internal / Dogfood"
+        style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            [weakSelf exportInternalMobileConfigPreset];
+        }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Política do preset"
+        style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            [weakSelf showAlert:@"Internal / Dogfood preset"
+                        message:WAGRMobileConfigInternalPresetPolicyDescription()];
+        }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Copiar diagnóstico"
         style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            UIPasteboard.generalPasteboard.string = WAGRABPropsNativeDiagnosticText();
+            UIPasteboard.generalPasteboard.string = [NSString stringWithFormat:@"%@\n\n%@",
+                WAGRABPropsNativeDiagnosticText(), WAGRMobileConfigDiagnosticText()];
         }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Cancelar"
         style:UIAlertActionStyleCancel handler:nil]];
@@ -395,6 +408,97 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
     [self presentViewController:activity animated:YES completion:nil];
     WAGRLogAppendF(@"[ABProps][Native] exported %@ (%lu bytes)",
                    path, (unsigned long)data.length);
+}
+
+- (void)exportInternalMobileConfigPreset {
+    if (self.exportingPreset || self.fetching) return;
+    self.exportingPreset = YES;
+    self.exportButton.enabled = NO;
+    self.fetchButton.enabled = NO;
+    [self setStatus:@"Resolvendo WA stable IDs → UserSession MobileConfig…"
+            progress:0.01f busy:YES];
+
+    id context = self.userContext;
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSError *resolveError = nil;
+        NSArray<WAGRMobileConfigMapping *> *mappings = WAGRMobileConfigResolveAll(
+            context,
+            ^(NSUInteger current, NSUInteger total, NSUInteger translated, NSUInteger resolved) {
+                float value = total ? (float)current / (float)total : 0.0f;
+                [weakSelf setStatus:[NSString stringWithFormat:
+                    @"Crosswalk UserSession %lu/%lu · traduzidos %lu · external IDs %lu",
+                    (unsigned long)current, (unsigned long)total,
+                    (unsigned long)translated, (unsigned long)resolved]
+                    progress:value busy:YES];
+            },
+            &resolveError);
+
+        NSDictionary *stats = nil;
+        NSDictionary *preset = mappings
+            ? WAGRMobileConfigInternalPresetDocument(mappings, &stats)
+            : nil;
+        NSError *jsonError = nil;
+        NSData *data = preset.count ? WAGRMobileConfigJSONData(preset, &jsonError) : nil;
+
+        NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:@"WATweaksExports"];
+        NSString *path = [directory stringByAppendingPathComponent:@"mc_overrides_internal_dogfood_preset.json"];
+        NSError *writeError = nil;
+        BOOL wrote = NO;
+        if (data.length) {
+            [[NSFileManager defaultManager] createDirectoryAtPath:directory
+                                      withIntermediateDirectories:YES attributes:nil error:&writeError];
+            if (!writeError) wrote = [data writeToFile:path options:NSDataWritingAtomic error:&writeError];
+        }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            self.exportingPreset = NO;
+            self.fetchButton.enabled = YES;
+            self.exportButton.enabled = self.snapshot != nil;
+
+            if (!mappings) {
+                NSString *message = resolveError.localizedDescription ?: WAGRMobileConfigDiagnosticText();
+                [self setStatus:@"Crosswalk UserSession indisponível" progress:0.0f busy:NO];
+                [self showAlert:@"mc_overrides preset" message:message];
+                return;
+            }
+            if (!preset.count || !data.length) {
+                NSString *message = [NSString stringWithFormat:
+                    @"Nenhuma entrada semanticamente nomeada pôde ser emitida.\n\nStats:\n%@\n\n%@\n\nJSON: %@",
+                    stats ?: @{}, WAGRMobileConfigDiagnosticText(),
+                    jsonError.localizedDescription ?: @"n/a"];
+                [self setStatus:@"Preset vazio — confira UserSession/id_name_mapping"
+                        progress:0.0f busy:NO];
+                [self showAlert:@"mc_overrides preset" message:message];
+                return;
+            }
+            if (!wrote) {
+                [self setStatus:@"Falha ao gravar preset" progress:0.0f busy:NO];
+                [self showAlert:@"mc_overrides preset"
+                        message:writeError.localizedDescription ?: @"Falha ao gravar JSON."];
+                return;
+            }
+
+            NSUInteger emitted = [stats[@"emitted"] unsignedIntegerValue];
+            NSUInteger configs = [stats[@"configs"] unsignedIntegerValue];
+            NSUInteger falseCount = [stats[@"negative_polarity_false"] unsignedIntegerValue];
+            [self setStatus:[NSString stringWithFormat:
+                @"Preset pronto · %lu params · %lu configs · %lu negativos=false",
+                (unsigned long)emitted, (unsigned long)configs, (unsigned long)falseCount]
+                    progress:1.0f busy:NO];
+
+            NSURL *url = [NSURL fileURLWithPath:path];
+            UIActivityViewController *activity = [[UIActivityViewController alloc]
+                initWithActivityItems:@[url] applicationActivities:nil];
+            UIPopoverPresentationController *popover = activity.popoverPresentationController;
+            if (popover) popover.barButtonItem = self.exportButton;
+            [self presentViewController:activity animated:YES completion:nil];
+            WAGRLogAppendF(@"[MobileConfig][InternalPreset] exported %@ bytes=%lu stats=%@",
+                           path, (unsigned long)data.length, stats ?: @{});
+        });
+    });
 }
 
 - (void)showAlert:(NSString *)title message:(NSString *)message {
