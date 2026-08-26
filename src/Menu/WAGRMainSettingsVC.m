@@ -7,6 +7,8 @@
 #import "../Runtime/WAGRGateStore.h"
 #import "WAGRABPropsRootVC.h"
 #import "WAGRFeatureBundlesVC.h"
+#import "WAGRMobileConfigExportVC.h"
+#import "WAGRRuntimeGatesVC.h"
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRLogViewController.h"
 #import "WAGRMainSettingsVC.h"
@@ -25,6 +27,7 @@ extern void WAGRDogfoodEnsureHooksInstalled(void);
 extern void WAGRLGPrefsDidChange(void);
 extern void WAGRGateHooksEnsureInstalled(void);
 extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
+extern id WAGRCurrentUserContext(void);
 
 typedef NS_ENUM(NSInteger, WATCellType) {
     WATCellSwitch,
@@ -97,9 +100,14 @@ static WATSection *secWAAB(void) {
     WATSection *s=[WATSection new];
     s.header=@"WAABProperties";
     s.rows=@[
-        nav(@"AB Props",@"ABProperties Browser · snapshot account-scoped · fetch · MobileConfig", @"switch.2",
+        nav(@"AB Props",@"ABProperties Browser · snapshot account-scoped · fetch", @"switch.2",
             ^(UIViewController *from){
                 [from.navigationController pushViewController:[WAGRABPropsRootVC new] animated:YES];
+            }),
+        nav(@"MobileConfig / arquivos",@"id_name_mapping.json · mc_overrides.json · crosswalk UserSession", @"doc.badge.gearshape",
+            ^(UIViewController *from){
+                WAGRMobileConfigExportVC *vc=[[WAGRMobileConfigExportVC alloc] initWithUserContext:WAGRCurrentUserContext()];
+                [from.navigationController pushViewController:vc animated:YES];
             }),
     ];
     return s;
@@ -109,6 +117,10 @@ static WATSection *secRuntime(void) {
     WATSection *s=[WATSection new];
     s.header=@"Runtime";
     s.rows=@[
+        nav(@"Runtime em tempo real",@"Hub de famílias e imagens carregadas", @"waveform.path.ecg",
+            ^(UIViewController *from){
+                [from.navigationController pushViewController:[WAGRRuntimeGatesVC new] animated:YES];
+            }),
         nav(@"WhatsApp Executable",@"Runtime Browser do executável principal", @"app.dashed",
             ^(UIViewController *from){
                 WAGRSurfaceSpec *sp=surface(@"exec");
