@@ -177,6 +177,13 @@ static NSString *WAGRRuntimeObjectHelp(id currentRaw) {
         currentClass];
 }
 
+static NSString *WAGRRuntimeCompactEditorValue(NSString *value) {
+    if (!value.length) return @"?";
+    NSString *flat = [value stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+    if (flat.length > 260) flat = [[flat substringToIndex:260] stringByAppendingString:@"…"];
+    return flat;
+}
+
 void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
                                    UIView *sourceView,
                                    NSString *className,
@@ -189,17 +196,30 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
     if (!presenter || !className.length || !selectorName.length || !typeCode.length) return;
 
     BOOL overridden = WAGRRuntimeValueHasOverride(className, selectorName, isClassMethod);
+    BOOL installed = overridden && WAGRRuntimeValueHookIsInstalled(className, selectorName, isClassMethod);
     id override = WAGRRuntimeValueOverride(className, selectorName, isClassMethod);
     NSString *typeName = WAGRRuntimeValueTypeName(typeCode) ?: typeCode;
     NSString *overrideDescription = overridden
         ? (override ? [override description] : @"nil")
         : nil;
-    NSString *message = [NSString stringWithFormat:@"%@\n%@ method · %@\nAtual: %@%@",
+
+    id originalRaw = nil;
+    NSString *originalDescription = WAGRRuntimeValueReadOriginal(className,
+                                                                  selectorName,
+                                                                  isClassMethod,
+                                                                  nil,
+                                                                  &originalRaw);
+    BOOL originalAvailable = ![originalDescription containsString:@"indisponível"];
+    NSString *state = overridden ? (installed ? @"override instalado" : @"override pendente") : @"original";
+    NSString *message = [NSString stringWithFormat:
+        @"%@\n%@ method · %@ · %@\nOriginal: %@\nEfetivo: %@%@",
         className,
         isClassMethod ? @"class" : @"instance",
         typeName,
-        currentDescription ?: @"?",
-        overridden ? [NSString stringWithFormat:@"\nOverride: %@", overrideDescription] : @""];
+        state,
+        originalAvailable ? WAGRRuntimeCompactEditorValue(originalDescription) : @"aguardando receiver vivo",
+        WAGRRuntimeCompactEditorValue(currentDescription ?: @"?"),
+        overridden ? [NSString stringWithFormat:@"\nOverride: %@", WAGRRuntimeCompactEditorValue(overrideDescription)] : @""];
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:selectorName
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleActionSheet];
@@ -276,15 +296,19 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
     }
 
     if (overridden) {
-        [sheet addAction:[UIAlertAction actionWithTitle:@"Usar original" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
+        NSString *restoreTitle = originalAvailable ? @"Usar original" : @"Limpar override / usar original";
+        [sheet addAction:[UIAlertAction actionWithTitle:restoreTitle style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
             WAGRRuntimeValueClearOverride(className, selectorName, isClassMethod);
             if (completion) completion();
         }]];
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Copiar nome + valor" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        UIPasteboard.generalPasteboard.string = [NSString stringWithFormat:@"%@ %@ %@ (%@) = %@",
-            isClassMethod ? @"+" : @"-", className, selectorName,
-            typeName, currentDescription ?: @"?"];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Copiar nome + valores" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        UIPasteboard.generalPasteboard.string = [NSString stringWithFormat:
+            @"%@ %@ %@ (%@)\nOriginal: %@\nEfetivo: %@%@",
+            isClassMethod ? @"+" : @"-", className, selectorName, typeName,
+            originalAvailable ? originalDescription : @"aguardando receiver vivo",
+            currentDescription ?: @"?",
+            overridden ? [NSString stringWithFormat:@"\nOverride: %@", overrideDescription ?: @"nil"] : @""];
     }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
     [presenter presentViewController:sheet animated:YES completion:nil];
