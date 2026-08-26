@@ -6,31 +6,47 @@ static NSSet<NSString *> *WAGRMCInternalExactSelectors(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         set = [NSSet setWithArray:@[
+            // Employee / tester
+            @"isMetaEmployeeOrInternalTester",
             @"is_meta_employee_or_internal_tester",
             @"is_internal_tester",
+
+            // MobileConfig / private experimentation / internal diagnostics
             @"waios_mc_debug_ui_enabled",
             @"whatsbroken_enabled",
             @"private_abprop_for_dev_only",
             @"private_experimentation_should_sync",
             @"private_experimentation_use_acs_config_id",
+
+            // Dogfood / fishfood
             @"dogfooding_nudge_settings_entrypoint_enabled",
             @"dogfooding_nudge_banner_home_screen_enabled",
             @"username_dogfooding_pn_privacy_enabled",
             @"username_dogfooding_pn_privacy_periodic_conversion_enabled",
             @"tbv_pass_eligibility_dogfooding_gk",
+            @"hn_dogfooding",
+            @"malibu_dogfooding",
+            @"show_fishfooding_toggle_in_bug_reporting_form",
+
+            // Internal bug reporting / rage shake
             @"get_help_internal_bug_report_enabled",
             @"give_dogfooders_task_id_for_bug_reporting",
             @"internal_bug_reporting_bottom_sheet",
             @"ios_internal_in_app_bug_reporting_enable",
             @"ios_internal_rage_shake_enabled",
-            @"ios_internal_hall_enabled",
-            @"hn_dogfooding",
-            @"malibu_dogfooding",
-            @"graphQLEmployeeC1Disabled",
+            @"bug_reporting_settings_entrypoint_enabled",
             @"rage_shake_eligible_via_bug_form",
-            @"show_fishfooding_toggle_in_bug_reporting_form",
             @"bug_reporting_attach_pathfinder_pre_bug_creation",
-            @"bug_reporting_abprops_uploaded_on_submissoin"
+            @"bug_reporting_abprops_uploaded_on_submissoin",
+
+            // Other curated internal/debug surface gates
+            @"groups_member_recommendations_debug_ui",
+            @"ios_internal_hall_enabled",
+            @"internal_group_indicator",
+
+            // Explicit negative-polarity gates in the curated menu.
+            @"graphQLEmployeeC1Disabled",
+            @"ios_contact_suggestions_internal_tool_exclude_employees_enabled"
         ]];
     });
     return set;
@@ -48,7 +64,8 @@ static BOOL WAGRMCInternalSemanticMatch(NSString *canonicalName,
     NSString *name = canonicalName.lowercaseString ?: @"";
     NSString *param = parameterName.lowercaseString ?: @"";
     NSString *combined = [NSString stringWithFormat:@"%@ %@", name, param];
-    if ([WAGRMCInternalExactSelectors() containsObject:name]) return YES;
+    if ([WAGRMCInternalExactSelectors() containsObject:canonicalName] ||
+        [WAGRMCInternalExactSelectors() containsObject:name]) return YES;
 
     if (WAGRMCContainsAny(combined, @[
         @"dogfood", @"dogfooding", @"fishfood", @"fishfooding", @"employee"
