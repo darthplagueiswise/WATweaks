@@ -172,6 +172,17 @@ static NSString *WAGRBrowserFirstDetailLine(NSString *detail) {
     return [detail componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet].firstObject ?: @"";
 }
 
+static NSString *WAGRBrowserStripStateSuffix(NSString *value) {
+    NSString *result = value ?: @"";
+    for (NSString *suffix in @[ @" · INSTALLED", @" · PENDING", @" · ORIGINAL" ]) {
+        if ([result hasSuffix:suffix]) {
+            result = [result substringToIndex:result.length - suffix.length];
+            break;
+        }
+    }
+    return result;
+}
+
 static void WAGRBrowserApplyCompactLabels(UITableViewCell *cell) {
     if (!cell) return;
     cell.textLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
@@ -220,16 +231,22 @@ static void WAGRBrowserPostProcessABCell(id controller,
     BOOL overridden = WAGRRuntimeValueHasOverride(entry.className,
                                                    entry.selectorName,
                                                    entry.classMethod);
+    BOOL installed = overridden && WAGRRuntimeValueHookIsInstalled(entry.className,
+                                                                    entry.selectorName,
+                                                                    entry.classMethod);
     NSString *existing = WAGRBrowserFirstDetailLine(cell.detailTextLabel.text);
     if ([existing hasPrefix:@"Atual: "]) existing = [existing substringFromIndex:7];
+    existing = WAGRBrowserStripStateSuffix(existing);
     NSString *idText = stableID.length ? [NSString stringWithFormat:@"AB %@", stableID] : @"AB —";
+    NSString *state = overridden ? (installed ? @"override" : @"pending") : @"original";
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · %@",
                                  idText,
                                  entry.typeName.length ? entry.typeName : entry.typeCode,
                                  existing.length ? existing : @"valor indisponível",
-                                 overridden ? @"override" : @"original"];
-    cell.detailTextLabel.textColor = overridden ? UIColor.systemCyanColor
-                                                 : WAGRMenuSecondaryTextColor();
+                                 state];
+    cell.detailTextLabel.textColor = overridden
+        ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
+        : WAGRMenuSecondaryTextColor();
 }
 
 static WAGREntry *WAGRBrowserSurfaceEntry(id controller, NSIndexPath *indexPath) {
@@ -249,21 +266,27 @@ static void WAGRBrowserPostProcessSurfaceCell(id controller,
     BOOL overridden = WAGRRuntimeValueHasOverride(entry.className,
                                                    entry.selectorName,
                                                    entry.isClassMethod);
+    BOOL installed = overridden && WAGRRuntimeValueHookIsInstalled(entry.className,
+                                                                    entry.selectorName,
+                                                                    entry.isClassMethod);
     NSString *detail = cell.detailTextLabel.text ?: @"";
     NSString *current = @"";
     for (NSString *line in [detail componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
         if ([line hasPrefix:@"Atual: "]) { current = [line substringFromIndex:7]; break; }
     }
+    current = WAGRBrowserStripStateSuffix(current);
+    NSString *state = overridden ? (installed ? @"override" : @"pending") : @"original";
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@ · %@ · %@",
                                  entry.className.length ? entry.className : @"runtime",
                                  entry.typeName.length ? entry.typeName : entry.typeCode,
                                  current.length ? current : @"valor indisponível",
-                                 overridden ? @"override" : @"original"];
-    cell.detailTextLabel.textColor = overridden ? UIColor.systemCyanColor
-                                                 : WAGRMenuSecondaryTextColor();
+                                 state];
+    cell.detailTextLabel.textColor = overridden
+        ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
+        : WAGRMenuSecondaryTextColor();
 }
 
-#pragma mark - Swizzled lifecycle / cells
+#pragma mark - Browser presentation lifecycle / cells
 
 static void WAGRBrowserDidLoad(id self, SEL _cmd) {
     IMP original = WAGRBrowserOriginalIMP(self, _cmd, gWAGRDidLoadOriginals);
