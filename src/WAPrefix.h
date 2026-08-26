@@ -19,3 +19,4 @@
 #define WA_PREF_LIQUID_GLASS @"wa_liquid_glass_enabled"
 #define WA_PREF_LIQUID_GLASS_USERDEFAULTS @"wa_liquid_glass_userdefaults_overrides"
 #define WA_PREF_LIQUID_GLASS_METHOD_HOOKS @"wa_liquid_glass_method_hooks"
+#define WA_PREF_LIQUID_GLASS_MANAGED_GATE_BACKUP @"wa_liquid_glass_managed_gate_backup"
