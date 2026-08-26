@@ -5,9 +5,9 @@
 //   getters thousands of times during launch, so WAGRGateIsSet/Get must be
 //   dictionary-only after one lazy cache load.
 // - Mutations still write NSUserDefaults + index so toggles persist.
-// - Snake-case BOOL gates that are real WAABProperties getters are not duplicated
-//   here: their canonical source is WAGRRuntimeValueStore, the same store used by
-//   the AB Props browser. GateStore remains only for semantic/non-WAAB gates.
+// - BOOL gates that are real WAABProperties getters are not duplicated here:
+//   their canonical source is WAGRRuntimeValueStore, the same store used by the
+//   AB Props browser. GateStore remains only for semantic/non-WAAB gates.
 
 #import "WAGRGateStore.h"
 #import "WAGRRuntimeValueStore.h"
@@ -196,7 +196,12 @@ static NSString *WAGRWAABRuntimeBoolType(NSString *target) {
 static NSString *WAGRWAABTargetForGateKey(NSString *key, NSString **outType) {
     if (outType) *outType = nil;
     NSString *target = WAGRGateDisplayKey(key);
-    if (!target.length || [target rangeOfString:@"_"].location == NSNotFound) return nil;
+    if (!target.length) return nil;
+    // Do not infer WAAB membership from naming style. Current WhatsApp exposes
+    // both snake_case getters and camelCase getters such as
+    // isMetaEmployeeOrInternalTester. The Objective-C method table + ABI is the
+    // authority: if WAABProperties has this exact zero-arg BOOL getter, the
+    // RuntimeValueStore entry is the canonical state for it.
     NSString *type = WAGRWAABRuntimeBoolType(target);
     if (!type.length) return nil;
     if (outType) *outType = type;
