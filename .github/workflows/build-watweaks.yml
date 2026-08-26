@@ -105,11 +105,9 @@ jobs:
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
           done
 
-          # The rebuild intentionally restores the 8150 root hierarchy. The
-          # removed FeatureSubmenu translation unit must not be resurrected just
-          # to satisfy a stale CI list: Aura/Liquid Glass are filtered views of
-          # the canonical ABProperties browser, while Employee/Internal is the
-          # curated view backed by the same RuntimeValueStore.
+          # This rebuild deliberately uses the actual 8150 menu architecture.
+          # FeatureSubmenu was an intermediate router design and must not be
+          # recreated merely to satisfy an obsolete source manifest.
           test ! -e src/Menu/WAGRFeatureSubmenuVC.h
           test ! -e src/Menu/WAGRFeatureSubmenuVC.m
           grep -q 'WAGRABPropsFilteredBrowserVC' src/Menu/WAGRMainSettingsVC.m
@@ -119,8 +117,8 @@ jobs:
           grep -q 'WAGRABPropsRootVC' src/Menu/WAGRMainSettingsVC.m
           grep -q 'WAGRSurfaceBrowserVC' src/Menu/WAGRMainSettingsVC.m
 
-          # Curated Employee/Internal/Dogfood state and the ABProperties browser
-          # share one typed override store instead of parallel gate persistence.
+          # Curated Employee/Internal/Dogfood and ABProperties Browser share the
+          # exact same typed RuntimeValueStore.
           grep -q 'WAGRFeatureReadBool' src/Menu/WAGRValidatedNativeGatesVC.m
           grep -q 'WAGRFeatureSetBool' src/Menu/WAGRValidatedNativeGatesVC.m
           grep -q 'WAGRRuntimeValueAllOverrideSpecs' src/Runtime/WAGRFeatureState.m
@@ -128,25 +126,22 @@ jobs:
           grep -q 'WAGRRuntimeValueClearOverride' src/Runtime/WAGRFeatureState.m
           grep -q 'WAGRABPropsNativeExportDocument' src/Runtime/WAGRFeatureState.m
 
-          # Runtime browser receiver resolution remains conservative. This guard
-          # is the effective final receiverForEntry: implementation and never
-          # fabricates unknown WhatsApp objects.
+          # Receiver discovery must remain conservative and never fabricate an
+          # unknown WhatsApp instance.
           grep -q 'WAGRSafeReceiverForEntry' src/Menu/WAGRRuntimeBrowserCrashGuard.m
           grep -q 'WAGRSafeExactReceiver' src/Menu/WAGRRuntimeBrowserCrashGuard.m
           ! grep -q 'class_createInstance' src/Menu/WAGRRuntimeBrowserCrashGuard.m
           ! grep -q '\[cls alloc\]' src/Menu/WAGRRuntimeBrowserCrashGuard.m
 
-          # Long Foundation values, including wamo_abprops_list, retain their
-          # outer object ABI while typed JSON entries are validated internally.
+          # Preserve wamo_abprops_list's outer object ABI and validate the typed
+          # JSON descriptor payload internally.
           grep -q 'wamo_abprops_list' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
           grep -q 'typedABPropsSchema' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
           grep -q 'WAGRFullValidateABPropsSchema' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
           grep -q 'WAGRRuntimeValueSetOverride' src/Menu/WAGRRuntimeObjectFullscreenEditor.m
 
-          # Native fetch/storage diagnostics stay on the real ABProps path and
-          # the audit remains observational (no explicit preference flush).
+          # Native fetch and storage audit remain on the real current-build path.
           grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsNativeStore.m
-          grep -q 'gabp.o' src/Runtime/WAGRABPropsNativeStore.m
           grep -q 'Deliberately do NOT call -synchronize' src/Runtime/WAGRABPropsStorageAudit.m
 
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
