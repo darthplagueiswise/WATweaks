@@ -208,7 +208,6 @@ static void installAuraHooks(void) {
 }
 
 extern "C" void WAGRAuraEnsureHooksInstalled(void) { installAuraHooks(); }
-extern "C" void WAGRAuraEnsureNavigationHooksInstalled(void) { installAuraHooks(); }
 extern "C" BOOL WAGRAuraSimulationEnabled(void) { return WAGRAuraActive(); }
 extern "C" BOOL WAGROpenSubscriptionsNative(void) { return NSClassFromString(@"WAAuraGating") != nil; }
 
