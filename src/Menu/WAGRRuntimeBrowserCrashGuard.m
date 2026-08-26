@@ -8,17 +8,11 @@
 /*
  * Crash guard for the generic runtime browser.
  *
- * The previous fast receiver resolver recursively walked arbitrary object ivars
- * with object_getIvar() while table cells were being rendered.  That is not a
- * safe way to discover live receivers: object-typed ivars may be weak,
- * transient, implementation-private, or point at objects whose lifetime is not
- * owned by the browser.  Retaining / messaging those guesses can crash simply
- * by opening an image.
- *
- * Keep receiver discovery conservative.  We only use objects already owned by
- * the scanner, validated singleton factories, and UIKit objects already owned
- * by the visible hierarchy.  We never alloc/init a guessed object and never
- * traverse arbitrary ivar graphs.
+ * FastTypedUI still contains a compatibility receiver implementation in its
+ * translation unit.  It must never remain the active resolver: arbitrary ivar
+ * walking is not a safe ownership model for WhatsApp objects.  This resolver is
+ * installed immediately after FastTypedUI and accepts only exact live objects,
+ * ABI-checked singleton factories, and UIKit-owned hierarchy objects.
  */
 
 static id WAGRSafeKVC(id object, NSString *key) {
@@ -106,9 +100,6 @@ static id WAGRSafeReceiverForEntry(id self, __unused SEL _cmd, WAGREntry *entry)
     SEL selector = NSSelectorFromString(entry.selectorName);
     if (!cls || !selector) return nil;
 
-    // 1) Objects explicitly captured by the runtime scanner are already live and
-    // owned by the browser.  Require the exact class family, never just a selector
-    // collision on an unrelated object.
     NSArray *runtimeObjects = WAGRSafeKVC(self, @"runtimeObjects");
     if ([runtimeObjects isKindOfClass:NSArray.class]) {
         for (id object in runtimeObjects) {
@@ -116,13 +107,9 @@ static id WAGRSafeReceiverForEntry(id self, __unused SEL _cmd, WAGREntry *entry)
         }
     }
 
-    // 2) Known zero-argument singleton factories, ABI checked before invocation.
     id singleton = WAGRSafeSingletonReceiver(cls, selector);
     if (singleton) return singleton;
 
-    // 3) UIKit-owned graph only.  This is useful for view/controller runtime
-    // surfaces and has deterministic ownership; it intentionally does not walk
-    // arbitrary ivars of application model objects.
     UIApplication *application = UIApplication.sharedApplication;
     id delegate = application.delegate;
     if (WAGRSafeExactReceiver(delegate, cls, selector)) return delegate;
@@ -147,11 +134,12 @@ static void WAGRInstallRuntimeCrashGuard(void) {
 __attribute__((constructor))
 static void WAGRRuntimeBrowserCrashGuardCtor(void) {
     @autoreleasepool {
-        // FastTypedUI intentionally installs late (0.85 s).  Install after it so
-        // unsafe ivar-graph receiver discovery cannot become the final IMP.
         dispatch_async(dispatch_get_main_queue(), ^{
+            // FastTypedUI installs at +0.85 s. Replace its receiver resolver on
+            // the next scheduling slice; do not leave an unsafe ownership walk
+            // active for a quarter of a second during startup.
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                         (int64_t)(1.10 * NSEC_PER_SEC)),
+                                         (int64_t)(0.86 * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{
                 WAGRInstallRuntimeCrashGuard();
             });
