@@ -80,9 +80,6 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
-    // UISearchBar creates/recreates the scope segmented control lazily. Reapply
-    // after layout so both the search field and scope selector receive the real
-    // iOS 26 UIGlassEffect even after entering/leaving search mode.
     WAGRMenuApplySearchGlass(self.search.searchBar);
 }
 
@@ -269,7 +266,7 @@ static id WAGRLiveSharedReceiver(Class cls, SEL selector) {
         if (type[0] != '@') continue;
         @try {
             id value = ((id (*)(id, SEL))objc_msgSend)(cls, factory);
-            if (value && [value respondsToSelector:selector]) return value;
+            if (value && [value isKindOfClass:cls] && [value respondsToSelector:selector]) return value;
         } @catch (__unused NSException *exception) {}
     }
     return nil;
@@ -279,11 +276,9 @@ static id WAGRLiveSharedReceiver(Class cls, SEL selector) {
     if (!entry || entry.isClassMethod) return nil;
     Class cls = NSClassFromString(entry.className) ?: objc_getClass(entry.className.UTF8String);
     SEL selector = NSSelectorFromString(entry.selectorName);
+    if (!cls) return nil;
     for (id object in self.runtimeObjects) {
-        if (cls && ![object isKindOfClass:cls]) continue;
-        if ([object respondsToSelector:selector]) return object;
-    }
-    for (id object in self.runtimeObjects) {
+        if (![object isKindOfClass:cls]) continue;
         if ([object respondsToSelector:selector]) return object;
     }
     return WAGRLiveSharedReceiver(cls, selector);
@@ -318,9 +313,6 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
     cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
     cell.textLabel.textColor = WAGRMenuTextColor();
     cell.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
-    // Selector names are underscore-heavy and can be much wider than the cell.
-    // Never ellipsize them: automatic row height + char wrapping keeps the full
-    // runtime identity readable even with a UISwitch occupying the trailing side.
     cell.textLabel.numberOfLines = 0;
     cell.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
     cell.detailTextLabel.numberOfLines = 0;
@@ -331,17 +323,22 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
     NSString *current = [self currentForEntry:entry raw:&raw];
     BOOL overridden = WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
                                                    entry.isClassMethod);
+    BOOL installed = overridden && WAGRRuntimeValueHookIsInstalled(entry.className,
+                                                                    entry.selectorName,
+                                                                    entry.isClassMethod);
     id forced = WAGRRuntimeValueOverride(entry.className, entry.selectorName,
                                          entry.isClassMethod);
 
     cell.textLabel.text = [NSString stringWithFormat:@"%@ %@",
         entry.isClassMethod ? @"+" : @"-", entry.selectorName];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\n%@ · %@\nAtual: %@%@",
+    NSString *state = overridden ? (installed ? @"INSTALLED" : @"PENDING") : @"ORIGINAL";
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\n%@ · %@\nAtual: %@%@ · %@",
         entry.imageName ?: @"Runtime", entry.runtimeFamily ?: @"Other",
         entry.className ?: @"Unknown", entry.typeName ?: @"?", current ?: @"?",
-        WAGRLiveForcedDescription(forced, overridden)];
-    cell.detailTextLabel.textColor = overridden ? UIColor.systemCyanColor
-                                                 : WAGRMenuSecondaryTextColor();
+        WAGRLiveForcedDescription(forced, overridden), state];
+    cell.detailTextLabel.textColor = overridden
+        ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
+        : WAGRMenuSecondaryTextColor();
 
     if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
         UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class]
@@ -354,7 +351,9 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
         objc_setAssociatedObject(toggle, kWAGRSurfaceEntryKey, entry,
                                  OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         toggle.on = overridden ? [forced boolValue] : [raw boolValue];
-        toggle.onTintColor = overridden ? UIColor.systemCyanColor : UIColor.systemGreenColor;
+        toggle.onTintColor = overridden
+            ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
+            : UIColor.systemGreenColor;
         cell.accessoryType = UITableViewCellAccessoryNone;
     } else {
         cell.accessoryView = nil;
@@ -372,13 +371,13 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
     return cell;
 }
 
-- (void)presentHookFailureForEntry:(WAGREntry *)entry readback:(NSString *)readback {
+- (void)presentPendingForEntry:(WAGREntry *)entry readback:(NSString *)readback {
     NSString *target = [NSString stringWithFormat:@"%@ %@%@",
         entry.className ?: @"?", entry.isClassMethod ? @"+" : @"-", entry.selectorName ?: @"?"];
     NSString *message = readback.length
-        ? [NSString stringWithFormat:@"O override não foi mantido porque o hook não produziu o valor solicitado.\n\n%@\nReadback: %@", target, readback]
-        : [NSString stringWithFormat:@"O override não foi mantido porque o hook exato não pôde ser instalado.\n\n%@", target];
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Hook não aplicado"
+        ? [NSString stringWithFormat:@"O override foi preservado, mas ainda não pôde ser validado no receiver exato.\n\n%@\nReadback: %@\n\nEle permanece PENDING e será tentado novamente em Aplicar/reinício.", target, readback]
+        : [NSString stringWithFormat:@"O override foi preservado, mas o hook exato ainda não pôde ser instalado.\n\n%@\n\nEle permanece PENDING e será tentado novamente em Aplicar/reinício.", target];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Override pendente"
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
@@ -394,26 +393,19 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
     BOOL installed = WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
                                                   entry.isClassMethod, entry.typeCode);
     if (!installed) {
-        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.isClassMethod);
-        id originalRaw = nil;
-        (void)[self currentForEntry:entry raw:&originalRaw];
-        sender.on = [originalRaw boolValue];
-        [self presentHookFailureForEntry:entry readback:nil];
+        sender.on = requested;
+        [self presentPendingForEntry:entry readback:nil];
         [self applyCurrentFilter];
         return;
     }
 
-    // Do not paint an override as successful merely because an IMP was changed.
-    // Read through the same live receiver used by the row and require the forced
-    // value to round-trip before keeping the persisted override.
     id readbackRaw = nil;
     NSString *readback = [self currentForEntry:entry raw:&readbackRaw];
     BOOL verified = [readbackRaw respondsToSelector:@selector(boolValue)] &&
                     ([readbackRaw boolValue] == requested);
     if (!verified) {
-        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.isClassMethod);
-        sender.on = [readbackRaw boolValue];
-        [self presentHookFailureForEntry:entry readback:readback];
+        sender.on = requested;
+        [self presentPendingForEntry:entry readback:readback];
     }
     [self applyCurrentFilter];
 }
@@ -455,14 +447,15 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
                                             entry.isClassMethod, entry.typeCode)) installed++;
         }
     }
-    NSUInteger failed = active >= installed ? active - installed : 0;
+    NSUInteger pending = active >= installed ? active - installed : 0;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Aplicar Runtime"
-        message:[NSString stringWithFormat:@"Overrides visíveis: %lu\nHooks exatos instalados: %lu\nFalharam: %lu",
-                 (unsigned long)active, (unsigned long)installed, (unsigned long)failed]
+        message:[NSString stringWithFormat:@"Overrides visíveis: %lu\nHooks exatos instalados: %lu\nPendentes: %lu",
+                 (unsigned long)active, (unsigned long)installed, (unsigned long)pending]
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK"
         style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
+    [self applyCurrentFilter];
 }
 
 @end
