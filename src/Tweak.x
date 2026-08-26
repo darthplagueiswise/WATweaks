@@ -10,6 +10,7 @@
 #import <substrate.h>
 #import "Menu/WAGRMainSettingsVC.h"
 #import "WAGramPrefix.h"
+#import "Runtime/WAGRGateStore.h"
 
 extern NSString  *WAGRHookRouterDiagnostic(void);
 extern void       WAGRNativeDevMenuEnsureHooksInstalled(void);
@@ -22,8 +23,17 @@ static void (*orig_tableDidMoveToWindow)(id, SEL) = NULL;
 static BOOL gTableHooked = NO;
 
 static BOOL WAGRNativeDebugAllowed(void) {
-    return WAGRPref(kWAGRDebugMenuNative) || WAGRPref(kWAGRInternalMaster) ||
-           WAGRPref(kWAGREmployeeMaster)  || WAGRPref(kWAGRDebugMode);
+    if (WAGRPref(kWAGRDebugMenuNative) || WAGRPref(kWAGRDebugMode)) return YES;
+    for (NSString *selector in @[
+        @"isDebugMenuAllowed",
+        @"isInternalUser",
+        @"isMetaEmployeeOrInternalTester",
+        @"is_meta_employee_or_internal_tester",
+        @"waios_mc_debug_ui_enabled"
+    ]) {
+        if (WAGRGateIsSet(selector) && WAGRGateGet(selector)) return YES;
+    }
+    return NO;
 }
 
 static void WAGRPresent(UIViewController *from) {
