@@ -5,14 +5,10 @@
  * Generic JSON-string policy for BOTH ABProps and the generic runtime browser.
  *
  * The outer Objective-C ABI decides the return object. A getter returning @ may
- * legitimately return NSString whose contents are JSON. The editor is allowed
- * to pretty-print that JSON for humans, but Apply must not accidentally turn a
- * native one-line payload into a multiline string just because the editor did.
- *
- * This policy deliberately does NOT special-case wamo_abprops_list. Any
- * NSString payload that parses as JSON gets the same lexical preservation rule.
- * A stable-ID -> {type, default, debugDefault} document is detected from its
- * structure, not from the selector name.
+ * legitimately return NSString whose contents are JSON. JSON/schema detection is
+ * generic and structural, but the lexical NSString itself is NOT rewritten on
+ * Apply. This matters for payloads where the user changes only a few booleans:
+ * key order, whitespace, escaping and numeric spellings must remain as edited.
  */
 
 static void (*gWAGRJSONOriginalViewDidLoad)(id, SEL) = NULL;
@@ -63,41 +59,9 @@ static BOOL WAGRJSONLooksTypedABPropsDocument(id object) {
             valid = NO; *stop = YES; return;
         }
         seen++;
+        if (seen >= 16) *stop = YES;
     }];
     return valid && seen > 0;
-}
-
-static BOOL WAGRJSONWhitespace(unichar ch) {
-    return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t';
-}
-
-/* Remove only insignificant JSON whitespace outside quoted strings.  This does
- * not parse/re-serialize, so key order, escaping and numeric lexical forms stay
- * exactly as the user/native document supplied them. */
-static NSString *WAGRJSONCompactLexically(NSString *text) {
-    if (![text isKindOfClass:NSString.class] || !text.length) return text ?: @"";
-    NSMutableString *output = [NSMutableString stringWithCapacity:text.length];
-    BOOL inString = NO;
-    BOOL escaped = NO;
-    for (NSUInteger index = 0; index < text.length; index++) {
-        unichar ch = [text characterAtIndex:index];
-        if (inString) {
-            [output appendFormat:@"%C", ch];
-            if (escaped) escaped = NO;
-            else if (ch == '\\') escaped = YES;
-            else if (ch == '"') inString = NO;
-            continue;
-        }
-        if (ch == '"') {
-            inString = YES;
-            escaped = NO;
-            [output appendFormat:@"%C", ch];
-            continue;
-        }
-        if (WAGRJSONWhitespace(ch)) continue;
-        [output appendFormat:@"%C", ch];
-    }
-    return output;
 }
 
 static void WAGRJSONViewDidLoad(id self, SEL _cmd) {
@@ -122,7 +86,7 @@ static void WAGRJSONViewDidLoad(id self, SEL _cmd) {
         if ([status isKindOfClass:UILabel.class]) {
             status.numberOfLines = 4;
             status.text = [NSString stringWithFormat:
-                @"%@ · %@\nOuter ABI: object (@); o tipo real do objeto é preservado.\nJSON tipado detectado por estrutura: stableID → {type, default, debugDefault}.\nA validação é estrutural, não depende do nome do selector.",
+                @"%@ · %@\nOuter ABI: object (@); o tipo real do objeto é preservado.\nJSON tipado detectado por estrutura: stableID → {type, default, debugDefault}.\nApply preserva lexicalmente o NSString editado; Formatar é a única ação que reserializa.",
                 className, selector];
         }
     }
@@ -136,10 +100,8 @@ static void WAGRJSONApply(id self, SEL _cmd) {
     if (preserveString && editingText.length) {
         id parsed = WAGRJSONParseString(editingText);
         if (parsed) {
-            // Same policy for every JSON-valued NSString getter in ABProps and
-            // Runtime. Editing can be pretty; the returned NSString stays a
-            // compact JSON wire value instead of persisting editor newlines.
-            textView.text = WAGRJSONCompactLexically(editingText);
+            // Detection/validation only. Never trim, compact, sort or serialize
+            // the text here. WAGRFullValueEditorVC will persist this exact string.
             WAGRJSONSetKVC(self, @"validateJSON", @YES);
             if (WAGRJSONLooksTypedABPropsDocument(parsed)) {
                 WAGRJSONSetKVC(self, @"typedABPropsSchema", @YES);
@@ -172,7 +134,6 @@ __attribute__((constructor))
 static void WAGRRuntimeCanonicalJSONStringUICtor(void) {
     @autoreleasepool {
         dispatch_async(dispatch_get_main_queue(), ^{
-            // Fullscreen editor installs at 1.20 s.
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
                                          (int64_t)(1.32 * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{
