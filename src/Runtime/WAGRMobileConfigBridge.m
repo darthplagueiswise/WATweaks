@@ -13,19 +13,32 @@ static const NSUInteger kWAGRValidatedWAStableIdCount = 34666;
 static NSString * const kWAGRMCErrorDomain = @"WATweaks.MobileConfig";
 
 @implementation WAGRMobileConfigMapping
+
+- (uint16_t)compactParameterToken {
+    return self.parameterStableId;
+}
+
+- (uint64_t)stableIdFromParamSpecifier {
+    return self.externalConfigStableId;
+}
+
+- (uint64_t)configStableId {
+    return self.externalConfigStableId;
+}
+
 - (NSDictionary<NSString *, id> *)dictionaryRepresentation {
     NSMutableDictionary *dictionary = [@{
         @"wa_stable_id" : @(self.waStableId),
         @"param_specifier_hex" : [NSString stringWithFormat:@"0x%016llx", self.paramSpecifier],
         @"local_config_index" : @(self.localConfigIndex),
         @"parameter_index" : @(self.parameterIndex),
-        @"compact_parameter_token" : @(self.parameterStableId),
+        @"compact_parameter_token" : @(self.compactParameterToken),
         @"native_type" : @(self.nativeType),
         @"native_type_name" : (self.nativeType == 1 ? @"bool" :
                                 self.nativeType == 2 ? @"int64" :
                                 self.nativeType == 3 ? @"string" :
                                 self.nativeType == 4 ? @"double" : @"unknown"),
-        @"external_config_stable_id" : @(self.externalConfigStableId),
+        @"external_config_stable_id" : @(self.stableIdFromParamSpecifier),
     } mutableCopy];
     if (self.configName.length) dictionary[@"config_name"] = self.configName;
     if (self.parameterName.length) dictionary[@"parameter_name"] = self.parameterName;
@@ -172,29 +185,36 @@ static BOOL WAGRMCClassHasContextManagerABI(Class cls) {
 static BOOL WAGRMCObjectIsContextManager(id object) {
     if (!object) return NO;
     Class cls = [object class];
-
-    // The supplied SharedModules Mach-O proves that
-    // FBMobileConfigUserSessionContextManager subclasses FBMobileConfigContextManager.
-    // The old substring test rejected it because "UserSession" sits between
-    // "FBMobileConfig" and "ContextManager" in the concrete class name.
     if (WAGRMCClassDescendsFromContextManager(cls)) return YES;
-
     NSString *name = NSStringFromClass(cls) ?: @"";
-    if ([name hasPrefix:@"FBMobileConfig"] && [name hasSuffix:@"ContextManager"] &&
-        WAGRMCClassHasContextManagerABI(cls)) return YES;
-    return NO;
+    return [name hasPrefix:@"FBMobileConfig"] &&
+           [name hasSuffix:@"ContextManager"] &&
+           WAGRMCClassHasContextManagerABI(cls);
+}
+
+static BOOL WAGRMCObjectIsUserSessionManager(id object) {
+    if (!WAGRMCObjectIsContextManager(object)) return NO;
+    Class userSession = NSClassFromString(@"FBMobileConfigUserSessionContextManager") ?:
+                        objc_getClass("FBMobileConfigUserSessionContextManager");
+    if (userSession && [object isKindOfClass:userSession]) return YES;
+    NSString *name = NSStringFromClass([object class]) ?: @"";
+    return [name containsString:@"UserSessionContextManager"];
 }
 
 static void WAGRMCRememberManager(id manager, NSString *source) {
     if (!WAGRMCObjectIsContextManager(manager)) return;
     WAGRMCEnsureLock();
+    BOOL candidateIsUserSession = WAGRMCObjectIsUserSessionManager(manager);
     @synchronized (gWAGRMCLock) {
+        BOOL currentIsUserSession = WAGRMCObjectIsUserSessionManager(gWAGRMCContextManager);
+        if (currentIsUserSession && !candidateIsUserSession) return;
         if (gWAGRMCContextManager == manager && [gWAGRMCContextManagerSource isEqualToString:source]) return;
         gWAGRMCContextManager = manager;
         gWAGRMCContextManagerSource = [source copy] ?: @"unknown";
     }
-    WAGRLogAppendF(@"[MobileConfig] captured %@ from %@",
-                   NSStringFromClass([manager class]) ?: @"?", source ?: @"unknown");
+    WAGRLogAppendF(@"[MobileConfig] captured %@ from %@ userSession=%@",
+                   NSStringFromClass([manager class]) ?: @"?", source ?: @"unknown",
+                   candidateIsUserSession ? @"YES" : @"NO");
 }
 
 static id hook_WAGRMCGetOverridesTablePath(id self, SEL _cmd) {
@@ -233,83 +253,54 @@ void WAGRMobileConfigEnsureCaptureHooksInstalled(void) {
     }
 }
 
-static id WAGRMCProbeObjectGraph(id root,
-                                  NSMutableSet<NSValue *> *visited,
-                                  NSUInteger depth) {
-    if (!root || depth > 4) return nil;
-    if (WAGRMCObjectIsContextManager(root)) return root;
-
-    NSValue *identity = [NSValue valueWithNonretainedObject:root];
-    if ([visited containsObject:identity]) return nil;
-    [visited addObject:identity];
-
-    NSArray<NSString *> *selectors = @[
-        @"mobileConfig", @"mobileConfigContextManager", @"mobileConfigManager",
-        @"mcContextManager", @"contextManager", @"configManager",
-        @"userContext", @"mainContext", @"sharedContext"
-    ];
-    for (NSString *selectorName in selectors) {
-        id child = WAGRMCCallObjectNoArg(root, selectorName);
-        if (!child || child == root) continue;
-        id found = WAGRMCProbeObjectGraph(child, visited, depth + 1);
-        if (found) return found;
+static id WAGRMCManagerFromKnownUserContextAccessors(id context, BOOL requireUserSession) {
+    if (!context) return nil;
+    for (NSString *selectorName in @[
+        @"mobileConfig",
+        @"mobileConfigContextManager",
+        @"mobileConfigManager"
+    ]) {
+        id candidate = WAGRMCCallObjectNoArg(context, selectorName);
+        if (!WAGRMCObjectIsContextManager(candidate)) continue;
+        if (requireUserSession && !WAGRMCObjectIsUserSessionManager(candidate)) continue;
+        WAGRMCRememberManager(candidate,
+            [@"userContext." stringByAppendingString:selectorName]);
+        return candidate;
     }
+    return nil;
+}
 
-    for (Class current = [root class]; current && current != NSObject.class;
-         current = class_getSuperclass(current)) {
-        unsigned int count = 0;
-        Ivar *ivars = class_copyIvarList(current, &count);
-        for (unsigned int index = 0; index < count; index++) {
-            Ivar ivar = ivars[index];
-            const char *nameCString = ivar_getName(ivar);
-            const char *typeCString = ivar_getTypeEncoding(ivar);
-            if (!nameCString || !typeCString || WAGRMCSkipQualifiers(typeCString)[0] != '@') continue;
-            NSString *name = [[NSString stringWithUTF8String:nameCString] lowercaseString] ?: @"";
-            BOOL interesting = [name containsString:@"mobileconfig"] ||
-                               [name containsString:@"configmanager"] ||
-                               [name containsString:@"contextmanager"] ||
-                               [name containsString:@"mcmanager"];
-            if (!interesting) continue;
-            id child = nil;
-            @try { child = object_getIvar(root, ivar); }
-            @catch (__unused NSException *exception) { child = nil; }
-            id found = WAGRMCProbeObjectGraph(child, visited, depth + 1);
-            if (found) { free(ivars); return found; }
-        }
-        free(ivars);
+id WAGRMobileConfigUserSessionContextManager(id userContext) {
+    WAGRMobileConfigEnsureCaptureHooksInstalled();
+    id context = userContext ?: WAGRCurrentUserContext();
+
+    id direct = WAGRMCManagerFromKnownUserContextAccessors(context, YES);
+    if (direct) return direct;
+
+    WAGRMCEnsureLock();
+    @synchronized (gWAGRMCLock) {
+        if (WAGRMCObjectIsUserSessionManager(gWAGRMCContextManager)) return gWAGRMCContextManager;
     }
     return nil;
 }
 
 id WAGRMobileConfigContextManager(id userContext) {
-    WAGRMobileConfigEnsureCaptureHooksInstalled();
+    id userSession = WAGRMobileConfigUserSessionContextManager(userContext);
+    if (userSession) return userSession;
+
     WAGRMCEnsureLock();
     @synchronized (gWAGRMCLock) {
         if (WAGRMCObjectIsContextManager(gWAGRMCContextManager)) return gWAGRMCContextManager;
     }
 
-    id context = userContext ?: WAGRCurrentUserContext();
-
-    // Fast path proven by the live log supplied from this build:
-    // WAContextMain.mobileConfig -> FBMobileConfigUserSessionContextManager.
-    id direct = WAGRMCCallObjectNoArg(context, @"mobileConfig");
-    if (WAGRMCObjectIsContextManager(direct)) {
-        WAGRMCRememberManager(direct, @"userContext.mobileConfig");
-        return direct;
-    }
-
-    NSMutableSet<NSValue *> *visited = [NSMutableSet set];
-    id manager = WAGRMCProbeObjectGraph(context, visited, 0);
-    if (manager) {
-        WAGRMCRememberManager(manager, @"userContext graph");
-        return manager;
-    }
-
+    // Generic diagnostic/path fallback only. Do not use these managers as proof
+    // of the external config/admin IDs emitted into mc_overrides.
     Class base = NSClassFromString(@"FBMobileConfigContextManager") ?: objc_getClass("FBMobileConfigContextManager");
     for (NSString *selectorName in @[@"sessionlessContextManager", @"defaultValueContextManager"]) {
         id candidate = WAGRMCCallClassObjectNoArg(base, selectorName);
         if (!WAGRMCObjectIsContextManager(candidate)) continue;
-        WAGRMCRememberManager(candidate, [@"+FBMobileConfigContextManager." stringByAppendingString:selectorName]);
+        WAGRMCRememberManager(candidate,
+            [@"+FBMobileConfigContextManager." stringByAppendingString:selectorName]);
         return candidate;
     }
     return nil;
@@ -432,7 +423,7 @@ static NSUInteger WAGRMCStableIdDomainCount(Class evaluationClass) {
 }
 
 static uint64_t WAGRMCExternalStableId(id manager, uint64_t specifier) {
-    if (!manager || !specifier) return 0;
+    if (!manager || !specifier || !WAGRMCObjectIsUserSessionManager(manager)) return 0;
     SEL selector = NSSelectorFromString(@"getStableIdFromParamSpecifier:");
     Method method = class_getInstanceMethod([manager class], selector);
     if (!method || method_getNumberOfArguments(method) != 3 || !WAGRMCMethodArgumentFitsWord(method, 2)) return 0;
@@ -455,12 +446,12 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
     WAGRMobileConfigProgressBlock progress,
     NSError **outError) {
 
-    id manager = WAGRMobileConfigContextManager(userContext);
+    id manager = WAGRMobileConfigUserSessionContextManager(userContext);
     if (!manager) {
         if (outError) {
             *outError = [NSError errorWithDomain:kWAGRMCErrorDomain code:1
                 userInfo:@{NSLocalizedDescriptionKey:
-                    @"Nenhum FBMobileConfig *ContextManager válido foi resolvido a partir do userContext atual."}];
+                    @"FBMobileConfigUserSessionContextManager não foi resolvido. O crosswalk mc_overrides não usa sessionless/default como substituto."}];
         }
         return nil;
     }
@@ -516,7 +507,7 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
         }
     }
 
-    WAGRLogAppendF(@"[MobileConfig] scan manager=%@ domain=%lu translated=%lu externalResolved=%lu names=%lu",
+    WAGRLogAppendF(@"[MobileConfig] userSession scan manager=%@ domain=%lu translated=%lu externalResolved=%lu names=%lu",
                    NSStringFromClass([manager class]) ?: @"?",
                    (unsigned long)total,
                    (unsigned long)mappings.count,
@@ -529,7 +520,7 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
 
 id WAGRMobileConfigCurrentValue(WAGRMobileConfigMapping *mapping, id userContext) {
     if (!mapping || !mapping.paramSpecifier) return nil;
-    id manager = WAGRMobileConfigContextManager(userContext);
+    id manager = WAGRMobileConfigUserSessionContextManager(userContext);
     if (!manager) return nil;
 
     NSString *selectorName = nil;
@@ -581,25 +572,31 @@ NSDictionary<NSString *, id> *WAGRMobileConfigCrosswalkDocument(
     NSArray<WAGRMobileConfigMapping *> *mappings,
     id userContext) {
     NSMutableArray *entries = [NSMutableArray arrayWithCapacity:mappings.count];
-    NSUInteger resolved = 0, named = 0;
+    NSUInteger resolved = 0, named = 0, sameAsWAStableId = 0;
     for (WAGRMobileConfigMapping *mapping in mappings) {
         [entries addObject:[mapping dictionaryRepresentation]];
-        if (mapping.externalConfigStableId) resolved++;
+        if (mapping.externalConfigStableId) {
+            resolved++;
+            if (mapping.externalConfigStableId == mapping.waStableId) sameAsWAStableId++;
+        }
         if (mapping.configName.length || mapping.parameterName.length) named++;
     }
     NSString *overridesPath = WAGRMobileConfigOverridesPath(userContext);
     NSString *namesPath = WAGRMobileConfigNamesPath(userContext);
+    id manager = WAGRMobileConfigUserSessionContextManager(userContext);
     return @{
-        @"format" : @"WATweaks WhatsApp ABProp -> FBMobileConfig live crosswalk",
+        @"format" : @"WATweaks WhatsApp ABProp -> FBMobileConfig user-session crosswalk",
         @"generated_at" : WAGRMCISO8601Now(),
-        @"source" : @"WAMCEvaluation + live FBMobileConfig *ContextManager",
-        @"manager_class" : WAGRMobileConfigContextManager(userContext)
-            ? NSStringFromClass([WAGRMobileConfigContextManager(userContext) class]) : NSNull.null,
+        @"source" : @"WAMCEvaluation + FBMobileConfigUserSessionContextManager",
+        @"manager_class" : manager ? NSStringFromClass([manager class]) : NSNull.null,
         @"scan" : @{
             @"translated" : @(mappings.count),
             @"external_ids_resolved" : @(resolved),
+            @"external_id_equals_wa_stable_id" : @(sameAsWAStableId),
+            @"external_id_differs_from_wa_stable_id" : @(resolved >= sameAsWAStableId ? resolved - sameAsWAStableId : 0),
             @"with_canonical_names" : @(named),
         },
+        @"identity_warning" : @"wa_stable_id and external_config_stable_id are separate namespaces; equality must be observed per mapping, never assumed.",
         @"paths" : @{
             @"mc_overrides" : overridesPath ?: NSNull.null,
             @"id_name_mapping" : namesPath ?: NSNull.null,
@@ -628,12 +625,12 @@ NSDictionary<NSString *, id> *WAGRMobileConfigOverrideDocument(
     NSUInteger emitted = 0, skippedUnresolved = 0, skippedUnsupported = 0, deduplicated = 0;
 
     for (WAGRMobileConfigMapping *mapping in mappings) {
-        if (!mapping.externalConfigStableId) { skippedUnresolved++; continue; }
+        if (!mapping.configStableId) { skippedUnresolved++; continue; }
         if (mode == WAGRMobileConfigOverrideExportModeAllBooleansTrue && mapping.nativeType != 1) continue;
         if (mapping.nativeType < 1 || mapping.nativeType > 4) { skippedUnsupported++; continue; }
 
         NSString *parameterUID = [NSString stringWithFormat:@"%llu:%u",
-            mapping.externalConfigStableId, mapping.parameterIndex];
+            mapping.configStableId, mapping.parameterIndex];
         if ([seenParameters containsObject:parameterUID]) { deduplicated++; continue; }
 
         id currentValue = mode == WAGRMobileConfigOverrideExportModeAllBooleansTrue
@@ -643,8 +640,8 @@ NSDictionary<NSString *, id> *WAGRMobileConfigOverrideDocument(
 
         [seenParameters addObject:parameterUID];
         NSString *configKey = mapping.configName.length
-            ? [NSString stringWithFormat:@"%llu:%@", mapping.externalConfigStableId, mapping.configName]
-            : [NSString stringWithFormat:@"%llu:", mapping.externalConfigStableId];
+            ? [NSString stringWithFormat:@"%llu:%@", mapping.configStableId, mapping.configName]
+            : [NSString stringWithFormat:@"%llu:", mapping.configStableId];
         NSString *row = mapping.parameterName.length
             ? [NSString stringWithFormat:@"%u: %@: %@", mapping.parameterIndex, mapping.parameterName, valueString]
             : [NSString stringWithFormat:@"%u: : %@", mapping.parameterIndex, valueString];
@@ -687,18 +684,20 @@ NSData *WAGRMobileConfigJSONData(id object, NSError **outError) {
 
 NSString *WAGRMobileConfigDiagnosticText(void) {
     WAGRMCEnsureLock();
-    id manager = nil;
+    id captured = nil;
     NSString *source = nil;
     @synchronized (gWAGRMCLock) {
-        manager = gWAGRMCContextManager;
+        captured = gWAGRMCContextManager;
         source = [gWAGRMCContextManagerSource copy];
     }
-    id live = manager ?: WAGRMobileConfigContextManager(nil);
+    id userSession = WAGRMobileConfigUserSessionContextManager(nil);
+    id generic = userSession ?: captured ?: WAGRMobileConfigContextManager(nil);
     return [NSString stringWithFormat:
-        @"manager=%@\nsource=%@\nfamilyValid=%@\npathHook=%@\nboolHook=%@\noverridesPath=%@\nnamesPath=%@\nvalidatedStableIdDomain=%lu",
-        live ? NSStringFromClass([live class]) : @"nil",
+        @"manager=%@\nsource=%@\nuserSession=%@\nfamilyValid=%@\npathHook=%@\nboolHook=%@\noverridesPath=%@\nnamesPath=%@\nvalidatedStableIdDomain=%lu\nmc_overrides identity=external config stable ID + parameterIndex",
+        generic ? NSStringFromClass([generic class]) : @"nil",
         source ?: @"none",
-        WAGRMCObjectIsContextManager(live) ? @"YES" : @"NO",
+        userSession ? @"YES" : @"NO",
+        WAGRMCObjectIsContextManager(generic) ? @"YES" : @"NO",
         gWAGRMCPathHooked ? @"YES" : @"NO",
         gWAGRMCBoolHooked ? @"YES" : @"NO",
         WAGRMobileConfigOverridesPath(nil) ?: @"unresolved",
