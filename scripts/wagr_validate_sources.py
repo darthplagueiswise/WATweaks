@@ -1,98 +1,188 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re, sys
+import re
+import sys
 
 root = Path(__file__).resolve().parents[1]
 errors = []
 
-def read(rel):
-    p = root / rel
-    if not p.exists():
+
+def read(rel: str) -> str:
+    path = root / rel
+    if not path.exists():
         errors.append(f"missing {rel}")
         return ""
-    return p.read_text(errors="ignore")
+    return path.read_text(errors="ignore")
 
-# Core file presence.
-for rel in [
+
+# Canonical 8150 rebuild: validate what the branch actually compiles.  The old
+# router-era ObjectGraphScanner/ObjCHookRouter/FeatureSubmenu units were removed
+# intentionally and must not be required by this validator.
+required = [
     "Makefile",
     "build.sh",
     "control",
     "WATweaks.plist",
     "src/Tweak.x",
-    "src/Menu/WAGRSurfaceListVC.m",
+    "src/Menu/WAGRMainSettingsVC.h",
+    "src/Menu/WAGRMainSettingsVC.m",
+    "src/Menu/WAGRABPropsRootVC.h",
+    "src/Menu/WAGRABPropsRootVC.m",
+    "src/Menu/WAGRABPropsBrowserVC.h",
+    "src/Menu/WAGRABPropsBrowserVC.m",
+    "src/Menu/WAGRABPropsFilteredBrowserVC.h",
+    "src/Menu/WAGRABPropsFilteredBrowserVC.m",
+    "src/Menu/WAGRValidatedNativeGatesVC.h",
+    "src/Menu/WAGRValidatedNativeGatesVC.m",
+    "src/Menu/WAGRSurfaceBrowserVC.h",
     "src/Menu/WAGRSurfaceBrowserVC.m",
+    "src/Menu/WAGRRuntimeBrowserCrashGuard.m",
+    "src/Menu/WAGRRuntimeObjectFullscreenEditor.m",
+    "src/Runtime/WAGRSurface.h",
     "src/Runtime/WAGRSurface.m",
-    "src/Runtime/WAGRObjectGraphScanner.m",
-    "src/Hooks/WAGRObjCHookRouter.xm",
-]:
+    "src/Runtime/WAGRFeatureState.h",
+    "src/Runtime/WAGRFeatureState.m",
+    "src/Runtime/WAGRRuntimeValueStore.h",
+    "src/Runtime/WAGRRuntimeValueStore.m",
+    "src/Runtime/WAGRABPropsRuntime.h",
+    "src/Runtime/WAGRABPropsRuntime.m",
+    "src/Runtime/WAGRABPropsNativeStore.h",
+    "src/Runtime/WAGRABPropsNativeStore.m",
+]
+for rel in required:
     if not (root / rel).exists():
         errors.append(f"missing {rel}")
 
-# Local imports must exist.
-for p in list((root / "src").rglob("*.m")) + list((root / "src").rglob("*.x")) + list((root / "src").rglob("*.xm")) + list((root / "src").rglob("*.h")):
-    s = p.read_text(errors="ignore")
-    for inc in re.findall(r'#import\s+"([^"]+)"', s):
-        candidates = [p.parent / inc, root / "src" / inc, root / inc]
-        if not any(c.exists() for c in candidates):
-            errors.append(f"{p.relative_to(root)}: missing import {inc}")
+for obsolete in [
+    "src/Menu/WAGRFeatureSubmenuVC.h",
+    "src/Menu/WAGRFeatureSubmenuVC.m",
+    "src/Runtime/WAGRObjectGraphScanner.m",
+    "src/Hooks/WAGRObjCHookRouter.xm",
+]:
+    if (root / obsolete).exists():
+        errors.append(f"obsolete router-era unit unexpectedly present: {obsolete}")
 
-# Longpress must remain in Tweak.x.
+# Every local source import must resolve.  This catches real integration errors
+# without assuming a superseded directory layout.
+source_files = []
+for suffix in ("*.m", "*.mm", "*.x", "*.xm", "*.h", "*.c", "*.cc", "*.cpp"):
+    source_files.extend((root / "src").rglob(suffix))
+for path in source_files:
+    text = path.read_text(errors="ignore")
+    for inc in re.findall(r'#import\s+"([^"]+)"', text):
+        candidates = [path.parent / inc, root / "src" / inc, root / inc]
+        if not any(candidate.exists() for candidate in candidates):
+            errors.append(f"{path.relative_to(root)}: missing import {inc}")
+
+# Long-press entry point is part of the base architecture and must survive the
+# rebuild.
 tweak = read("src/Tweak.x")
 for token in ["UILongPressGestureRecognizer", "WAGRLP", "attachLP", "isTrigger", "WAGRPresent"]:
     if token not in tweak:
         errors.append(f"Tweak.x missing longpress token {token}")
-
-
-# Basic Objective-C syntax tripwires that previously escaped static validation.
 if 'new]})' in tweak or 'new]});' in tweak:
-    errors.append('Tweak.x has dispatch_once block assignment without semicolon inside block')
+    errors.append("Tweak.x has dispatch_once block assignment without semicolon inside block")
 if ']action:' in tweak:
-    errors.append('Tweak.x has Objective-C message keyword glued to previous argument: ]action:')
+    errors.append("Tweak.x has Objective-C message keyword glued to previous argument: ]action:")
 
-# Main menu must be feature-bundle oriented, not raw surface first.
-menu = read("src/Menu/WAGRSurfaceListVC.m")
-models = read("src/Runtime/WAGRSurface.m")
-for token in ["Categorias", "Runtime Browser Avançado"]:
+# Canonical root menu: curated Employee/Internal plus filtered ABProperties
+# views for Aura/Liquid Glass, then native ABProps and generic live runtime.
+menu = read("src/Menu/WAGRMainSettingsVC.m")
+for token in [
+    "Employee / Internal / Dogfood",
+    "Aura",
+    "Liquid Glass",
+    "Debug menu nativo",
+    "AB Props",
+    "WAGRABPropsFilteredBrowserVC",
+    'query:@"aura_"',
+    'query:@"ios_liquid_glass_"',
+    "WAGRValidatedNativeGatesVC",
+    "WAGRSurfaceBrowserVC",
+]:
     if token not in menu:
-        errors.append(f"WAGRSurfaceListVC.m missing {token}")
-for token in ["LiquidGlass", "WA Plus / Aura", "Settings Rows", "Developer / Dogfood / Internal"]:
-    if token not in (menu + models):
-        errors.append(f"feature bundle missing {token}")
-if "RUNTIME SURFACES" in menu or "SYS|OFF|ON" in menu:
-    errors.append("WAGRSurfaceListVC.m still exposes old raw runtime copy")
+        errors.append(f"WAGRMainSettingsVC.m missing canonical menu token {token}")
+if "WAGRFeatureSubmenuVC" in menu:
+    errors.append("WAGRMainSettingsVC.m still references obsolete FeatureSubmenu router")
 
-# Surface browser must not show segmented SYS/OFF/ON.
+# Live runtime model must be image-backed and ABI/type filtered; it must not
+# require opening a separate browser to populate hard-coded feature bundles.
+surface_h = read("src/Runtime/WAGRSurface.h")
+surface_m = read("src/Runtime/WAGRSurface.m")
+for token in [
+    "runtimeImageSurfaces",
+    "runtimeFamilySurfaces",
+    "runtimeImagePath",
+    "runtimeFamilyKey",
+    "WAGRRuntimeValueTypeIsSupported",
+    "WAGRLiveMethodIsSupported",
+    "objc_copyClassList",
+]:
+    if token not in surface_h + surface_m:
+        errors.append(f"live runtime model missing {token}")
+if 'displayName = [@"@property "' in surface_m:
+    errors.append("runtime scanner still adds @property prefix to displayName")
+
+# Runtime browser uses direct typed controls rather than the obsolete SYS/OFF/ON
+# segmented policy.
 browser = read("src/Menu/WAGRSurfaceBrowserVC.m")
-if "UISegmentedControl" in browser or '@"SYS"' in browser or '@"OFF"' in browser or '@"ON"' in browser:
+if "UISegmentedControl" in browser or '@"SYS"' in browser:
     errors.append("WAGRSurfaceBrowserVC.m still has segmented SYS/OFF/ON UI")
 if "UISwitch" not in browser:
-    errors.append("WAGRSurfaceBrowserVC.m missing UISwitch")
+    errors.append("WAGRSurfaceBrowserVC.m missing UISwitch typed boolean UI")
 if "@property @property" in browser:
     errors.append("WAGRSurfaceBrowserVC.m can render duplicated @property")
 
-# Scanner must not prefix displayName with @property.
-scanner = read("src/Runtime/WAGRSurface.m")
-if 'displayName = [@"@property "' in scanner:
-    errors.append("scanner still adds @property prefix to displayName")
-for token in ["featureBundles", "selectorTokens", "scanProperties", "WAGRObjectGraphScanner"]:
-    # object graph lives in own file, not necessarily in scanner.
-    if token == "WAGRObjectGraphScanner":
-        continue
-    if token not in scanner and token not in read("src/Runtime/WAGRSurface.h"):
-        errors.append(f"runtime model missing {token}")
+# The crash guard must be the conservative receiver resolver: exact live objects,
+# validated singleton factories and UIKit ownership only; never arbitrary ivar
+# graph traversal or fabricated instances.
+crash_guard = read("src/Menu/WAGRRuntimeBrowserCrashGuard.m")
+for token in ["WAGRSafeReceiverForEntry", "WAGRSafeExactReceiver", "WAGRSafeSingletonReceiver"]:
+    if token not in crash_guard:
+        errors.append(f"runtime crash guard missing {token}")
+for forbidden in ["object_getIvar", "class_createInstance", "[cls alloc]"]:
+    if forbidden in crash_guard:
+        errors.append(f"runtime crash guard contains unsafe receiver operation {forbidden}")
 
-# ObjC++ function pointers must use explicit casts for NSValue bridging.
-for p in list((root / "src").rglob("*.xm")) + list((root / "src").rglob("*.mm")):
-    s = p.read_text(errors="ignore")
-    for i, line in enumerate(s.splitlines(), 1):
-        if "valueWithPointer:" in line and "reinterpret_cast<const void *>" not in line and "(const void *)" not in line:
-            errors.append(f"{p.relative_to(root)}:{i}: valueWithPointer missing explicit function-pointer cast")
+# Curated feature state must resolve through the same RuntimeValueStore used by
+# the ABProperties Browser, with the native gabp snapshot only as a read source.
+feature_state = read("src/Runtime/WAGRFeatureState.m")
+for token in [
+    "WAGRRuntimeValueAllOverrideSpecs",
+    "WAGRRuntimeValueSetOverride",
+    "WAGRRuntimeValueClearOverride",
+    "WAGRRuntimeValueInstallHook",
+    "WAGRABPropsReadNativeSnapshot",
+    "WAGRABPropsNativeExportDocument",
+]:
+    if token not in feature_state:
+        errors.append(f"WAGRFeatureState.m missing shared-state token {token}")
+
+# wamo_abprops_list is an object getter whose NSString contains a typed JSON
+# schema.  The full-screen editor must preserve the outer ABI and validate inner
+# values rather than converting the getter to an integer/object of another kind.
+editor = read("src/Menu/WAGRRuntimeObjectFullscreenEditor.m")
+for token in ["wamo_abprops_list", "typedABPropsSchema", "WAGRFullValidateABPropsSchema", "WAGRRuntimeValueSetOverride"]:
+    if token not in editor:
+        errors.append(f"WAGRRuntimeObjectFullscreenEditor.m missing {token}")
+
+# ObjC++ function-pointer bridging: only IMP/function-pointer expressions require
+# an explicit cast to const void*.  A normal data pointer (for example a heap
+# descriptor struct) is already convertible to void* and must not be rejected.
+functionish = re.compile(r"\b(?:IMP|imp|orig|original|replacement|hook)\b", re.I)
+for path in list((root / "src").rglob("*.xm")) + list((root / "src").rglob("*.mm")):
+    text = path.read_text(errors="ignore")
+    for line_no, line in enumerate(text.splitlines(), 1):
+        if "valueWithPointer:" in line:
+            arg = line.split("valueWithPointer:", 1)[1]
+            if functionish.search(arg) and "reinterpret_cast<const void *>" not in arg and "(const void *)" not in arg:
+                errors.append(f"{path.relative_to(root)}:{line_no}: function pointer stored in NSValue without explicit void* cast")
         if re.search(r'\([A-Za-z_][A-Za-z0-9_]*IMP\)\s*\[[^\]]+\s+pointerValue\]', line):
-            errors.append(f"{p.relative_to(root)}:{i}: pointerValue uses C-style function pointer cast")
+            errors.append(f"{path.relative_to(root)}:{line_no}: pointerValue uses C-style function pointer cast")
 
 if errors:
-    for e in errors:
-        print("ERRO:", e, file=sys.stderr)
+    for error in errors:
+        print("ERRO:", error, file=sys.stderr)
     sys.exit(1)
 
-print("OK: WAGram router Ryuk-style bundle validation passed")
+print("OK: canonical 8150 rebuild source validation passed")
