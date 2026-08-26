@@ -5,7 +5,6 @@ UIColor *WAGRMenuBackgroundColor(void) {
 }
 
 UIColor *WAGRMenuCellColor(void) {
-    // WhatsApp dark settings cards are neutral, not accent-tinted.
     return [UIColor colorWithWhite:0.095 alpha:1.0];
 }
 
@@ -25,9 +24,6 @@ UIColor *WAGRMenuSeparatorColor(void) {
     return [UIColor colorWithWhite:1.0 alpha:0.10];
 }
 
-// Menu chrome/content is deliberately neutral, like WhatsApp Settings.
-// Semantic state remains on native controls (UISwitch green), destructive text
-// and explicit diagnostics; category names must not paint every icon differently.
 UIColor *WAGRMenuAccentForIndex(__unused NSInteger index) {
     return UIColor.whiteColor;
 }
@@ -49,15 +45,14 @@ UIFont *WAGRMenuDetailFont(void) {
 }
 
 UIFont *WAGRMenuRuntimeTitleFont(void) {
-    UIFont *preferred = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
-    return [UIFont systemFontOfSize:MAX(16.0, preferred.pointSize)
-                             weight:UIFontWeightRegular];
+    // Runtime identifiers are often 40-70 characters long. They should not use
+    // Dynamic Type's body minimum because that makes a single selector consume
+    // two or three lines. The browser cell applies one-line auto-shrink on top.
+    return [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
 }
 
 UIFont *WAGRMenuRuntimeDetailFont(void) {
-    UIFont *preferred = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    return [UIFont systemFontOfSize:MAX(13.0, preferred.pointSize)
-                             weight:UIFontWeightRegular];
+    return [UIFont systemFontOfSize:9.5 weight:UIFontWeightRegular];
 }
 
 static UIView *WAGRMenuFindSubviewOfClass(UIView *root, Class cls) {
@@ -75,8 +70,8 @@ void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
     searchBar.tintColor = UIColor.whiteColor;
 
     if (@available(iOS 26.0, *)) {
-        // UIKit already supplies UIGlassEffectStyleRegular-style navigation/search
-        // chrome on iOS 26+. Never add a second glass view inside searchTextField.
+        // The iOS 26 UISearchController/toolbar integration supplies the native
+        // UIGlassEffectStyleRegular morphing capsule. Do not nest another blur.
         UITextField *field = searchBar.searchTextField;
         field.textColor = UIColor.whiteColor;
         field.tintColor = UIColor.whiteColor;
@@ -87,11 +82,11 @@ void WAGRMenuApplySearchGlass(UISearchBar *searchBar) {
         if (scope) {
             [scope setTitleTextAttributes:@{
                 NSForegroundColorAttributeName: [UIColor colorWithWhite:0.82 alpha:1.0],
-                NSFontAttributeName: [UIFont systemFontOfSize:13.0 weight:UIFontWeightRegular]
+                NSFontAttributeName: [UIFont systemFontOfSize:11.5 weight:UIFontWeightRegular]
             } forState:UIControlStateNormal];
             [scope setTitleTextAttributes:@{
                 NSForegroundColorAttributeName: UIColor.whiteColor,
-                NSFontAttributeName: [UIFont systemFontOfSize:13.0 weight:UIFontWeightMedium]
+                NSFontAttributeName: [UIFont systemFontOfSize:11.5 weight:UIFontWeightMedium]
             } forState:UIControlStateSelected];
         }
     } else {
@@ -116,8 +111,6 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
         tableView.separatorColor = WAGRMenuSeparatorColor();
         tableView.indicatorStyle = UIScrollViewIndicatorStyleWhite;
         tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
-        // Do not collapse inset-grouped section spacing globally. UIKit's grouped
-        // geometry is part of the native WhatsApp Settings hierarchy.
         if (@available(iOS 15.0, *)) tableView.sectionHeaderTopPadding = 0.0;
     }
 
@@ -129,7 +122,8 @@ void WAGRMenuApplyTableStyle(UITableView *tableView, UIViewController *owner) {
         bar.translucent = YES;
 
         if (@available(iOS 26.0, *)) {
-            // Native UINavigationBar / UIBarButtonItem Liquid Glass.
+            // UINavigationBar/UIBarButtonItem use native Liquid Glass. Runtime
+            // browser titles add a regular UIGlassEffect titleView in the UI pass.
         } else if (@available(iOS 13.0, *)) {
             UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
             [appearance configureWithOpaqueBackground];
