@@ -20,6 +20,10 @@ static NSString * const kWAGRNestedValueKey = @"__watweak_value";
 @property(nonatomic, assign) SEL selector;
 @property(nonatomic, assign) IMP original;
 @property(nonatomic, assign) char typeCode;
+// Never retain arbitrary WhatsApp objects. The exact hook sees the real receiver
+// naturally, so keeping only a weak reference lets the browser reuse it without
+// extending its lifetime or traversing arbitrary object graphs.
+@property(nonatomic, weak) id lastReceiver;
 @end
 @implementation WAGRRuntimeValueHookDescriptor
 @end
@@ -294,6 +298,14 @@ NSArray<NSDictionary<NSString *, id> *> *WAGRRuntimeValueAllOverrideSpecs(void) 
     }
 }
 
+static WAGRRuntimeValueHookDescriptor *WAGRRuntimeValueHookDescriptorForUID(NSString *uid) {
+    if (!uid.length) return nil;
+    WAGRRuntimeValueEnsureStorage();
+    @synchronized (gWAGRValueLock) {
+        return gWAGRValueHooks[uid];
+    }
+}
+
 static id WAGRRuntimeValueForcedValue(WAGRRuntimeValueHookDescriptor *descriptor,
                                       BOOL *hasOverride) {
     if (hasOverride) *hasOverride = NO;
@@ -307,74 +319,93 @@ static id WAGRRuntimeValueForcedValue(WAGRRuntimeValueHookDescriptor *descriptor
     }
 }
 
+static inline void WAGRRuntimeValueCaptureReceiver(WAGRRuntimeValueHookDescriptor *descriptor,
+                                                   id receiver) {
+    if (descriptor && receiver) descriptor.lastReceiver = receiver;
+}
+
 static IMP WAGRRuntimeValueReplacement(WAGRRuntimeValueHookDescriptor *descriptor) {
     switch (descriptor.typeCode) {
         case 'B': return imp_implementationWithBlock(^BOOL(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced boolValue];
             return descriptor.original ? ((BOOL (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : NO;
         });
         case 'c': return imp_implementationWithBlock(^signed char(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return (signed char)[forced charValue];
             return descriptor.original ? ((signed char (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'C': return imp_implementationWithBlock(^unsigned char(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return (unsigned char)[forced unsignedCharValue];
             return descriptor.original ? ((unsigned char (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 's': return imp_implementationWithBlock(^short(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return (short)[forced shortValue];
             return descriptor.original ? ((short (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'S': return imp_implementationWithBlock(^unsigned short(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return (unsigned short)[forced unsignedShortValue];
             return descriptor.original ? ((unsigned short (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'i': return imp_implementationWithBlock(^int(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced intValue];
             return descriptor.original ? ((int (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'I': return imp_implementationWithBlock(^unsigned int(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced unsignedIntValue];
             return descriptor.original ? ((unsigned int (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'l': return imp_implementationWithBlock(^long(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced longValue];
             return descriptor.original ? ((long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'L': return imp_implementationWithBlock(^unsigned long(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced unsignedLongValue];
             return descriptor.original ? ((unsigned long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'q': return imp_implementationWithBlock(^long long(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced longLongValue];
             return descriptor.original ? ((long long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'Q': return imp_implementationWithBlock(^unsigned long long(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced unsignedLongLongValue];
             return descriptor.original ? ((unsigned long long (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0;
         });
         case 'f': return imp_implementationWithBlock(^float(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced floatValue];
             return descriptor.original ? ((float (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0.0f;
         });
         case 'd': return imp_implementationWithBlock(^double(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return [forced doubleValue];
             return descriptor.original ? ((double (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : 0.0;
         });
         case '@': return imp_implementationWithBlock(^id(id receiver) {
+            WAGRRuntimeValueCaptureReceiver(descriptor, receiver);
             BOOL has = NO; id forced = WAGRRuntimeValueForcedValue(descriptor, &has);
             if (has) return forced;
             return descriptor.original ? ((id (*)(id, SEL))descriptor.original)(receiver, descriptor.selector) : nil;
@@ -428,11 +459,7 @@ BOOL WAGRRuntimeValueHookIsInstalled(NSString *className,
                                      NSString *selectorName,
                                      BOOL isClassMethod) {
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
-    if (!uid.length) return NO;
-    WAGRRuntimeValueEnsureStorage();
-    @synchronized (gWAGRValueLock) {
-        return gWAGRValueHooks[uid] != nil;
-    }
+    return WAGRRuntimeValueHookDescriptorForUID(uid) != nil;
 }
 
 NSUInteger WAGRRuntimeValueReinstallPersistedHooks(void) {
@@ -456,27 +483,21 @@ static id WAGRRuntimeValueReceiver(NSString *className,
     SEL selector = NSSelectorFromString(selectorName);
     if (isClassMethod) return [cls respondsToSelector:selector] ? cls : nil;
     if (instance && [instance isKindOfClass:cls] && [instance respondsToSelector:selector]) return instance;
+
+    NSString *uid = WAGRRuntimeValueUID(className, selectorName, NO);
+    WAGRRuntimeValueHookDescriptor *descriptor = WAGRRuntimeValueHookDescriptorForUID(uid);
+    id captured = descriptor.lastReceiver;
+    if (captured && [captured isKindOfClass:cls] && [captured respondsToSelector:selector]) return captured;
     return nil;
 }
 
-NSString *WAGRRuntimeValueRead(NSString *className,
-                               NSString *selectorName,
-                               BOOL isClassMethod,
-                               id instance,
-                               id *rawValue) {
+static NSString *WAGRRuntimeValueReadWithIMP(id receiver,
+                                             SEL selector,
+                                             NSString *type,
+                                             IMP imp,
+                                             id *rawValue) {
     if (rawValue) *rawValue = nil;
-    id receiver = WAGRRuntimeValueReceiver(className, selectorName, isClassMethod, instance);
-    if (!receiver) return @"receiver exato indisponível";
-    SEL selector = NSSelectorFromString(selectorName);
-    Method method = isClassMethod
-        ? class_getClassMethod((Class)receiver, selector)
-        : class_getInstanceMethod([receiver class], selector);
-    if (!method) return @"método indisponível";
-    char rawType[64] = {0};
-    method_getReturnType(method, rawType, sizeof(rawType));
-    NSString *type = WAGRRuntimeValueNormalizedType([NSString stringWithUTF8String:rawType]);
-    IMP imp = [receiver methodForSelector:selector];
-    if (!imp || !type.length) return @"IMP/tipo indisponível";
+    if (!receiver || !selector || !imp || !type.length) return @"IMP/tipo indisponível";
 
     @try {
         switch ([type characterAtIndex:0]) {
@@ -506,6 +527,71 @@ NSString *WAGRRuntimeValueRead(NSString *className,
     } @catch (NSException *exception) {
         return [NSString stringWithFormat:@"exception %@: %@", exception.name ?: @"?", exception.reason ?: @"?"];
     }
+}
+
+static BOOL WAGRRuntimeValuePrepareRead(NSString *className,
+                                        NSString *selectorName,
+                                        BOOL isClassMethod,
+                                        id instance,
+                                        id *outReceiver,
+                                        SEL *outSelector,
+                                        NSString **outType,
+                                        IMP *outCurrentIMP) {
+    id receiver = WAGRRuntimeValueReceiver(className, selectorName, isClassMethod, instance);
+    if (!receiver) return NO;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = isClassMethod
+        ? class_getClassMethod((Class)receiver, selector)
+        : class_getInstanceMethod([receiver class], selector);
+    if (!method) return NO;
+    char rawType[64] = {0};
+    method_getReturnType(method, rawType, sizeof(rawType));
+    NSString *type = WAGRRuntimeValueNormalizedType([NSString stringWithUTF8String:rawType]);
+    IMP current = [receiver methodForSelector:selector];
+    if (!type.length || !current) return NO;
+    if (outReceiver) *outReceiver = receiver;
+    if (outSelector) *outSelector = selector;
+    if (outType) *outType = type;
+    if (outCurrentIMP) *outCurrentIMP = current;
+    return YES;
+}
+
+NSString *WAGRRuntimeValueRead(NSString *className,
+                               NSString *selectorName,
+                               BOOL isClassMethod,
+                               id instance,
+                               id *rawValue) {
+    if (rawValue) *rawValue = nil;
+    id receiver = nil;
+    SEL selector = NULL;
+    NSString *type = nil;
+    IMP current = NULL;
+    if (!WAGRRuntimeValuePrepareRead(className, selectorName, isClassMethod, instance,
+                                     &receiver, &selector, &type, &current)) {
+        return @"receiver exato indisponível";
+    }
+    return WAGRRuntimeValueReadWithIMP(receiver, selector, type, current, rawValue);
+}
+
+NSString *WAGRRuntimeValueReadOriginal(NSString *className,
+                                       NSString *selectorName,
+                                       BOOL isClassMethod,
+                                       id instance,
+                                       id *rawValue) {
+    if (rawValue) *rawValue = nil;
+    id receiver = nil;
+    SEL selector = NULL;
+    NSString *type = nil;
+    IMP current = NULL;
+    if (!WAGRRuntimeValuePrepareRead(className, selectorName, isClassMethod, instance,
+                                     &receiver, &selector, &type, &current)) {
+        return @"receiver exato indisponível";
+    }
+
+    NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
+    WAGRRuntimeValueHookDescriptor *descriptor = WAGRRuntimeValueHookDescriptorForUID(uid);
+    IMP original = descriptor.original ?: current;
+    return WAGRRuntimeValueReadWithIMP(receiver, selector, type, original, rawValue);
 }
 
 __attribute__((constructor))
