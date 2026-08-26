@@ -165,29 +165,46 @@ static BOOL WAGRGateStoreShouldRemoveOverrideKey(NSString *key) {
 
 #pragma mark - Canonical WAAB BOOL bridge
 
-static NSString *WAGRWAABTargetForGateKey(NSString *key) {
-    NSString *target = WAGRGateDisplayKey(key);
-    if (!target.length || [target rangeOfString:@"_"].location == NSNotFound) return nil;
+static NSString *WAGRWAABStoredBoolType(NSString *target) {
+    for (NSDictionary *spec in WAGRRuntimeValueAllOverrideSpecs()) {
+        if (![spec[@"class"] isEqual:@"WAABProperties"] ||
+            ![spec[@"selector"] isEqual:target] ||
+            [spec[@"meta"] boolValue]) continue;
+        NSString *type = [spec[@"type"] isKindOfClass:NSString.class] ? spec[@"type"] : nil;
+        if ([type isEqualToString:@"B"] || [type isEqualToString:@"c"]) return type;
+    }
+    return nil;
+}
 
-    // If the browser already owns an exact WAABProperties override, this is
-    // unambiguously the same state even when the class is temporarily unloaded.
-    if (WAGRRuntimeValueHasOverride(@"WAABProperties", target, NO)) return target;
-
+static NSString *WAGRWAABRuntimeBoolType(NSString *target) {
+    if (!target.length) return nil;
     Class cls = NSClassFromString(@"WAABProperties") ?: objc_getClass("WAABProperties");
-    if (!cls) return nil;
+    if (!cls) return WAGRWAABStoredBoolType(target);
     SEL selector = NSSelectorFromString(target);
     Method method = class_getInstanceMethod(cls, selector);
-    if (!method || method_getNumberOfArguments(method) != 2) return nil;
+    if (!method || method_getNumberOfArguments(method) != 2) return WAGRWAABStoredBoolType(target);
 
     char raw[32] = {0};
     method_getReturnType(method, raw, sizeof(raw));
     const char *type = raw;
     while (*type && strchr("rnNoORV", *type)) type++;
-    return (*type == 'B' || *type == 'c') ? target : nil;
+    if (*type == 'B') return @"B";
+    if (*type == 'c') return @"c";
+    return nil;
+}
+
+static NSString *WAGRWAABTargetForGateKey(NSString *key, NSString **outType) {
+    if (outType) *outType = nil;
+    NSString *target = WAGRGateDisplayKey(key);
+    if (!target.length || [target rangeOfString:@"_"].location == NSNotFound) return nil;
+    NSString *type = WAGRWAABRuntimeBoolType(target);
+    if (!type.length) return nil;
+    if (outType) *outType = type;
+    return target;
 }
 
 static BOOL WAGRWAABOverrideForGateKey(NSString *key, BOOL *outValue) {
-    NSString *target = WAGRWAABTargetForGateKey(key);
+    NSString *target = WAGRWAABTargetForGateKey(key, NULL);
     if (!target.length || !WAGRRuntimeValueHasOverride(@"WAABProperties", target, NO)) return NO;
     id value = WAGRRuntimeValueOverride(@"WAABProperties", target, NO);
     if (![value respondsToSelector:@selector(boolValue)]) return NO;
@@ -226,10 +243,11 @@ BOOL WAGRGateGet(NSString *key) {
 }
 
 void WAGRGateSet(NSString *key, BOOL value) {
-    NSString *waabTarget = WAGRWAABTargetForGateKey(key);
-    if (waabTarget.length) {
-        WAGRRuntimeValueSetOverride(@"WAABProperties", waabTarget, NO, @"B", @(value));
-        (void)WAGRRuntimeValueInstallHook(@"WAABProperties", waabTarget, NO, @"B");
+    NSString *type = nil;
+    NSString *waabTarget = WAGRWAABTargetForGateKey(key, &type);
+    if (waabTarget.length && type.length) {
+        WAGRRuntimeValueSetOverride(@"WAABProperties", waabTarget, NO, type, @(value));
+        (void)WAGRRuntimeValueInstallHook(@"WAABProperties", waabTarget, NO, type);
         WAGRClearLocalGateDuplicate(key);
         [NSUserDefaults.standardUserDefaults synchronize];
         return;
@@ -245,7 +263,7 @@ void WAGRGateSet(NSString *key, BOOL value) {
 }
 
 void WAGRGateClear(NSString *key) {
-    NSString *waabTarget = WAGRWAABTargetForGateKey(key);
+    NSString *waabTarget = WAGRWAABTargetForGateKey(key, NULL);
     if (waabTarget.length) {
         WAGRRuntimeValueClearOverride(@"WAABProperties", waabTarget, NO);
     }
