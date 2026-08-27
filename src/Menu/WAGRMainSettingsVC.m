@@ -11,6 +11,7 @@
 #import "WAGRRuntimeGatesVC.h"
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRLogViewController.h"
+#import "WAGRDebugDiagnosticsVC.h"
 #import "WAGRMainSettingsVC.h"
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRSurface.h"
@@ -87,7 +88,7 @@ static WATSection *secFeatures(void) {
     s.header=@"Features / Experimentos";
     s.rows=@[
         nav(@"Features / Experimentos",
-            @"Internal / Employee / Dogfood · Liquid Glass · Aura / WA Plus",
+            @"Descoberta live por versão · sem lista fixa de selectors/AB IDs",
             @"slider.horizontal.3",
             ^(UIViewController *from){
                 [from.navigationController pushViewController:[WAGRFeatureBundlesVC new] animated:YES];
@@ -141,6 +142,10 @@ static WATSection *secTools(void) {
     WATSection *s=[WATSection new];
     s.header=@"Ferramentas";
     s.rows=@[
+        nav(@"Debug",@"Export runtime: UserSession MC · ABProps · stable IDs · Private Experimentation", @"ladybug.fill",
+            ^(UIViewController *from){
+                [from.navigationController pushViewController:[WAGRDebugDiagnosticsVC new] animated:YES];
+            }),
         nav(@"Logs",@"Log interno da sessão atual", @"list.bullet.rectangle.portrait.fill",
             ^(UIViewController *from){
                 [from.navigationController pushViewController:[WAGRLogViewController new] animated:YES];
