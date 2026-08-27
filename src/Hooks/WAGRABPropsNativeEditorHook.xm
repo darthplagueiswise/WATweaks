@@ -73,20 +73,20 @@ static NSString *WAGRABStableIDHintForBrowserEntry(id browser, WAGRABPropEntry *
     } @catch (__unused NSException *exception) {}
 
     NSString *stableID = WAGRABStableIDHintForBrowserEntry(self, entry);
-    __weak typeof(self) weakSelf = self;
+    __weak WAGRABPropsBrowserVC *weakSelf = self;
     __weak UIView *weakSource = sourceView;
     dispatch_block_t runtimeFallback = ^{
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) return;
+        WAGRABPropsBrowserVC *strongSelf = weakSelf;
+        if (!strongSelf) return;
         id raw = nil;
         NSString *current = WAGRABPropsCurrentValue(entry, runtimeObjects, &raw);
-        WAGRPresentRuntimeValueEditor(self, weakSource,
+        WAGRPresentRuntimeValueEditor(strongSelf, weakSource,
             entry.className, entry.selectorName, entry.classMethod, entry.typeCode,
             current, raw, ^{
-                if ([self respondsToSelector:@selector(scanNow)]) {
+                if ([strongSelf respondsToSelector:@selector(scanNow)]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-                    [self performSelector:@selector(scanNow)];
+                    [strongSelf performSelector:@selector(scanNow)];
 #pragma clang diagnostic pop
                 }
             });
@@ -94,12 +94,12 @@ static NSString *WAGRABStableIDHintForBrowserEntry(id browser, WAGRABPropEntry *
 
     WAGRPresentABPropsNativeEditor(self, sourceView, entry, runtimeObjects,
                                    userContext, stableID, runtimeFallback, ^{
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) return;
-        if ([self respondsToSelector:@selector(scanNow)]) {
+        WAGRABPropsBrowserVC *strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if ([strongSelf respondsToSelector:@selector(scanNow)]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-            [self performSelector:@selector(scanNow)];
+            [strongSelf performSelector:@selector(scanNow)];
 #pragma clang diagnostic pop
         }
     });
