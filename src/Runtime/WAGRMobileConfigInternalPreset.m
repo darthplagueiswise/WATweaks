@@ -1,12 +1,23 @@
 #import "WAGRMobileConfigInternalPreset.h"
 #import "WAGRABPropsRuntime.h"
 #import "WAGRABPropsStableIDResolver.h"
+#include <stdlib.h>
 
 static BOOL WAGRMCContainsAny(NSString *name, NSArray<NSString *> *tokens) {
     for (NSString *token in tokens) {
         if ([name containsString:token]) return YES;
     }
     return NO;
+}
+
+static unsigned long long WAGRMCParseStableID(NSString *stableID) {
+    if (![stableID isKindOfClass:NSString.class] || !stableID.length) return 0;
+    const char *bytes = stableID.UTF8String;
+    if (!bytes || !*bytes) return 0;
+    char *end = NULL;
+    unsigned long long value = strtoull(bytes, &end, 10);
+    if (end == bytes || (end && *end != '\0')) return 0;
+    return value;
 }
 
 static NSDictionary<NSNumber *, NSString *> *WAGRMCInternalLiveSelectorIndex(void) {
@@ -18,8 +29,9 @@ static NSDictionary<NSNumber *, NSString *> *WAGRMCInternalLiveSelectorIndex(voi
         NSString *stableID = WAGRABPropsStableIDForTarget(entry.className,
                                                            entry.selectorName,
                                                            entry.classMethod);
-        if (!stableID.length) continue;
-        NSNumber *key = @([stableID unsignedLongLongValue]);
+        unsigned long long stableValue = WAGRMCParseStableID(stableID);
+        if (!stableValue) continue;
+        NSNumber *key = @(stableValue);
         NSString *old = index[key];
         if (!old.length || [entry.className containsString:@"WAABProperties"]) {
             index[key] = entry.selectorName;
@@ -121,9 +133,6 @@ NSDictionary<NSString *, NSArray<NSString *> *> *WAGRMobileConfigInternalPresetD
         if (!WAGRMCInternalSemanticMatch(liveSelector, mapping)) continue;
         selected++;
 
-        // The live selector establishes that this WA stable ID exists in this
-        // installed build. The output identity remains resolver-driven MC:
-        // external config stable ID + parameter index.
         if (!mapping.configStableId) { skippedUnresolved++; continue; }
         if (!mapping.configName.length || !mapping.parameterName.length) {
             skippedUnnamed++;
