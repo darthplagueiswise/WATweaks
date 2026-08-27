@@ -36,6 +36,18 @@ static NSString *WAGRRuntimeValueNormalizedType(NSString *typeCode) {
     return *cursor ? [NSString stringWithFormat:@"%c", *cursor] : @"";
 }
 
+// Descriptor-backed WAABProperties getters are an extremely hot path during
+// WhatsApp launch. They must not be materialized as thousands of independent
+// MSHookMessageEx leaf hooks. Their persisted values remain in the store, but
+// application is delegated to the central ABProps/MobileConfig path.
+static BOOL WAGRRuntimeValueUsesCentralWAABPath(NSString *className) {
+    if (!className.length) return NO;
+    NSString *lower = className.lowercaseString;
+    if ([lower containsString:@"waabproperties"] ||
+        [lower containsString:@"foawaabproperties"]) return YES;
+    return [lower isEqualToString:@"waproperties"] || [lower hasSuffix:@".waproperties"];
+}
+
 static id WAGRRuntimeValueEncodeNested(id value);
 static id WAGRRuntimeValueDecodeNested(id value);
 
@@ -387,6 +399,11 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
                                  NSString *selectorName,
                                  BOOL isClassMethod,
                                  NSString *typeCode) {
+    // ABProps must be overridden at the native central accessor/MC layer, not
+    // by replacing every descriptor-backed getter. Keep the persisted value so
+    // the central bridge can consume it, but never install a leaf hook here.
+    if (WAGRRuntimeValueUsesCentralWAABPath(className)) return NO;
+
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
     NSString *normalized = WAGRRuntimeValueNormalizedType(typeCode);
     if (!uid.length || !WAGRRuntimeValueTypeIsSupported(normalized)) return NO;
@@ -510,7 +527,10 @@ NSString *WAGRRuntimeValueRead(NSString *className,
 
 __attribute__((constructor))
 static void WAGRRuntimeValueStoreCtor(void) {
+    // Cold-start invariant: materialize persisted state only. Installing generic
+    // runtime hooks from a constructor can patch very hot WhatsApp getters before
+    // the app has finished bootstrapping and was the unsafe behavior introduced
+    // after the last known-good build. Explicit/local Apply remains responsible
+    // for non-AB runtime hooks; WAAB entries are reserved for the central path.
     WAGRRuntimeValueEnsureStorage();
-    if (WAGRRuntimeValueAllOverrideSpecs().count == 0) return;
-    (void)WAGRRuntimeValueReinstallPersistedHooks();
 }
