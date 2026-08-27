@@ -132,8 +132,9 @@ static NSDictionary *WAGRDebugNativeABOverridesDocument(void) {
     NSMutableDictionary *objects = [NSMutableDictionary dictionary];
     NSMutableArray *receiverRows = [NSMutableArray array];
 
-    // These names are present in the current WhatsApp/SharedModules binaries.
-    // Calls are made only when the runtime method is zero-argument/object-returning.
+    // These accessor names are present in the supplied WhatsApp/SharedModules
+    // binaries. They are observational probes only: this diagnostic never calls
+    // a setter/reset/sync method while discovering the object graph.
     for (NSString *selectorName in @[@"debugABPropsOverrider", @"aBPropsPreferences",
                                       @"debugOverrideStore", @"debugPropOverrides",
                                       @"debugOverrides"]) {
@@ -190,17 +191,18 @@ static NSDictionary *WAGRDebugNativeABOverridesDocument(void) {
 
     return @{
         @"binary_model": @{
-            @"read_pipeline": @"WAProperties initWithPropertiesStore:debugOverrides: -> debugPropOverrides -> typed WAProperties getters",
-            @"server_pipeline": @"XMPPConnectionABPropsRequestManager requestFreshABProps:withCompletion: -> WAProperties/WAPropertiesStore -> account-scoped gabp preferences cache",
-            @"direct_override_status": @"Native debug override injection is present. Exact mutation API is resolved from the live ABPropsPreferences/debug override objects below rather than guessed.",
-            @"mobileconfig_sync_note": @"WAMobileConfigABPropsOverridesSync is reported separately; do not assume it is the direct debugOverrides writer.",
+            @"read_pipeline": @"WAProperties/WAABProperties read through WAPropertiesStore and the account-scoped ABProps cache; debug override accessors are probed separately and are not assumed functional.",
+            @"server_pipeline": @"XMPPConnectionABPropsRequestManager requestFreshABProps:withCompletion: -> requestFreshABPropsWithGroupJID:deltaUpdate:completion: -> XMPP query/retry -> WAProperties updateWithProperties:/deltaUpdateWithNewProperties: -> WAPropertiesStore account-scoped gabp.o namespace.",
+            @"native_mobileconfig_sync_static_evidence": @"In the supplied WhatsApp(5) arm64 executable, +[WAMobileConfigABPropsOverridesSync syncABPropsOverridesToMCWithUserContext:] branches to a mov x0,#0; ret stub, while +overriddenStableIdsWithUserContext: returns CoreFoundation ___NSArray0__struct (empty NSArray). -[WADebugViewController resetAllOverriddenABProps] is ret. Treat this scaffold as disabled in this build.",
+            @"debug_overrides_initializer_static_evidence": @"In supplied SharedModules(5), WAProperties -initWithPropertiesStore:debugOverrides: does not preserve/consume x3 (debugOverrides) in its common initializer path; WAABProperties forwards into that path. Do not assume the initializer argument is an active writer in this production build.",
+            @"runtime_probe_purpose": @"The names aBPropsPreferences/debugOverrideStore/debugPropOverrides are present in the binaries. The live diagnostic inventories any resolved objects so a separate Swift/debug implementation can be verified from the actual runtime without guessing or invoking mutators.",
         },
         @"context_class": context ? (NSStringFromClass([context class]) ?: @"?") : @"nil",
         @"runtime_receiver_count": @(runtimeObjects.count),
         @"receivers_with_native_override_accessors": receiverRows,
         @"resolved_objects": objects,
         @"known_classes": knownClasses,
-        @"next_evidence_needed": @"Share this JSON. The method inventories/type encodings on the resolved ABPropsPreferences/debug override objects determine the ABI-safe native writer/reset API for this exact WhatsApp build.",
+        @"next_evidence_needed": @"Share this JSON if aBPropsPreferences/debugOverrideStore resolves. Method inventories/type encodings on those live objects determine whether this build has a separate ABI-safe native debug writer that is not exposed through the disabled WAMobileConfigABPropsOverridesSync scaffold.",
     };
 }
 
