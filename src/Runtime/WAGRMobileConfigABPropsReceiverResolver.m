@@ -1,13 +1,23 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <string.h>
 
 #import "WAGRABPropsRuntime.h"
 #import "WAGRLog.h"
 
 extern id WAGRCurrentUserContext(void);
 
-static id (*orig_WAGRMCABContextManager)(id, SEL) = NULL;
+static NSObject *gWAGRMCABLock;
+static NSMutableDictionary<NSString *, NSValue *> *gWAGRMCABOriginalIMPs;
+
+static void WAGRMCABEnsureState(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        gWAGRMCABLock = [NSObject new];
+        gWAGRMCABOriginalIMPs = [NSMutableDictionary dictionary];
+    });
+}
 
 static const char *WAGRMCABSkipQualifiers(const char *type) {
     if (!type) return "";
@@ -20,6 +30,25 @@ static BOOL WAGRMCABReturnsObjectNoArg(Method method) {
     char raw[64] = {0};
     method_getReturnType(method, raw, sizeof(raw));
     return WAGRMCABSkipQualifiers(raw)[0] == '@';
+}
+
+static BOOL WAGRMCABClassOwnsSelector(Class cls, SEL selector, Method *outMethod) {
+    if (outMethod) *outMethod = NULL;
+    if (!cls || !selector) return NO;
+    unsigned int count = 0;
+    Method *methods = class_copyMethodList(cls, &count);
+    BOOL found = NO;
+    Method matched = NULL;
+    for (unsigned int index = 0; index < count; index++) {
+        if (method_getName(methods[index]) == selector) {
+            found = YES;
+            matched = methods[index];
+            break;
+        }
+    }
+    if (outMethod) *outMethod = matched;
+    if (methods) free(methods);
+    return found;
 }
 
 static id WAGRMCABCallObjectNoArg(id object, NSString *selectorName) {
@@ -72,28 +101,48 @@ static id WAGRMCABResolveFromABPropsReceivers(id context) {
     return nil;
 }
 
-static id WAGRMCABContextManager(id self, SEL _cmd) {
-    id original = nil;
-    if (orig_WAGRMCABContextManager) {
-        @try { original = orig_WAGRMCABContextManager(self, _cmd); }
-        @catch (__unused NSException *exception) { original = nil; }
+static id (*WAGRMCABOriginalForObject(id object))(id, SEL) {
+    if (!object) return NULL;
+    WAGRMCABEnsureState();
+    @synchronized (gWAGRMCABLock) {
+        for (Class cls = [object class]; cls; cls = class_getSuperclass(cls)) {
+            NSValue *boxed = gWAGRMCABOriginalIMPs[NSStringFromClass(cls) ?: @""];
+            if (!boxed) continue;
+            return (id (*)(id, SEL))[boxed pointerValue];
+        }
     }
-    if (WAGRMCABIsUserSession(original)) return original;
+    return NULL;
+}
+
+static id WAGRMCABContextManager(id self, SEL _cmd) {
+    id (*original)(id, SEL) = WAGRMCABOriginalForObject(self);
+    id native = nil;
+    if (original) {
+        @try { native = original(self, _cmd); }
+        @catch (__unused NSException *exception) { native = nil; }
+    }
+    if (WAGRMCABIsUserSession(native)) return native;
     return WAGRMCABResolveFromABPropsReceivers(self);
 }
 
 static void WAGRMCABInstallOnClass(Class cls) {
     if (!cls) return;
+    WAGRMCABEnsureState();
     SEL selector = NSSelectorFromString(@"mobileConfigContextManager");
-    Method method = class_getInstanceMethod(cls, selector);
-    if (!method || !WAGRMCABReturnsObjectNoArg(method)) return;
+    Method method = NULL;
+    if (!WAGRMCABClassOwnsSelector(cls, selector, &method) ||
+        !WAGRMCABReturnsObjectNoArg(method)) return;
+
     IMP current = method_getImplementation(method);
-    if (current == (IMP)WAGRMCABContextManager) return;
-    // WAContext/WAContextMain share the same inherited method in most builds;
-    // install only once for a given current IMP to avoid wrapping our wrapper.
-    if (orig_WAGRMCABContextManager && current == (IMP)WAGRMCABContextManager) return;
-    orig_WAGRMCABContextManager = (id (*)(id, SEL))current;
+    if (!current || current == (IMP)WAGRMCABContextManager) return;
+    NSString *className = NSStringFromClass(cls) ?: @"";
+    @synchronized (gWAGRMCABLock) {
+        if (gWAGRMCABOriginalIMPs[className]) return;
+        gWAGRMCABOriginalIMPs[className] = [NSValue valueWithPointer:(const void *)current];
+    }
     method_setImplementation(method, (IMP)WAGRMCABContextManager);
+    WAGRLogAppendF(@"[MobileConfig][ABPropsReceiverResolver] lazy accessor wrapped on %@",
+                   className ?: @"?");
 }
 
 static void WAGRMCABInstall(void) {
