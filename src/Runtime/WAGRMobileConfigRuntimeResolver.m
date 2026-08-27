@@ -43,15 +43,6 @@ static BOOL WAGRMCRuntimeArgumentFitsWord(Method method, unsigned int index) {
     return size > 0 && size <= sizeof(uint64_t);
 }
 
-static id WAGRMCRuntimeCallObjectNoArg(id target, NSString *selectorName) {
-    if (!target || !selectorName.length) return nil;
-    SEL selector = NSSelectorFromString(selectorName);
-    Method method = class_getInstanceMethod([target class], selector);
-    if (!method || method_getNumberOfArguments(method) != 2 || !WAGRMCRuntimeReturnsObject(method)) return nil;
-    @try { return ((id (*)(id, SEL))objc_msgSend)(target, selector); }
-    @catch (__unused NSException *exception) { return nil; }
-}
-
 static id WAGRMCRuntimeCallClassObjectNoArg(Class cls, NSString *selectorName) {
     if (!cls || !selectorName.length) return nil;
     SEL selector = NSSelectorFromString(selectorName);
@@ -63,6 +54,11 @@ static id WAGRMCRuntimeCallClassObjectNoArg(Class cls, NSString *selectorName) {
 
 static BOOL WAGRMCRuntimeCanResolveStableId(id manager) {
     if (!manager) return NO;
+    Class expected = NSClassFromString(@"FBMobileConfigUserSessionContextManager") ?:
+                     objc_getClass("FBMobileConfigUserSessionContextManager");
+    if (expected && ![manager isKindOfClass:expected]) return NO;
+    if (!expected && ![NSStringFromClass([manager class]) containsString:@"UserSessionContextManager"]) return NO;
+
     SEL selector = NSSelectorFromString(@"getStableIdFromParamSpecifier:");
     Method method = class_getInstanceMethod([manager class], selector);
     return method && method_getNumberOfArguments(method) == 3 &&
@@ -71,10 +67,13 @@ static BOOL WAGRMCRuntimeCanResolveStableId(id manager) {
 }
 
 static id WAGRMCRuntimeAccountManager(id userContext) {
-    id direct = WAGRMCRuntimeCallObjectNoArg(userContext, @"mobileConfig");
-    if (WAGRMCRuntimeCanResolveStableId(direct)) return direct;
-    id bridge = WAGRMobileConfigContextManager(userContext);
-    return WAGRMCRuntimeCanResolveStableId(bridge) ? bridge : nil;
+    // Identity-sensitive crosswalks must never substitute sessionless/default.
+    // WAGRMobileConfigUserSessionContextManager now reaches the WAProperties.mc
+    // live bridge when the context has no native mobileConfig accessor.
+    id manager = WAGRMobileConfigUserSessionContextManager(userContext);
+    if (WAGRMCRuntimeCanResolveStableId(manager)) return manager;
+    WAGRLogAppend(@"[MobileConfig][RuntimeResolver] exact UserSession manager unresolved; refusing generic fallback");
+    return nil;
 }
 
 NSString *WAGRMobileConfigRuntimeNameForSpecifier(uint64_t specifier) {
