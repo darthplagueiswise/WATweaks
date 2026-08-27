@@ -111,7 +111,10 @@ static id WAGRABCaptureContextFromManager(id manager) {
 
     // Targeted fallback only: inspect the known initializer's backing context
     // ivar by name, never traverse an arbitrary ivar graph.
-    for (const char *name : (const char *[]){"_userContext", "userContext", "_context"}) {
+    const char *ivarNames[] = {"_userContext", "userContext", "_context"};
+    const NSUInteger ivarNameCount = sizeof(ivarNames) / sizeof(ivarNames[0]);
+    for (NSUInteger index = 0; index < ivarNameCount; index++) {
+        const char *name = ivarNames[index];
         Ivar ivar = class_getInstanceVariable([manager class], name);
         if (!ivar) continue;
         const char *encoding = ivar_getTypeEncoding(ivar);
