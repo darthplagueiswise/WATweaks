@@ -508,9 +508,7 @@ NSString *WAGRRuntimeValueRead(NSString *className,
     }
 }
 
-__attribute__((constructor))
-static void WAGRRuntimeValueStoreCtor(void) {
-    WAGRRuntimeValueEnsureStorage();
-    if (WAGRRuntimeValueAllOverrideSpecs().count == 0) return;
-    (void)WAGRRuntimeValueReinstallPersistedHooks();
-}
+// Deliberately no constructor reinstall here.
+// Persisted runtime selector hooks are applied only from explicit Apply actions.
+// This keeps WhatsApp's cold-start path independent of the size/content of the
+// RuntimeValueStore and prevents a browser/debug override set from blocking launch.
