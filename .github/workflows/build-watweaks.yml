@@ -69,19 +69,31 @@ jobs:
             src/Menu/WAGRMainSettingsVC.m
             src/Menu/WAGRFeatureBundlesVC.h
             src/Menu/WAGRFeatureBundlesVC.m
+            src/Menu/WAGRABPropsFilteredBrowserVC.h
+            src/Menu/WAGRABPropsFilteredBrowserVC.m
             src/Menu/WAGRABPropsRootVC.m
             src/Menu/WAGRABPropsBrowserVC.m
+            src/Menu/WAGRABPropsLiveCorrelation.m
             src/Menu/WAGRABPropsSnapshotVC.m
+            src/Menu/WAGRABPropsMCNativeApplyUI.m
+            src/Menu/WAGRDebugDiagnosticsVC.h
+            src/Menu/WAGRDebugDiagnosticsVC.m
+            src/Menu/WAGRDebugNativeEngineEnrichment.m
             src/Menu/WAGRRuntimeBrowserCrashGuard.m
             src/Menu/WAGRRuntimeBrowsersGlassUI.m
             src/Menu/WAGRRuntimeValueEditor.m
             src/Menu/WAGRSurfaceBrowserVC.m
             src/Runtime/WAGRABPropsRuntime.m
+            src/Runtime/WAGRABPropsStableIDResolver.h
             src/Runtime/WAGRABPropsStableIDResolver.m
             src/Runtime/WAGRABPropsNativeStore.m
             src/Runtime/WAGRRuntimeValueStore.m
             src/Runtime/WAGRMobileConfigBridge.m
-            src/Runtime/WAGRMobileConfigInternalPreset.m
+            src/Runtime/WAGRMobileConfigRuntimeResolver.m
+            src/Runtime/WAGRMobileConfigUserSessionBridge.h
+            src/Runtime/WAGRMobileConfigUserSessionBridge.m
+            src/Runtime/WAGRMobileConfigNativeEngine.h
+            src/Runtime/WAGRMobileConfigNativeEngine.m
             src/Hooks/WAAuraHooks.xm
             src/Hooks/WAGRLiquidGlassHooks.xm
             src/Hooks/WAGREmployeeHooks.xm
@@ -91,7 +103,7 @@ jobs:
             test -f "$file" || { echo "ERRO: arquivo ausente: $file"; exit 1; }
           done
 
-          # Build/runtime invariants retained from the verified 8150 base.
+          # Build/runtime invariants retained from the last verified launch-safe base.
           grep -q 'TARGET := iphone:clang:26.2:15.0' Makefile
           grep -q 'WAGRRuntimeValueInstallHook' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
@@ -109,40 +121,69 @@ jobs:
           grep -q 'PENDING' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WAGRRuntimeValueHookIsInstalled' src/Menu/WAGRABPropsBrowserVC.m
 
-          # iOS 26 browser chrome requested by the project: glass title and
-          # native morphing toolbar search. Names remain single-line/readable.
+          # iOS 26 browser chrome requested by the project.
           grep -q 'UIGlassEffectStyleRegular' src/Menu/WAGRRuntimeBrowsersGlassUI.m
           grep -q 'searchBarPlacementBarButtonItem' src/Menu/WAGRRuntimeBrowsersGlassUI.m
           grep -q 'numberOfLines = 1' src/Menu/WAGRRuntimeBrowsersGlassUI.m
 
-          # Canonical feature architecture: one compact root; Internal, Liquid
-          # Glass and Aura live in submenus and share the GateStore ->
-          # RuntimeValueStore bridge used by ABProperties Browser.
+          # Features are semantic views over the current runtime. Product selector
+          # inventories/AB IDs must not return to WAGRFeatureBundlesVC.
           grep -q 'WAGRFeatureBundlesVC' src/Menu/WAGRMainSettingsVC.m
-          grep -q 'Internal / Employee / Dogfood' src/Menu/WAGRFeatureBundlesVC.m
-          grep -q 'Liquid Glass' src/Menu/WAGRFeatureBundlesVC.m
-          grep -q 'Aura / WA Plus' src/Menu/WAGRFeatureBundlesVC.m
-          grep -q 'WAGRGateSet' src/Menu/WAGRFeatureBundlesVC.m
-          grep -q 'WAGRRuntimeValueSetOverride' src/Runtime/WAGRGateStore.m
+          grep -q 'WAGRABPropsScan' src/Menu/WAGRFeatureBundlesVC.m
+          grep -q 'WAGRABPropsStableIDForTarget' src/Menu/WAGRFeatureBundlesVC.m
+          grep -q 'WAGRABPropsFilteredBrowserVC' src/Menu/WAGRFeatureBundlesVC.m
+          grep -q 'Categorias com zero resultados são ocultadas' src/Menu/WAGRFeatureBundlesVC.m
+          ! grep -q 'WAGRWAAB(' src/Menu/WAGRFeatureBundlesVC.m
+          ! grep -q 'WAGRGateSet' src/Menu/WAGRFeatureBundlesVC.m
+          ! grep -E -q 'AB [0-9]{3,}' src/Menu/WAGRFeatureBundlesVC.m
+
+          # Current-build stable IDs are decoded from live getter IMPs, including
+          # the ADRP/ADD -> __cfstring -> decimal bytes indirection.
+          grep -q 'WAGRABDecimalConstantStringAtAddress' src/Runtime/WAGRABPropsStableIDResolver.m
+          grep -q 'resolved_cfconstantstring' src/Runtime/WAGRABPropsStableIDResolver.m
+          grep -q 'identity_source.*live getter IMP' src/Menu/WAGRABPropsLiveCorrelation.m
+
+          # Identity-sensitive MobileConfig work requires the account UserSession.
+          # sessionless/default may not be substituted by the runtime resolver.
+          grep -q 'WAGRMobileConfigUserSessionContextManager' src/Runtime/WAGRMobileConfigRuntimeResolver.m
+          ! grep -q 'sessionlessContextManager' src/Runtime/WAGRMobileConfigRuntimeResolver.m
+          ! grep -q 'defaultValueContextManager' src/Runtime/WAGRMobileConfigRuntimeResolver.m
+          grep -q 'WAProperties.setMobileConfig:' src/Runtime/WAGRMobileConfigUserSessionBridge.m
+          grep -q 'WAABProperties.setMobileConfig:' src/Runtime/WAGRMobileConfigUserSessionBridge.m
+          grep -q 'WAGRMobileConfigLiveUserSessionManager' src/Runtime/WAGRMobileConfigUserSessionBridge.m
+
+          # Native override application writes only to the exact UserSession path,
+          # preserves the native grammar, and never objc_msgSends the C++
+          # std::shared_ptr setOverrides: ABI as an Objective-C object.
+          grep -q 'WAGRMobileConfigNativeWriteOverrideDocument' src/Runtime/WAGRMobileConfigNativeEngine.m
+          grep -q 'invalidateCachedLatestContext' src/Runtime/WAGRMobileConfigNativeEngine.m
+          grep -q 'forceInvalidate' src/Runtime/WAGRMobileConfigNativeEngine.m
+          grep -q 'direct_set_overrides_call_enabled.*NO' src/Runtime/WAGRMobileConfigNativeEngine.m
+          ! grep -E -q 'objc_msgSend.*setOverrides|NSSelectorFromString\(@"setOverrides:"\).*objc_msgSend' src/Runtime/WAGRMobileConfigNativeEngine.m
+          grep -q 'WAGRABPropsStableIDForTarget' src/Menu/WAGRABPropsMCNativeApplyUI.m
+          grep -q 'WAGRMobileConfigNativeWriteOverrideDocument' src/Menu/WAGRABPropsMCNativeApplyUI.m
+
+          # Debug must export enough runtime evidence to finish unresolved ABI and
+          # object-graph questions from a real account session.
+          grep -q 'watweaks_debug_runtime_v2' src/Menu/WAGRDebugDiagnosticsVC.m
+          grep -q 'mobileconfig_live_capture' src/Menu/WAGRDebugDiagnosticsVC.m
+          grep -q 'private_experimentation_classes' src/Menu/WAGRDebugDiagnosticsVC.m
+          grep -q 'mobileconfig_native_engine' src/Menu/WAGRDebugNativeEngineEnrichment.m
+          grep -q 'WAGRDebugDiagnosticsVC' src/Menu/WAGRMainSettingsVC.m
+
+          # Existing semantic hook modules remain independent of a parallel
+          # feature-master storage.
           ! grep -q 'kWAGREmployeeMaster' src/Hooks/WAGREmployeeHooks.xm
           ! grep -q 'kWAGRAuraSimulation' src/Hooks/WAAuraHooks.xm
           grep -q 'parallelMaster=NO' src/Hooks/WAGREmployeeHooks.xm
           grep -q 'parallelMaster=NO' src/Hooks/WAAuraHooks.xm
           grep -q 'parallelMaster=NO' src/Hooks/WAGRLiquidGlassHooks.xm
 
-          # No Swizzle product/category should be reintroduced. Individual
-          # swizzle-related ABProps remain discoverable only as normal ABProps.
+          # No Swizzle product/category should be reintroduced.
           ! grep -R -n -E 'Swizzle ABProps|Swizzle master|BundleSwizzle' \
               src/Menu src/Hooks
 
-          # MobileConfig identity must be resolver-driven. Never use WA AB ID,
-          # localConfigIndex or compact token as a top-level mc_overrides key.
-          grep -q 'mapping.configStableId' src/Runtime/WAGRMobileConfigInternalPreset.m
-          grep -q 'mapping.parameterIndex' src/Runtime/WAGRMobileConfigInternalPreset.m
-          grep -q 'mapping.configName' src/Runtime/WAGRMobileConfigInternalPreset.m
-          grep -q 'mapping.parameterName' src/Runtime/WAGRMobileConfigInternalPreset.m
-
-          # The native fetch path remains the path validated from SharedModules.
+          # The native server fetch path remains the exact SharedModules path.
           grep -q 'networkingDependencyProvider' src/Runtime/WAGRABPropsRequestManagerBridge.m
           grep -q 'xmppConnectionABPropsRequestManager' src/Runtime/WAGRABPropsRequestManagerBridge.m
           grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsRequestManagerBridge.m
