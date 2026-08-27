@@ -47,8 +47,13 @@ CCFLAGS += -std=c++11
 # The validator parses MSHookFunction calls (including multiline calls) and rejects
 # any first argument that references a WAGR* symbol. Self inline patches dirty a
 # signed __TEXT page and can turn the whole 16 KiB page RW-/NX on modern iOS.
+#
+# Launch hardening: runtime catalogs/ivar graphs/class enumeration and arbitrary
+# persisted selector reinstalls are on-demand work. Keep them out of constructors
+# so a debug browser cannot regress WhatsApp's cold start into a black-screen stall.
 before-all::
 	@python3 scripts/wagr_validate_sideload_hooks.py
+	@python3 scripts/wagr_validate_cold_start.py
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
