@@ -13,6 +13,16 @@ static id WAGRABSnapshotKVC(id object, NSString *key) {
     @catch (__unused NSException *exception) { return nil; }
 }
 
+static unsigned long long WAGRABSnapshotParseStableID(NSString *stableID) {
+    if (![stableID isKindOfClass:NSString.class] || !stableID.length) return 0;
+    const char *bytes = stableID.UTF8String;
+    if (!bytes || !*bytes) return 0;
+    char *end = NULL;
+    unsigned long long value = strtoull(bytes, &end, 10);
+    if (end == bytes || (end && *end != '\0')) return 0;
+    return value;
+}
+
 static NSDictionary<NSNumber *, NSString *> *WAGRABSnapshotLiveSelectorIndex(id userContext) {
     NSArray *objects = WAGRABPropsResolveRuntimeObjects(userContext);
     NSArray<WAGRABPropEntry *> *entries = WAGRABPropsScan(objects);
@@ -22,8 +32,9 @@ static NSDictionary<NSNumber *, NSString *> *WAGRABSnapshotLiveSelectorIndex(id 
         NSString *stableID = WAGRABPropsStableIDForTarget(entry.className,
                                                            entry.selectorName,
                                                            entry.classMethod);
-        if (!stableID.length) continue;
-        NSNumber *key = @([stableID unsignedLongLongValue]);
+        unsigned long long stableValue = WAGRABSnapshotParseStableID(stableID);
+        if (!stableValue) continue;
+        NSNumber *key = @(stableValue);
         NSString *current = index[key];
         BOOL preferred = [entry.className containsString:@"WAABProperties"];
         if (!current.length || preferred) index[key] = entry.selectorName;
