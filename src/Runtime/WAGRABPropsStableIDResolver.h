@@ -4,6 +4,10 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// Resolves the decimal WA ABProp stable ID directly from the currently loaded
 /// ARM64 getter implementation. Current WhatsApp builds commonly materialize
 /// the key as ADRP/ADD -> NSConstantString in __cfstring -> decimal C string;
@@ -19,5 +23,9 @@ NSDictionary<NSString *, NSNumber *> *WAGRABPropsStableIDResolverStats(void);
 /// Clears only the resolver's in-memory cache/counters. It does not change any
 /// WhatsApp or WATweaks persisted override.
 void WAGRABPropsStableIDResolverResetCache(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 NS_ASSUME_NONNULL_END
