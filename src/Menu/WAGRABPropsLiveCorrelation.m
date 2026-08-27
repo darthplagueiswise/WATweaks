@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <string.h>
 
 #import "WAGRABPropsBrowserVC.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
