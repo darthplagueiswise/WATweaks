@@ -19,7 +19,7 @@ static NSDictionary<NSNumber *, NSString *> *WAGRMCInternalLiveSelectorIndex(voi
                                                            entry.selectorName,
                                                            entry.classMethod);
         if (!stableID.length) continue;
-        NSNumber *key = @(stableID.unsignedLongLongValue);
+        NSNumber *key = @([stableID unsignedLongLongValue]);
         NSString *old = index[key];
         if (!old.length || [entry.className containsString:@"WAABProperties"]) {
             index[key] = entry.selectorName;
