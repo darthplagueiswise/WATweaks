@@ -79,7 +79,8 @@ static NSDictionary *WAGRMCNativeMergeDocuments(NSDictionary *existing,
 
         NSString *oldKey = nil;
         for (NSString *candidate in merged.allKeys) {
-            if ([[WAGRMCNativeStablePrefix(candidate) ?: @""] isEqualToString:stable]) {
+            NSString *candidateStable = WAGRMCNativeStablePrefix(candidate) ?: @"";
+            if ([candidateStable isEqualToString:stable]) {
                 oldKey = candidate;
                 break;
             }
