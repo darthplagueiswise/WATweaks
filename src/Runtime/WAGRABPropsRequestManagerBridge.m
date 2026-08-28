@@ -52,14 +52,9 @@ static BOOL WAGRABBridgeManagerABIIsExact(id manager) {
 static id WAGRABBridgeResolveLiveManager(id context, NSString **route) {
     if (!context) return nil;
 
-    id direct = WAGRABBridgeCallObject(context, @"xmppConnectionABPropsRequestManager");
-    if (WAGRABBridgeManagerABIIsExact(direct)) {
-        if (route) *route = [NSString stringWithFormat:@"context=%@ direct=%@",
-            NSStringFromClass([context class]) ?: @"?",
-            NSStringFromClass([direct class]) ?: @"?"];
-        return direct;
-    }
-
+    // Do NOT call `xmppConnectionABPropsRequestManager` on `context` here: on
+    // classes where this bridge supplied that selector it would recurse back
+    // into this function. Walk only the native provider/connection chain.
     id provider = WAGRABBridgeCallObject(context, @"networkingDependencyProvider");
     if (!provider) provider = WAGRABBridgeCallObject(context, @"networking");
     id connection = WAGRABBridgeCallObject(provider, @"xmppConnection");
