@@ -9,6 +9,7 @@
 #endif
 
 #import "WAGRABPropsNativeOverrideEngine.h"
+#import "WAGRABPropsStableIDResolver.h"
 #import "WAGRMobileConfigBridge.h"
 #import "WAGRMobileConfigNativeEngine.h"
 #import "WAGRLog.h"
@@ -281,12 +282,30 @@ static NSString *WAGRLinkageStableIDString(id key) {
     if (![key isKindOfClass:NSString.class]) return nil;
     NSString *string = [(NSString *)key stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     if (!string.length) return nil;
+
     const char *bytes = string.UTF8String;
-    if (!bytes || !*bytes) return nil;
-    char *end = NULL;
-    unsigned long long value = strtoull(bytes, &end, 10);
-    if (!value || end == bytes || (end && *end != '\0')) return nil;
-    return [NSString stringWithFormat:@"%llu", value];
+    if (bytes && *bytes) {
+        char *end = NULL;
+        unsigned long long value = strtoull(bytes, &end, 10);
+        if (value && end != bytes && end && *end == '\0') {
+            return [NSString stringWithFormat:@"%llu", value];
+        }
+    }
+
+    // Some internal/debug dictionaries are keyed by the AB getter name rather
+    // than the decimal wire ID. Resolve that name from the loaded getter IMP;
+    // no static ID table or fabricated MC stable ID is used.
+    if ([string rangeOfString:@":"].location == NSNotFound) {
+        for (NSString *className in @[@"WAABProperties", @"WAPrivateExperimentation.PrivateABProperties", @"WAGroupABProperties"]) {
+            Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
+            SEL selector = NSSelectorFromString(string);
+            Method method = cls ? class_getInstanceMethod(cls, selector) : NULL;
+            if (!method || method_getNumberOfArguments(method) != 2) continue;
+            NSString *resolved = WAGRABPropsStableIDForTarget(className, string, NO);
+            if (resolved.length) return resolved;
+        }
+    }
+    return nil;
 }
 
 static id WAGRLinkageOverrideScalar(id value) {
@@ -298,7 +317,7 @@ static id WAGRLinkageOverrideScalar(id value) {
             if ([candidate isKindOfClass:NSNumber.class] || [candidate isKindOfClass:NSString.class]) return candidate;
         }
     }
-    // WAPBConfigOverrideValue is protobuf-backed in this build.  Use generated
+    // WAPBConfigOverrideValue is protobuf-backed in this build. Use generated
     // ObjC/KVC access only when it resolves; never reinterpret protobuf bytes.
     for (NSString *key in @[@"value", @"boolValue", @"int64Value", @"integerValue", @"doubleValue", @"stringValue"]) {
         @try {
@@ -307,6 +326,22 @@ static id WAGRLinkageOverrideScalar(id value) {
         } @catch (__unused NSException *exception) {}
     }
     return nil;
+}
+
+static void WAGRLinkageClearCapturedDebugState(id userContext) {
+    WAGRLinkageEnsureState();
+    @synchronized (gWAGRLinkageLock) { gWAGRLastCapturedDebugOverrides = @{}; }
+
+    for (NSString *accessor in @[@"abProperties", @"privateABProperties", @"waABProperties", @"properties"]) {
+        id owner = WAGRLinkageObjectNoArg(userContext, accessor);
+        if (owner) objc_setAssociatedObject(owner, kWAGRDebugOverridesAssociationKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+
+    id direct = WAGRLinkageObjectNoArg(userContext, @"debugPropOverrides");
+    if ([direct isKindOfClass:NSMutableDictionary.class]) {
+        [(NSMutableDictionary *)direct removeAllObjects];
+    }
+    WAGRABPropsNativeForgetAllTrackedOverrides();
 }
 
 #pragma mark - Proven local writer: FBMobileConfigStartupConfigs
@@ -483,6 +518,7 @@ static NSInteger WAGRLinkageApplyDebugOverrides(id userContext, NSString **outDi
 
         if (WAGRLinkageStartupSet(specifier, scalar)) {
             applied++;
+            WAGRABPropsNativeRememberTrackedOverride(stableID, scalar);
             [refreshIDs addObject:@(externalID)];
         } else {
             skipped++;
@@ -529,11 +565,12 @@ static long long WAGRLinkageSyncSurface(id self, SEL _cmd, id userContext) {
 static id WAGRLinkageStableIDsSurface(id self, SEL _cmd, id userContext) {
     (void)self; (void)_cmd;
     NSDictionary *source = WAGRLinkageMergedDebugOverrides(userContext ?: WAGRCurrentUserContext());
-    NSMutableArray<NSNumber *> *ids = [NSMutableArray array];
+    NSMutableSet<NSNumber *> *unique = [NSMutableSet set];
     for (id key in source) {
         NSString *stable = WAGRLinkageStableIDString(key);
-        if (stable.length) [ids addObject:@(stable.longLongValue)];
+        if (stable.length) [unique addObject:@(stable.longLongValue)];
     }
+    NSMutableArray<NSNumber *> *ids = [[unique allObjects] mutableCopy];
     [ids sortUsingSelector:@selector(compare:)];
     return ids;
 }
@@ -560,6 +597,7 @@ static void WAGRLinkageResetSurface(id self, SEL _cmd) {
         }
         if (WAGRLinkageStartupRemove(specifier)) {
             removed++;
+            WAGRABPropsNativeForgetTrackedOverride(stableID);
             [refreshIDs addObject:@(externalID)];
         } else {
             skipped++;
@@ -573,6 +611,11 @@ static void WAGRLinkageResetSurface(id self, SEL _cmd) {
     for (NSNumber *externalID in refreshIDs) {
         if (WAGRLinkageRefreshConfig(context, externalID.unsignedLongLongValue)) refreshSent++;
     }
+
+    // This API's semantics are "reset all overridden ABProps". After removing
+    // every specifier that could be resolved, clear the bridge's captured and
+    // WATweaks-owned intent so a later sync cannot silently reapply it.
+    WAGRLinkageClearCapturedDebugState(context);
 
     WAGRLinkageRecord(@"reset_complete", @{
         @"identified_ab_overrides": @(source.count),
@@ -655,6 +698,12 @@ static void WAGRLinkageInstallInitializerObservers(void) {
     }
 }
 
+static void WAGRLinkageInstallAll(void) {
+    WAGRLinkageInstallInitializerObservers();
+    WAGRLinkageInstallFetchObservers();
+    WAGRLinkageInstallReleaseSurfaces();
+}
+
 NSDictionary<NSString *, id> *WAGRABPropsReleaseNativeLinkageDiagnosticDocument(void) {
     WAGRLinkageEnsureState();
     NSArray *events = nil;
@@ -680,7 +729,8 @@ NSDictionary<NSString *, id> *WAGRABPropsReleaseNativeLinkageDiagnosticDocument(
             @"wa_properties_initializer_observed": @(gWAGRWAPropertiesInitHooked),
             @"waab_properties_initializer_observed": @(gWAGRWAABPropertiesInitHooked),
             @"captured_nonempty_count": @(captured.count),
-            @"merged_effective_count": @(WAGRLinkageMergedDebugOverrides(context).count)
+            @"merged_effective_count": @(WAGRLinkageMergedDebugOverrides(context).count),
+            @"tracked_count": @(WAGRABPropsNativeTrackedOverrides().count)
         },
         @"startup_configs": WAGRLinkageStartupReadback(),
         @"mobileconfig_manager": @{
@@ -695,7 +745,7 @@ NSDictionary<NSString *, id> *WAGRABPropsReleaseNativeLinkageDiagnosticDocument(
             @"www_installed": @(gWAGRWWWObserverHooked)
         },
         @"events": events,
-        @"policy": @"Release no-ops are linked to WAMCEvaluation + FBMobileConfigStartupConfigs + UserSession invalidation/targeted refresh. XWA2/WWW are observed to prove the native fetch backend. No synthetic WAMobileConfigFetchInput is created; setOverrides:(shared_ptr) is never objc_msgSend'd; this linkage does not claim or implement the unresolved main FBMobileConfigOverridesTable serializer."
+        @"policy": @"Release no-ops are linked to WAMCEvaluation + FBMobileConfigStartupConfigs + UserSession invalidation/targeted refresh. XWA2/WWW are observed to prove the native fetch backend. The ignored debugOverrides constructor argument is captured before normal app initialization when the class is already loaded, with late-load retries. No synthetic WAMobileConfigFetchInput is created; setOverrides:(shared_ptr) is never objc_msgSend'd; this linkage does not claim or implement the unresolved main FBMobileConfigOverridesTable serializer."
     };
 }
 
@@ -703,14 +753,17 @@ __attribute__((constructor))
 static void WAGRABPropsReleaseNativeLinkageCtor(void) {
     @autoreleasepool {
         WAGRLinkageEnsureState();
-        // Named classes/selectors only. No Objective-C class enumeration and no
-        // Mach-O scan on the cold-start critical path.
-        for (NSNumber *delay in @[@0.50, @1.25, @2.50, @4.00]) {
+
+        // Install immediately so initWithPropertiesStore:debugOverrides: can be
+        // observed during normal context construction. These are only named
+        // classes/selectors: no class enumeration or Mach-O scan on cold start.
+        WAGRLinkageInstallAll();
+
+        // Sideload layouts can register some classes after tweak constructors.
+        for (NSNumber *delay in @[@0.25, @0.75, @1.50, @3.00]) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
                 (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                WAGRLinkageInstallInitializerObservers();
-                WAGRLinkageInstallFetchObservers();
-                WAGRLinkageInstallReleaseSurfaces();
+                WAGRLinkageInstallAll();
             });
         }
     }
