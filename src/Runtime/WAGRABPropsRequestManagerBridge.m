@@ -3,23 +3,20 @@
 #import <objc/message.h>
 #include <string.h>
 
-#import "WAGRUserContextLinkage.h"
 #import "WAGRLog.h"
 
-// Static analysis of the supplied SharedModules Mach-O proves the current-build
-// chain and ABI:
-//   WAContext/dependency owner -> networkingDependencyProvider
-//   Networking                -> xmppConnection
-//   XMPPConnection             -> xmppConnectionABPropsRequestManager
-//   XMPPConnectionABPropsRequestManager
-//       -initWithUserContext:xmppConnection:       @32@0:8@16@24
-//       -requestFreshABProps:withCompletion:       v28@0:8B16@?20
+// Narrow read-only context bridge for the current SharedModules dependency path:
 //
-// The native fetch resolver already asks a context for
-// -xmppConnectionABPropsRequestManager. Some builds expose that capability on
-// the Networking/XMPP layer rather than WAContext itself. This bridge adds only
-// the missing context-level forwarding accessor. It never patches executable
-// pages and never substitutes a heuristic fetch method.
+// WAContext / WAContextMain
+//   -> networkingDependencyProvider / networking
+//   -> xmppConnection
+//   -> xmppConnectionABPropsRequestManager
+//   -> live XMPPConnectionABPropsRequestManager
+//
+// Important: this bridge no longer alloc/init's a request manager. The ABT
+// session bridge must observe or resolve the manager already owned by WhatsApp's
+// live networking session; fabricating a parallel manager can diverge from the
+// authenticated XMPP/request lifecycle.
 
 static const char *WAGRABBridgeSkipQualifiers(const char *type) {
     if (!type) return "";
@@ -34,133 +31,62 @@ static BOOL WAGRABBridgeReturnsObject(Method method) {
     return WAGRABBridgeSkipQualifiers(raw)[0] == '@';
 }
 
-static BOOL WAGRABBridgeArgumentIsObject(Method method, unsigned int index) {
-    if (!method || index >= method_getNumberOfArguments(method)) return NO;
-    char raw[64] = {0};
-    method_getArgumentType(method, index, raw, sizeof(raw));
-    return WAGRABBridgeSkipQualifiers(raw)[0] == '@';
-}
-
-static BOOL WAGRABBridgeArgumentIsBool(Method method, unsigned int index) {
-    if (!method || index >= method_getNumberOfArguments(method)) return NO;
-    char raw[64] = {0};
-    method_getArgumentType(method, index, raw, sizeof(raw));
-    char type = WAGRABBridgeSkipQualifiers(raw)[0];
-    return type == 'B' || type == 'c' || type == 'C';
-}
-
-static BOOL WAGRABBridgeReturnsVoid(Method method) {
-    if (!method) return NO;
-    char raw[64] = {0};
-    method_getReturnType(method, raw, sizeof(raw));
-    return WAGRABBridgeSkipQualifiers(raw)[0] == 'v';
-}
-
 static id WAGRABBridgeCallObject(id object, NSString *selectorName) {
     if (!object || !selectorName.length) return nil;
     SEL selector = NSSelectorFromString(selectorName);
     Method method = class_getInstanceMethod([object class], selector);
     if (!method || method_getNumberOfArguments(method) != 2 ||
         !WAGRABBridgeReturnsObject(method)) return nil;
-    @try {
-        return ((id (*)(id, SEL))objc_msgSend)(object, selector);
-    } @catch (__unused NSException *exception) {
-        return nil;
-    }
+    @try { return ((id (*)(id, SEL))objc_msgSend)(object, selector); }
+    @catch (__unused NSException *exception) { return nil; }
 }
 
 static BOOL WAGRABBridgeManagerABIIsExact(id manager) {
     if (!manager) return NO;
-    SEL selector = NSSelectorFromString(@"requestFreshABProps:withCompletion:");
-    Method method = class_getInstanceMethod([manager class], selector);
-    return method && method_getNumberOfArguments(method) == 4 &&
-           WAGRABBridgeReturnsVoid(method) &&
-           WAGRABBridgeArgumentIsBool(method, 2) &&
-           WAGRABBridgeArgumentIsObject(method, 3);
+    Method method = class_getInstanceMethod([manager class],
+        NSSelectorFromString(@"requestFreshABProps:withCompletion:"));
+    const char *encoding = method ? method_getTypeEncoding(method) : NULL;
+    return encoding && strcmp(encoding, "v28@0:8B16@?20") == 0;
 }
 
-static id WAGRABBridgeConstructManager(id context, id connection) {
-    if (!context || !connection) return nil;
-    Class cls = NSClassFromString(@"XMPPConnectionABPropsRequestManager") ?:
-                objc_getClass("XMPPConnectionABPropsRequestManager");
-    if (!cls) return nil;
-
-    SEL initializer = NSSelectorFromString(@"initWithUserContext:xmppConnection:");
-    Method method = class_getInstanceMethod(cls, initializer);
-    if (!method || method_getNumberOfArguments(method) != 4 ||
-        !WAGRABBridgeReturnsObject(method) ||
-        !WAGRABBridgeArgumentIsObject(method, 2) ||
-        !WAGRABBridgeArgumentIsObject(method, 3)) return nil;
-
-    id allocated = ((id (*)(id, SEL))objc_msgSend)((id)cls, @selector(alloc));
-    if (!allocated) return nil;
-    id manager = nil;
-    @try {
-        manager = ((id (*)(id, SEL, id, id))objc_msgSend)(allocated,
-                                                           initializer,
-                                                           context,
-                                                           connection);
-    } @catch (__unused NSException *exception) {
-        manager = nil;
-    }
-    return WAGRABBridgeManagerABIIsExact(manager) ? manager : nil;
-}
-
-static id WAGRABBridgeResolveFromContext(id context, NSString **route) {
+static id WAGRABBridgeResolveLiveManager(id context, NSString **route) {
     if (!context) return nil;
 
-    // Current-build dependency path proven in SharedModules metadata. Do not
-    // call -xmppConnectionABPropsRequestManager on `context` here: on classes
-    // where this bridge supplied that selector it would recurse into itself.
+    id direct = WAGRABBridgeCallObject(context, @"xmppConnectionABPropsRequestManager");
+    if (WAGRABBridgeManagerABIIsExact(direct)) {
+        if (route) *route = [NSString stringWithFormat:@"context=%@ direct=%@",
+            NSStringFromClass([context class]) ?: @"?",
+            NSStringFromClass([direct class]) ?: @"?"];
+        return direct;
+    }
+
     id provider = WAGRABBridgeCallObject(context, @"networkingDependencyProvider");
     if (!provider) provider = WAGRABBridgeCallObject(context, @"networking");
-    if (!provider) provider = context;
-
     id connection = WAGRABBridgeCallObject(provider, @"xmppConnection");
-    if (!connection && provider != context) {
-        connection = WAGRABBridgeCallObject(context, @"xmppConnection");
-    }
+    if (!connection) connection = WAGRABBridgeCallObject(context, @"xmppConnection");
 
     id manager = WAGRABBridgeCallObject(connection, @"xmppConnectionABPropsRequestManager");
+    if (!manager) manager = WAGRABBridgeCallObject(provider, @"xmppConnectionABPropsRequestManager");
     if (WAGRABBridgeManagerABIIsExact(manager)) {
-        if (route) {
-            *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ manager=%@",
-                NSStringFromClass([context class]) ?: @"?",
-                NSStringFromClass([provider class]) ?: @"?",
-                NSStringFromClass([connection class]) ?: @"?",
-                NSStringFromClass([manager class]) ?: @"?"];
-        }
+        if (route) *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ liveManager=%@",
+            NSStringFromClass([context class]) ?: @"?",
+            provider ? (NSStringFromClass([provider class]) ?: @"?") : @"nil",
+            connection ? (NSStringFromClass([connection class]) ?: @"?") : @"nil",
+            NSStringFromClass([manager class]) ?: @"?"];
         return manager;
     }
 
-    // The exact initializer/ABI is also present in this Mach-O. Only use it with
-    // the real live XMPPConnection and only accept the result if the exact
-    // requestFreshABProps:withCompletion: ABI validates.
-    manager = WAGRABBridgeConstructManager(context, connection);
-    if (manager) {
-        if (route) {
-            *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ constructed=%@",
-                NSStringFromClass([context class]) ?: @"?",
-                NSStringFromClass([provider class]) ?: @"?",
-                NSStringFromClass([connection class]) ?: @"?",
-                NSStringFromClass([manager class]) ?: @"?"];
-        }
-        return manager;
-    }
-
-    if (route) {
-        *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ manager=nil",
-            NSStringFromClass([context class]) ?: @"nil",
-            provider ? NSStringFromClass([provider class]) : @"nil",
-            connection ? NSStringFromClass([connection class]) : @"nil"];
-    }
+    if (route) *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ liveManager=nil",
+        NSStringFromClass([context class]) ?: @"nil",
+        provider ? (NSStringFromClass([provider class]) ?: @"?") : @"nil",
+        connection ? (NSStringFromClass([connection class]) ?: @"?") : @"nil"];
     return nil;
 }
 
 static id WAGRABBridgeContextManagerAccessor(id self, SEL _cmd) {
     (void)_cmd;
     NSString *route = nil;
-    id manager = WAGRABBridgeResolveFromContext(self, &route);
+    id manager = WAGRABBridgeResolveLiveManager(self, &route);
     WAGRLogAppendF(@"[ABProps][ManagerBridge] %@", route ?: @"unresolved");
     return manager;
 }
@@ -170,29 +96,19 @@ static BOOL WAGRABBridgeInstallOnClass(Class cls) {
     SEL selector = NSSelectorFromString(@"xmppConnectionABPropsRequestManager");
     Method existing = class_getInstanceMethod(cls, selector);
     if (existing) {
-        // Never override a native or inherited implementation.
-        return WAGRABBridgeReturnsObject(existing) &&
-               method_getNumberOfArguments(existing) == 2;
+        return WAGRABBridgeReturnsObject(existing) && method_getNumberOfArguments(existing) == 2;
     }
-    return class_addMethod(cls, selector,
-                           (IMP)WAGRABBridgeContextManagerAccessor,
-                           "@16@0:8");
+    return class_addMethod(cls, selector, (IMP)WAGRABBridgeContextManagerAccessor, "@16@0:8");
 }
 
 static void WAGRABBridgeInstall(void) {
-    static NSObject *lock = nil;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{ lock = [NSObject new]; });
-
-    @synchronized (lock) {
-        BOOL installed = NO;
-        for (NSString *name in @[@"WAContext", @"WAContextMain"]) {
-            Class cls = NSClassFromString(name) ?: objc_getClass(name.UTF8String);
-            if (WAGRABBridgeInstallOnClass(cls)) installed = YES;
-        }
-        if (installed) {
-            WAGRLogAppend(@"[ABProps][ManagerBridge] current-build networking bridge ready");
-        }
+    BOOL installed = NO;
+    for (NSString *name in @[@"WAContext", @"WAContextMain"]) {
+        Class cls = NSClassFromString(name) ?: objc_getClass(name.UTF8String);
+        if (WAGRABBridgeInstallOnClass(cls)) installed = YES;
+    }
+    if (installed) {
+        WAGRLogAppend(@"[ABProps][ManagerBridge] live-manager-only context bridge ready");
     }
 }
 
@@ -200,12 +116,10 @@ __attribute__((constructor))
 static void WAGRABPropsRequestManagerBridgeCtor(void) {
     @autoreleasepool {
         WAGRABBridgeInstall();
-        // Classes may be registered after tweak constructors in some sideload
-        // layouts. Retrying class_addMethod is safe and does not touch __TEXT.
-        for (NSNumber *delay in @[@0.25, @0.75, @1.5, @3.0]) {
+        for (NSNumber *delay in @[@0.25, @0.75, @1.50, @3.00]) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                (int64_t)(delay.doubleValue * NSEC_PER_SEC)),
-                dispatch_get_main_queue(), ^{ WAGRABBridgeInstall(); });
+                           (int64_t)(delay.doubleValue * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{ WAGRABBridgeInstall(); });
         }
     }
 }
