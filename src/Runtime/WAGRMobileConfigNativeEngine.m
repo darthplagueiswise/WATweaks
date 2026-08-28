@@ -147,6 +147,10 @@ BOOL WAGRMobileConfigNativeInvalidate(id userContext, NSString **outDiagnostic) 
     return invoked.count > 0;
 }
 
+// Compatibility-only JSON writer used by explicit import/export workflows.
+// It is NOT the native FBMobileConfigOverridesTable serializer and the ABProps
+// release no-op linkage deliberately does not call it.  The actual main table
+// serializer remains a reverse-engineering target.
 BOOL WAGRMobileConfigNativeWriteOverrideDocument(NSDictionary<NSString *, id> *document,
                                                   id userContext,
                                                   BOOL mergeExisting,
@@ -221,7 +225,7 @@ BOOL WAGRMobileConfigNativeWriteOverrideDocument(NSDictionary<NSString *, id> *d
     NSString *invalidateDiagnostic = nil;
     BOOL invalidated = WAGRMobileConfigNativeInvalidate(userContext, &invalidateDiagnostic);
     NSString *diagnostic = [NSString stringWithFormat:
-        @"wrote=%@; bytes=%lu; manager=%@; nativeInvalidate=%@; %@",
+        @"compat_json_writer=%@; bytes=%lu; manager=%@; nativeInvalidate=%@; %@",
         path, (unsigned long)data.length,
         NSStringFromClass([manager class]) ?: @"?",
         invalidated ? @"YES" : @"NO",
@@ -245,10 +249,12 @@ NSDictionary<NSString *, id> *WAGRMobileConfigNativeEngineDiagnosticDocument(id 
         @"set_overrides_encoding" : setOverridesEncoding ?: @"",
         @"set_overrides_is_cpp_shared_ptr_abi" : @(sharedPtrABI),
         @"direct_set_overrides_call_enabled" : @NO,
+        @"compat_json_writer_available" : @YES,
+        @"main_overrides_table_serializer_proven" : @NO,
         @"invalidate_cached_latest_context_encoding" : WAGRMCNativeEncoding(manager, @"invalidateCachedLatestContext"),
         @"force_invalidate_encoding" : WAGRMCNativeEncoding(manager, @"forceInvalidate"),
         @"force_refresh_config_encoding" : WAGRMCNativeEncoding(manager, @"forceRefreshOfConfig:"),
-        @"policy" : @"Write native mc_overrides table at UserSession path; request ABI-safe invalidation. Never objc_msgSend setOverrides: as an object because its current ABI is std::shared_ptr<FBMobileConfigOverridesTable>.",
+        @"policy" : @"The ABProps native path uses StartupConfigs + UserSession invalidation/refresh and does not synthesize mc_overrides.json. The JSON writer is compatibility-only for explicit file import/export. Never objc_msgSend setOverrides: because the live ABI is std::shared_ptr<FBMobileConfigOverridesTable>; the main table serializer remains unproven.",
     };
 }
 
