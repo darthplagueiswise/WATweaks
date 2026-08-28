@@ -10,25 +10,27 @@
 
 #import "WAGRABPropsNativeOverrideEngine.h"
 #import "WAGRMobileConfigBridge.h"
+#import "WAGRMobileConfigNativeEngine.h"
 #import "WAGRLog.h"
 
 extern id WAGRCurrentUserContext(void);
 
-// Release-build compatibility for the ABProps -> MobileConfig debug surfaces.
+// Reconnect the release-build ABProps debug surfaces to the live components
+// proven in the supplied WhatsApp/SharedModules binaries:
 //
-// The supplied WhatsApp/SharedModules build proves these responsibilities are
-// now split across live components:
-//   AB stable ID -> WAMCEvaluation -> MC paramSpecifier
-//   paramSpecifier -> FBMobileConfigStartupConfigs typed override writer
-//   FBMobileConfigUserSessionContextManager -> targeted refresh/update
-//   WAMobileConfigGraphQLFetcher -> MobileConfigFetchQuery -> XWA2
+//   AB stable ID
+//      -> WAMCEvaluation.getMCSpecifierForStableId:
+//      -> FBMobileConfigStartupConfigs.setOverrideForParam:andValue:
+//      -> FBMobileConfigUserSessionContextManager invalidation/targeted refresh
+//      -> FBMobileConfigManager/DefaultUpdater/FBMobileConfigFetcher
+//      -> WAMobileConfigFetcher
+//      -> WAMobileConfigGraphQLFetcher (XWA2) OR WWW GraphQL fetcher
 //
-// This file reconnects only the release surfaces that are demonstrably disabled.
-// It does NOT call FBMobileConfigContextManager.setOverrides: because that method
-// takes std::shared_ptr<FBMobileConfigOverridesTable>, not an Objective-C object.
-// It also does NOT fabricate a WAMobileConfigFetchInput: targeted refresh is
-// delegated to the live account-scoped manager and the real GraphQL fetcher is
-// observed to prove which backend the manager selected.
+// The XWA2/WWW hooks below are observers, not synthetic fetch implementations.
+// They prove which native backend a manager-triggered refresh actually reaches.
+// We never objc_msgSend setOverrides: because its live ABI is
+// std::shared_ptr<FBMobileConfigOverridesTable>, and we never fabricate a
+// WAMobileConfigFetchInput or GraphQL request.
 
 static NSObject *gWAGRLinkageLock;
 static NSMutableArray<NSDictionary *> *gWAGRLinkageEvents;
@@ -44,7 +46,9 @@ static BOOL gWAGRWAPropertiesInitHooked = NO;
 static BOOL gWAGRWAABPropertiesInitHooked = NO;
 static BOOL gWAGRXWA2ObserverHooked = NO;
 static BOOL gWAGRWWWObserverHooked = NO;
-static BOOL gWAGRReleaseSurfacesLinked = NO;
+static BOOL gWAGRSyncLinked = NO;
+static BOOL gWAGRIDsLinked = NO;
+static BOOL gWAGRResetLinked = NO;
 
 static void WAGRLinkageEnsureState(void) {
     static dispatch_once_t once;
@@ -61,8 +65,8 @@ static void WAGRLinkageRecord(NSString *kind, NSDictionary *payload) {
     event[@"time"] = @([[NSDate date] timeIntervalSince1970]);
     @synchronized (gWAGRLinkageLock) {
         [gWAGRLinkageEvents addObject:event];
-        if (gWAGRLinkageEvents.count > 96) {
-            [gWAGRLinkageEvents removeObjectsInRange:NSMakeRange(0, gWAGRLinkageEvents.count - 96)];
+        if (gWAGRLinkageEvents.count > 128) {
+            [gWAGRLinkageEvents removeObjectsInRange:NSMakeRange(0, gWAGRLinkageEvents.count - 128)];
         }
     }
 }
@@ -109,12 +113,16 @@ static BOOL WAGRLinkageArgBool(Method method, unsigned int index) {
     return type == 'B' || type == 'c' || type == 'C';
 }
 
-static BOOL WAGRLinkageArgUInt32(Method method, unsigned int index) {
+static BOOL WAGRLinkageArgWord(Method method, unsigned int index) {
     if (!method || index >= method_getNumberOfArguments(method)) return NO;
-    char raw[64] = {0};
+    char raw[128] = {0};
     method_getArgumentType(method, index, raw, sizeof(raw));
-    char type = WAGRLinkageSkipQualifiers(raw)[0];
-    return type == 'I' || type == 'i';
+    const char *type = WAGRLinkageSkipQualifiers(raw);
+    if (!*type || type[0] == '@' || type[0] == 'v' || type[0] == 'f' || type[0] == 'd') return NO;
+    NSUInteger size = 0, alignment = 0;
+    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
+    @catch (__unused NSException *exception) { return NO; }
+    return size > 0 && size <= sizeof(uint64_t);
 }
 
 static uintptr_t WAGRLinkageIMPAddress(IMP imp) {
@@ -142,7 +150,7 @@ static BOOL WAGRLinkageIsZeroMove(uint32_t instruction) {
 }
 
 static BOOL WAGRLinkageIsZeroReturnAddress(uintptr_t address, NSUInteger depth) {
-    if (!address || depth > 2) return NO;
+    if (!address || depth > 3) return NO;
     const uint32_t *code = (const uint32_t *)address;
     uint32_t first = code[0], second = code[1];
     if (WAGRLinkageIsZeroMove(first) && WAGRLinkageIsRET(second)) return YES;
@@ -153,6 +161,11 @@ static BOOL WAGRLinkageIsZeroReturnAddress(uintptr_t address, NSUInteger depth) 
         return WAGRLinkageIsZeroReturnAddress(target, depth + 1);
     }
     return NO;
+}
+
+static NSString *WAGRLinkageEncoding(Method method) {
+    const char *encoding = method ? method_getTypeEncoding(method) : NULL;
+    return encoding ? [NSString stringWithUTF8String:encoding] : @"";
 }
 
 static id WAGRLinkageObjectNoArg(id target, NSString *selectorName) {
@@ -183,10 +196,15 @@ static id WAGRLinkageScalarOrObjectNoArg(id target, NSString *selectorName) {
     return nil;
 }
 
+#pragma mark - Capture the release initializer's ignored debugOverrides argument
+
 static void WAGRLinkageCaptureDebugOverrides(id owner, id debugOverrides, NSString *source) {
+    WAGRLinkageEnsureState();
     if (![debugOverrides isKindOfClass:NSDictionary.class] || [(NSDictionary *)debugOverrides count] == 0) return;
-    objc_setAssociatedObject(owner, kWAGRDebugOverridesAssociationKey,
-                             debugOverrides, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (owner) {
+        objc_setAssociatedObject(owner, kWAGRDebugOverridesAssociationKey,
+                                 debugOverrides, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
     @synchronized (gWAGRLinkageLock) {
         gWAGRLastCapturedDebugOverrides = [debugOverrides copy];
     }
@@ -199,13 +217,15 @@ static void WAGRLinkageCaptureDebugOverrides(id owner, id debugOverrides, NSStri
 
 static id WAGRLinkageWAPropertiesInit(id self, SEL _cmd, id store, id debugOverrides) {
     id result = gWAGRWAPropertiesInitOriginal ? gWAGRWAPropertiesInitOriginal(self, _cmd, store, debugOverrides) : self;
-    WAGRLinkageCaptureDebugOverrides(result ?: self, debugOverrides, @"WAProperties.initWithPropertiesStore:debugOverrides:");
+    WAGRLinkageCaptureDebugOverrides(result ?: self, debugOverrides,
+        @"WAProperties.initWithPropertiesStore:debugOverrides:");
     return result;
 }
 
 static id WAGRLinkageWAABPropertiesInit(id self, SEL _cmd, id store, id debugOverrides) {
     id result = gWAGRWAABPropertiesInitOriginal ? gWAGRWAABPropertiesInitOriginal(self, _cmd, store, debugOverrides) : self;
-    WAGRLinkageCaptureDebugOverrides(result ?: self, debugOverrides, @"WAABProperties.initWithPropertiesStore:debugOverrides:");
+    WAGRLinkageCaptureDebugOverrides(result ?: self, debugOverrides,
+        @"WAABProperties.initWithPropertiesStore:debugOverrides:");
     return result;
 }
 
@@ -222,32 +242,51 @@ static BOOL WAGRLinkageInstallInitializerObserverForClass(Class cls, IMP replace
     return method_getImplementation(method) == replacement;
 }
 
-static NSDictionary *WAGRLinkageDebugOverrides(id userContext) {
-    id direct = WAGRLinkageObjectNoArg(userContext, @"debugPropOverrides");
-    if ([direct isKindOfClass:NSDictionary.class] && [(NSDictionary *)direct count]) return direct;
+static NSDictionary *WAGRLinkageMergedDebugOverrides(id userContext) {
+    WAGRLinkageEnsureState();
+    NSMutableDictionary *merged = [NSMutableDictionary dictionary];
+
+    // WATweaks-owned overrides are durable intent and form the base layer.
+    NSDictionary *tracked = WAGRABPropsNativeTrackedOverrides();
+    if ([tracked isKindOfClass:NSDictionary.class]) [merged addEntriesFromDictionary:tracked];
+
+    // Preserve any real dictionary that the release initializer received even
+    // though the binary's common initializer path drops x3.
+    NSDictionary *captured = nil;
+    @synchronized (gWAGRLinkageLock) { captured = [gWAGRLastCapturedDebugOverrides copy]; }
+    if (captured.count) [merged addEntriesFromDictionary:captured];
 
     for (NSString *accessor in @[@"abProperties", @"privateABProperties", @"waABProperties", @"properties"]) {
-        id properties = WAGRLinkageObjectNoArg(userContext, accessor);
-        id associated = properties ? objc_getAssociatedObject(properties, kWAGRDebugOverridesAssociationKey) : nil;
-        if ([associated isKindOfClass:NSDictionary.class] && [(NSDictionary *)associated count]) return associated;
+        id owner = WAGRLinkageObjectNoArg(userContext, accessor);
+        id associated = owner ? objc_getAssociatedObject(owner, kWAGRDebugOverridesAssociationKey) : nil;
+        if ([associated isKindOfClass:NSDictionary.class] && [(NSDictionary *)associated count]) {
+            [merged addEntriesFromDictionary:associated];
+        }
     }
 
-    @synchronized (gWAGRLinkageLock) {
-        if (gWAGRLastCapturedDebugOverrides.count) return gWAGRLastCapturedDebugOverrides;
+    // A native/non-empty context implementation wins.  The known WATweaks
+    // empty fallback does not erase captured/tracked state.
+    id direct = WAGRLinkageObjectNoArg(userContext, @"debugPropOverrides");
+    if ([direct isKindOfClass:NSDictionary.class] && [(NSDictionary *)direct count]) {
+        [merged addEntriesFromDictionary:direct];
     }
-    NSDictionary *tracked = WAGRABPropsNativeTrackedOverrides();
-    return tracked.count ? tracked : @{};
+    return [merged copy];
 }
 
-static NSUInteger WAGRLinkageStableIDFromKey(id key) {
-    if ([key isKindOfClass:NSNumber.class]) return [key unsignedIntegerValue];
-    if (![key isKindOfClass:NSString.class]) return 0;
+static NSString *WAGRLinkageStableIDString(id key) {
+    if ([key isKindOfClass:NSNumber.class]) {
+        unsigned long long value = [key unsignedLongLongValue];
+        return value ? [NSString stringWithFormat:@"%llu", value] : nil;
+    }
+    if (![key isKindOfClass:NSString.class]) return nil;
     NSString *string = [(NSString *)key stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    if (!string.length) return 0;
-    NSScanner *scanner = [NSScanner scannerWithString:string];
-    unsigned long long value = 0;
-    if ([scanner scanUnsignedLongLong:&value] && scanner.isAtEnd) return (NSUInteger)value;
-    return 0;
+    if (!string.length) return nil;
+    const char *bytes = string.UTF8String;
+    if (!bytes || !*bytes) return nil;
+    char *end = NULL;
+    unsigned long long value = strtoull(bytes, &end, 10);
+    if (!value || end == bytes || (end && *end != '\0')) return nil;
+    return [NSString stringWithFormat:@"%llu", value];
 }
 
 static id WAGRLinkageOverrideScalar(id value) {
@@ -259,9 +298,8 @@ static id WAGRLinkageOverrideScalar(id value) {
             if ([candidate isKindOfClass:NSNumber.class] || [candidate isKindOfClass:NSString.class]) return candidate;
         }
     }
-    // WAPBConfigOverrideValue is a GPBMessage in this build. Its generated
-    // fields are not exported as ObjC methods in the runtime snapshot, so only
-    // use KVC when an actual scalar field exists; never reinterpret its bytes.
+    // WAPBConfigOverrideValue is protobuf-backed in this build.  Use generated
+    // ObjC/KVC access only when it resolves; never reinterpret protobuf bytes.
     for (NSString *key in @[@"value", @"boolValue", @"int64Value", @"integerValue", @"doubleValue", @"stringValue"]) {
         @try {
             id candidate = [value valueForKey:key];
@@ -270,6 +308,8 @@ static id WAGRLinkageOverrideScalar(id value) {
     }
     return nil;
 }
+
+#pragma mark - Proven local writer: FBMobileConfigStartupConfigs
 
 static id WAGRLinkageStartupConfigs(void) {
     Class cls = NSClassFromString(@"FBMobileConfigStartupConfigs") ?: objc_getClass("FBMobileConfigStartupConfigs");
@@ -285,7 +325,7 @@ static BOOL WAGRLinkageStartupSet(uint64_t specifier, id value) {
     SEL selector = NSSelectorFromString(@"setOverrideForParam:andValue:");
     Method method = startup ? class_getInstanceMethod([startup class], selector) : NULL;
     if (!method || method_getNumberOfArguments(method) != 4 || !WAGRLinkageReturnsVoid(method) ||
-        !WAGRLinkageArgObject(method, 3)) return NO;
+        !WAGRLinkageArgWord(method, 2) || !WAGRLinkageArgObject(method, 3)) return NO;
     @try {
         ((void (*)(id, SEL, uint64_t, id))objc_msgSend)(startup, selector, specifier, value);
         return YES;
@@ -299,7 +339,8 @@ static BOOL WAGRLinkageStartupRemove(uint64_t specifier) {
     id startup = WAGRLinkageStartupConfigs();
     SEL selector = NSSelectorFromString(@"removeOverrideForParam:");
     Method method = startup ? class_getInstanceMethod([startup class], selector) : NULL;
-    if (!method || method_getNumberOfArguments(method) != 3 || !WAGRLinkageReturnsVoid(method)) return NO;
+    if (!method || method_getNumberOfArguments(method) != 3 || !WAGRLinkageReturnsVoid(method) ||
+        !WAGRLinkageArgWord(method, 2)) return NO;
     @try {
         ((void (*)(id, SEL, uint64_t))objc_msgSend)(startup, selector, specifier);
         return YES;
@@ -311,17 +352,24 @@ static BOOL WAGRLinkageStartupRemove(uint64_t specifier) {
 
 static NSDictionary *WAGRLinkageStartupReadback(void) {
     id startup = WAGRLinkageStartupConfigs();
-    if (!startup) return @{};
+    if (!startup) return @{ @"resolved": @NO };
     id overrides = WAGRLinkageObjectNoArg(startup, @"configValuesOverride");
     id json = WAGRLinkageObjectNoArg(startup, @"toJSON");
+    Method setMethod = class_getInstanceMethod([startup class], NSSelectorFromString(@"setOverrideForParam:andValue:"));
+    Method removeMethod = class_getInstanceMethod([startup class], NSSelectorFromString(@"removeOverrideForParam:"));
     return @{
+        @"resolved": @YES,
         @"class": NSStringFromClass([startup class]) ?: @"?",
+        @"set_encoding": WAGRLinkageEncoding(setMethod),
+        @"remove_encoding": WAGRLinkageEncoding(removeMethod),
         @"configValuesOverride_class": overrides ? (NSStringFromClass([overrides class]) ?: @"?") : @"nil",
         @"configValuesOverride_count": [overrides respondsToSelector:@selector(count)] ? @([overrides count]) : @0,
         @"toJSON_class": json ? (NSStringFromClass([json class]) ?: @"?") : @"nil",
-        @"toJSON_length": [json respondsToSelector:@selector(length)] ? @([json length]) : @0,
+        @"toJSON_length": [json respondsToSelector:@selector(length)] ? @([json length]) : @0
     };
 }
+
+#pragma mark - Native manager refresh and native network observers
 
 static BOOL WAGRLinkageRefreshConfig(id userContext, uint64_t externalStableID) {
     if (!externalStableID || externalStableID > UINT32_MAX) return NO;
@@ -329,17 +377,20 @@ static BOOL WAGRLinkageRefreshConfig(id userContext, uint64_t externalStableID) 
     SEL selector = NSSelectorFromString(@"forceRefreshOfConfig:");
     Method method = manager ? class_getInstanceMethod([manager class], selector) : NULL;
     if (!method || method_getNumberOfArguments(method) != 3 || !WAGRLinkageReturnsVoid(method) ||
-        !WAGRLinkageArgUInt32(method, 2)) return NO;
+        !WAGRLinkageArgWord(method, 2)) return NO;
     @try {
         ((void (*)(id, SEL, uint32_t))objc_msgSend)(manager, selector, (uint32_t)externalStableID);
-        WAGRLinkageRecord(@"manager_force_refresh", @{
+        WAGRLinkageRecord(@"manager_targeted_refresh_requested", @{
             @"manager": NSStringFromClass([manager class]) ?: @"?",
-            @"external_config_stable_id": @(externalStableID)
+            @"external_config_stable_id": @(externalStableID),
+            @"encoding": WAGRLinkageEncoding(method)
         });
         return YES;
     } @catch (NSException *exception) {
-        WAGRLogAppendF(@"[MobileConfig][ReleaseLinkage] forceRefreshOfConfig:%llu threw %@",
-                       externalStableID, exception.reason ?: @"exception");
+        WAGRLinkageRecord(@"manager_targeted_refresh_failed", @{
+            @"external_config_stable_id": @(externalStableID),
+            @"exception": exception.reason ?: @"exception"
+        });
         return NO;
     }
 }
@@ -350,24 +401,24 @@ static NSDictionary *WAGRLinkageXWA2InputSnapshot(id input) {
     for (NSString *selector in @[@"unitType", @"apiVersion", @"fetchType", @"globalValueHash", @"epRefreshId",
                                  @"unitId", @"queryString", @"batchSize", @"blnLiHashes", @"blnQueries", @"boolOptPolicy"]) {
         id value = WAGRLinkageScalarOrObjectNoArg(input, selector);
-        if (value) snapshot[selector] = [value isKindOfClass:NSString.class] || [value isKindOfClass:NSNumber.class] ? value : ([value description] ?: @"?");
+        if (value) snapshot[selector] = ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSNumber.class]) ? value : ([value description] ?: @"?");
     }
     return snapshot;
 }
 
 static void WAGRLinkageXWA2Fetch(id self, SEL _cmd, id input, id completion) {
     NSDictionary *snapshot = WAGRLinkageXWA2InputSnapshot(input);
-    WAGRLinkageRecord(@"xwa2_fetch_entered", snapshot);
-    WAGRLogAppendF(@"[MobileConfig][ReleaseLinkage] native XWA2 fetch entered %@", snapshot);
+    WAGRLinkageRecord(@"xwa2_native_fetch_observed", snapshot);
+    WAGRLogAppendF(@"[MobileConfig][ReleaseLinkage] XWA2 native fetch observed %@", snapshot);
     if (gWAGRXWA2FetchOriginal) gWAGRXWA2FetchOriginal(self, _cmd, input, completion);
 }
 
 static void WAGRLinkageWWWFetch(id self, SEL _cmd, id input, BOOL sessionless, id completion) {
-    WAGRLinkageRecord(@"www_fetch_entered", @{
+    WAGRLinkageRecord(@"www_native_fetch_observed", @{
         @"input_class": input ? (NSStringFromClass([input class]) ?: @"?") : @"nil",
         @"sessionless": @(sessionless)
     });
-    WAGRLogAppendF(@"[MobileConfig][ReleaseLinkage] native WWW fetch entered sessionless=%@ input=%@",
+    WAGRLogAppendF(@"[MobileConfig][ReleaseLinkage] WWW native fetch observed sessionless=%@ input=%@",
                    sessionless ? @"YES" : @"NO", input ? NSStringFromClass([input class]) : @"nil");
     if (gWAGRWWWFetchOriginal) gWAGRWWWFetchOriginal(self, _cmd, input, sessionless, completion);
 }
@@ -401,90 +452,67 @@ static void WAGRLinkageInstallFetchObservers(void) {
     }
 }
 
-static NSSet<NSString *> *WAGRLinkagePhysicalOverridePairs(id userContext) {
-    NSString *path = WAGRMobileConfigOverridesPath(userContext);
-    NSData *data = path.length ? [NSData dataWithContentsOfFile:path] : nil;
-    if (!data.length) return [NSSet set];
-    id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    if (![json isKindOfClass:NSDictionary.class]) return [NSSet set];
-
-    NSMutableSet<NSString *> *pairs = [NSMutableSet set];
-    [(NSDictionary *)json enumerateKeysAndObjectsUsingBlock:^(id key, id rows, __unused BOOL *stop) {
-        NSString *keyString = [key description] ?: @"";
-        NSString *stablePart = [[keyString componentsSeparatedByString:@":"] firstObject] ?: @"";
-        unsigned long long externalID = strtoull(stablePart.UTF8String, NULL, 10);
-        if (!externalID || ![rows isKindOfClass:NSArray.class]) return;
-        for (id row in (NSArray *)rows) {
-            if (![row isKindOfClass:NSString.class]) continue;
-            NSString *paramPart = [[(NSString *)row componentsSeparatedByString:@":"] firstObject] ?: @"";
-            unsigned long long parameterIndex = strtoull(paramPart.UTF8String, NULL, 10);
-            [pairs addObject:[NSString stringWithFormat:@"%llu:%llu", externalID, parameterIndex]];
-        }
-    }];
-    return pairs;
-}
-
-static NSArray<NSNumber *> *WAGRLinkageActiveABStableIDs(id userContext) {
-    NSMutableSet<NSNumber *> *result = [NSMutableSet setWithArray:WAGRABPropsNativeTrackedStableIDs() ?: @[]];
-    NSSet<NSString *> *pairs = WAGRLinkagePhysicalOverridePairs(userContext);
-    if (!pairs.count) return [[result allObjects] sortedArrayUsingSelector:@selector(compare:)];
-
-    NSError *error = nil;
-    NSArray<WAGRMobileConfigMapping *> *all = WAGRMobileConfigResolveAll(userContext, nil, &error);
-    if (!all.count) {
-        WAGRLogAppendF(@"[ABProps][ReleaseLinkage] active-ID crosswalk unavailable: %@", error.localizedDescription ?: @"unknown");
-        return [[result allObjects] sortedArrayUsingSelector:@selector(compare:)];
-    }
-    for (WAGRMobileConfigMapping *mapping in all) {
-        if (!mapping.waStableId || !mapping.configStableId) continue;
-        NSString *pair = [NSString stringWithFormat:@"%llu:%u",
-                          mapping.configStableId, mapping.parameterIndex];
-        if ([pairs containsObject:pair]) [result addObject:@(mapping.waStableId)];
-    }
-    return [[result allObjects] sortedArrayUsingSelector:@selector(compare:)];
-}
+#pragma mark - Release no-op surfaces
 
 static NSInteger WAGRLinkageApplyDebugOverrides(id userContext, NSString **outDiagnostic) {
-    NSDictionary *source = WAGRLinkageDebugOverrides(userContext);
+    NSDictionary *source = WAGRLinkageMergedDebugOverrides(userContext);
     if (!source.count) {
-        if (outDiagnostic) *outDiagnostic = @"No live/captured debug ABProps overrides to sync.";
+        if (outDiagnostic) *outDiagnostic = @"No live/captured/tracked debug ABProps overrides to sync.";
         return 0;
     }
 
-    NSInteger applied = 0, skipped = 0;
+    __block NSInteger applied = 0;
+    __block NSInteger skipped = 0;
     NSMutableSet<NSNumber *> *refreshIDs = [NSMutableSet set];
-    [source enumerateKeysAndObjectsUsingBlock:^(id key, id rawValue, __unused BOOL *stop) {
-        NSUInteger stableID = WAGRLinkageStableIDFromKey(key);
-        id scalar = WAGRLinkageOverrideScalar(rawValue);
-        if (!stableID || !scalar) { skipped++; return; }
+    NSMutableArray<NSString *> *failures = [NSMutableArray array];
 
-        NSError *mappingError = nil;
-        NSDictionary *mapping = WAGRABPropsNativeOverrideMapping(stableID, userContext, &mappingError);
+    [source enumerateKeysAndObjectsUsingBlock:^(id key, id rawValue, __unused BOOL *stop) {
+        NSString *stableID = WAGRLinkageStableIDString(key);
+        id scalar = WAGRLinkageOverrideScalar(rawValue);
+        if (!stableID.length || !scalar) { skipped++; return; }
+
+        NSString *mappingDiagnostic = nil;
+        NSDictionary *mapping = WAGRABPropsNativeOverrideMapping(stableID, userContext, &mappingDiagnostic);
         uint64_t specifier = [mapping[@"param_specifier"] unsignedLongLongValue];
         uint64_t externalID = [mapping[@"external_config_stable_id"] unsignedLongLongValue];
-        if (!specifier || !externalID) { skipped++; return; }
+        if (!mapping || !specifier || !externalID) {
+            skipped++;
+            if (failures.count < 12) [failures addObject:[NSString stringWithFormat:@"AB %@: %@", stableID, mappingDiagnostic ?: @"mapping failed"]];
+            return;
+        }
 
         if (WAGRLinkageStartupSet(specifier, scalar)) {
             applied++;
             [refreshIDs addObject:@(externalID)];
         } else {
             skipped++;
+            if (failures.count < 12) [failures addObject:[NSString stringWithFormat:@"AB %@: StartupConfigs set failed", stableID]];
         }
     }];
 
+    NSString *invalidateDiagnostic = nil;
+    BOOL invalidated = applied > 0 ? WAGRMobileConfigNativeInvalidate(userContext, &invalidateDiagnostic) : NO;
+    NSUInteger refreshSent = 0;
     for (NSNumber *externalID in refreshIDs) {
-        (void)WAGRLinkageRefreshConfig(userContext, externalID.unsignedLongLongValue);
+        if (WAGRLinkageRefreshConfig(userContext, externalID.unsignedLongLongValue)) refreshSent++;
     }
 
     NSDictionary *readback = WAGRLinkageStartupReadback();
     WAGRLinkageRecord(@"sync_complete", @{
-        @"source_count": @(source.count), @"applied": @(applied), @"skipped": @(skipped),
-        @"refresh_config_count": @(refreshIDs.count), @"startup_readback": readback ?: @{}
+        @"source_count": @(source.count),
+        @"applied": @(applied),
+        @"skipped": @(skipped),
+        @"native_invalidate": @(invalidated),
+        @"targeted_refresh_requested": @(refreshSent),
+        @"startup_readback": readback ?: @{},
+        @"failures": failures
     });
     if (outDiagnostic) {
-        *outDiagnostic = [NSString stringWithFormat:@"source=%lu applied=%ld skipped=%ld refreshConfigs=%lu startup=%@",
-                          (unsigned long)source.count, (long)applied, (long)skipped,
-                          (unsigned long)refreshIDs.count, readback];
+        *outDiagnostic = [NSString stringWithFormat:
+            @"source=%lu applied=%ld skipped=%ld invalidate=%@ targetedRefresh=%lu startup=%@%@",
+            (unsigned long)source.count, (long)applied, (long)skipped,
+            invalidated ? @"YES" : @"NO", (unsigned long)refreshSent, readback,
+            failures.count ? [@" failures=" stringByAppendingString:[failures componentsJoinedByString:@" | "]] : @""];
     }
     return applied;
 }
@@ -500,38 +528,64 @@ static long long WAGRLinkageSyncSurface(id self, SEL _cmd, id userContext) {
 
 static id WAGRLinkageStableIDsSurface(id self, SEL _cmd, id userContext) {
     (void)self; (void)_cmd;
-    return WAGRLinkageActiveABStableIDs(userContext ?: WAGRCurrentUserContext());
+    NSDictionary *source = WAGRLinkageMergedDebugOverrides(userContext ?: WAGRCurrentUserContext());
+    NSMutableArray<NSNumber *> *ids = [NSMutableArray array];
+    for (id key in source) {
+        NSString *stable = WAGRLinkageStableIDString(key);
+        if (stable.length) [ids addObject:@(stable.longLongValue)];
+    }
+    [ids sortUsingSelector:@selector(compare:)];
+    return ids;
 }
 
 static void WAGRLinkageResetSurface(id self, SEL _cmd) {
     (void)self; (void)_cmd;
     id context = WAGRCurrentUserContext();
-    NSArray<NSNumber *> *stableIDs = WAGRLinkageActiveABStableIDs(context);
+    NSDictionary *source = WAGRLinkageMergedDebugOverrides(context);
     NSInteger removed = 0, skipped = 0;
     NSMutableSet<NSNumber *> *refreshIDs = [NSMutableSet set];
-    for (NSNumber *stableNumber in stableIDs) {
-        NSError *error = nil;
-        NSDictionary *mapping = WAGRABPropsNativeOverrideMapping(stableNumber.unsignedIntegerValue, context, &error);
+    NSMutableArray<NSString *> *failures = [NSMutableArray array];
+
+    for (id key in source) {
+        NSString *stableID = WAGRLinkageStableIDString(key);
+        if (!stableID.length) { skipped++; continue; }
+        NSString *mappingDiagnostic = nil;
+        NSDictionary *mapping = WAGRABPropsNativeOverrideMapping(stableID, context, &mappingDiagnostic);
         uint64_t specifier = [mapping[@"param_specifier"] unsignedLongLongValue];
         uint64_t externalID = [mapping[@"external_config_stable_id"] unsignedLongLongValue];
-        if (!specifier || !externalID) { skipped++; continue; }
+        if (!mapping || !specifier || !externalID) {
+            skipped++;
+            if (failures.count < 12) [failures addObject:[NSString stringWithFormat:@"AB %@: %@", stableID, mappingDiagnostic ?: @"mapping failed"]];
+            continue;
+        }
         if (WAGRLinkageStartupRemove(specifier)) {
             removed++;
             [refreshIDs addObject:@(externalID)];
         } else {
             skipped++;
+            if (failures.count < 12) [failures addObject:[NSString stringWithFormat:@"AB %@: StartupConfigs remove failed", stableID]];
         }
     }
+
+    NSString *invalidateDiagnostic = nil;
+    BOOL invalidated = removed > 0 ? WAGRMobileConfigNativeInvalidate(context, &invalidateDiagnostic) : NO;
+    NSUInteger refreshSent = 0;
     for (NSNumber *externalID in refreshIDs) {
-        (void)WAGRLinkageRefreshConfig(context, externalID.unsignedLongLongValue);
+        if (WAGRLinkageRefreshConfig(context, externalID.unsignedLongLongValue)) refreshSent++;
     }
+
     WAGRLinkageRecord(@"reset_complete", @{
-        @"identified_ab_overrides": @(stableIDs.count), @"removed": @(removed),
-        @"skipped": @(skipped), @"refresh_config_count": @(refreshIDs.count),
-        @"startup_readback": WAGRLinkageStartupReadback()
+        @"identified_ab_overrides": @(source.count),
+        @"removed": @(removed),
+        @"skipped": @(skipped),
+        @"native_invalidate": @(invalidated),
+        @"targeted_refresh_requested": @(refreshSent),
+        @"startup_readback": WAGRLinkageStartupReadback(),
+        @"failures": failures
     });
-    WAGRLogAppendF(@"[ABProps][ReleaseLinkage] resetAllOverriddenABProps identified=%lu removed=%ld skipped=%ld",
-                   (unsigned long)stableIDs.count, (long)removed, (long)skipped);
+    WAGRLogAppendF(@"[ABProps][ReleaseLinkage] resetAllOverriddenABProps identified=%lu removed=%ld skipped=%ld invalidate=%@ refresh=%lu",
+                   (unsigned long)source.count, (long)removed, (long)skipped,
+                   invalidated ? @"YES" : @"NO", (unsigned long)refreshSent);
 }
 
 static BOOL WAGRLinkageSyncSurfaceMayBeReplaced(Method method) {
@@ -552,36 +606,34 @@ static BOOL WAGRLinkageResetSurfaceMayBeReplaced(Method method) {
 static void WAGRLinkageInstallReleaseSurfaces(void) {
     Class syncClass = NSClassFromString(@"WAMobileConfigABPropsOverridesSync") ?:
                       objc_getClass("WAMobileConfigABPropsOverridesSync");
-    BOOL syncLinked = NO, idsLinked = NO, resetLinked = NO;
     if (syncClass) {
         Method sync = class_getClassMethod(syncClass, NSSelectorFromString(@"syncABPropsOverridesToMCWithUserContext:"));
-        if (WAGRLinkageSyncSurfaceMayBeReplaced(sync)) {
+        if (!gWAGRSyncLinked && WAGRLinkageSyncSurfaceMayBeReplaced(sync)) {
             method_setImplementation(sync, (IMP)WAGRLinkageSyncSurface);
-            syncLinked = method_getImplementation(sync) == (IMP)WAGRLinkageSyncSurface;
+            gWAGRSyncLinked = method_getImplementation(sync) == (IMP)WAGRLinkageSyncSurface;
         }
 
         Method ids = class_getClassMethod(syncClass, NSSelectorFromString(@"overriddenStableIdsWithUserContext:"));
-        if (ids && method_getNumberOfArguments(ids) == 3 && WAGRLinkageReturnsObject(ids) &&
-            (syncLinked || WAGRLinkageIMPBelongsToTweak(method_getImplementation(ids)))) {
+        if (!gWAGRIDsLinked && ids && method_getNumberOfArguments(ids) == 3 && WAGRLinkageReturnsObject(ids) &&
+            (gWAGRSyncLinked || WAGRLinkageIMPBelongsToTweak(method_getImplementation(ids)))) {
             method_setImplementation(ids, (IMP)WAGRLinkageStableIDsSurface);
-            idsLinked = method_getImplementation(ids) == (IMP)WAGRLinkageStableIDsSurface;
+            gWAGRIDsLinked = method_getImplementation(ids) == (IMP)WAGRLinkageStableIDsSurface;
         }
     }
 
     Class debug = NSClassFromString(@"WADebugViewController") ?: objc_getClass("WADebugViewController");
     Method reset = debug ? class_getInstanceMethod(debug, NSSelectorFromString(@"resetAllOverriddenABProps")) : NULL;
-    if (WAGRLinkageResetSurfaceMayBeReplaced(reset)) {
+    if (!gWAGRResetLinked && WAGRLinkageResetSurfaceMayBeReplaced(reset)) {
         method_setImplementation(reset, (IMP)WAGRLinkageResetSurface);
-        resetLinked = method_getImplementation(reset) == (IMP)WAGRLinkageResetSurface;
+        gWAGRResetLinked = method_getImplementation(reset) == (IMP)WAGRLinkageResetSurface;
     }
 
-    gWAGRReleaseSurfacesLinked = syncLinked || idsLinked || resetLinked;
-    if (gWAGRReleaseSurfacesLinked) {
+    if (gWAGRSyncLinked || gWAGRIDsLinked || gWAGRResetLinked) {
         WAGRLinkageRecord(@"release_surfaces_linked", @{
-            @"sync": @(syncLinked), @"overridden_ids": @(idsLinked), @"reset": @(resetLinked)
+            @"sync": @(gWAGRSyncLinked),
+            @"overridden_ids": @(gWAGRIDsLinked),
+            @"reset": @(gWAGRResetLinked)
         });
-        WAGRLogAppendF(@"[ABProps][ReleaseLinkage] linked sync=%@ ids=%@ reset=%@",
-                       syncLinked ? @"YES" : @"NO", idsLinked ? @"YES" : @"NO", resetLinked ? @"YES" : @"NO");
     }
 }
 
@@ -596,8 +648,6 @@ static void WAGRLinkageInstallInitializerObservers(void) {
     if (!gWAGRWAABPropertiesInitHooked && ab) {
         Method own = class_getInstanceMethod(ab, NSSelectorFromString(@"initWithPropertiesStore:debugOverrides:"));
         Method base = wa ? class_getInstanceMethod(wa, NSSelectorFromString(@"initWithPropertiesStore:debugOverrides:")) : NULL;
-        // Hook the subclass only when it owns a distinct implementation. If it
-        // simply inherits WAProperties, the base observer already captures x3.
         if (own && (!base || method_getImplementation(own) != method_getImplementation(base))) {
             gWAGRWAABPropertiesInitHooked = WAGRLinkageInstallInitializerObserverForClass(
                 ab, (IMP)WAGRLinkageWAABPropertiesInit, (IMP *)&gWAGRWAABPropertiesInitOriginal);
@@ -608,16 +658,44 @@ static void WAGRLinkageInstallInitializerObservers(void) {
 NSDictionary<NSString *, id> *WAGRABPropsReleaseNativeLinkageDiagnosticDocument(void) {
     WAGRLinkageEnsureState();
     NSArray *events = nil;
-    @synchronized (gWAGRLinkageLock) { events = [gWAGRLinkageEvents copy] ?: @[]; }
+    NSDictionary *captured = nil;
+    @synchronized (gWAGRLinkageLock) {
+        events = [gWAGRLinkageEvents copy] ?: @[];
+        captured = [gWAGRLastCapturedDebugOverrides copy] ?: @{};
+    }
+
+    id context = WAGRCurrentUserContext();
+    id manager = WAGRMobileConfigUserSessionContextManager(context);
+    Method refresh = manager ? class_getInstanceMethod([manager class], NSSelectorFromString(@"forceRefreshOfConfig:")) : NULL;
+    Method setOverrides = manager ? class_getInstanceMethod([manager class], NSSelectorFromString(@"setOverrides:")) : NULL;
+    NSString *setOverridesEncoding = WAGRLinkageEncoding(setOverrides);
+
     return @{
-        @"release_surfaces_linked": @(gWAGRReleaseSurfacesLinked),
-        @"wa_properties_debug_initializer_observed": @(gWAGRWAPropertiesInitHooked),
-        @"waab_properties_debug_initializer_observed": @(gWAGRWAABPropertiesInitHooked),
-        @"xwa2_fetch_observer_installed": @(gWAGRXWA2ObserverHooked),
-        @"www_fetch_observer_installed": @(gWAGRWWWObserverHooked),
-        @"captured_debug_override_count": @(gWAGRLastCapturedDebugOverrides.count),
+        @"release_surfaces": @{
+            @"sync_linked": @(gWAGRSyncLinked),
+            @"overridden_ids_linked": @(gWAGRIDsLinked),
+            @"reset_linked": @(gWAGRResetLinked)
+        },
+        @"debug_override_bridge": @{
+            @"wa_properties_initializer_observed": @(gWAGRWAPropertiesInitHooked),
+            @"waab_properties_initializer_observed": @(gWAGRWAABPropertiesInitHooked),
+            @"captured_nonempty_count": @(captured.count),
+            @"merged_effective_count": @(WAGRLinkageMergedDebugOverrides(context).count)
+        },
+        @"startup_configs": WAGRLinkageStartupReadback(),
+        @"mobileconfig_manager": @{
+            @"resolved": @(manager != nil),
+            @"class": manager ? (NSStringFromClass([manager class]) ?: @"?") : @"nil",
+            @"force_refresh_encoding": WAGRLinkageEncoding(refresh),
+            @"set_overrides_encoding": setOverridesEncoding ?: @"",
+            @"set_overrides_is_cpp_shared_ptr": @([setOverridesEncoding containsString:@"shared_ptr"] || [setOverridesEncoding containsString:@"FBMobileConfigOverridesTable"])
+        },
+        @"network_observers": @{
+            @"xwa2_installed": @(gWAGRXWA2ObserverHooked),
+            @"www_installed": @(gWAGRWWWObserverHooked)
+        },
         @"events": events,
-        @"policy": @"Disabled release ABProps surfaces are connected to WAMCEvaluation + FBMobileConfigStartupConfigs + account-scoped forceRefreshOfConfig:. XWA2/WWW native fetchers are observed. setOverrides:(shared_ptr) is never objc_msgSend'd and no synthetic WAMobileConfigFetchInput is fabricated."
+        @"policy": @"Release no-ops are linked to WAMCEvaluation + FBMobileConfigStartupConfigs + UserSession invalidation/targeted refresh. XWA2/WWW are observed to prove the native fetch backend. No synthetic WAMobileConfigFetchInput is created; setOverrides:(shared_ptr) is never objc_msgSend'd; this linkage does not claim or implement the unresolved main FBMobileConfigOverridesTable serializer."
     };
 }
 
@@ -625,8 +703,9 @@ __attribute__((constructor))
 static void WAGRABPropsReleaseNativeLinkageCtor(void) {
     @autoreleasepool {
         WAGRLinkageEnsureState();
-        // Named-method work only; no class catalog scan at cold start.
-        for (NSNumber *delay in @[@0.75, @1.75, @3.50]) {
+        // Named classes/selectors only. No Objective-C class enumeration and no
+        // Mach-O scan on the cold-start critical path.
+        for (NSNumber *delay in @[@0.50, @1.25, @2.50, @4.00]) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
                 (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 WAGRLinkageInstallInitializerObservers();
