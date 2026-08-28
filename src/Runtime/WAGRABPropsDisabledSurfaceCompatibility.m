@@ -12,7 +12,10 @@
 
 extern id WAGRCurrentUserContext(void);
 
-static BOOL gWAGRABDisabledSurfaceInstalled = NO;
+static BOOL gWAGRABCompatSyncInstalled = NO;
+static BOOL gWAGRABCompatIDsInstalled = NO;
+static BOOL gWAGRABCompatResetInstalled = NO;
+static BOOL gWAGRABCompatReleaseSyncWasStub = NO;
 
 static uintptr_t WAGRABCompatIMPAddress(IMP imp) {
 #if __has_include(<ptrauth.h>)
@@ -22,10 +25,7 @@ static uintptr_t WAGRABCompatIMPAddress(IMP imp) {
 #endif
 }
 
-static BOOL WAGRABCompatIsRET(uint32_t instruction) {
-    return instruction == 0xD65F03C0u;
-}
-
+static BOOL WAGRABCompatIsRET(uint32_t instruction) { return instruction == 0xD65F03C0u; }
 static BOOL WAGRABCompatIsZeroMove(uint32_t instruction) {
     return instruction == 0xD2800000u || instruction == 0x52800000u;
 }
@@ -104,45 +104,51 @@ static BOOL WAGRABCompatOriginalStableIDsAreEmpty(Class cls, Method method) {
 }
 
 static void WAGRABInstallDisabledSurfaceCompatibility(void) {
-    if (gWAGRABDisabledSurfaceInstalled) return;
-    BOOL syncInstalled = NO, idsInstalled = NO, resetInstalled = NO;
+    if (gWAGRABCompatSyncInstalled && gWAGRABCompatIDsInstalled && gWAGRABCompatResetInstalled) return;
 
     Class syncClass = NSClassFromString(@"WAMobileConfigABPropsOverridesSync") ?:
                       objc_getClass("WAMobileConfigABPropsOverridesSync");
     if (syncClass) {
-        SEL syncSelector = NSSelectorFromString(@"syncABPropsOverridesToMCWithUserContext:");
-        Method syncMethod = class_getClassMethod(syncClass, syncSelector);
-        IMP syncIMP = syncMethod ? method_getImplementation(syncMethod) : NULL;
-        BOOL syncIsReleaseStub = syncMethod && method_getNumberOfArguments(syncMethod) == 3 &&
-                                 WAGRABCompatReturnsInteger(syncMethod) &&
-                                 WAGRABCompatIsZeroReturnAddress(WAGRABCompatIMPAddress(syncIMP), 0);
-        if (syncIsReleaseStub) {
-            method_setImplementation(syncMethod, (IMP)WAGRABCompatSync);
-            syncInstalled = method_getImplementation(syncMethod) == (IMP)WAGRABCompatSync;
+        if (!gWAGRABCompatSyncInstalled) {
+            SEL syncSelector = NSSelectorFromString(@"syncABPropsOverridesToMCWithUserContext:");
+            Method syncMethod = class_getClassMethod(syncClass, syncSelector);
+            IMP syncIMP = syncMethod ? method_getImplementation(syncMethod) : NULL;
+            BOOL isStub = syncMethod && method_getNumberOfArguments(syncMethod) == 3 &&
+                          WAGRABCompatReturnsInteger(syncMethod) &&
+                          WAGRABCompatIsZeroReturnAddress(WAGRABCompatIMPAddress(syncIMP), 0);
+            if (isStub) {
+                gWAGRABCompatReleaseSyncWasStub = YES;
+                method_setImplementation(syncMethod, (IMP)WAGRABCompatSync);
+                gWAGRABCompatSyncInstalled = method_getImplementation(syncMethod) == (IMP)WAGRABCompatSync;
+            }
         }
 
-        SEL idsSelector = NSSelectorFromString(@"overriddenStableIdsWithUserContext:");
-        Method idsMethod = class_getClassMethod(syncClass, idsSelector);
-        if (syncIsReleaseStub && WAGRABCompatOriginalStableIDsAreEmpty(syncClass, idsMethod)) {
-            method_setImplementation(idsMethod, (IMP)WAGRABCompatOverriddenStableIDs);
-            idsInstalled = method_getImplementation(idsMethod) == (IMP)WAGRABCompatOverriddenStableIDs;
+        if (!gWAGRABCompatIDsInstalled && gWAGRABCompatReleaseSyncWasStub) {
+            SEL idsSelector = NSSelectorFromString(@"overriddenStableIdsWithUserContext:");
+            Method idsMethod = class_getClassMethod(syncClass, idsSelector);
+            if (WAGRABCompatOriginalStableIDsAreEmpty(syncClass, idsMethod)) {
+                method_setImplementation(idsMethod, (IMP)WAGRABCompatOverriddenStableIDs);
+                gWAGRABCompatIDsInstalled = method_getImplementation(idsMethod) == (IMP)WAGRABCompatOverriddenStableIDs;
+            }
         }
     }
 
-    Class debugClass = NSClassFromString(@"WADebugViewController") ?: objc_getClass("WADebugViewController");
-    SEL resetSelector = NSSelectorFromString(@"resetAllOverriddenABProps");
-    Method resetMethod = debugClass ? class_getInstanceMethod(debugClass, resetSelector) : NULL;
-    IMP resetIMP = resetMethod ? method_getImplementation(resetMethod) : NULL;
-    if (resetMethod && method_getNumberOfArguments(resetMethod) == 2 && WAGRABCompatIsDirectRET(resetIMP)) {
-        method_setImplementation(resetMethod, (IMP)WAGRABCompatResetAll);
-        resetInstalled = method_getImplementation(resetMethod) == (IMP)WAGRABCompatResetAll;
+    if (!gWAGRABCompatResetInstalled) {
+        Class debugClass = NSClassFromString(@"WADebugViewController") ?: objc_getClass("WADebugViewController");
+        SEL resetSelector = NSSelectorFromString(@"resetAllOverriddenABProps");
+        Method resetMethod = debugClass ? class_getInstanceMethod(debugClass, resetSelector) : NULL;
+        IMP resetIMP = resetMethod ? method_getImplementation(resetMethod) : NULL;
+        if (resetMethod && method_getNumberOfArguments(resetMethod) == 2 && WAGRABCompatIsDirectRET(resetIMP)) {
+            method_setImplementation(resetMethod, (IMP)WAGRABCompatResetAll);
+            gWAGRABCompatResetInstalled = method_getImplementation(resetMethod) == (IMP)WAGRABCompatResetAll;
+        }
     }
 
-    gWAGRABDisabledSurfaceInstalled = syncInstalled || idsInstalled || resetInstalled;
-    if (gWAGRABDisabledSurfaceInstalled) {
+    if (gWAGRABCompatSyncInstalled || gWAGRABCompatIDsInstalled || gWAGRABCompatResetInstalled) {
         WAGRLogAppendF(@"[ABProps][ReleaseCompat] installed sync=%@ ids=%@ reset=%@",
-                       syncInstalled ? @"YES" : @"NO", idsInstalled ? @"YES" : @"NO",
-                       resetInstalled ? @"YES" : @"NO");
+                       gWAGRABCompatSyncInstalled ? @"YES" : @"NO",
+                       gWAGRABCompatIDsInstalled ? @"YES" : @"NO",
+                       gWAGRABCompatResetInstalled ? @"YES" : @"NO");
     }
 }
 
