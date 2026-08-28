@@ -5,6 +5,7 @@
 #import "../Runtime/WAGRMobileConfigNativeEngine.h"
 
 extern id WAGRCurrentUserContext(void);
+extern NSDictionary<NSString *, id> *WAGRABPropsReleaseNativeLinkageDiagnosticDocument(void);
 
 static NSDictionary *(*orig_WAGRDebugBuildDocument)(id, SEL, BOOL) = NULL;
 
@@ -14,6 +15,8 @@ static NSDictionary *WAGRDebugBuildDocumentWithNativeEngine(id self, SEL _cmd, B
     NSMutableDictionary *document = [base mutableCopy] ?: [NSMutableDictionary dictionary];
     document[@"mobileconfig_native_engine"] =
         WAGRMobileConfigNativeEngineDiagnosticDocument(WAGRCurrentUserContext()) ?: @{};
+    document[@"abprops_release_native_linkage"] =
+        WAGRABPropsReleaseNativeLinkageDiagnosticDocument() ?: @{};
     return document;
 }
 
