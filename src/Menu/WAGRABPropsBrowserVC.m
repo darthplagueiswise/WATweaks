@@ -3,6 +3,7 @@
 #import "WAGRRuntimeValueEditor.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsNativeStore.h"
+#import "../Runtime/WAGRABPropsABTForceFull.h"
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRSurface.h"
 #import <objc/runtime.h>
@@ -172,17 +173,44 @@ static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
 
 #pragma mark - Fetch
 
+static NSString *WAGRABFullFetchSummary(NSDictionary *result) {
+    NSDictionary *store = [result[@"store_confirmation"] isKindOfClass:NSDictionary.class]
+        ? result[@"store_confirmation"] : @{};
+    BOOL verified = [result[@"verified"] boolValue];
+    BOOL completed = [result[@"native_completion_observed"] boolValue];
+    BOOL refilled = [store[@"config_hash_refilled"] boolValue];
+    BOOL fingerprintChanged = [store[@"fingerprint_changed"] boolValue];
+    NSUInteger count = [store[@"effective_prop_count"] unsignedIntegerValue];
+    NSString *outcome = [result[@"outcome"] isKindOfClass:NSString.class]
+        ? result[@"outcome"] : @"unknown";
+    return [NSString stringWithFormat:
+        @"ABT full nativo · reset=YES · completion=%@ · hash=%@ · props=%lu · gabpΔ=%@ · %@%@",
+        completed ? @"YES" : @"NO",
+        refilled ? @"REFILLED" : @"EMPTY",
+        (unsigned long)count,
+        fingerprintChanged ? @"YES" : @"NO",
+        outcome,
+        verified ? @" · VERIFICADO" : @""];
+}
+
 - (void)fetchNow {
     if (self.fetching) return;
     self.fetching = YES;
     self.fetchButton.enabled = NO;
 
-    WAGRABPropsNativeSnapshot *beforeSnapshot = self.nativeSnapshot ?: WAGRABPropsReadNativeSnapshot(NULL);
-    NSString *before = beforeSnapshot.fingerprint ?: @"";
-    self.title = @"Enviando Fetch ABProps…";
+    self.title = @"ABT full: limpando hash…";
 
     NSString *diagnostic = nil;
-    BOOL invoked = WAGRABPropsTriggerNativeFetch(self.userContext, &diagnostic);
+    __weak typeof(self) weakSelf = self;
+    BOOL invoked = WAGRABPropsABTLiveFetchForcedFull(self.userContext,
+        ^(NSDictionary<NSString *,id> *result) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            self.fetching = NO;
+            self.fetchButton.enabled = YES;
+            self.lastFetchNote = WAGRABFullFetchSummary(result);
+            [self scanNow];
+        }, &diagnostic);
     if (!invoked) {
         self.fetching = NO;
         self.fetchButton.enabled = YES;
@@ -194,30 +222,8 @@ static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
         [self presentViewController:alert animated:YES completion:nil];
         return;
     }
-
-    __weak typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        BOOL changed = NO;
-        WAGRABPropsNativeSnapshot *latest = nil;
-        for (NSUInteger attempt = 0; attempt < 8; attempt++) {
-            [NSThread sleepForTimeInterval:0.5];
-            latest = WAGRABPropsReadNativeSnapshot(NULL);
-            NSString *fingerprint = latest.fingerprint ?: @"";
-            changed = fingerprint.length && ![fingerprint isEqualToString:before];
-            if (changed) break;
-        }
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            __strong typeof(weakSelf) self = weakSelf;
-            if (!self) return;
-            self.fetching = NO;
-            self.fetchButton.enabled = YES;
-            self.lastFetchNote = changed
-                ? @"Último Fetch: cache gabp.*p recebeu delta; runtime e cache foram relidos."
-                : @"Último Fetch: request enviado; nenhum delta local observado. Runtime e cache foram relidos.";
-            [self scanNow];
-        });
-    });
+    self.lastFetchNote = diagnostic ?: @"ABT full nativo enviado; aguardando completion e hash reposto pelo store.";
+    [self applyCurrentFilter];
 }
 
 #pragma mark - Filter

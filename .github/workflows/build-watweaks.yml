@@ -73,6 +73,8 @@ jobs:
             src/Menu/WAGRABPropsFilteredBrowserVC.m
             src/Menu/WAGRABPropsRootVC.m
             src/Menu/WAGRABPropsBrowserVC.m
+            src/Menu/WAGRABPropsABTLabVC.h
+            src/Menu/WAGRABPropsABTLabVC.m
             src/Menu/WAGRABPropsLiveCorrelation.m
             src/Menu/WAGRABPropsSnapshotVC.m
             src/Menu/WAGRABPropsMCNativeApplyUI.m
@@ -87,6 +89,14 @@ jobs:
             src/Runtime/WAGRABPropsStableIDResolver.h
             src/Runtime/WAGRABPropsStableIDResolver.m
             src/Runtime/WAGRABPropsNativeStore.m
+            src/Runtime/WAGRABPropsABTForceFull.h
+            src/Runtime/WAGRABPropsABTForceFull.m
+            src/Runtime/WAGRABPropsABTLiveService.h
+            src/Runtime/WAGRABPropsABTLiveService.m
+            src/Runtime/WAGRABPropsABTLab.h
+            src/Runtime/WAGRABPropsABTLab.m
+            src/Runtime/WAGRABPropsABTTransactionGate.h
+            src/Runtime/WAGRABPropsABTTransactionGate.m
             src/Runtime/WAGRRuntimeValueStore.m
             src/Runtime/WAGRMobileConfigBridge.m
             src/Runtime/WAGRMobileConfigRuntimeResolver.m
@@ -109,7 +119,7 @@ jobs:
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
-          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsNativeStore.m
+          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsABTForceFull.m
           grep -q 'WAGRABPropsStableIDForTarget' src/Menu/WAGRRuntimeBrowsersGlassUI.m
 
           # ABProps/Runtime browsers must stay editable and exact-receiver based.
@@ -188,6 +198,32 @@ jobs:
           grep -q 'xmppConnectionABPropsRequestManager' src/Runtime/WAGRABPropsRequestManagerBridge.m
           grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsRequestManagerBridge.m
           ! grep -q 'MSHookFunction' src/Runtime/WAGRABPropsRequestManagerBridge.m
+
+          # The ABT lab must cover the four mutually-exclusive validator shapes,
+          # correlate every retry request and remain entirely on-demand.
+          grep -q 'WAGRABPropsABTVariantRegularHash' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'WAGRABPropsABTVariantDeltaRefreshID' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'WAGRABPropsABTVariantFullEmptyHash' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'WAGRABPropsABTVariantFullNoValidators' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'WAGRABPropsABTVariantCustomWire' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'WAGRABPropsABTLiveFetchCustom' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'gPendingRequests' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'gActiveCallbackRequest' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'gHandlerInFlightToken' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'FinishWhenHandlerSettled' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'Finish(NSString \*expectedToken)' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'wire_shape_matches_variant' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'verified_native_response_applied' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'WAGRABPropsABTLabRunMatrix' src/Runtime/WAGRABPropsABTLab.m
+          grep -q 'last_matrix_results_compact' src/Runtime/WAGRABPropsABTLab.m
+          grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTTransactionGate.m
+          grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTForceFull.m
+          grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'ABT Runtime Lab' src/Menu/WAGRABPropsABTLabVC.m
+          grep -q 'Executar wire custom' src/Menu/WAGRABPropsABTLabVC.m
+          grep -q 'WAGRABPropsABTLiveFetchForcedFull' src/Menu/WAGRABPropsSnapshotVC.m
+          ! grep -R -q 'WAGRABPropsTriggerNativeFetch' src
+          ! grep -q '__attribute__((constructor))' src/Runtime/WAGRABPropsABTLab.m
 
           # Sideload-safe rule for the edited surface.
           ! grep -R -n -E 'MSHookFunction|class_replaceMethod|%hookf' "${files[@]}"

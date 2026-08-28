@@ -12,9 +12,14 @@ The previous resolver accepted only Objective-C methods with 2 or 3 total argume
     withCompletion:(id)completion]
 ```
 
-That selector has four Objective-C arguments in runtime metadata (`self`, `_cmd`, `BOOL`, completion). The v2 path resolves/captures the real `XMPPConnectionABPropsRequestManager`, validates that ABI, and requests a full refresh with:
+That selector has four Objective-C arguments in runtime metadata (`self`, `_cmd`,
+`BOOL`, completion). `NO` selects the regular/config-hash branch; by itself it
+does **not** mean “full”. The corrected path resolves the real manager, validates
+that ABI, clears the exact account `WAProperties.configHash` through the active
+native reset pair, and then calls:
 
 ```objc
+[abProperties resetConfigHashToEmptyString];
 [manager requestFreshABProps:NO withCompletion:completion];
 ```
 
@@ -27,15 +32,24 @@ The three-parameter native variant is also captured for manager discovery/diagno
     completion:]
 ```
 
-A heuristic `fetch`/`sync`/`refresh` lookalike is no longer reported as success. If the exact request manager/selector cannot be resolved, `WAGRABPropsTriggerNativeFetch` returns `NO`.
+A heuristic `fetch`/`sync`/`refresh` lookalike is no longer reported as success.
+Dispatch is also not success: the transaction is confirmed only when native
+completion fires and the same account-scoped `WAProperties` object has a
+non-empty hash again.
 
 Expected log markers:
 
 ```text
-[ABProps][FetchV2] exact XMPP request hooks installed
-[ABProps][FetchV2] captured XMPPConnectionABPropsRequestManager ...
-[ABProps][FetchV2] exact request sent via -[XMPPConnectionABPropsRequestManager requestFreshABProps:NO withCompletion:] ...
+[ABProps][ABTForceFull] token=... reset confirmed, exact request dispatched via ...
+[ABProps][ABTForceFull] token=... outcome=verified_native_completion_hash_refilled hashRefilled=YES ...
 ```
+
+There is no `XMPPRequestABProperties` constructor hook in this flow.
+
+If the native retry pipeline exceeds 45 seconds, the result is a timeout rather
+than success and the process-wide ABT gate stays quarantined until the late
+native completion. No second ABT request is allowed to overlap it; restart the
+app if the native completion never arrives.
 
 ## 2. Canonical ABProp names from native getter descriptors
 

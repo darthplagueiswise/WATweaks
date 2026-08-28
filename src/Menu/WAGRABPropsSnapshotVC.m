@@ -1,6 +1,7 @@
 #import "WAGRABPropsSnapshotVC.h"
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRABPropsNativeStore.h"
+#import "../Runtime/WAGRABPropsABTForceFull.h"
 #import "../Runtime/WAGRMobileConfigBridge.h"
 #import "../Runtime/WAGRMobileConfigInternalPreset.h"
 #import "../Runtime/WAGRLog.h"
@@ -180,11 +181,31 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
     self.fetchButton.enabled = NO;
     self.exportButton.enabled = NO;
 
-    NSString *before = self.snapshot.fingerprint ?: @"";
-    [self setStatus:@"Enviando IQ ABProps pelo pipeline nativo…" progress:0.08f busy:YES];
+    [self setStatus:@"ABT full: limpando configHash pelo par nativo…" progress:0.08f busy:YES];
 
     NSString *diagnostic = nil;
-    BOOL invoked = WAGRABPropsTriggerNativeFetch(self.userContext, &diagnostic);
+    __weak typeof(self) weakSelf = self;
+    BOOL invoked = WAGRABPropsABTLiveFetchForcedFull(self.userContext,
+        ^(NSDictionary<NSString *,id> *result) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            self.fetching = NO;
+            self.fetchButton.enabled = YES;
+            [self reloadLocalSnapshot];
+            self.exportButton.enabled = self.snapshot != nil;
+
+            NSDictionary *store = [result[@"store_confirmation"] isKindOfClass:NSDictionary.class]
+                ? result[@"store_confirmation"] : @{};
+            NSString *status = [NSString stringWithFormat:
+                @"ABT full %@ · completion=%@ · hash=%@ · %lu props · gabpΔ=%@ · %@",
+                [result[@"verified"] boolValue] ? @"VERIFICADO" : @"NÃO CONFIRMADO",
+                [result[@"native_completion_observed"] boolValue] ? @"YES" : @"NO",
+                [store[@"config_hash_refilled"] boolValue] ? @"REFILLED" : @"EMPTY",
+                (unsigned long)[store[@"effective_prop_count"] unsignedIntegerValue],
+                [store[@"fingerprint_changed"] boolValue] ? @"YES" : @"NO",
+                result[@"outcome"] ?: @"unknown"];
+            [self setStatus:status progress:1.0f busy:NO];
+        }, &diagnostic);
     if (!invoked) {
         self.fetching = NO;
         self.fetchButton.enabled = YES;
@@ -195,40 +216,8 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
         return;
     }
 
-    [self setStatus:@"Request ABProps enviado. Verificando se houve delta local…"
+    [self setStatus:diagnostic ?: @"ABT full enviado; aguardando completion e hash reposto pelo store…"
             progress:0.20f busy:YES];
-
-    __weak typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        BOOL changed = NO;
-        WAGRABPropsNativeSnapshot *latest = nil;
-        for (NSUInteger attempt = 0; attempt < 8; attempt++) {
-            [NSThread sleepForTimeInterval:0.5];
-            latest = WAGRABPropsReadNativeSnapshot(NULL);
-            NSString *fingerprint = latest.fingerprint ?: @"";
-            changed = fingerprint.length && ![fingerprint isEqualToString:before];
-            if (changed) break;
-        }
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            __strong typeof(weakSelf) self = weakSelf;
-            if (!self) return;
-            self.fetching = NO;
-            self.fetchButton.enabled = YES;
-            [self reloadLocalSnapshot];
-            self.exportButton.enabled = self.snapshot != nil;
-
-            if (changed) {
-                [self setStatus:[NSString stringWithFormat:
-                    @"Fetch enviado · cache atualizado · %lu ABProps",
-                    (unsigned long)self.snapshot.numericPropCount]
-                        progress:1.0f busy:NO];
-            } else {
-                [self setStatus:@"Fetch enviado · nenhum delta local observado"
-                        progress:1.0f busy:NO];
-            }
-        });
-    });
 }
 
 - (void)updateSearchResultsForSearchController:(__unused UISearchController *)searchController {
@@ -283,7 +272,7 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
 
 - (NSString *)tableView:(__unused UITableView *)tableView
  titleForFooterInSection:(__unused NSInteger)section {
-    return @"Fetch envia a consulta ABProps nativa. O fingerprint só muda quando o cache local recebe delta; fingerprint igual não significa falha de rede.";
+    return @"Fetch executa reset nativo do configHash e aguarda o completion do manager. Só mostra VERIFICADO quando o mesmo WAProperties volta com hash não vazio; o fingerprint é evidência secundária.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView

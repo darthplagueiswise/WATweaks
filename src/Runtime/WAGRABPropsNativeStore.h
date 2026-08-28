@@ -26,14 +26,6 @@ extern "C" {
 WAGRABPropsNativeSnapshot * _Nullable WAGRABPropsReadNativeSnapshot(
     NSError * _Nullable * _Nullable outError);
 
-/// Invokes WhatsApp's exact fresh-fetch entrypoint for the current build:
-/// -[XMPPConnectionABPropsRequestManager requestFreshABProps:NO withCompletion:].
-/// Returning YES proves dispatch through that exact Objective-C entrypoint. A
-/// changed gabp.*p fingerprint is separate evidence that a local cache delta was
-/// materialized; an unchanged fingerprint is not reported as a network failure.
-BOOL WAGRABPropsTriggerNativeFetch(id _Nullable userContext,
-                                   NSString * _Nullable * _Nullable diagnostic);
-
 /// Produces the portable JSON-ready v3 document from the native account cache.
 /// Each numeric ABProp is enriched, when available, with the canonical getter
 /// decoded from the current Mach-O and with WAMCEvaluation/MobileConfig metadata:

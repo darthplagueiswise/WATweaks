@@ -714,15 +714,3 @@ NSString *WAGRABPropsABTNativeBridgeDiagnosticText(void) {
     return data.length ? ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"")
                        : [document description];
 }
-
-__attribute__((constructor))
-static void WAGRABPropsABTNativeBridgeCtor(void) {
-    @autoreleasepool {
-        WAGRABTInstallHooks();
-        for (NSNumber *delay in @[@0.25, @0.75, @1.50, @3.00]) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                           (int64_t)(delay.doubleValue * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{ WAGRABTInstallHooks(); });
-        }
-    }
-}

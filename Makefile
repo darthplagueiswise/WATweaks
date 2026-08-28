@@ -54,6 +54,7 @@ CCFLAGS += -std=c++11
 before-all::
 	@python3 scripts/wagr_validate_sideload_hooks.py
 	@python3 scripts/wagr_validate_cold_start.py
+	@python3 scripts/wagr_validate_abprops_fetch.py
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 

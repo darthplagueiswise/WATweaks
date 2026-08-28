@@ -2,6 +2,8 @@
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsNativeStore.h"
+#import "../Runtime/WAGRABPropsABTForceFull.h"
+#import "../Runtime/WAGRABPropsABTLab.h"
 #import "../Runtime/WAGRABPropsStableIDResolver.h"
 #import "../Runtime/WAGRMobileConfigBridge.h"
 #import "../Runtime/WAGRMobileConfigUserSessionBridge.h"
@@ -253,7 +255,7 @@ static NSDictionary *WAGRDebugApplicationInfo(id context) {
         switch (indexPath.row) {
             case 0: return [self actionCell:tableView indexPath:indexPath title:@"Diagnóstico rápido" subtitle:@"Runtime WAAB + stable IDs + gabp + UserSession/ABIs; não varre o domínio MobileConfig inteiro." icon:@"bolt.fill"];
             case 1: return [self actionCell:tableView indexPath:indexPath title:@"Diagnóstico profundo" subtitle:@"Inclui WAMCEvaluation → UserSession crosswalk de todo o domínio validado do build." icon:@"waveform.path.ecg"];
-            case 2: return [self actionCell:tableView indexPath:indexPath title:@"Fetch ABProps e reler" subtitle:@"Invoca requestFreshABProps:withCompletion: e compara o fingerprint do gabp.*p." icon:@"arrow.triangle.2.circlepath"];
+            case 2: return [self actionCell:tableView indexPath:indexPath title:@"Fetch ABProps ABT Full" subtitle:@"Usa resetConfigHashToEmptyString → requestFreshABProps:NO e só confirma sucesso quando o hash da conta é reposto pelo handler/store; sem hook de request." icon:@"arrow.triangle.2.circlepath"];
             case 3: return [self actionCell:tableView indexPath:indexPath title:@"Copiar JSON" subtitle:@"Copia o último relatório gerado para a área de transferência." icon:@"doc.on.doc"];
             default:return [self actionCell:tableView indexPath:indexPath title:@"Compartilhar JSON" subtitle:@"Cria watweaks_debug_runtime.json para enviar aqui." icon:@"square.and.arrow.up"];
         }
@@ -333,6 +335,8 @@ static NSDictionary *WAGRDebugApplicationInfo(id context) {
         @"stable_id_resolver": WAGRABPropsStableIDResolverStats() ?: @{},
         @"abprops_native_cache": WAGRDebugNativeSnapshotDocument(snapshot),
         @"abprops_native_diagnostic": WAGRABPropsNativeDiagnosticText() ?: @"",
+        @"abprops_abt_force_full": WAGRABPropsABTForceFullDocument() ?: @{},
+        @"abprops_abt_runtime_lab": WAGRABPropsABTLabDocument(context) ?: @{},
         @"mobileconfig_live_capture": liveMC ?: @{},
         @"mobileconfig_bridge_diagnostic": WAGRMobileConfigDiagnosticText() ?: @"",
         @"mobileconfig_overrides_path": WAGRMobileConfigOverridesPath(context) ?: (id)NSNull.null,
@@ -413,33 +417,32 @@ static NSDictionary *WAGRDebugApplicationInfo(id context) {
 
 - (void)fetchABProps {
     if (self.working) return;
-    WAGRABPropsNativeSnapshot *before = WAGRABPropsReadNativeSnapshot(NULL);
-    NSString *beforeFingerprint = before.fingerprint ?: @"";
     NSString *diagnostic = nil;
-    BOOL invoked = WAGRABPropsTriggerNativeFetch(WAGRCurrentUserContext(), &diagnostic);
+    __weak typeof(self) weakSelf = self;
+    BOOL invoked = WAGRABPropsABTLiveFetchForcedFull(WAGRCurrentUserContext(),
+        ^(NSDictionary<NSString *,id> *result) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            NSMutableDictionary *document = [self.document mutableCopy] ?: [NSMutableDictionary dictionary];
+            document[@"abprops_abt_force_full"] = result ?: @{};
+            self.document = document;
+            NSDictionary *store = [result[@"store_confirmation"] isKindOfClass:NSDictionary.class]
+                ? result[@"store_confirmation"] : @{};
+            NSString *status = [NSString stringWithFormat:
+                @"ABT full %@ · completion=%@ · hash=%@ · props=%@ · gabpΔ=%@ · %@",
+                [result[@"verified"] boolValue] ? @"VERIFICADO" : @"NÃO CONFIRMADO",
+                [result[@"native_completion_observed"] boolValue] ? @"YES" : @"NO",
+                [store[@"config_hash_refilled"] boolValue] ? @"REFILLED" : @"EMPTY",
+                store[@"effective_prop_count"] ?: @0,
+                [store[@"fingerprint_changed"] boolValue] ? @"YES" : @"NO",
+                result[@"outcome"] ?: @"unknown"];
+            [self setWorkingStatus:status working:NO];
+        }, &diagnostic);
     if (!invoked) {
         [self showSimpleAlert:@"ABProps Fetch" message:diagnostic ?: @"requestFreshABProps não foi invocado."];
         return;
     }
-    [self setWorkingStatus:diagnostic ?: @"Fetch enviado; aguardando gabp…" working:YES];
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        BOOL changed = NO;
-        WAGRABPropsNativeSnapshot *latest = nil;
-        for (NSUInteger attempt = 0; attempt < 10; attempt++) {
-            [NSThread sleepForTimeInterval:0.5];
-            latest = WAGRABPropsReadNativeSnapshot(NULL);
-            if (latest.fingerprint.length && ![latest.fingerprint isEqualToString:beforeFingerprint]) {
-                changed = YES;
-                break;
-            }
-        }
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self setWorkingStatus:changed
-                ? @"Fetch enviado e o fingerprint gabp mudou. Gere novo diagnóstico para exportar o delta."
-                : @"Fetch enviado; nenhum delta gabp foi observado em 5 s. Isso não equivale a falha de rede."
-                              working:NO];
-        });
-    });
+    [self setWorkingStatus:diagnostic ?: @"ABT full enviado; aguardando completion e hash da conta…" working:YES];
 }
 
 - (void)showSimpleAlert:(NSString *)title message:(NSString *)message {

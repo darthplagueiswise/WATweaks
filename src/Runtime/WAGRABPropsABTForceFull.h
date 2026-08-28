@@ -9,16 +9,16 @@ NS_ASSUME_NONNULL_BEGIN
 extern "C" {
 #endif
 
-/// Runs the correlated ABT transaction while forcing the concrete
-/// XMPPRequestABProperties constructor to receive configHash=nil and
-/// refreshID=nil. This keeps WhatsApp's native request/decoder/store pipeline,
-/// but removes the two cache validators that allow the server to answer with a
-/// successful zero-prop no-change response.
+/// Runs a hook-free, account-scoped native full-fetch transaction. It invokes
+/// the active -[WAProperties resetConfigHashToEmptyString] pair and then calls
+/// -[XMPPConnectionABPropsRequestManager requestFreshABProps:NO ...]. Success is
+/// reported only when native completion fires and that exact WAProperties
+/// object has a non-empty configHash again; dispatch alone is not success.
 BOOL WAGRABPropsABTLiveFetchForcedFull(id _Nullable userContext,
                                        WAGRABPropsABTLiveCompletion _Nullable completion,
                                        NSString * _Nullable * _Nullable diagnostic);
 
-/// Runtime evidence for the forced-full constructor bridge.
+/// Runtime evidence and the latest transactional result.
 NSDictionary<NSString *, id> *WAGRABPropsABTForceFullDocument(void);
 
 #ifdef __cplusplus

@@ -1,6 +1,7 @@
 #import "WAGRABPropsRootVC.h"
 #import "WAGRABPropsBrowserVC.h"
 #import "WAGRABPropsSnapshotVC.h"
+#import "WAGRABPropsABTLabVC.h"
 #import "WAGRRuntimeGatesVC.h"
 #import "WAGRLogViewController.h"
 #import "WAGRMenuTheme.h"
@@ -155,6 +156,7 @@ static id WAGRABRootPrimeUserContext(void) {
 
 typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
     WAGRABPropsActionNativeSnapshot = 0,
+    WAGRABPropsActionABTRuntimeLab,
     WAGRABPropsActionLiveBrowser,
     WAGRABPropsActionRuntimeFamilies,
     WAGRABPropsActionPrivateExperimentation,
@@ -222,6 +224,11 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
                                 icon:@"arrow.triangle.2.circlepath"
                            accentKey:@"waab-native-snapshot"
                               action:WAGRABPropsActionNativeSnapshot],
+        [WAGRABPropsRow rowWithTitle:@"ABT Runtime Lab"
+                              detail:@"Preflight e quatro variantes do namespace abt: hash atual, refreshID, full sem validadores e full com hash vazio; retries, handler/store, matriz, histórico e JSON."
+                                icon:@"testtube.2"
+                           accentKey:@"abt-runtime-lab"
+                              action:WAGRABPropsActionABTRuntimeLab],
         [WAGRABPropsRow rowWithTitle:@"WAABProperties ao vivo"
                               detail:@"Enumera agora os getters anexados a WAABProperties e providers concretos; não usa catálogo JSON."
                                 icon:@"switch.2"
@@ -301,6 +308,13 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
         case WAGRABPropsActionNativeSnapshot: {
             id context = WAGRABRootPrimeUserContext();
             WAGRABPropsSnapshotVC *controller = [[WAGRABPropsSnapshotVC alloc]
+                initWithUserContext:context];
+            [self.navigationController pushViewController:controller animated:YES];
+            return;
+        }
+        case WAGRABPropsActionABTRuntimeLab: {
+            id context = WAGRABRootPrimeUserContext();
+            WAGRABPropsABTLabVC *controller = [[WAGRABPropsABTLabVC alloc]
                 initWithUserContext:context];
             [self.navigationController pushViewController:controller animated:YES];
             return;

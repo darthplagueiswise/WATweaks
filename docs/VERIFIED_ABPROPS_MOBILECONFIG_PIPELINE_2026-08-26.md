@@ -38,6 +38,9 @@ group.net.whatsapp.WhatsApp.shared preferences domain
 
 Do **not** treat `gabp.*p/c` as WATweaks' persistent override database. It is WhatsApp's server-backed ABProps cache/state and is allowed to be refreshed or replaced by the app.
 
+The completed selector/IMP reconstruction and the hook-free full-fetch design
+are recorded in `ABPROPS_IOS_DISASSEMBLY_2026-08-28.md`.
+
 The current static analysis does not claim that `requestFreshABProps:` itself is the final physical-plist writer. The request flows through WAProperties/store abstractions first; preferences/cfprefsd may materialize the file.
 
 ## 2. ABProp → MobileConfig translation
@@ -79,7 +82,7 @@ The previously decoded paramSpecifier fields remain useful for diagnostics (incl
 
 ## 3. Native override bridge
 
-The current `WhatsApp` executable contains:
+The current `WhatsApp` executable contains the following release scaffolds:
 
 - `WAMobileConfigABPropsOverridesSync`
   - `syncABPropsOverridesToMCWithUserContext:`
@@ -87,7 +90,17 @@ The current `WhatsApp` executable contains:
 - `debugABPropsOverrider`
 - `abpropEnabledOverride`
 
-This is evidence of a native ABProps-debug-override ↔ MobileConfig synchronization layer. It supports using MobileConfig as the persistent override path rather than installing one swizzle for every generated `WAABProperties` getter.
+In this exact build, `syncABPropsOverridesToMCWithUserContext:` resolves to a
+zero-return stub, `overriddenStableIdsWithUserContext:` returns an empty array,
+and `resetAllOverriddenABProps` is `ret`. They are evidence of a disabled native
+surface, not an active synchronization implementation.
+
+The active `WAMCEvaluation → FBMobileConfigStartupConfigs → UserSession
+invalidation/forceRefreshOfConfig:` components are candidates for the separate
+MobileConfig checkpoint. The ABT checkpoint does not claim that the disabled
+sync scaffold has been made end-to-end functional. It also must not inline-patch
+the signed executable or call the C++ `setOverrides:(shared_ptr)` ABI as if it
+were an Objective-C object.
 
 Do not call undocumented native methods merely because the selector exists. Resolve the object/method kind and Objective-C ABI first, then validate readback.
 

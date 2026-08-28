@@ -57,13 +57,6 @@ static BOOL WAGRABMethodReturnsObject(Method method) {
     return WAGRABSkipQualifiers(raw)[0] == '@';
 }
 
-static BOOL WAGRABMethodReturnsVoid(Method method) {
-    if (!method) return NO;
-    char raw[64] = {0};
-    method_getReturnType(method, raw, sizeof(raw));
-    return WAGRABSkipQualifiers(raw)[0] == 'v';
-}
-
 static BOOL WAGRABMethodReturnsInteger(Method method) {
     if (!method) return NO;
     char raw[64] = {0};
@@ -97,21 +90,6 @@ static BOOL WAGRABMethodWordReturn(Method method) {
     @try { NSGetSizeAndAlignment(type, &size, &alignment); }
     @catch (__unused NSException *exception) { return NO; }
     return size > 0 && size <= sizeof(uint64_t);
-}
-
-static BOOL WAGRABArgumentIsObject(Method method, unsigned int index) {
-    if (!method || index >= method_getNumberOfArguments(method)) return NO;
-    char raw[64] = {0};
-    method_getArgumentType(method, index, raw, sizeof(raw));
-    return WAGRABSkipQualifiers(raw)[0] == '@';
-}
-
-static BOOL WAGRABArgumentIsBool(Method method, unsigned int index) {
-    if (!method || index >= method_getNumberOfArguments(method)) return NO;
-    char raw[64] = {0};
-    method_getArgumentType(method, index, raw, sizeof(raw));
-    char t = WAGRABSkipQualifiers(raw)[0];
-    return t == 'B' || t == 'c' || t == 'C';
 }
 
 static id WAGRABCallObjectNoArg(id target, NSString *selectorName) {
@@ -575,108 +553,4 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeS
         },
         @"entries" : entries,
     };
-}
-
-#pragma mark - Exact native fetch, no inline hooks
-
-static BOOL WAGRABObjectCanFreshFetch(id object) {
-    if (!object) return NO;
-    SEL selector = NSSelectorFromString(@"requestFreshABProps:withCompletion:");
-    Method method = class_getInstanceMethod([object class], selector);
-    return method && method_getNumberOfArguments(method) == 4 &&
-           WAGRABMethodReturnsVoid(method) &&
-           WAGRABArgumentIsBool(method, 2) &&
-           WAGRABArgumentIsObject(method, 3);
-}
-
-static id WAGRABFindExactRequestManager(id root, NSMutableSet<NSValue *> *visited, NSUInteger depth) {
-    if (!root || depth > 5) return nil;
-    if (WAGRABObjectCanFreshFetch(root)) return root;
-
-    NSValue *identity = [NSValue valueWithNonretainedObject:root];
-    if ([visited containsObject:identity]) return nil;
-    [visited addObject:identity];
-
-    for (NSString *selectorName in @[
-        @"xmppConnectionABPropsRequestManager",
-        @"abPropsRequestManager",
-        @"abPropertiesRequestManager",
-        @"xmppConnection",
-        @"connection",
-        @"userContext"
-    ]) {
-        id child = WAGRABCallObjectNoArg(root, selectorName);
-        if (!child || child == root) continue;
-        id found = WAGRABFindExactRequestManager(child, visited, depth + 1);
-        if (found) return found;
-    }
-
-    for (Class current = [root class]; current && current != NSObject.class; current = class_getSuperclass(current)) {
-        unsigned int count = 0;
-        Ivar *ivars = class_copyIvarList(current, &count);
-        for (unsigned int index = 0; index < count; index++) {
-            Ivar ivar = ivars[index];
-            const char *rawType = ivar_getTypeEncoding(ivar);
-            const char *rawName = ivar_getName(ivar);
-            if (!rawType || !rawName || WAGRABSkipQualifiers(rawType)[0] != '@') continue;
-            NSString *name = [[NSString stringWithUTF8String:rawName] lowercaseString] ?: @"";
-            BOOL interesting = [name containsString:@"abprop"] ||
-                               [name containsString:@"request"] ||
-                               [name containsString:@"xmpp"] ||
-                               [name containsString:@"connection"];
-            if (!interesting) continue;
-            id child = nil;
-            @try { child = object_getIvar(root, ivar); }
-            @catch (__unused NSException *exception) { child = nil; }
-            if (!child || child == root) continue;
-            id found = WAGRABFindExactRequestManager(child, visited, depth + 1);
-            if (found) { free(ivars); return found; }
-        }
-        free(ivars);
-    }
-    return nil;
-}
-
-BOOL WAGRABPropsTriggerNativeFetch(id userContext, NSString **diagnostic) {
-    id context = userContext ?: WAGRCurrentUserContext();
-    NSMutableSet<NSValue *> *visited = [NSMutableSet set];
-    id manager = WAGRABFindExactRequestManager(context, visited, 0);
-    if (!manager) {
-        NSString *text = @"exact XMPPConnectionABPropsRequestManager not resolved; no heuristic fetch/sync method was invoked";
-        WAGRABNativeSetDiagnostic(text);
-        if (diagnostic) *diagnostic = text;
-        return NO;
-    }
-
-    SEL selector = NSSelectorFromString(@"requestFreshABProps:withCompletion:");
-    Method method = class_getInstanceMethod([manager class], selector);
-    if (!method || method_getNumberOfArguments(method) != 4 ||
-        !WAGRABMethodReturnsVoid(method) ||
-        !WAGRABArgumentIsBool(method, 2) || !WAGRABArgumentIsObject(method, 3)) {
-        NSString *text = @"requestFreshABProps:withCompletion: exists with an unexpected ABI; request not sent";
-        WAGRABNativeSetDiagnostic(text);
-        if (diagnostic) *diagnostic = text;
-        return NO;
-    }
-
-    void (^completion)(void) = ^{
-        WAGRLogAppend(@"[ABProps][FetchV2] native completion invoked");
-    };
-
-    @try {
-        ((void (*)(id, SEL, BOOL, id))objc_msgSend)(manager, selector, NO, completion);
-    } @catch (NSException *exception) {
-        NSString *text = [NSString stringWithFormat:@"requestFreshABProps:NO threw %@",
-                          exception.reason ?: @"exception"];
-        WAGRABNativeSetDiagnostic(text);
-        if (diagnostic) *diagnostic = text;
-        return NO;
-    }
-
-    NSString *text = [NSString stringWithFormat:
-        @"exact request sent via -[%@ requestFreshABProps:NO withCompletion:]",
-        NSStringFromClass([manager class]) ?: @"XMPPConnectionABPropsRequestManager"];
-    WAGRABNativeSetDiagnostic(text);
-    if (diagnostic) *diagnostic = text;
-    return YES;
 }

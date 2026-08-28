@@ -1,276 +1,449 @@
 #import "WAGRABPropsABTForceFull.h"
+#import "WAGRABPropsABTTransactionGate.h"
 #import "WAGRABPropsNativeStore.h"
+#import "WAGRUserContextLinkage.h"
 #import "WAGRLog.h"
 
+#import <objc/message.h>
 #import <objc/runtime.h>
 #include <string.h>
 
-static NSString * const kRequestClassName = @"XMPPRequestABProperties";
-static NSString * const kRequestInitSelector = @"initWithUserContext:groupJID:configHash:refreshID:completion:";
-static const char *kRequestInitEncoding = "@56@0:8@16@24@32@40@?48";
+// The supplied SharedModules(5) contains a complete, active full-fetch route:
+//
+//   WAProperties.resetConfigHashToEmptyString
+//     -> WAPropertiesStore.resetConfigHashToEmptyString
+//     -> XMPPConnectionABPropsRequestManager.requestFreshABProps:NO
+//     -> WAABPropsRequestBuilder reads configHash == @"" and refreshID == nil
+//     -> native response handler replaces WAPropertiesStore and refills hash
+//
+// This implementation deliberately does not hook XMPPRequestABProperties (or
+// any other request class). The empty hash is an intentional native state and
+// the post-completion hash refill is the account-scoped proof that the handler
+// applied a server response. A changed gabp fingerprint is useful secondary
+// evidence, but is not required when a full response contains identical props.
 
-typedef id (*WAGRABPropsRequestInitIMP)(id, SEL, id, id, id, id, id);
-static WAGRABPropsRequestInitIMP gOriginalRequestInit = NULL;
+static NSString * const kManagerSelector = @"requestFreshABProps:withCompletion:";
+static NSString * const kResetHashSelector = @"resetConfigHashToEmptyString";
+static NSString * const kConfigHashSelector = @"configHash";
+static NSString * const kRefreshIDSelector = @"refreshID";
+
+static const char *kManagerEncoding = "v28@0:8B16@?20";
+static const char *kResetHashEncoding = "v16@0:8";
+static const char *kObjectNoArgEncoding = "@16@0:8";
 
 static NSObject *gForceLock;
-static BOOL gForceHookInstalled = NO;
-static BOOL gForceArmed = NO;
-static BOOL gForceApplied = NO;
-static NSTimeInterval gForceArmTime = 0;
-static NSString *gForceTransactionToken;
+static NSString *gPendingToken;
 static NSDictionary<NSString *, id> *gForceDocument;
 
-static void EnsureForceState(void) {
+static void EnsureState(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         gForceLock = [NSObject new];
         gForceDocument = @{
-            @"schema": @"watweaks_abprops_abt_force_full_v1",
+            @"schema": @"watweaks_abprops_abt_force_full_v2",
+            @"outcome": @"not_run",
             @"hook_installed": @NO,
-            @"armed": @NO,
-            @"applied": @NO,
-            @"outcome": @"not_run"
+            @"pending": @NO
         };
     });
+}
+
+static NSTimeInterval Now(void) {
+    return NSDate.date.timeIntervalSince1970;
 }
 
 static NSString *ClassName(id object) {
     return object ? (NSStringFromClass([object class]) ?: @"?") : @"nil";
 }
 
-static id CompactValue(id value) {
-    if (!value) return NSNull.null;
-    if ([value isKindOfClass:NSString.class]) {
-        NSString *string = value;
-        if (string.length <= 160) return string;
-        return [[string substringToIndex:160] stringByAppendingString:@"…"];
-    }
-    if ([value isKindOfClass:NSNumber.class]) return value;
-    return @{ @"class": ClassName(value), @"description": [[value description] ?: @"" substringToIndex:MIN((NSUInteger)160, [[value description] ?: @"" length])] };
+static NSString *MethodEncoding(Class cls, NSString *selectorName) {
+    Method method = cls ? class_getInstanceMethod(cls, NSSelectorFromString(selectorName)) : NULL;
+    const char *encoding = method ? method_getTypeEncoding(method) : NULL;
+    return encoding ? ([NSString stringWithUTF8String:encoding] ?: @"") : @"";
 }
 
-static NSString *MethodEncoding(Class cls, SEL selector) {
-    Method method = cls ? class_getInstanceMethod(cls, selector) : NULL;
-    const char *raw = method ? method_getTypeEncoding(method) : NULL;
-    return raw ? ([NSString stringWithUTF8String:raw] ?: @"") : @"";
-}
-
-static BOOL ExactEncoding(Method method, const char *expected) {
+static BOOL MethodHasExactEncoding(id object, NSString *selectorName, const char *expected) {
+    if (!object || !selectorName.length || !expected) return NO;
+    Method method = class_getInstanceMethod([object class], NSSelectorFromString(selectorName));
     const char *actual = method ? method_getTypeEncoding(method) : NULL;
-    return actual && expected && strcmp(actual, expected) == 0;
+    return actual && strcmp(actual, expected) == 0;
 }
 
-static BOOL LiveServiceShowsOurExplicitRequest(NSString **tokenOut) {
-    NSDictionary *document = WAGRABPropsABTLiveServiceDocument();
-    if (![document isKindOfClass:NSDictionary.class]) return NO;
-    if (![document[@"outcome"] isEqual:@"pending"]) return NO;
-    if (![document[@"lower_request_entered"] boolValue]) return NO;
-    NSDictionary *request = [document[@"request"] isKindOfClass:NSDictionary.class] ? document[@"request"] : nil;
-    if (!request) return NO;
-    if ([request[@"delta_update_requested"] boolValue]) return NO;
-    NSString *token = [request[@"token"] isKindOfClass:NSString.class] ? request[@"token"] : nil;
-    if (!token.length) return NO;
-    if (tokenOut) *tokenOut = token;
-    return YES;
+static id CallObjectNoArg(id target, NSString *selectorName) {
+    if (!MethodHasExactEncoding(target, selectorName, kObjectNoArgEncoding)) return nil;
+    @try {
+        return ((id (*)(id, SEL))objc_msgSend)(target, NSSelectorFromString(selectorName));
+    } @catch (__unused NSException *exception) {
+        return nil;
+    }
 }
 
-static id ForceFullRequestInitHook(id self, SEL _cmd,
-                                   id userContext,
-                                   id groupJID,
-                                   id configHash,
-                                   id refreshID,
-                                   id completion) {
-    BOOL shouldForce = NO;
-    NSString *token = nil;
-    EnsureForceState();
+static id JSONValue(id value) {
+    if (!value) return NSNull.null;
+    if ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSNumber.class]) return value;
+    NSString *description = nil;
+    @try { description = [value description]; } @catch (__unused NSException *exception) {}
+    if (description.length > 160) description = [[description substringToIndex:160] stringByAppendingString:@"…"];
+    return @{ @"class": ClassName(value), @"description": description ?: @"" };
+}
 
+static NSString *HashString(id value) {
+    return [value isKindOfClass:NSString.class] ? value : nil;
+}
+
+static NSDictionary *SnapshotSummary(WAGRABPropsNativeSnapshot *snapshot) {
+    if (!snapshot) return @{ @"available": @NO };
+    return @{
+        @"available": @YES,
+        @"prop_count": @(snapshot.numericPropCount),
+        @"fingerprint": snapshot.fingerprint ?: @"",
+        @"payload_key": snapshot.payloadKey.length ? @"gabp.<account>p" : @""
+    };
+}
+
+static id ResolveLiveManager(id context, NSString **route) {
+    if (!context) return nil;
+
+    // This is the exact ownership route observed in this build. There is no
+    // graph walk and no invocation of look-alike fetch/sync selectors.
+    id manager = CallObjectNoArg(context, @"xmppConnectionABPropsRequestManager");
+    if (MethodHasExactEncoding(manager, kManagerSelector, kManagerEncoding)) {
+        if (route) *route = @"context.xmppConnectionABPropsRequestManager";
+        return manager;
+    }
+
+    id provider = CallObjectNoArg(context, @"networkingDependencyProvider");
+    if (!provider) provider = CallObjectNoArg(context, @"networking");
+    id connection = CallObjectNoArg(provider, @"xmppConnection");
+    if (!connection) connection = CallObjectNoArg(context, @"xmppConnection");
+
+    manager = CallObjectNoArg(connection, @"xmppConnectionABPropsRequestManager");
+    if (!manager) manager = CallObjectNoArg(provider, @"xmppConnectionABPropsRequestManager");
+    if (MethodHasExactEncoding(manager, kManagerSelector, kManagerEncoding)) {
+        if (route) {
+            *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ manager=%@",
+                ClassName(context), ClassName(provider), ClassName(connection), ClassName(manager)];
+        }
+        return manager;
+    }
+
+    if (route) {
+        *route = [NSString stringWithFormat:@"context=%@ provider=%@ connection=%@ manager=nil",
+            ClassName(context), ClassName(provider), ClassName(connection)];
+    }
+    return nil;
+}
+
+static id ResolvePersonalABProperties(id context, NSString **diagnostic) {
+    // WAABPropsRequestBuilder at 0x003f5838 obtains userContext and, for a nil
+    // group JID, calls exactly -abProperties at 0x003f5858. Resolve that same
+    // object so the hash we clear is the hash the builder will read.
+    id properties = CallObjectNoArg(context, @"abProperties");
+    if (!properties) {
+        if (diagnostic) *diagnostic = @"userContext.abProperties did not resolve";
+        return nil;
+    }
+    if (!MethodHasExactEncoding(properties, kResetHashSelector, kResetHashEncoding) ||
+        !MethodHasExactEncoding(properties, kConfigHashSelector, kObjectNoArgEncoding) ||
+        !MethodHasExactEncoding(properties, kRefreshIDSelector, kObjectNoArgEncoding)) {
+        if (diagnostic) {
+            *diagnostic = [NSString stringWithFormat:
+                @"%@ ABProps ABI mismatch: reset=%@ hash=%@ refreshID=%@",
+                ClassName(properties),
+                MethodEncoding([properties class], kResetHashSelector),
+                MethodEncoding([properties class], kConfigHashSelector),
+                MethodEncoding([properties class], kRefreshIDSelector)];
+        }
+        return nil;
+    }
+    return properties;
+}
+
+static NSDictionary *BinaryEvidence(void) {
+    return @{
+        @"sharedmodules_sha256": @"f0edef076c68d7f1f872401d774789a2cb3f50be5c96773a2d8ed763ed3015a7",
+        @"requestFreshABProps_thunk": @"0x003f55f8",
+        @"request_manager_full_path": @"0x003e5bf8",
+        @"request_builder": @"0x003f5820",
+        @"wa_properties_hash_reset": @"0x021db9a8",
+        @"wa_properties_store_hash_reset": @"0x0214f72c",
+        @"response_handler": @"0x003fee38",
+        @"full_store_update_callsite": @"0x003ff0d0",
+        @"delta_store_update_callsite": @"0x003ff0e0",
+        @"wire_rule": @"deltaUpdate=NO reads configHash and sets refreshID=nil"
+    };
+}
+
+static void PublishDocument(NSDictionary *document) {
+    EnsureState();
     @synchronized (gForceLock) {
-        if (gForceArmed && !gForceApplied && groupJID == nil) {
-            shouldForce = LiveServiceShowsOurExplicitRequest(&token);
-            if (shouldForce) {
-                gForceApplied = YES;
-                gForceArmed = NO;
-                gForceTransactionToken = token;
-                NSMutableDictionary *doc = [gForceDocument mutableCopy] ?: [NSMutableDictionary dictionary];
-                doc[@"hook_installed"] = @YES;
-                doc[@"armed"] = @NO;
-                doc[@"applied"] = @YES;
-                doc[@"outcome"] = @"validators_stripped_before_native_request_init";
-                doc[@"transaction_token"] = token ?: @"";
-                doc[@"applied_time"] = @([NSDate date].timeIntervalSince1970);
-                doc[@"constructor"] = @{
-                    @"class": kRequestClassName,
-                    @"selector": kRequestInitSelector,
-                    @"encoding": MethodEncoding([self class], _cmd),
-                    @"group_jid": NSNull.null,
-                    @"original_config_hash": CompactValue(configHash),
-                    @"original_refresh_id": CompactValue(refreshID),
-                    @"forwarded_config_hash": NSNull.null,
-                    @"forwarded_refresh_id": NSNull.null
-                };
-                gForceDocument = doc;
-            }
+        gForceDocument = [document copy] ?: @{};
+    }
+}
+
+static void MarkLateNativeCompletion(NSString *token) {
+    EnsureState();
+    NSDictionary *gateDocument = WAGRABPropsABTTransactionGateDocument();
+    @synchronized (gForceLock) {
+        if (![gForceDocument[@"token"] isEqualToString:token] ||
+            ![gForceDocument[@"gate_quarantined_until_native_completion"] boolValue]) return;
+        NSMutableDictionary *document = [gForceDocument mutableCopy];
+        document[@"late_native_completion_observed"] = @YES;
+        document[@"gate_quarantined_until_native_completion"] = @NO;
+        document[@"gate_quarantine_released_time"] = @(Now());
+        document[@"transaction_gate_after_late_completion"] = gateDocument;
+        gForceDocument = [document copy];
+    }
+    WAGRLogAppendF(@"[ABProps][ABTForceFull] late native completion released gate token=%@",
+                   token ?: @"?");
+}
+
+static void FinishTransaction(NSString *token,
+                              id properties,
+                              WAGRABPropsNativeSnapshot *before,
+                              BOOL nativeCompletionObserved,
+                              WAGRABPropsABTLiveCompletion completion) {
+    EnsureState();
+    @synchronized (gForceLock) {
+        if (![gPendingToken isEqualToString:token]) return;
+        gPendingToken = nil;
+    }
+    id directHashValue = CallObjectNoArg(properties, kConfigHashSelector);
+    NSString *directHash = HashString(directHashValue);
+    id directRefreshID = CallObjectNoArg(properties, kRefreshIDSelector);
+    WAGRABPropsNativeSnapshot *after = WAGRABPropsReadNativeSnapshot(NULL);
+    BOOL hashRefilled = directHash.length > 0;
+    BOOL fingerprintChanged = before && after && after.fingerprint.length &&
+        ![after.fingerprint isEqualToString:(before.fingerprint ?: @"")];
+    NSString *outcome = nativeCompletionObserved
+        ? (hashRefilled ? @"verified_native_completion_hash_refilled" : @"native_completion_without_refilled_hash")
+        : @"timeout_waiting_native_completion";
+
+    NSDictionary *storeConfirmation = @{
+        @"verified": @(nativeCompletionObserved && hashRefilled),
+        @"native_completion_observed": @(nativeCompletionObserved),
+        @"config_hash_refilled": @(hashRefilled),
+        @"config_hash": JSONValue(directHashValue),
+        @"refresh_id": JSONValue(directRefreshID),
+        @"fingerprint_changed": @(fingerprintChanged),
+        @"effective_prop_count": @(after.numericPropCount),
+        @"after": SnapshotSummary(after)
+    };
+
+    if (nativeCompletionObserved) WAGRABPropsABTTransactionRelease(token);
+    NSDictionary *gateAfterFinish = WAGRABPropsABTTransactionGateDocument();
+    NSString *interpretation = nil;
+    if (!nativeCompletionObserved) {
+        interpretation = @"The native retry pipeline did not complete within 45 seconds. The ABT gate remains quarantined until its late completion; restart WhatsApp if it never arrives. No new ABT transaction is allowed to overlap it.";
+    } else if (hashRefilled) {
+        interpretation = @"The exact account WAProperties hash was emptied before dispatch and was non-empty when checked after native completion. This verifies the hook-free postcondition, not direct wire/handler observation; use ABT Runtime Lab for that proof.";
+    } else {
+        interpretation = @"Dispatch/completion alone is not reported as success because the exact account WAProperties hash was not refilled.";
+    }
+    NSDictionary *result = @{
+        @"schema": @"watweaks_abprops_abt_force_full_v2",
+        @"outcome": outcome,
+        @"token": token ?: @"",
+        @"hook_installed": @NO,
+        @"pending": @NO,
+        @"native_completion_observed": @(nativeCompletionObserved),
+        @"gate_quarantined_until_native_completion": @(!nativeCompletionObserved),
+        @"validator_reset_confirmed": @YES,
+        @"verified": @(nativeCompletionObserved && hashRefilled),
+        @"wire_response_observed": @NO,
+        @"request_mode": @"native_hash_reset_then_regular_request",
+        @"effective_prop_count": @(after.numericPropCount),
+        @"store_confirmation": storeConfirmation,
+        @"before_store": SnapshotSummary(before),
+        @"completed_time": @(Now()),
+        @"binary_evidence": BinaryEvidence(),
+        @"transaction_gate_after_finish": gateAfterFinish,
+        @"interpretation": interpretation
+    };
+    PublishDocument(result);
+    WAGRLogAppendF(@"[ABProps][ABTForceFull] token=%@ outcome=%@ hashRefilled=%@ props=%lu fingerprintChanged=%@",
+                   token ?: @"?", outcome, hashRefilled ? @"YES" : @"NO",
+                   (unsigned long)after.numericPropCount, fingerprintChanged ? @"YES" : @"NO");
+    if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(result); });
+}
+
+static void FailReservedTransaction(NSString *token, NSDictionary *document) {
+    EnsureState();
+    BOOL reserved = NO;
+    @synchronized (gForceLock) {
+        if ([gPendingToken isEqualToString:token]) {
+            gPendingToken = nil;
+            gForceDocument = [document copy] ?: @{};
+            reserved = YES;
         }
     }
-
-    if (shouldForce) {
-        WAGRLogAppendF(@"[ABProps][ABTForceFull] token=%@ stripped configHash=%@ refreshID=%@",
-                       token ?: @"?", CompactValue(configHash), CompactValue(refreshID));
-        return gOriginalRequestInit
-            ? gOriginalRequestInit(self, _cmd, userContext, groupJID, nil, nil, completion)
-            : nil;
-    }
-
-    return gOriginalRequestInit
-        ? gOriginalRequestInit(self, _cmd, userContext, groupJID, configHash, refreshID, completion)
-        : nil;
-}
-
-static BOOL InstallForceHook(void) {
-    EnsureForceState();
-    if (gForceHookInstalled) return YES;
-
-    Class cls = NSClassFromString(kRequestClassName) ?: objc_getClass(kRequestClassName.UTF8String);
-    SEL selector = NSSelectorFromString(kRequestInitSelector);
-    Method method = cls ? class_getInstanceMethod(cls, selector) : NULL;
-    if (!ExactEncoding(method, kRequestInitEncoding)) {
-        @synchronized (gForceLock) {
-            gForceDocument = @{
-                @"schema": @"watweaks_abprops_abt_force_full_v1",
-                @"hook_installed": @NO,
-                @"armed": @NO,
-                @"applied": @NO,
-                @"outcome": @"constructor_abi_mismatch",
-                @"expected_encoding": [NSString stringWithUTF8String:kRequestInitEncoding],
-                @"actual_encoding": cls ? MethodEncoding(cls, selector) : @"class_unavailable"
-            };
-        }
-        return NO;
-    }
-
-    IMP current = method_getImplementation(method);
-    if (!current) return NO;
-    if (current != (IMP)ForceFullRequestInitHook) {
-        gOriginalRequestInit = (WAGRABPropsRequestInitIMP)current;
-        method_setImplementation(method, (IMP)ForceFullRequestInitHook);
-    }
-    gForceHookInstalled = YES;
-
-    @synchronized (gForceLock) {
-        gForceDocument = @{
-            @"schema": @"watweaks_abprops_abt_force_full_v1",
-            @"hook_installed": @YES,
-            @"armed": @NO,
-            @"applied": @NO,
-            @"outcome": @"ready",
-            @"constructor_class": kRequestClassName,
-            @"constructor_selector": kRequestInitSelector,
-            @"constructor_encoding": MethodEncoding(cls, selector),
-            @"binary_evidence": @{
-                @"initializer_va": @"0x003f58ec",
-                @"config_hash_register": @"x4 -> x21",
-                @"refresh_id_register": @"x5 -> x22",
-                @"nil_config_hash_branch": @"cbz x21 @ 0x003f59a4",
-                @"nil_refresh_id_branch": @"cbz x22 @ 0x003f59b4",
-                @"interpretation": @"nil is an explicitly supported constructor path; each validator is conditionally omitted"
-            }
-        };
-    }
-    WAGRLogAppendF(@"[ABProps][ABTForceFull] exact constructor hook installed %@",
-                   MethodEncoding(cls, selector));
-    return YES;
+    if (reserved) WAGRABPropsABTTransactionRelease(token);
 }
 
 BOOL WAGRABPropsABTLiveFetchForcedFull(id userContext,
                                        WAGRABPropsABTLiveCompletion completion,
                                        NSString **diagnostic) {
-    EnsureForceState();
-    if (!InstallForceHook()) {
-        if (diagnostic) *diagnostic = @"XMPPRequestABProperties forced-full hook unavailable or ABI mismatch";
+    EnsureState();
+    id context = userContext ?: WAGRCurrentUserContext();
+    if (!context) {
+        if (diagnostic) *diagnostic = @"current WhatsApp user context is unavailable";
+        return NO;
+    }
+
+    NSString *route = nil;
+    id manager = ResolveLiveManager(context, &route);
+    if (!manager) {
+        NSString *text = [NSString stringWithFormat:@"live XMPPConnectionABPropsRequestManager unresolved (%@)", route ?: @"no route"];
+        if (diagnostic) *diagnostic = text;
+        return NO;
+    }
+
+    NSString *propertiesDiagnostic = nil;
+    id properties = ResolvePersonalABProperties(context, &propertiesDiagnostic);
+    if (!properties) {
+        if (diagnostic) *diagnostic = propertiesDiagnostic ?: @"personal WAProperties unresolved";
+        return NO;
+    }
+
+    NSString *token = NSUUID.UUID.UUIDString;
+    NSString *gateDiagnostic = nil;
+    if (!WAGRABPropsABTTransactionAcquire(@"hook_free_force_full", token, &gateDiagnostic)) {
+        if (diagnostic) *diagnostic = gateDiagnostic ?: @"another ABT transaction is active";
+        return NO;
+    }
+    BOOL forceBusy = NO;
+    @synchronized (gForceLock) {
+        forceBusy = gPendingToken.length > 0;
+        if (!forceBusy) gPendingToken = token;
+    }
+    if (forceBusy) {
+        WAGRABPropsABTTransactionRelease(token);
+        if (diagnostic) *diagnostic = @"another native full-fetch transaction is still pending";
         return NO;
     }
 
     WAGRABPropsNativeSnapshot *before = WAGRABPropsReadNativeSnapshot(NULL);
-    NSDictionary *metadata = before.metadata ?: @{};
-    id beforeHash = metadata[@"hash"] ?: metadata[@"configHash"];
-    id beforeRefresh = metadata[@"refreshID"] ?: metadata[@"refreshId"] ?: metadata[@"refresh_id"];
+    id beforeHash = CallObjectNoArg(properties, kConfigHashSelector);
+    id beforeRefreshID = CallObjectNoArg(properties, kRefreshIDSelector);
 
-    @synchronized (gForceLock) {
-        if (gForceArmed) {
-            if (diagnostic) *diagnostic = @"another forced-full ABT request is still armed";
-            return NO;
-        }
-        gForceArmed = YES;
-        gForceApplied = NO;
-        gForceArmTime = [NSDate date].timeIntervalSince1970;
-        gForceTransactionToken = nil;
-        gForceDocument = @{
-            @"schema": @"watweaks_abprops_abt_force_full_v1",
-            @"hook_installed": @YES,
-            @"armed": @YES,
-            @"applied": @NO,
-            @"outcome": @"armed_waiting_request_constructor",
-            @"armed_time": @(gForceArmTime),
-            @"before_store": @{
-                @"prop_count": @(before.numericPropCount),
-                @"fingerprint": before.fingerprint ?: @"",
-                @"config_hash": CompactValue(beforeHash),
-                @"refresh_id": CompactValue(beforeRefresh)
-            }
+    @try {
+        ((void (*)(id, SEL))objc_msgSend)(properties, NSSelectorFromString(kResetHashSelector));
+    } @catch (NSException *exception) {
+        NSString *text = [NSString stringWithFormat:@"resetConfigHashToEmptyString threw %@", exception.reason ?: @"exception"];
+        NSDictionary *failure = @{
+            @"schema": @"watweaks_abprops_abt_force_full_v2",
+            @"outcome": @"native_hash_reset_threw",
+            @"hook_installed": @NO,
+            @"pending": @NO,
+            @"exception": text,
+            @"binary_evidence": BinaryEvidence()
         };
-    }
-
-    __block BOOL sent = NO;
-    sent = WAGRABPropsABTLiveFetch(userContext, ^(NSDictionary<NSString *,id> *result) {
-        NSDictionary *force = WAGRABPropsABTForceFullDocument();
-        @synchronized (gForceLock) {
-            gForceArmed = NO;
-            NSMutableDictionary *doc = [gForceDocument mutableCopy] ?: [NSMutableDictionary dictionary];
-            if (!gForceApplied) {
-                doc[@"armed"] = @NO;
-                doc[@"outcome"] = @"native_transaction_completed_without_intercepting_constructor";
-            } else {
-                doc[@"outcome"] = @"forced_full_native_transaction_completed";
-            }
-            doc[@"completed_time"] = @([NSDate date].timeIntervalSince1970);
-            gForceDocument = doc;
-            force = [doc copy];
-        }
-
-        NSMutableDictionary *augmented = [result mutableCopy] ?: [NSMutableDictionary dictionary];
-        augmented[@"request_mode"] = @"forced_full_without_config_hash_or_refresh_id";
-        augmented[@"forced_full_request"] = force ?: @{};
-        if (completion) completion(augmented);
-    }, diagnostic);
-
-    if (!sent) {
-        @synchronized (gForceLock) {
-            gForceArmed = NO;
-            NSMutableDictionary *doc = [gForceDocument mutableCopy] ?: [NSMutableDictionary dictionary];
-            doc[@"armed"] = @NO;
-            doc[@"outcome"] = @"live_transaction_not_dispatched";
-            gForceDocument = doc;
-        }
+        FailReservedTransaction(token, failure);
+        if (diagnostic) *diagnostic = text;
         return NO;
     }
 
-    if (diagnostic) {
-        *diagnostic = @"forced-full ABT armed: native request will omit configHash and refreshID, then correlate handler/completion/store";
+    id resetHashValue = CallObjectNoArg(properties, kConfigHashSelector);
+    NSString *resetHash = HashString(resetHashValue);
+    BOOL resetConfirmed = resetHash != nil && resetHash.length == 0;
+    if (!resetConfirmed) {
+        NSString *text = [NSString stringWithFormat:@"native configHash reset was not observable (class=%@ value=%@)",
+                          ClassName(resetHashValue), JSONValue(resetHashValue)];
+        NSDictionary *failure = @{
+            @"schema": @"watweaks_abprops_abt_force_full_v2",
+            @"outcome": @"native_hash_reset_not_confirmed",
+            @"hook_installed": @NO,
+            @"pending": @NO,
+            @"before_config_hash": JSONValue(beforeHash),
+            @"after_reset_config_hash": JSONValue(resetHashValue),
+            @"binary_evidence": BinaryEvidence()
+        };
+        FailReservedTransaction(token, failure);
+        if (diagnostic) *diagnostic = text;
+        return NO;
     }
+
+    NSDictionary *pending = @{
+        @"schema": @"watweaks_abprops_abt_force_full_v2",
+        @"outcome": @"pending_native_completion",
+        @"token": token,
+        @"hook_installed": @NO,
+        @"pending": @YES,
+        @"validator_reset_confirmed": @YES,
+        @"request_mode": @"native_hash_reset_then_regular_request",
+        @"manager_class": ClassName(manager),
+        @"properties_class": ClassName(properties),
+        @"manager_route": route ?: @"",
+        @"manager_encoding": MethodEncoding([manager class], kManagerSelector),
+        @"before_config_hash": JSONValue(beforeHash),
+        @"before_refresh_id": JSONValue(beforeRefreshID),
+        @"after_reset_config_hash": JSONValue(resetHashValue),
+        @"wire_config_hash": resetHashValue ? JSONValue(resetHashValue) : NSNull.null,
+        @"wire_refresh_id": NSNull.null,
+        @"before_store": SnapshotSummary(before),
+        @"started_time": @(Now()),
+        @"transaction_gate": WAGRABPropsABTTransactionGateDocument(),
+        @"binary_evidence": BinaryEvidence()
+    };
+    PublishDocument(pending);
+
+    __block NSString *requestToken = [token copy];
+    __block id retainedProperties = properties;
+    __block WAGRABPropsNativeSnapshot *retainedBefore = before;
+    __block WAGRABPropsABTLiveCompletion retainedCompletion = [completion copy];
+    void (^nativeCompletion)(void) = ^{
+        // The manager completion runs after its retry/attempt pipeline. Give
+        // cfprefsd a short settling window; account-scoped proof comes from the
+        // direct WAProperties hash, not from assuming the plist changed.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
+                       dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            FinishTransaction(requestToken, retainedProperties, retainedBefore, YES, retainedCompletion);
+            // Normal completion already releases the gate in FinishTransaction.
+            // After a reported timeout this releases the quarantined token.
+            WAGRABPropsABTTransactionRelease(requestToken);
+            MarkLateNativeCompletion(requestToken);
+        });
+    };
+
+    @try {
+        ((void (*)(id, SEL, BOOL, id))objc_msgSend)(manager,
+            NSSelectorFromString(kManagerSelector), NO, nativeCompletion);
+    } @catch (NSException *exception) {
+        NSString *text = [NSString stringWithFormat:
+            @"requestFreshABProps:NO threw %@; configHash remains cleared so the next native sync will also request full state",
+            exception.reason ?: @"exception"];
+        NSDictionary *failure = @{
+            @"schema": @"watweaks_abprops_abt_force_full_v2",
+            @"outcome": @"native_request_threw_after_hash_reset",
+            @"token": token,
+            @"hook_installed": @NO,
+            @"pending": @NO,
+            @"validator_reset_confirmed": @YES,
+            @"diagnostic": text,
+            @"binary_evidence": BinaryEvidence()
+        };
+        FailReservedTransaction(token, failure);
+        if (diagnostic) *diagnostic = text;
+        return NO;
+    }
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(45.0 * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        FinishTransaction(requestToken, retainedProperties, retainedBefore, NO, retainedCompletion);
+    });
+
+    NSString *text = [NSString stringWithFormat:
+        @"native full fetch dispatched: %@ → configHash cleared → requestFreshABProps:NO; awaiting native completion and hash refill",
+        route ?: @"exact manager"];
+    if (diagnostic) *diagnostic = text;
+    WAGRLogAppendF(@"[ABProps][ABTForceFull] token=%@ reset confirmed, exact request dispatched via %@",
+                   token, route ?: @"manager");
     return YES;
 }
 
 NSDictionary<NSString *, id> *WAGRABPropsABTForceFullDocument(void) {
-    EnsureForceState();
+    EnsureState();
     @synchronized (gForceLock) {
         return [gForceDocument copy] ?: @{};
-    }
-}
-
-__attribute__((constructor))
-static void WAGRABPropsABTForceFullCtor(void) {
-    @autoreleasepool {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.2 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{ (void)InstallForceHook(); });
     }
 }

@@ -21,9 +21,15 @@ for rel in [
     "src/Tweak.x",
     "src/Menu/WAGRSurfaceListVC.m",
     "src/Menu/WAGRSurfaceBrowserVC.m",
+    "src/Menu/WAGRMainSettingsVC.m",
     "src/Runtime/WAGRSurface.m",
-    "src/Runtime/WAGRObjectGraphScanner.m",
-    "src/Hooks/WAGRObjCHookRouter.xm",
+    "src/Runtime/WAGRABPropsABTForceFull.m",
+    "src/Runtime/WAGRABPropsABTLiveService.m",
+    "src/Runtime/WAGRABPropsABTLab.m",
+    "src/Runtime/WAGRABPropsABTTransactionGate.m",
+    "src/Menu/WAGRABPropsABTLabVC.m",
+    "src/Runtime/WAGRABPropsReleaseNativeLinkage.m",
+    "src/Runtime/WAGRMobileConfigNativeEngine.m",
 ]:
     if not (root / rel).exists():
         errors.append(f"missing {rel}")
@@ -49,17 +55,13 @@ if 'new]})' in tweak or 'new]});' in tweak:
 if ']action:' in tweak:
     errors.append('Tweak.x has Objective-C message keyword glued to previous argument: ]action:')
 
-# Main menu must be feature-bundle oriented, not raw surface first.
-menu = read("src/Menu/WAGRSurfaceListVC.m")
+# Main settings must expose the current semantic/native entry points. The old
+# Ryuk feature-bundle assertions referenced files removed by this architecture.
+menu = read("src/Menu/WAGRMainSettingsVC.m")
 models = read("src/Runtime/WAGRSurface.m")
-for token in ["Categorias", "Runtime Browser Avançado"]:
+for token in ["AB Props", "MobileConfig / arquivos", "Runtime em tempo real"]:
     if token not in menu:
-        errors.append(f"WAGRSurfaceListVC.m missing {token}")
-for token in ["LiquidGlass", "WA Plus / Aura", "Settings Rows", "Developer / Dogfood / Internal"]:
-    if token not in (menu + models):
-        errors.append(f"feature bundle missing {token}")
-if "RUNTIME SURFACES" in menu or "SYS|OFF|ON" in menu:
-    errors.append("WAGRSurfaceListVC.m still exposes old raw runtime copy")
+        errors.append(f"WAGRMainSettingsVC.m missing {token}")
 
 # Surface browser must not show segmented SYS/OFF/ON.
 browser = read("src/Menu/WAGRSurfaceBrowserVC.m")
@@ -74,10 +76,7 @@ if "@property @property" in browser:
 scanner = read("src/Runtime/WAGRSurface.m")
 if 'displayName = [@"@property "' in scanner:
     errors.append("scanner still adds @property prefix to displayName")
-for token in ["featureBundles", "selectorTokens", "scanProperties", "WAGRObjectGraphScanner"]:
-    # object graph lives in own file, not necessarily in scanner.
-    if token == "WAGRObjectGraphScanner":
-        continue
+for token in ["selectorTokens", "scanProperties"]:
     if token not in scanner and token not in read("src/Runtime/WAGRSurface.h"):
         errors.append(f"runtime model missing {token}")
 
@@ -95,4 +94,4 @@ if errors:
         print("ERRO:", e, file=sys.stderr)
     sys.exit(1)
 
-print("OK: WAGram router Ryuk-style bundle validation passed")
+print("OK: WATweaks source/import/runtime validation passed")
