@@ -31,6 +31,9 @@ BOOL WAGRABPropsNativeClearOverride(
 
 NSDictionary<NSString *, id> *WAGRABPropsNativeTrackedOverrides(void);
 NSArray<NSNumber *> *WAGRABPropsNativeTrackedStableIDs(void);
+void WAGRABPropsNativeRememberTrackedOverride(NSString *waStableID, id value);
+void WAGRABPropsNativeForgetTrackedOverride(NSString *waStableID);
+void WAGRABPropsNativeForgetAllTrackedOverrides(void);
 NSInteger WAGRABPropsNativeSyncTrackedOverrides(
     id _Nullable userContext,
     NSString * _Nullable * _Nullable outDiagnostic);
