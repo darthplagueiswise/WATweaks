@@ -491,7 +491,7 @@
             NSString *outcome = [document[@"last_matrix_outcome"] isKindOfClass:NSString.class]
                 ? document[@"last_matrix_outcome"] : @"unknown";
             NSString *status = [outcome isEqualToString:@"aborted_after_timeout"]
-                ? @"Matriz interrompida após timeout. O gate ficou em quarentena até o completion tardio; se ele não chegar, reinicie o WhatsApp. Exporte o JSON antes disso."
+                ? @"Matriz interrompida após timeout. A correlação terminou e o gate foi liberado; um completion tardio será apenas encaminhado ao WhatsApp. Exporte o JSON para inspecionar a tentativa."
                 : @"Matriz concluída. Compartilhe o JSON completo para comparar as quatro variantes.";
             [self setWorking:NO status:status];
         }, &diagnostic);

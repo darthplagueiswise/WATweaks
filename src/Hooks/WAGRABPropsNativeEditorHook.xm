@@ -13,8 +13,8 @@ static NSString *WAGRABStableIDHintForBrowserEntry(id browser, WAGRABPropEntry *
     if (resolved.length) return resolved;
 
     // Secondary runtime/cache correlation only. This is not a fabricated ID:
-    // nativeEntriesBySelector is built from the account's gabp snapshot plus the
-    // current runtime correlation in WAGRABPropsBrowserVC.
+    // nativeEntriesBySelector is built from the exact account WAPropertiesStore
+    // reread by WAGRABPropsBrowserVC plus its current runtime correlation.
     @try {
         NSDictionary *index = [browser valueForKey:@"nativeEntriesBySelector"];
         NSDictionary *native = [index[entry.selectorName] isKindOfClass:NSDictionary.class]
@@ -53,7 +53,8 @@ static NSString *WAGRABStableIDHintForBrowserEntry(id browser, WAGRABPropEntry *
     UITableViewCell *cell = %orig;
     // BOOL used to expose an inline UISwitch wired directly to
     // WAGRRuntimeValueSetOverride/MSHookMessageEx. Remove that write surface:
-    // tapping the row now opens the native UserSession MobileConfig editor.
+    // tapping the row now opens the native in-memory UserSession MobileConfig
+    // editor. Physical mc_overrides persistence is a separate, unproven path.
     if ([cell.accessoryView isKindOfClass:UISwitch.class]) {
         cell.accessoryView = nil;
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;

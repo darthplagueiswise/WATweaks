@@ -473,7 +473,9 @@ static NSDictionary *BuildFinalResult(void) {
         customConfiguration = [gCustomWireConfiguration copy] ?: @{};
     }
 
-    WAGRABPropsNativeSnapshot *after = WAGRABPropsReadNativeSnapshotForProperties(properties, NULL);
+    NSError *storeReadError = nil;
+    WAGRABPropsNativeSnapshot *after =
+        WAGRABPropsReadNativeSnapshotForProperties(properties, &storeReadError);
     NSDictionary *metadata = after.metadata ?: @{};
     id configHash = decoded[@"config_hash"];
     id refreshID = decoded[@"refresh_id"];
@@ -560,6 +562,7 @@ static NSDictionary *BuildFinalResult(void) {
         @"effective_snapshot": effectiveDocument,
         @"store_confirmation": @{
             @"available": @(after != nil),
+            @"read_error": storeReadError.localizedDescription ?: @"",
             @"exact_account_store": @(exactStore),
             @"source_kind": after.sourceKind ?: @"unavailable",
             @"direct_config_hash": JSONSafe(directHashValue, 0),
@@ -638,6 +641,10 @@ BOOL WAGRABPropsABTVerifiedFullEmptyHashResult(
     if (![store[@"available"] boolValue] || ![store[@"exact_account_store"] boolValue] ||
         ![store[@"metadata_matches"] boolValue])
         [missing addObject:@"exact account store did not match response"];
+    NSString *storeReadError = [store[@"read_error"] isKindOfClass:NSString.class]
+        ? store[@"read_error"] : @"";
+    if (storeReadError.length)
+        [missing addObject:[@"store reader: " stringByAppendingString:storeReadError]];
     if (![store[@"reset_hash_refilled"] boolValue])
         [missing addObject:@"configHash was not refilled by native store"];
     if (![document[@"source_kind"] isEqual:@"exact_native_wa_properties_store"])
@@ -1332,16 +1339,36 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
                 gNativeCompletionTime > 0 || gTimeoutReported) return;
             NSMutableDictionary *mutable = [fallback mutableCopy];
             mutable[@"outcome"] = @"timeout_waiting_exact_native_completion";
-            mutable[@"gate_quarantined_until_native_completion"] = @YES;
-            mutable[@"transaction_remains_correlated"] = @YES;
+            mutable[@"gate_quarantined_until_native_completion"] = @NO;
+            mutable[@"transaction_remains_correlated"] = @NO;
+            mutable[@"gate_released_at_timeout"] = @YES;
             mutable[@"timeout_reported_time"] = @(Now());
             gTimeoutReported = YES;
             gResult = mutable;
             timeoutResult = [mutable copy];
             callback = [gCompletion copy];
             gCompletion = nil;
+            // A native completion that never arrives must not permanently
+            // block every later ABT action. Correlation is terminal at the
+            // configured timeout; late callbacks still forward to WhatsApp's
+            // original completion but no longer own this result or gate.
+            gPending = NO;
+            gDispatchArmed = NO;
+            gPendingManager = nil;
+            gPendingContext = nil;
+            gPendingProperties = nil;
+            [gPendingRequests removeAllObjects];
+            gActiveCallbackRequest = nil;
+            gActiveCallbackThread = nil;
+            gActiveCallbackToken = nil;
+            gHandlerInFlightToken = nil;
+            gOmitValidatorsArmed = NO;
+            gCustomWireOverrideApplied = NO;
+            gCustomWireConfiguration = nil;
+            gTimeoutReported = NO;
         }
-        WAGRLogAppendF(@"[ABProps][ABTLive] variant=%@ timed out token=%@ attempts=%lu; gate quarantined until native completion",
+        WAGRABPropsABTTransactionRelease(token);
+        WAGRLogAppendF(@"[ABProps][ABTLive] variant=%@ timed out token=%@ attempts=%lu; correlation ended and gate released",
                        timeoutResult[@"variant"] ?: @"?", token,
                        (unsigned long)[timeoutResult[@"wire_attempts"] count]);
         if (callback) dispatch_async(dispatch_get_main_queue(), ^{ callback(timeoutResult); });
@@ -1458,7 +1485,9 @@ NSDictionary<NSString *, id> *WAGRABPropsABTLiveCapabilityDocument(id userContex
         method_getImplementation(didSucceed) == (IMP)DidSucceedHook &&
         method_getImplementation(didFail) == (IMP)DidFailHook &&
         method_getImplementation(handler) == (IMP)HandleHook;
-    WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshotForProperties(properties, NULL);
+    NSError *storeReadError = nil;
+    WAGRABPropsNativeSnapshot *snapshot =
+        WAGRABPropsReadNativeSnapshotForProperties(properties, &storeReadError);
 
     NSArray *variants = @[
         @{
@@ -1531,7 +1560,10 @@ NSDictionary<NSString *, id> *WAGRABPropsABTLiveCapabilityDocument(id userContex
         @"correlation_hooks_installed": @(installed),
         @"correlation_hooks_active": @(hooksActive),
         @"transaction_gate": WAGRABPropsABTTransactionGateDocument(),
-        @"native_store": SnapshotSummary(snapshot),
+        @"native_store": snapshot ? SnapshotSummary(snapshot) : @{
+            @"available": @NO,
+            @"read_error": storeReadError.localizedDescription ?: @"unavailable"
+        },
         @"custom_wire": @{
             @"supported_policies": @[@"native", @"nil", @"empty", @"zero", @"custom"],
             @"custom_value_max_length": @256,

@@ -275,7 +275,7 @@ BOOL WAGRABPropsABTLabRunMatrix(id userContext,
                     }
                     WAGRABPropsABTTransactionReleaseWhenIdle(matrixToken);
                     if (!currentMatrix) { runAtIndex = nil; return; }
-                    WAGRLogAppendF(@"[ABProps][ABTLab] matrix %@ aborted after timeout at %@; owner release deferred until native completion",
+                    WAGRLogAppendF(@"[ABProps][ABTLab] matrix %@ aborted after timeout at %@; timed-out child and owner gates released",
                                    matrixToken, variant ?: @"?");
                     NSDictionary *document = WAGRABPropsABTLabDocument(retainedContext);
                     if (retainedCompletion) retainedCompletion(document);

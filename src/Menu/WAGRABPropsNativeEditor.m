@@ -22,7 +22,7 @@ static void WAGRABNativeShowResult(UIViewController *presenter,
                                    NSError *error,
                                    NSString *diagnostic,
                                    dispatch_block_t completion) {
-    NSString *message = success ? (diagnostic ?: @"Aplicado pelo MobileConfig nativo.")
+    NSString *message = success ? (diagnostic ?: @"Aplicado pelo MobileConfig nativo em memória.")
                                 : (error.localizedDescription ?: diagnostic ?: @"Falha ao aplicar override nativo.");
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
         message:message preferredStyle:UIAlertControllerStyleAlert];
@@ -68,7 +68,7 @@ static void WAGRABNativeShowResult(UIViewController *presenter,
     status.font = [UIFont systemFontOfSize:12 weight:UIFontWeightRegular];
     status.textColor = UIColor.secondaryLabelColor;
     status.numberOfLines = 0;
-    status.text = @"Aplicar grava no mc_overrides.json da UserSession e invalida o contexto MobileConfig. Não instala swizzle WAAB.";
+    status.text = @"Aplicar usa FBMobileConfigStartupConfigs em memória e invalida o contexto MobileConfig. A persistência física em mc_overrides.json continua desativada até o serializer nativo ser comprovado; não instala swizzle WAAB.";
     self.statusLabel = status;
 
     [self.view addSubview:text];

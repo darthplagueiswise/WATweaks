@@ -46,10 +46,10 @@ Expected log markers:
 
 There is no `XMPPRequestABProperties` constructor hook in this flow.
 
-If the native retry pipeline exceeds 45 seconds, the result is a timeout rather
-than success and the process-wide ABT gate stays quarantined until the late
-native completion. No second ABT request is allowed to overlap it; restart the
-app if the native completion never arrives.
+If the native retry pipeline exceeds 45 seconds, the result is a terminal
+timeout rather than success. WATweaks ends its correlation and releases the
+process-wide ABT gate; a late native completion is forwarded to WhatsApp but
+cannot overwrite that result or block a later explicit transaction.
 
 ## 2. Canonical ABProp names from native getter descriptors
 

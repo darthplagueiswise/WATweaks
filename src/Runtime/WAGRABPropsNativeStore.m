@@ -260,16 +260,39 @@ static id WAGRABObjectIvar(id object, const char *name) {
     @catch (__unused NSException *exception) { return nil; }
 }
 
-static BOOL WAGRABSignedIvar(id object, const char *name, NSInteger *value) {
+static BOOL WAGRABReadPropertiesType(id store, NSInteger *value, NSString **diagnostic) {
     if (value) *value = NSNotFound;
-    Ivar ivar = object ? class_getInstanceVariable([object class], name) : NULL;
-    if (!ivar) return NO;
-    const char *type = ivar_getTypeEncoding(ivar);
-    if (!type || !type[0] || !strchr("qQiIlLsScCB", type[0])) return NO;
-    NSInteger result = 0;
-    memcpy(&result, ((const uint8_t *)(__bridge const void *)object) + ivar_getOffset(ivar),
-           sizeof(result));
-    if (value) *value = result;
+    Ivar ivar = store ? class_getInstanceVariable([store class], "propertiesType") : NULL;
+    if (!ivar || ivar_getOffset(ivar) != 48) {
+        if (diagnostic) *diagnostic = @"propertiesType ivar/offset is not +0x30";
+        return NO;
+    }
+
+    // SharedModules(5) deliberately has an empty type-encoding c-string for
+    // WAPropertiesStore's local ivars. The ivar-list entry still proves
+    // offset=0x30, alignment=3 and size=8, while the designated initializer
+    // independently proves that propertiesType is the q argument at +48:
+    // @68@0:8@16@24@32@40q48@56B64. Do not reject the correct object merely
+    // because ivar_getTypeEncoding returns the stripped empty string.
+    const char *encoding = ivar_getTypeEncoding(ivar);
+    if (encoding && encoding[0] && encoding[0] != 'q' && encoding[0] != 'Q') {
+        if (diagnostic) {
+            *diagnostic = [NSString stringWithFormat:
+                @"propertiesType has unexpected runtime encoding %s", encoding];
+        }
+        return NO;
+    }
+    Method initializer = class_getInstanceMethod([store class],
+        NSSelectorFromString(@"initWithPreferencesStore:accountProvider:userContext:kvStoreNamespace:propertiesType:groupJID:encryptProperties:"));
+    const char *initializerEncoding = initializer ? method_getTypeEncoding(initializer) : NULL;
+    if (!initializerEncoding || strcmp(initializerEncoding,
+            "@68@0:8@16@24@32@40q48@56B64") != 0) {
+        if (diagnostic) *diagnostic = @"WAPropertiesStore designated initializer ABI mismatch";
+        return NO;
+    }
+    int64_t raw = 0;
+    memcpy(&raw, ((const uint8_t *)(__bridge const void *)store) + 48, sizeof(raw));
+    if (value) *value = (NSInteger)raw;
     return YES;
 }
 
@@ -281,6 +304,15 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshotForProperties(
         return nil;
     }
 
+    Class propertiesBase = NSClassFromString(@"WAProperties");
+    if (!propertiesBase || ![properties isKindOfClass:propertiesBase]) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:16
+            userInfo:@{NSLocalizedDescriptionKey:
+                [NSString stringWithFormat:@"Objeto account-scoped não pertence a WAProperties (classe=%@).",
+                    NSStringFromClass([properties class]) ?: @"nil"]}];
+        return nil;
+    }
+
     id store = WAGRABCallObjectNoArg(properties, @"propertiesStore");
     Ivar ownerIvar = class_getInstanceVariable([properties class], "_propertiesStore");
     id ownerStore = ownerIvar ? WAGRABObjectIvar(properties, "_propertiesStore") : nil;
@@ -289,6 +321,16 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshotForProperties(
         if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:11
             userInfo:@{NSLocalizedDescriptionKey:
                 @"Layout/identidade de WAProperties._propertiesStore divergiu; leitura exata recusada."}];
+        return nil;
+    }
+
+    Class storeBase = NSClassFromString(@"WAPropertiesStore");
+    if (!storeBase || ![store isKindOfClass:storeBase] || class_getInstanceSize([store class]) < 0xE8) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:17
+            userInfo:@{NSLocalizedDescriptionKey:
+                [NSString stringWithFormat:@"propertiesStore não é o WAPropertiesStore esperado (classe=%@ size=0x%lx).",
+                    NSStringFromClass([store class]) ?: @"nil",
+                    (unsigned long)(store ? class_getInstanceSize([store class]) : 0)]}];
         return nil;
     }
 
@@ -334,10 +376,12 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshotForProperties(
     NSString *groupJID = [groupValue isKindOfClass:NSString.class]
         ? groupValue : [groupValue description];
     NSInteger propertiesType = NSNotFound;
-    if (!WAGRABSignedIvar(store, "propertiesType", &propertiesType)) {
+    NSString *propertiesTypeDiagnostic = nil;
+    if (!WAGRABReadPropertiesType(store, &propertiesType, &propertiesTypeDiagnostic)) {
         if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:15
             userInfo:@{NSLocalizedDescriptionKey:
-                @"WAPropertiesStore.propertiesType não pôde ser lido pelo ABI provado."}];
+                [NSString stringWithFormat:@"WAPropertiesStore.propertiesType não pôde ser lido pelo ABI provado: %@.",
+                    propertiesTypeDiagnostic ?: @"falha desconhecida"]}];
         return nil;
     }
 
@@ -354,6 +398,11 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshotForProperties(
     metadata[@"_native_store_namespace"] = storeNamespace ?: NSNull.null;
     metadata[@"_native_group_jid"] = groupJID ?: NSNull.null;
     metadata[@"_native_properties_type"] = @(propertiesType);
+    const char *propertiesTypeEncoding = ivar_getTypeEncoding(typeIvar);
+    metadata[@"_native_properties_type_encoding"] =
+        propertiesTypeEncoding && propertiesTypeEncoding[0]
+            ? ([NSString stringWithUTF8String:propertiesTypeEncoding] ?: @"")
+            : @"<stripped-empty; initializer ABI q48>";
     metadata[@"_preferences_store_class"] = preferencesStore
         ? (NSStringFromClass([preferencesStore class]) ?: @"") : NSNull.null;
     metadata[@"_account_provider_class"] = accountProvider

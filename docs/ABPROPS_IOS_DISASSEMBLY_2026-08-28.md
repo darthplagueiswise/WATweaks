@@ -119,13 +119,11 @@ e para o manager da transação. Um evento anterior não basta. Isso preserva fa
 intermediárias, rejeita tráfego ABT concorrente e permite que um retry posterior
 seja corretamente classificado como sucesso.
 
-Completion e timeout também carregam o token da transação. O timeout publica o
-resultado diagnóstico, mas **não** desmonta a correlação, não muda os argumentos
-dos retries restantes e não libera o gate. A matriz é interrompida e seu owner
-fica marcado para liberação somente quando o child recebe o completion nativo
-tardio. Assim a transação antiga não pode finalizar nem sobrescrever a próxima
-variante. Se esse completion nunca chegar, o processo deve ser reiniciado; uma
-liberação manual seria insegura porque o request nativo não expõe cancelamento.
+Completion e timeout também carregam o token da transação. O timeout publica um
+resultado terminal, desmonta somente a correlação do WATweaks e libera o gate.
+Um completion nativo tardio continua sendo encaminhado ao WhatsApp, mas não pode
+alterar o resultado publicado nem adquirir novamente o gate. A matriz é
+interrompida no timeout para conservar o relatório daquela variante.
 
 Como o completion pode ocorrer dentro do handler, a finalização espera o handler
 correlacionado terminar de registrar o payload antes de reler o store. A matriz
@@ -188,6 +186,14 @@ seguinte; o artefato ABT não usa esses stubs para buscar props:
 `std::shared_ptr<FBMobileConfigOverridesTable>`, portanto tratá-lo como `id` seria
 incorreto.
 
+O editor ABProps usa, neste checkpoint, somente o writer em memória
+`FBMobileConfigStartupConfigs` e em seguida invalida/atualiza o contexto. Ele
+mantém um registro de intenção do WATweaks para reaplicação, mas não afirma nem
+simula persistência no `mc_overrides.json`. O caminho físico continua desligado
+até que o serializer principal e o diretório exato da UserSession sejam
+comprovados no framework e nos arquivos reais do container. O fallback chamado
+`RUNTIME` permanece um swizzle local explicitamente identificado na interface.
+
 ## 5. `id_name_mapping.json` e `mc_overrides.json` não são ABT
 
 As strings existem em `SharedModules`, mas pertencem ao resource/schema plumbing
@@ -235,6 +241,12 @@ objeto usado na requisição até o store que alimenta o browser:
 | `WAPropertiesStore` | `groupJID` | `+0x38` | Escopo de grupo, quando existente. |
 | `WAPropertiesStore` | `properties` | `+0x60` | Dicionário ABProps exato carregado/persistido pelo store. |
 
+Os type encodings dos ivars locais de `WAPropertiesStore` estão vazios nesta
+build, embora a ivar list preserve nome, offset, alinhamento e tamanho. Para
+`propertiesType`, a leitura de oito bytes em `+0x30` é validada também pelo ABI
+do initializer (`@68@0:8@16@24@32@40q48@56B64`); exigir um type encoding que o
+próprio binário removeu fazia o reader rejeitar o store correto.
+
 O reader de produção valida todos esses offsets em runtime e recusa o snapshot
 se a build divergir. Ele não enumera `group.net.whatsapp.WhatsApp.shared`, não
 seleciona o maior `gabp.*p` e não tenta inferir a conta pelo número de entries.
@@ -250,3 +262,8 @@ sua fonte depois que a mesma transação confirma:
 
 O JSON do browser é ABT-only. MobileConfig fica deliberadamente fora deste
 checkpoint até que o fetch e os arquivos reais do container sejam analisados.
+O browser relê esse store exato em cada scan/pull-to-refresh e avalia os getters
+Objective-C quando recria as linhas; não conserva o documento verificado como
+snapshot congelado. Se fingerprint, identidade ou contagem mudarem depois de uma
+transação verificada, a tela mostra o estado atual e remove apenas o selo de
+proveniência da transação anterior.

@@ -17,6 +17,8 @@ ROOT_UI = ROOT / "src/Menu/WAGRABPropsRootVC.m"
 GATE = ROOT / "src/Runtime/WAGRABPropsABTTransactionGate.m"
 BRIDGE = ROOT / "src/Runtime/WAGRABPropsABTNativeBridge.m"
 NATIVE = ROOT / "src/Runtime/WAGRABPropsNativeStore.m"
+NATIVE_EDITOR = ROOT / "src/Menu/WAGRABPropsNativeEditor.m"
+NATIVE_OVERRIDE = ROOT / "src/Runtime/WAGRABPropsNativeOverrideEngine.m"
 
 
 def read(path: pathlib.Path, errors: list[str]) -> str:
@@ -49,6 +51,8 @@ def main() -> int:
     gate = read(GATE, errors)
     bridge = read(BRIDGE, errors)
     native = read(NATIVE, errors)
+    native_editor = read(NATIVE_EDITOR, errors)
+    native_override = read(NATIVE_OVERRIDE, errors)
 
     # Full fetch must be the active native hash-reset pair, never a process-wide
     # interception of XMPPRequestABProperties.
@@ -136,7 +140,7 @@ def main() -> int:
         "timeoutSeconds * NSEC_PER_SEC",
         "gTimeoutReported",
         "transaction_remains_correlated",
-        "gate_quarantined_until_native_completion",
+        "gate_released_at_timeout",
     ):
         require(live, token, "WAGRABPropsABTLiveService.m", errors)
     for token in (
@@ -187,18 +191,40 @@ def main() -> int:
         'ivar_getOffset(propsIvar) != 96',
         "exact_native_wa_properties_store",
         "WAGRABPropsNativeABTOnlyExportDocument",
+        "<stripped-empty; initializer ABI q48>",
+        "@68@0:8@16@24@32@40q48@56B64",
     ):
         require(native, token, "WAGRABPropsNativeStore.m", errors)
+
+    # ABProps editing currently uses the proven native StartupConfigs memory
+    # path. Until the main serializer is recovered, the UI must never claim
+    # that this path persisted the physical App Group override document.
+    for token in (
+        "FBMobileConfigStartupConfigs em memória",
+        "persistência física em mc_overrides.json continua desativada",
+    ):
+        require(native_editor, token, "WAGRABPropsNativeEditor.m", errors)
+    reject(native_editor, "Aplicar grava no mc_overrides.json",
+           "WAGRABPropsNativeEditor.m", errors)
+    for token in (
+        "setOverrideForParam:andValue:",
+        "removeOverrideForParam:",
+        "diskWriter=disabled-until-main-serializer-proven",
+        "physical mc_overrides untouched by design",
+    ):
+        require(native_override, token, "WAGRABPropsNativeOverrideEngine.m", errors)
 
     timeout_section = live.split("explicit_transaction_timeout", 1)
     if len(timeout_section) != 2:
         errors.append("WAGRABPropsABTLiveService.m: timeout section not found")
     else:
         timeout_body = timeout_section[1].split("return YES;", 1)[0]
-        reject(timeout_body, "WAGRABPropsABTTransactionRelease(token)",
-               "WAGRABPropsABTLiveService.m timeout quarantine", errors)
-        reject(timeout_body, "gPending = NO",
-               "WAGRABPropsABTLiveService.m timeout correlation", errors)
+        require(timeout_body, "WAGRABPropsABTTransactionRelease(token)",
+                "WAGRABPropsABTLiveService.m terminal timeout", errors)
+        require(timeout_body, "gPending = NO",
+                "WAGRABPropsABTLiveService.m terminal timeout", errors)
+        require(timeout_body, 'mutable[@"gate_released_at_timeout"] = @YES',
+                "WAGRABPropsABTLiveService.m terminal timeout", errors)
 
     if errors:
         for error in errors:

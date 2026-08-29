@@ -18,9 +18,10 @@ extern "C" {
 
 /// Performs one explicit account-scoped ABT transaction through WhatsApp's live
 /// XMPPConnectionABPropsRequestManager. The callback receives either the fully
-/// correlated native result or an explicit timeout result. On timeout, the
-/// request remains correlated and the ABT gate stays quarantined until the exact
-/// late native completion fires.
+/// correlated native result or an explicit timeout result. A timeout is
+/// terminal for WATweaks correlation and releases the ABT gate; any later native
+/// completion is still forwarded to WhatsApp but cannot mutate the published
+/// result or block a subsequent explicit transaction.
 BOOL WAGRABPropsABTLiveFetch(id _Nullable userContext,
                              WAGRABPropsABTLiveCompletion _Nullable completion,
                              NSString * _Nullable * _Nullable diagnostic);

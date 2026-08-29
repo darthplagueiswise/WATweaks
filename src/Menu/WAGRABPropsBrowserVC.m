@@ -144,6 +144,24 @@ static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
     return NO;
 }
 
+static BOOL WAGRABDocumentsIdentifySameStoreState(NSDictionary *left,
+                                                   NSDictionary *right) {
+    if (![left isKindOfClass:NSDictionary.class] ||
+        ![right isKindOfClass:NSDictionary.class] || !left.count || !right.count) return NO;
+    NSString *leftFingerprint = [left[@"fingerprint"] isKindOfClass:NSString.class]
+        ? left[@"fingerprint"] : @"";
+    NSString *rightFingerprint = [right[@"fingerprint"] isKindOfClass:NSString.class]
+        ? right[@"fingerprint"] : @"";
+    NSString *leftStore = [left[@"store_identity"] isKindOfClass:NSString.class]
+        ? left[@"store_identity"] : @"";
+    NSString *rightStore = [right[@"store_identity"] isKindOfClass:NSString.class]
+        ? right[@"store_identity"] : @"";
+    return leftFingerprint.length && [leftFingerprint isEqualToString:rightFingerprint] &&
+           leftStore.length && [leftStore isEqualToString:rightStore] &&
+           [left[@"prop_count"] unsignedIntegerValue] ==
+               [right[@"prop_count"] unsignedIntegerValue];
+}
+
 - (void)scanNow {
     if (self.scanning) return;
     self.scanning = YES;
@@ -157,8 +175,11 @@ static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
         NSArray *objects = WAGRABPropsResolveRuntimeObjects(context);
         NSArray<WAGRABPropEntry *> *entries = WAGRABPropsScan(objects);
         NSError *snapshotError = nil;
-        NSDictionary *document = verifiedDocument.count ? verifiedDocument
-            : WAGRABPropsABTAccountSnapshotDocument(context, &snapshotError);
+        // Always reread the exact WAPropertiesStore. A previously verified
+        // document is provenance, not a frozen browser cache.
+        NSDictionary *document = WAGRABPropsABTAccountSnapshotDocument(context, &snapshotError);
+        BOOL verifiedStateStillCurrent = verifiedDocument.count &&
+            WAGRABDocumentsIdentifySameStoreState(document, verifiedDocument);
         NSDictionary *nativeIndex = WAGRABNativeIndexForDocument(document ?: @{});
 
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -168,6 +189,12 @@ static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
             self.allEntries = entries ?: @[];
             self.nativeDocument = document ?: @{};
             self.nativeEntriesBySelector = nativeIndex ?: @{};
+            if (self.verifiedABTFetchResult.count && !verifiedStateStillCurrent) {
+                self.verifiedABTFetchResult = nil;
+                if (document.count) {
+                    self.lastFetchNote = @"O WAPropertiesStore mudou depois da transação verificada; a tela releu o estado atual e removeu somente o selo de proveniência daquela transação.";
+                }
+            }
             if (!document.count && snapshotError.localizedDescription.length) {
                 self.lastFetchNote = snapshotError.localizedDescription;
             }
@@ -352,7 +379,7 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
     BOOL verified = self.verifiedABTFetchResult.count > 0;
     NSString *base = [NSString stringWithFormat:
-        @"WAAB = getters Objective-C carregados agora. Fonte ABT = %@ WAPropertiesStore da conta, %lu props; %lu getters têm correlação por stable ID. O botão Fetch só troca a fonte após prova server → IQ → handler → store.",
+        @"WAAB = getters Objective-C avaliados ao recarregar as linhas. O ABT source é relido do WAPropertiesStore exato em cada scan/pull-to-refresh. Fonte atual = %@ store da conta, %lu props; %lu getters têm correlação por stable ID. Toque abre o editor tipado de FBMobileConfigStartupConfigs em memória; RUNTIME identifica apenas o fallback por swizzle. Nenhum deles afirma escrita física no App Group.",
         verified ? @"SERVER-VERIFICADA no" : @"cache local exato do",
         (unsigned long)[self.nativeDocument[@"prop_count"] unsignedIntegerValue],
         (unsigned long)self.nativeEntriesBySelector.count];
@@ -370,12 +397,12 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
 
 static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     if (!overridden) return @"";
-    if (!value) return @" · FORCE nil";
+    if (!value) return @" · RUNTIME FORCE nil";
     NSString *description = [value description] ?: @"?";
     if (description.length > 80) {
         description = [[description substringToIndex:80] stringByAppendingString:@"…"];
     }
-    return [NSString stringWithFormat:@" · FORCE %@", description];
+    return [NSString stringWithFormat:@" · RUNTIME FORCE %@", description];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -414,7 +441,8 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     cell.textLabel.text = [NSString stringWithFormat:@"%@%@",
         entry.classMethod ? @"+ " : @"- ", entry.selectorName];
 
-    NSString *state = overridden ? (installed ? @"INSTALLED" : @"PENDING") : @"ORIGINAL";
+    NSString *state = overridden
+        ? (installed ? @"RUNTIME INSTALLED" : @"RUNTIME PENDING") : @"ORIGINAL";
     NSMutableString *detail = [NSMutableString stringWithFormat:@"Atual: %@%@ · %@",
         current ?: @"?", WAGRABOverrideDescription(forced, overridden), state];
     if (native) {
@@ -477,7 +505,7 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     NSString *message = readback.length
         ? [NSString stringWithFormat:@"O override foi preservado, mas ainda não pôde ser validado no receiver exato.\n\n%@\nReadback: %@\n\nEle permanece PENDING e será tentado novamente quando o runtime estiver disponível.", target, readback]
         : [NSString stringWithFormat:@"O override foi preservado, mas o hook exato ainda não pôde ser instalado.\n\n%@\n\nEle permanece PENDING e será tentado novamente quando o runtime estiver disponível.", target];
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Override pendente"
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Override runtime pendente"
         message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
