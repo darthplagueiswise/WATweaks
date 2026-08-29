@@ -1,0 +1,32 @@
+name: Apply MobileConfig persisted fetch marker
+
+on:
+  push:
+    branches:
+      - dogfood2
+    paths:
+      - scripts/apply_mc_lastfetch_readback_patch.py
+      - .github/workflows/apply-mc-lastfetch-readback.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dogfood2
+          fetch-depth: 0
+      - name: Apply native LastFetchStore persistence readback
+        run: python3 scripts/apply_mc_lastfetch_readback_patch.py
+      - name: Validate invariants
+        run: python3 scripts/wagr_validate_abprops_fetch.py
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Runtime/WAGRMobileConfigNativeEngine.m scripts/wagr_validate_abprops_fetch.py
+          git commit -m "Verify persisted MobileConfig fetch markers"
+          git push origin HEAD:dogfood2
