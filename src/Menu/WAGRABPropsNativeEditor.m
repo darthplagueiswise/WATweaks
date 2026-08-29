@@ -22,7 +22,7 @@ static void WAGRABNativeShowResult(UIViewController *presenter,
                                    NSError *error,
                                    NSString *diagnostic,
                                    dispatch_block_t completion) {
-    NSString *message = success ? (diagnostic ?: @"Aplicado pelo MobileConfig nativo em memória.")
+    NSString *message = success ? (diagnostic ?: @"Aplicado pelo StartupConfigs nativo, persistido no App Group e confirmado pelo getter efetivo.")
                                 : (error.localizedDescription ?: diagnostic ?: @"Falha ao aplicar override nativo.");
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
         message:message preferredStyle:UIAlertControllerStyleAlert];
@@ -68,7 +68,7 @@ static void WAGRABNativeShowResult(UIViewController *presenter,
     status.font = [UIFont systemFontOfSize:12 weight:UIFontWeightRegular];
     status.textColor = UIColor.secondaryLabelColor;
     status.numberOfLines = 0;
-    status.text = @"Aplicar usa FBMobileConfigStartupConfigs em memória e invalida o contexto MobileConfig. A persistência física em mc_overrides.json continua desativada até o serializer nativo ser comprovado; não instala swizzle WAAB.";
+    status.text = @"Aplicar usa FBMobileConfigStartupConfigs, confirma FBMobileConfigStartupConfigsOverride* no App Group, invalida o UserSession e relê o getter tipado efetivo. mc_overrides.json é uma tabela C++ separada e permanece read-only até seu serializer nativo ser provado; não instala swizzle WAAB.";
     self.statusLabel = status;
 
     [self.view addSubview:text];
@@ -185,8 +185,8 @@ void WAGRPresentABPropsNativeEditor(UIViewController *presenter,
         stableID,
         mapping[@"external_config_stable_id"] ?: @"?",
         mapping[@"parameter_index"] ?: @"?",
-        nativeRow.length ? [@"Override nativo atual: " stringByAppendingString:nativeRow]
-                         : @"Override nativo atual: nenhum"];
+        nativeRow.length ? [@"mc_overrides C++ atual (read-only): " stringByAppendingString:nativeRow]
+                         : @"mc_overrides C++ atual (read-only): nenhum"];
 
     if (nativeType == 1) {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:entry.selectorName

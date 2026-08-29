@@ -8,9 +8,10 @@ NS_ASSUME_NONNULL_BEGIN
 extern "C" {
 #endif
 
-/// Merges/writes a valid mc_overrides dictionary at the path owned by the exact
-/// account-scoped UserSession manager, then requests native context invalidation.
-/// Returns NO without writing when UserSession/path/JSON validation fails.
+/// Legacy compatibility API retained for binary/source compatibility only.
+/// It is intentionally BLOCKED: WATweaks will not synthesize or atomically
+/// write mc_overrides.json until the native FBMobileConfigOverridesTable C++
+/// serializer is proven and callable with its real ABI.
 BOOL WAGRMobileConfigNativeWriteOverrideDocument(
     NSDictionary<NSString *, id> *document,
     id _Nullable userContext,
@@ -18,13 +19,24 @@ BOOL WAGRMobileConfigNativeWriteOverrideDocument(
     NSError * _Nullable * _Nullable outError,
     NSString * _Nullable * _Nullable outDiagnostic);
 
-/// Requests the reload/invalidation hooks that are ABI-safe in the current
-/// Objective-C surface. No C++ shared_ptr method is invoked from Objective-C.
+/// Invalidates the account-scoped MobileConfig context using ABI-safe native
+/// Objective-C entrypoints. This is a LOCAL invalidation, not a server fetch.
 BOOL WAGRMobileConfigNativeInvalidate(id _Nullable userContext,
                                       NSString * _Nullable * _Nullable outDiagnostic);
 
-NSDictionary<NSString *, id> *WAGRMobileConfigNativeEngineDiagnosticDocument(
-    id _Nullable userContext);
+typedef void (^WAGRMobileConfigNativeFetchCompletion)(NSDictionary<NSString *, id> *result);
+
+/// Requests the normal authenticated MobileConfig fetch through the WhatsApp
+/// account pipeline: WAContextMain.chatManager -> fetchMobileConfig:NO. The
+/// result correlates the native XWA2/WWW input observer with the XWA2 response
+/// and WAMobileConfigLastFetchStore success markers plus the account-scoped latest-config file state. No synthetic GraphQL
+/// input or token is constructed by WATweaks.
+BOOL WAGRMobileConfigNativeFetchAccount(id _Nullable userContext,
+                                        WAGRMobileConfigNativeFetchCompletion _Nullable completion,
+                                        NSString * _Nullable * _Nullable outDiagnostic);
+
+NSDictionary<NSString *, id> *WAGRMobileConfigNativeFetchState(void);
+NSDictionary<NSString *, id> *WAGRMobileConfigNativeEngineDiagnosticDocument(id _Nullable userContext);
 NSString *WAGRMobileConfigNativeEngineDiagnosticText(id _Nullable userContext);
 
 #ifdef __cplusplus

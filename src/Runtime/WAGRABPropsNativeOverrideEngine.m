@@ -8,9 +8,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 static NSString * const kWAGRABNativeErrorDomain = @"WATweaks.ABPropsNativeOverride";
 static NSString * const kWAGRABNativeRegistryKey = @"watweak_native_abprops_override_registry_v3";
+static NSString * const kWAGRStartupOverrideKeyPrefix = @"FBMobileConfigStartupConfigsOverride";
 
 static const char *WAGRABNativeSkipQualifiers(const char *type) {
     if (!type) return "";
@@ -31,6 +33,14 @@ static BOOL WAGRABNativeMethodReturnsVoid(Method method) {
     char raw[64] = {0};
     method_getReturnType(method, raw, sizeof(raw));
     return WAGRABNativeSkipQualifiers(raw)[0] == 'v';
+}
+
+static BOOL WAGRABNativeMethodReturnsBool(Method method) {
+    if (!method) return NO;
+    char raw[64] = {0};
+    method_getReturnType(method, raw, sizeof(raw));
+    const char *type = WAGRABNativeSkipQualifiers(raw);
+    return type[0] == 'B' || type[0] == 'c' || type[0] == 'C';
 }
 
 static BOOL WAGRABNativeMethodReturnsObject(Method method) {
@@ -75,6 +85,15 @@ static id WAGRABNativeCallClassObjectNoArg(Class cls, NSString *selectorName) {
     @catch (__unused NSException *exception) { return nil; }
 }
 
+static id WAGRABNativeCallObjectNoArg(id target, NSString *selectorName) {
+    if (!target || !selectorName.length) return nil;
+    SEL selector = NSSelectorFromString(selectorName);
+    Method method = class_getInstanceMethod([target class], selector);
+    if (!method || method_getNumberOfArguments(method) != 2 || !WAGRABNativeMethodReturnsObject(method)) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)(target, selector); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
 static uint64_t WAGRABNativeParseStableID(NSString *stableID) {
     if (![stableID isKindOfClass:NSString.class] || !stableID.length) return 0;
     const char *bytes = stableID.UTF8String;
@@ -99,7 +118,7 @@ static uint64_t WAGRABNativeSpecifier(uint64_t waStableID) {
     @catch (__unused NSException *exception) { return 0; }
 }
 
-#pragma mark - Read-only physical override observation
+#pragma mark - Physical mc_overrides observation (read-only)
 
 static NSDictionary *WAGRABNativeReadOverrideDocument(id userContext) {
     NSString *path = WAGRMobileConfigOverridesPath(userContext);
@@ -164,6 +183,22 @@ NSArray<NSNumber *> *WAGRABPropsNativeTrackedStableIDs(void) {
     return values;
 }
 
+void WAGRABPropsNativeRememberTrackedOverride(NSString *waStableID, id value) {
+    WAGRABNativeRegistrySet(waStableID, value);
+}
+
+void WAGRABPropsNativeForgetTrackedOverride(NSString *waStableID) {
+    WAGRABNativeRegistrySet(waStableID, nil);
+}
+
+void WAGRABPropsNativeForgetAllTrackedOverrides(void) {
+    @synchronized (WAGRABNativeRegistryLock()) {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:kWAGRABNativeRegistryKey];
+    }
+}
+
+#pragma mark - Type normalization/equality
+
 static id WAGRABNativeNormalizeValue(id value, uint8_t nativeType) {
     if (!value || value == NSNull.null) return nil;
     switch (nativeType) {
@@ -183,29 +218,141 @@ static id WAGRABNativeNormalizeValue(id value, uint8_t nativeType) {
     }
 }
 
-#pragma mark - Proven native in-memory writer
+static BOOL WAGRABNativeValuesEqual(id left, id right, uint8_t nativeType) {
+    id a = WAGRABNativeNormalizeValue(left, nativeType);
+    id b = WAGRABNativeNormalizeValue(right, nativeType);
+    if (!a || !b) return NO;
+    switch (nativeType) {
+        case 1: return [a boolValue] == [b boolValue];
+        case 2: return [a longLongValue] == [b longLongValue];
+        case 3: return [a isEqual:b];
+        case 4: {
+            double av = [a doubleValue], bv = [b doubleValue];
+            if (isnan(av) && isnan(bv)) return YES;
+            return av == bv;
+        }
+        default: return NO;
+    }
+}
+
+static NSString *WAGRABNativeValueString(id value, uint8_t nativeType) {
+    id normalized = WAGRABNativeNormalizeValue(value, nativeType);
+    if (!normalized) return nil;
+    if (nativeType == 1) return [normalized boolValue] ? @"true" : @"false";
+    if (nativeType == 2) return [NSString stringWithFormat:@"%lld", [normalized longLongValue]];
+    if (nativeType == 4) return [NSString stringWithFormat:@"%.17g", [normalized doubleValue]];
+    return [normalized isKindOfClass:NSString.class] ? normalized : [normalized description];
+}
+
+#pragma mark - Native StartupConfigs writer + exact backing store
 
 static id WAGRABNativeStartupConfigs(void) {
     Class cls = NSClassFromString(@"FBMobileConfigStartupConfigs") ?: objc_getClass("FBMobileConfigStartupConfigs");
     return WAGRABNativeCallClassObjectNoArg(cls, @"getInstance");
 }
 
-static BOOL WAGRABNativeStartupSet(uint64_t specifier, id value, NSString **outDiagnostic) {
-    id startup = WAGRABNativeStartupConfigs();
+static NSUserDefaults *WAGRABNativeStartupSharedDefaults(void) {
+    Class cls = NSClassFromString(@"FBMobileConfigStartupConfigsDeprecated") ?:
+                objc_getClass("FBMobileConfigStartupConfigsDeprecated");
+    id defaults = WAGRABNativeCallClassObjectNoArg(cls, @"sharedUserDefaultsForTesting");
+    return [defaults isKindOfClass:NSUserDefaults.class] ? defaults : nil;
+}
+
+static NSString *WAGRABNativeStartupParamName(id startup, uint64_t specifier) {
+    if (!startup || !specifier) return nil;
+    SEL selector = NSSelectorFromString(@"convertSpecifierToParamName:");
+    Method method = class_getInstanceMethod([startup class], selector);
+    if (!method || method_getNumberOfArguments(method) != 3 ||
+        !WAGRABNativeArgumentIsWord(method, 2) || !WAGRABNativeMethodReturnsObject(method)) return nil;
+    @try {
+        id value = ((id (*)(id, SEL, uint64_t))objc_msgSend)(startup, selector, specifier);
+        return [value isKindOfClass:NSString.class] ? value : nil;
+    } @catch (__unused NSException *exception) { return nil; }
+}
+
+static NSDictionary *WAGRABNativeStartupLiveOverrides(id startup) {
+    id value = WAGRABNativeCallObjectNoArg(startup, @"configValuesOverride");
+    return [value isKindOfClass:NSDictionary.class] ? value : @{};
+}
+
+static NSDictionary *WAGRABNativeStartupPersistentProbe(NSString *paramName,
+                                                         id expectedValue,
+                                                         uint8_t nativeType) {
+    NSUserDefaults *defaults = WAGRABNativeStartupSharedDefaults();
+    if (!defaults) return @{
+        @"available": @NO,
+        @"reason": @"FBMobileConfigStartupConfigsDeprecated.sharedUserDefaultsForTesting unresolved"
+    };
+    NSDictionary *representation = [defaults dictionaryRepresentation] ?: @{};
+    NSMutableArray<NSString *> *keys = [NSMutableArray array];
+    [representation enumerateKeysAndObjectsUsingBlock:^(id key, __unused id obj, __unused BOOL *stop) {
+        if ([key isKindOfClass:NSString.class] && [(NSString *)key hasPrefix:kWAGRStartupOverrideKeyPrefix]) {
+            [keys addObject:key];
+        }
+    }];
+    [keys sortUsingSelector:@selector(compare:)];
+
+    NSString *matchedKey = nil;
+    id observed = nil;
+    BOOL present = NO;
+    BOOL valueMatches = NO;
+    for (NSString *key in keys) {
+        NSDictionary *dictionary = [defaults dictionaryForKey:key];
+        if (![dictionary isKindOfClass:NSDictionary.class]) continue;
+        id candidate = paramName.length ? dictionary[paramName] : nil;
+        if (!candidate) continue;
+        present = YES;
+        observed = candidate;
+        if (!expectedValue || WAGRABNativeValuesEqual(candidate, expectedValue, nativeType)) {
+            matchedKey = key;
+            valueMatches = expectedValue ? YES : NO;
+            if (expectedValue) break;
+        }
+    }
+
+    return @{
+        @"available": @YES,
+        @"suite_class": NSStringFromClass([defaults class]) ?: @"?",
+        @"candidate_keys": keys,
+        @"parameter_name": paramName ?: @"",
+        @"present": @(present),
+        @"matched_key": matchedKey ?: (id)NSNull.null,
+        @"observed_value": observed ?: (id)NSNull.null,
+        @"value_matches": @(valueMatches)
+    };
+}
+
+static BOOL WAGRABNativeStartupSet(id startup,
+                                    uint64_t specifier,
+                                    id value,
+                                    BOOL *outNativeBoolResult,
+                                    NSString **outDiagnostic) {
+    if (outNativeBoolResult) *outNativeBoolResult = NO;
     if (!startup) {
         if (outDiagnostic) *outDiagnostic = @"FBMobileConfigStartupConfigs.getInstance não resolveu.";
         return NO;
     }
     SEL selector = NSSelectorFromString(@"setOverrideForParam:andValue:");
     Method method = class_getInstanceMethod([startup class], selector);
-    if (!method || method_getNumberOfArguments(method) != 4 || !WAGRABNativeMethodReturnsVoid(method) ||
-        !WAGRABNativeArgumentIsWord(method, 2) || !WAGRABNativeArgumentIsObject(method, 3)) {
+    if (!method || method_getNumberOfArguments(method) != 4 ||
+        !WAGRABNativeArgumentIsWord(method, 2) || !WAGRABNativeArgumentIsObject(method, 3) ||
+        (!WAGRABNativeMethodReturnsBool(method) && !WAGRABNativeMethodReturnsVoid(method))) {
         if (outDiagnostic) *outDiagnostic = @"FBMobileConfigStartupConfigs setOverrideForParam:andValue: ABI incompatível.";
         return NO;
     }
+    const char *encoding = method_getTypeEncoding(method);
     @try {
+        if (WAGRABNativeMethodReturnsBool(method)) {
+            BOOL accepted = ((BOOL (*)(id, SEL, uint64_t, id))objc_msgSend)(startup, selector, specifier, value);
+            if (outNativeBoolResult) *outNativeBoolResult = accepted;
+            if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
+                @"setOverrideForParam:andValue: ABI=%s returned=%@", encoding ?: "?", accepted ? @"YES" : @"NO"];
+            return accepted;
+        }
         ((void (*)(id, SEL, uint64_t, id))objc_msgSend)(startup, selector, specifier, value);
-        if (outDiagnostic) *outDiagnostic = @"StartupConfigs setOverrideForParam:andValue: aplicado.";
+        if (outNativeBoolResult) *outNativeBoolResult = YES;
+        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
+            @"setOverrideForParam:andValue: legacy ABI=%s invoked", encoding ?: "?"];
         return YES;
     } @catch (NSException *exception) {
         if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"StartupConfigs set lançou %@", exception.reason ?: @"exception"];
@@ -213,8 +360,7 @@ static BOOL WAGRABNativeStartupSet(uint64_t specifier, id value, NSString **outD
     }
 }
 
-static BOOL WAGRABNativeStartupRemove(uint64_t specifier, NSString **outDiagnostic) {
-    id startup = WAGRABNativeStartupConfigs();
+static BOOL WAGRABNativeStartupRemove(id startup, uint64_t specifier, NSString **outDiagnostic) {
     if (!startup) {
         if (outDiagnostic) *outDiagnostic = @"FBMobileConfigStartupConfigs.getInstance não resolveu.";
         return NO;
@@ -228,13 +374,40 @@ static BOOL WAGRABNativeStartupRemove(uint64_t specifier, NSString **outDiagnost
     }
     @try {
         ((void (*)(id, SEL, uint64_t))objc_msgSend)(startup, selector, specifier);
-        if (outDiagnostic) *outDiagnostic = @"StartupConfigs removeOverrideForParam: aplicado.";
+        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"removeOverrideForParam: ABI=%s invoked",
+            method_getTypeEncoding(method) ?: "?"];
         return YES;
     } @catch (NSException *exception) {
         if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"StartupConfigs remove lançou %@", exception.reason ?: @"exception"];
         return NO;
     }
 }
+
+static WAGRMobileConfigMapping *WAGRABNativeMappingObject(NSDictionary *mapping) {
+    if (![mapping isKindOfClass:NSDictionary.class]) return nil;
+    WAGRMobileConfigMapping *object = [WAGRMobileConfigMapping new];
+    object.waStableId = [mapping[@"wa_stable_id"] unsignedIntegerValue];
+    object.paramSpecifier = [mapping[@"param_specifier"] unsignedLongLongValue];
+    object.localConfigIndex = (uint16_t)((object.paramSpecifier >> 32) & 0xFFFF);
+    object.parameterIndex = (uint16_t)((object.paramSpecifier >> 16) & 0xFFFF);
+    object.parameterStableId = (uint16_t)(object.paramSpecifier & 0xFFFF);
+    object.nativeType = (uint8_t)[mapping[@"native_type"] unsignedIntegerValue];
+    object.externalConfigStableId = [mapping[@"external_config_stable_id"] unsignedLongLongValue];
+    object.configName = [mapping[@"config_name"] isKindOfClass:NSString.class] ? mapping[@"config_name"] : nil;
+    object.parameterName = [mapping[@"parameter_name"] isKindOfClass:NSString.class] ? mapping[@"parameter_name"] : nil;
+    return object;
+}
+
+static void WAGRABNativeRollback(id startup, uint64_t specifier, BOOL hadPrevious, id previousValue) {
+    if (hadPrevious && previousValue) {
+        BOOL ignored = NO;
+        WAGRABNativeStartupSet(startup, specifier, previousValue, &ignored, NULL);
+    } else {
+        WAGRABNativeStartupRemove(startup, specifier, NULL);
+    }
+}
+
+#pragma mark - Mapping / read-only physical mc_overrides row
 
 NSDictionary<NSString *, id> *WAGRABPropsNativeOverrideMapping(NSString *waStableID, id userContext, NSString **outDiagnostic) {
     uint64_t waID = WAGRABNativeParseStableID(waStableID);
@@ -253,35 +426,38 @@ NSDictionary<NSString *, id> *WAGRABPropsNativeOverrideMapping(NSString *waStabl
         return nil;
     }
 
-    // The current SharedModules ABI returns an Objective-C object from
-    // getStableIdFromParamSpecifier:.  RuntimeResolver owns that ABI detail.
     uint64_t externalID = WAGRMobileConfigRuntimeStableIdForSpecifier(userContext, specifier);
-    if (!externalID) {
-        if (outDiagnostic) *outDiagnostic = @"UserSession não resolveu external config stable ID para este paramSpecifier.";
-        return nil;
-    }
-
+    uint16_t localConfigIndex = (uint16_t)((specifier >> 32) & 0xFFFF);
     uint16_t parameterIndex = (uint16_t)((specifier >> 16) & 0xFFFF);
+    uint16_t compactToken = (uint16_t)(specifier & 0xFFFF);
     uint8_t nativeType = (uint8_t)((specifier >> 48) & 0x3F);
     NSString *fullName = WAGRMobileConfigRuntimeNameForSpecifier(specifier);
     NSString *configName = nil, *parameterName = nil;
     WAGRMobileConfigRuntimeSplitName(fullName, &configName, &parameterName);
-    NSString *path = WAGRMobileConfigOverridesPath(userContext);
+    id startup = WAGRABNativeStartupConfigs();
+    NSString *startupParamName = WAGRABNativeStartupParamName(startup, specifier);
+    if (!parameterName.length && startupParamName.length) parameterName = startupParamName;
+
     NSMutableDictionary *result = [@{
         @"wa_stable_id" : @(waID),
         @"param_specifier" : @(specifier),
         @"param_specifier_hex" : [NSString stringWithFormat:@"0x%016llx", specifier],
-        @"external_config_stable_id" : @(externalID),
+        @"local_config_index" : @(localConfigIndex),
         @"parameter_index" : @(parameterIndex),
+        @"compact_parameter_token" : @(compactToken),
+        @"external_config_stable_id" : @(externalID),
         @"native_type" : @(nativeType),
         @"manager_class" : NSStringFromClass([manager class]) ?: @"?",
-        @"overrides_path" : path ?: @""
+        @"startup_parameter_name" : startupParamName ?: @"",
+        @"overrides_path" : WAGRMobileConfigOverridesPath(userContext) ?: @""
     } mutableCopy];
     if (configName.length) result[@"config_name"] = configName;
     if (parameterName.length) result[@"parameter_name"] = parameterName;
     if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
-        @"AB %@ -> specifier 0x%016llx -> external MC %llu / param %u (%@.%@)",
-        waStableID, specifier, externalID, parameterIndex, configName ?: @"?", parameterName ?: @"?"];
+        @"AB %@ -> specifier 0x%016llx -> local=%u param=%u token=%u type=%u -> external MC %@ (%@.%@)",
+        waStableID, specifier, localConfigIndex, parameterIndex, compactToken, nativeType,
+        externalID ? [NSString stringWithFormat:@"%llu", externalID] : @"unresolved",
+        configName ?: @"?", parameterName ?: @"?"];
     return result;
 }
 
@@ -310,10 +486,12 @@ NSString *WAGRABPropsNativeOverrideRow(NSString *waStableID, id userContext, NSS
     }
     NSString *row = WAGRABNativeRowForMapping(mapping, userContext);
     if (outDiagnostic) *outDiagnostic = row.length
-        ? [NSString stringWithFormat:@"%@; physical mc_overrides observation=%@ (read-only, not the ABProps writer)", mappingDiagnostic ?: @"", row]
+        ? [NSString stringWithFormat:@"%@; physical mc_overrides observation=%@ (read-only; separate C++ table)", mappingDiagnostic ?: @"", row]
         : [NSString stringWithFormat:@"%@; physical mc_overrides observation=none", mappingDiagnostic ?: @""];
     return row;
 }
+
+#pragma mark - Verified native apply/remove
 
 BOOL WAGRABPropsNativeSetOverride(NSString *waStableID, id value, id userContext,
                                   NSError **outError, NSString **outDiagnostic) {
@@ -334,30 +512,70 @@ BOOL WAGRABPropsNativeSetOverride(NSString *waStableID, id value, id userContext
         return NO;
     }
 
+    id startup = WAGRABNativeStartupConfigs();
     uint64_t specifier = [mapping[@"param_specifier"] unsignedLongLongValue];
-    NSString *startupDiagnostic = nil;
-    BOOL startupOK = WAGRABNativeStartupSet(specifier, normalized, &startupDiagnostic);
-    if (!startupOK) {
-        if (outError) *outError = WAGRABNativeError(3, startupDiagnostic ?: @"StartupConfigs set failed.");
-        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"%@; %@", mappingDiagnostic ?: @"", startupDiagnostic ?: @"set failed"];
+    NSString *paramName = WAGRABNativeStartupParamName(startup, specifier);
+    if (!startup || !paramName.length) {
+        NSString *message = @"FBMobileConfigStartupConfigs/convertSpecifierToParamName: não resolveu o parâmetro nativo.";
+        if (outError) *outError = WAGRABNativeError(3, message);
+        if (outDiagnostic) *outDiagnostic = message;
+        return NO;
+    }
+
+    NSDictionary *beforeLive = WAGRABNativeStartupLiveOverrides(startup);
+    id previousValue = beforeLive[paramName];
+    BOOL hadPrevious = previousValue != nil;
+
+    BOOL nativeAccepted = NO;
+    NSString *setDiagnostic = nil;
+    if (!WAGRABNativeStartupSet(startup, specifier, normalized, &nativeAccepted, &setDiagnostic)) {
+        NSString *message = setDiagnostic ?: @"StartupConfigs rejeitou o override.";
+        if (outError) *outError = WAGRABNativeError(4, message);
+        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"%@; %@", mappingDiagnostic ?: @"", message];
+        return NO;
+    }
+
+    NSDictionary *afterLive = WAGRABNativeStartupLiveOverrides(startup);
+    id liveValue = afterLive[paramName];
+    BOOL liveMatches = WAGRABNativeValuesEqual(liveValue, normalized, nativeType);
+    NSDictionary *persistent = WAGRABNativeStartupPersistentProbe(paramName, normalized, nativeType);
+    BOOL persisted = [persistent[@"present"] boolValue] && [persistent[@"value_matches"] boolValue];
+
+    if (!nativeAccepted || !liveMatches || !persisted) {
+        WAGRABNativeRollback(startup, specifier, hadPrevious, previousValue);
+        WAGRMobileConfigNativeInvalidate(userContext, NULL);
+        NSString *message = [NSString stringWithFormat:
+            @"Override rejected after write: native=%@ live=%@ persisted=%@ backing=%@",
+            nativeAccepted ? @"YES" : @"NO", liveMatches ? @"YES" : @"NO", persisted ? @"YES" : @"NO", persistent];
+        if (outError) *outError = WAGRABNativeError(5, message);
+        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"%@; %@; %@", mappingDiagnostic ?: @"", setDiagnostic ?: @"", message];
+        return NO;
+    }
+
+    NSString *invalidateDiagnostic = nil;
+    BOOL invalidated = WAGRMobileConfigNativeInvalidate(userContext, &invalidateDiagnostic);
+    WAGRMobileConfigMapping *mappingObject = WAGRABNativeMappingObject(mapping);
+    id effective = WAGRMobileConfigCurrentValue(mappingObject, userContext);
+    BOOL effectiveMatches = WAGRABNativeValuesEqual(effective, normalized, nativeType);
+    if (!invalidated || !effectiveMatches) {
+        WAGRABNativeRollback(startup, specifier, hadPrevious, previousValue);
+        WAGRMobileConfigNativeInvalidate(userContext, NULL);
+        NSString *message = [NSString stringWithFormat:
+            @"Override reverted: invalidate=%@ effective=%@ expected=%@",
+            invalidated ? @"YES" : @"NO", effective ?: @"nil", normalized];
+        if (outError) *outError = WAGRABNativeError(6, message);
+        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
+            @"%@; %@; backing=%@; %@; %@",
+            mappingDiagnostic ?: @"", setDiagnostic ?: @"", persistent,
+            invalidateDiagnostic ?: @"invalidate failed", message];
         return NO;
     }
 
     WAGRABNativeRegistrySet(waStableID, normalized);
-
-    // Invalidation is a live ObjC API with a safe no-arg ABI.  The main
-    // FBMobileConfigOverridesTable serializer remains unresolved, so this path
-    // deliberately does not synthesize/write mc_overrides.json.
-    NSString *invalidateDiagnostic = nil;
-    BOOL invalidated = WAGRMobileConfigNativeInvalidate(userContext, &invalidateDiagnostic);
-    NSString *refreshDiagnostic = nil;
-    BOOL refreshed = WAGRABPropsNativeRefreshMobileConfig(waStableID, userContext, &refreshDiagnostic);
-
     if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
-        @"%@; startup=%@; nativeInvalidate=%@ (%@); targetedRefresh=%@ (%@); diskWriter=disabled-until-main-serializer-proven",
-        mappingDiagnostic ?: @"", startupDiagnostic ?: @"ok",
-        invalidated ? @"YES" : @"NO", invalidateDiagnostic ?: @"",
-        refreshed ? @"YES" : @"NO", refreshDiagnostic ?: @""];
+        @"%@; %@; live=YES; persisted=YES key=%@; invalidate=YES; effective=%@; mc_overrides.json untouched",
+        mappingDiagnostic ?: @"", setDiagnostic ?: @"",
+        persistent[@"matched_key"] ?: @"?", effective ?: @"nil"];
     return YES;
 }
 
@@ -366,33 +584,60 @@ BOOL WAGRABPropsNativeClearOverride(NSString *waStableID, id userContext,
     NSString *mappingDiagnostic = nil;
     NSDictionary *mapping = WAGRABPropsNativeOverrideMapping(waStableID, userContext, &mappingDiagnostic);
     if (!mapping) {
-        if (outError) *outError = WAGRABNativeError(4, mappingDiagnostic);
+        if (outError) *outError = WAGRABNativeError(10, mappingDiagnostic);
         if (outDiagnostic) *outDiagnostic = mappingDiagnostic;
         return NO;
     }
-
+    id startup = WAGRABNativeStartupConfigs();
     uint64_t specifier = [mapping[@"param_specifier"] unsignedLongLongValue];
-    NSString *startupDiagnostic = nil;
-    BOOL startupOK = WAGRABNativeStartupRemove(specifier, &startupDiagnostic);
-    if (!startupOK) {
-        if (outError) *outError = WAGRABNativeError(5, startupDiagnostic ?: @"StartupConfigs remove failed.");
-        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"%@; %@", mappingDiagnostic ?: @"", startupDiagnostic ?: @"remove failed"];
+    uint8_t nativeType = (uint8_t)[mapping[@"native_type"] unsignedIntegerValue];
+    NSString *paramName = WAGRABNativeStartupParamName(startup, specifier);
+    if (!startup || !paramName.length) {
+        NSString *message = @"StartupConfigs/parameter name unresolved.";
+        if (outError) *outError = WAGRABNativeError(11, message);
+        if (outDiagnostic) *outDiagnostic = message;
+        return NO;
+    }
+
+    NSDictionary *beforeLive = WAGRABNativeStartupLiveOverrides(startup);
+    id previousValue = beforeLive[paramName];
+    BOOL hadPrevious = previousValue != nil;
+    NSString *removeDiagnostic = nil;
+    if (!WAGRABNativeStartupRemove(startup, specifier, &removeDiagnostic)) {
+        if (outError) *outError = WAGRABNativeError(12, removeDiagnostic ?: @"remove failed");
+        if (outDiagnostic) *outDiagnostic = removeDiagnostic;
+        return NO;
+    }
+
+    BOOL liveAbsent = WAGRABNativeStartupLiveOverrides(startup)[paramName] == nil;
+    NSDictionary *persistent = WAGRABNativeStartupPersistentProbe(paramName, nil, nativeType);
+    BOOL persistedAbsent = ![persistent[@"present"] boolValue];
+    NSString *invalidateDiagnostic = nil;
+    BOOL invalidated = WAGRMobileConfigNativeInvalidate(userContext, &invalidateDiagnostic);
+    if (!liveAbsent || !persistedAbsent || !invalidated) {
+        if (hadPrevious) {
+            BOOL ignored = NO;
+            WAGRABNativeStartupSet(startup, specifier, previousValue, &ignored, NULL);
+            WAGRMobileConfigNativeInvalidate(userContext, NULL);
+        }
+        NSString *message = [NSString stringWithFormat:
+            @"Remove reverted/failed: liveAbsent=%@ persistedAbsent=%@ invalidate=%@ backing=%@",
+            liveAbsent ? @"YES" : @"NO", persistedAbsent ? @"YES" : @"NO", invalidated ? @"YES" : @"NO", persistent];
+        if (outError) *outError = WAGRABNativeError(13, message);
+        if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"%@; %@; %@", mappingDiagnostic ?: @"", removeDiagnostic ?: @"", message];
         return NO;
     }
 
     WAGRABNativeRegistrySet(waStableID, nil);
-    NSString *invalidateDiagnostic = nil;
-    BOOL invalidated = WAGRMobileConfigNativeInvalidate(userContext, &invalidateDiagnostic);
-    NSString *refreshDiagnostic = nil;
-    BOOL refreshed = WAGRABPropsNativeRefreshMobileConfig(waStableID, userContext, &refreshDiagnostic);
-
+    WAGRMobileConfigMapping *mappingObject = WAGRABNativeMappingObject(mapping);
+    id effective = WAGRMobileConfigCurrentValue(mappingObject, userContext);
     if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
-        @"%@; startup=%@; nativeInvalidate=%@ (%@); targetedRefresh=%@ (%@); physical mc_overrides untouched by design",
-        mappingDiagnostic ?: @"", startupDiagnostic ?: @"ok",
-        invalidated ? @"YES" : @"NO", invalidateDiagnostic ?: @"",
-        refreshed ? @"YES" : @"NO", refreshDiagnostic ?: @""];
+        @"%@; %@; live override absent; persistent override absent; invalidate=YES; effective baseline now=%@; mc_overrides.json untouched",
+        mappingDiagnostic ?: @"", removeDiagnostic ?: @"", effective ?: @"nil"];
     return YES;
 }
+
+#pragma mark - Bulk sync/reset
 
 NSInteger WAGRABPropsNativeSyncTrackedOverrides(id userContext, NSString **outDiagnostic) {
     NSDictionary<NSString *, id> *registry = WAGRABPropsNativeTrackedOverrides();
@@ -410,7 +655,7 @@ NSInteger WAGRABPropsNativeSyncTrackedOverrides(id userContext, NSString **outDi
         NSString *diagnostic = nil;
         if (WAGRABPropsNativeSetOverride(stableID, registry[stableID], userContext, &error, &diagnostic)) {
             applied++;
-        } else if (failures.count < 8) {
+        } else if (failures.count < 12) {
             [failures addObject:[NSString stringWithFormat:@"AB %@: %@", stableID, error.localizedDescription ?: diagnostic ?: @"failed"]];
         }
     }
@@ -430,7 +675,7 @@ NSInteger WAGRABPropsNativeClearTrackedOverrides(id userContext, NSString **outD
         NSString *diagnostic = nil;
         if (WAGRABPropsNativeClearOverride(stableID, userContext, &error, &diagnostic)) {
             cleared++;
-        } else if (failures.count < 8) {
+        } else if (failures.count < 12) {
             [failures addObject:[NSString stringWithFormat:@"AB %@: %@", stableID, error.localizedDescription ?: diagnostic ?: @"failed"]];
         }
     }
@@ -463,11 +708,99 @@ BOOL WAGRABPropsNativeRefreshMobileConfig(NSString *waStableID, id userContext, 
     @try {
         ((void (*)(id, SEL, uint32_t))objc_msgSend)(manager, selector, (uint32_t)external);
         if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
-            @"%@; forceRefreshOfConfig:%llu solicitado ao UserSession manager; backend real deve ser confirmado pelo observer XWA2/WWW.",
-            mappingDiagnostic ?: @"", external];
+            @"%@; local forceRefreshOfConfig:%llu requested. This is not a server fetch.", mappingDiagnostic ?: @"", external];
         return YES;
     } @catch (NSException *exception) {
         if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"forceRefreshOfConfig lançou %@", exception.reason ?: @"exception"];
         return NO;
     }
+}
+
+#pragma mark - Native/custom export documents
+
+NSDictionary<NSString *, id> *WAGRABPropsNativeStartupOverrideStoreDocument(void) {
+    id startup = WAGRABNativeStartupConfigs();
+    NSUserDefaults *defaults = WAGRABNativeStartupSharedDefaults();
+    NSDictionary *representation = defaults ? [defaults dictionaryRepresentation] : @{};
+    NSMutableDictionary *physical = [NSMutableDictionary dictionary];
+    for (NSString *key in representation) {
+        if (![key isKindOfClass:NSString.class] || ![key hasPrefix:kWAGRStartupOverrideKeyPrefix]) continue;
+        id value = [defaults objectForKey:key];
+        if (value) physical[key] = value;
+    }
+    Method set = startup ? class_getInstanceMethod([startup class], NSSelectorFromString(@"setOverrideForParam:andValue:")) : NULL;
+    Method remove = startup ? class_getInstanceMethod([startup class], NSSelectorFromString(@"removeOverrideForParam:")) : NULL;
+    return @{
+        @"schema" : @"watweaks_native_startupconfig_overrides_v1",
+        @"source" : @"FBMobileConfigStartupConfigsDeprecated.sharedUserDefaultsForTesting -> METAAppGroup(app).userDefaults",
+        @"startup_class" : startup ? (NSStringFromClass([startup class]) ?: @"?") : @"nil",
+        @"set_encoding" : set ? ([NSString stringWithUTF8String:method_getTypeEncoding(set)] ?: @"") : @"missing",
+        @"remove_encoding" : remove ? ([NSString stringWithUTF8String:method_getTypeEncoding(remove)] ?: @"") : @"missing",
+        @"live_configValuesOverride" : WAGRABNativeStartupLiveOverrides(startup),
+        @"persistent_keys" : physical,
+        @"note" : @"This is the native local ABProp/MobileConfig StartupConfigs override store. It is separate from the C++ FBMobileConfigOverridesTable mc_overrides.json artifact."
+    };
+}
+
+NSDictionary<NSString *, id> *WAGRABPropsNativeMCOverridesExportDocument(id userContext,
+                                                                          NSDictionary<NSString *, id> **stats) {
+    NSDictionary<NSString *, id> *tracked = WAGRABPropsNativeTrackedOverrides();
+    NSMutableDictionary<NSString *, NSMutableArray<NSString *> *> *result = [NSMutableDictionary dictionary];
+    NSUInteger emitted = 0, skippedMapping = 0, skippedUnverified = 0, skippedExternal = 0;
+    for (NSString *stableID in tracked) {
+        NSString *diagnostic = nil;
+        NSDictionary *mapping = WAGRABPropsNativeOverrideMapping(stableID, userContext, &diagnostic);
+        if (!mapping) { skippedMapping++; continue; }
+        uint8_t nativeType = (uint8_t)[mapping[@"native_type"] unsignedIntegerValue];
+        id expected = WAGRABNativeNormalizeValue(tracked[stableID], nativeType);
+        NSString *paramName = mapping[@"startup_parameter_name"];
+        if (!expected || !paramName.length) { skippedMapping++; continue; }
+
+        NSDictionary *persistent = WAGRABNativeStartupPersistentProbe(paramName, expected, nativeType);
+        id live = WAGRABNativeStartupLiveOverrides(WAGRABNativeStartupConfigs())[paramName];
+        WAGRMobileConfigMapping *mappingObject = WAGRABNativeMappingObject(mapping);
+        id effective = WAGRMobileConfigCurrentValue(mappingObject, userContext);
+        if (![persistent[@"value_matches"] boolValue] ||
+            !WAGRABNativeValuesEqual(live, expected, nativeType) ||
+            !WAGRABNativeValuesEqual(effective, expected, nativeType)) {
+            skippedUnverified++;
+            continue;
+        }
+
+        uint64_t externalID = [mapping[@"external_config_stable_id"] unsignedLongLongValue];
+        if (!externalID) { skippedExternal++; continue; }
+        uint16_t parameterIndex = (uint16_t)[mapping[@"parameter_index"] unsignedIntegerValue];
+        NSString *valueString = WAGRABNativeValueString(expected, nativeType);
+        if (!valueString.length) { skippedMapping++; continue; }
+        NSString *configName = [mapping[@"config_name"] isKindOfClass:NSString.class] ? mapping[@"config_name"] : @"";
+        NSString *parameterName = [mapping[@"parameter_name"] isKindOfClass:NSString.class] ? mapping[@"parameter_name"] : @"";
+        NSString *key = configName.length
+            ? [NSString stringWithFormat:@"%llu:%@", externalID, configName]
+            : [NSString stringWithFormat:@"%llu:", externalID];
+        NSString *row = parameterName.length
+            ? [NSString stringWithFormat:@"%u: %@: %@", parameterIndex, parameterName, valueString]
+            : [NSString stringWithFormat:@"%u: : %@", parameterIndex, valueString];
+        NSMutableArray *rows = result[key];
+        if (!rows) { rows = [NSMutableArray array]; result[key] = rows; }
+        [rows addObject:row];
+        emitted++;
+    }
+    [result enumerateKeysAndObjectsUsingBlock:^(__unused NSString *key, NSMutableArray<NSString *> *rows, __unused BOOL *stop) {
+        [rows sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+            NSInteger ai = [[[a componentsSeparatedByString:@":"] firstObject] integerValue];
+            NSInteger bi = [[[b componentsSeparatedByString:@":"] firstObject] integerValue];
+            if (ai < bi) return NSOrderedAscending;
+            if (ai > bi) return NSOrderedDescending;
+            return [a compare:b];
+        }];
+    }];
+    if (stats) *stats = @{
+        @"tracked" : @(tracked.count),
+        @"emitted" : @(emitted),
+        @"configs" : @(result.count),
+        @"skipped_mapping" : @(skippedMapping),
+        @"skipped_not_persisted_or_not_effective" : @(skippedUnverified),
+        @"skipped_external_config_id_unresolved" : @(skippedExternal)
+    };
+    return result;
 }

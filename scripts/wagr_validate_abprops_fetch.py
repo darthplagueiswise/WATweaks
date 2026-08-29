@@ -19,6 +19,9 @@ BRIDGE = ROOT / "src/Runtime/WAGRABPropsABTNativeBridge.m"
 NATIVE = ROOT / "src/Runtime/WAGRABPropsNativeStore.m"
 NATIVE_EDITOR = ROOT / "src/Menu/WAGRABPropsNativeEditor.m"
 NATIVE_OVERRIDE = ROOT / "src/Runtime/WAGRABPropsNativeOverrideEngine.m"
+MC_NATIVE = ROOT / "src/Runtime/WAGRMobileConfigNativeEngine.m"
+RELEASE_LINKAGE = ROOT / "src/Runtime/WAGRABPropsReleaseNativeLinkage.m"
+MC_EXPORT = ROOT / "src/Menu/WAGRMobileConfigExportVC.m"
 
 
 def read(path: pathlib.Path, errors: list[str]) -> str:
@@ -53,6 +56,9 @@ def main() -> int:
     native = read(NATIVE, errors)
     native_editor = read(NATIVE_EDITOR, errors)
     native_override = read(NATIVE_OVERRIDE, errors)
+    mc_native = read(MC_NATIVE, errors)
+    release_linkage = read(RELEASE_LINKAGE, errors)
+    mc_export = read(MC_EXPORT, errors)
 
     # The legacy force-full symbol is a compatibility adapter only. It must use
     # the same correlated full_empty_hash service as browser and Lab and may not
@@ -200,23 +206,73 @@ def main() -> int:
     ):
         require(native, token, "WAGRABPropsNativeStore.m", errors)
 
-    # ABProps editing currently uses the proven native StartupConfigs memory
-    # path. Until the main serializer is recovered, the UI must never claim
-    # that this path persisted the physical App Group override document.
+    # ABProps editing is a verified native StartupConfigs transaction. The
+    # StartupConfigs override is persisted in the native App Group defaults,
+    # while physical mc_overrides.json remains a separate C++ table.
     for token in (
-        "FBMobileConfigStartupConfigs em memória",
-        "persistência física em mc_overrides.json continua desativada",
+        "FBMobileConfigStartupConfigsOverride",
+        "getter efetivo",
+        "mc_overrides.json",
     ):
         require(native_editor, token, "WAGRABPropsNativeEditor.m", errors)
-    reject(native_editor, "Aplicar grava no mc_overrides.json",
-           "WAGRABPropsNativeEditor.m", errors)
+    for token in (
+        "MobileConfig nativo em memória",
+        "Aplicar grava no mc_overrides.json",
+    ):
+        reject(native_editor, token, "WAGRABPropsNativeEditor.m", errors)
+
     for token in (
         "setOverrideForParam:andValue:",
-        "removeOverrideForParam:",
-        "diskWriter=disabled-until-main-serializer-proven",
-        "physical mc_overrides untouched by design",
+        "WAGRABNativeMethodReturnsBool",
+        "sharedUserDefaultsForTesting",
+        "FBMobileConfigStartupConfigsOverride",
+        "WAGRMobileConfigCurrentValue",
+        "Override reverted",
+        "mc_overrides.json untouched",
+        "WAGRABPropsNativeStartupOverrideStoreDocument",
+        "WAGRABPropsNativeMCOverridesExportDocument",
+        "This is not a server fetch",
     ):
         require(native_override, token, "WAGRABPropsNativeOverrideEngine.m", errors)
+
+    for token in (
+        "compatibility JSON writer BLOCKED",
+        "WATweaks refuses direct JSON writes",
+        "fetchMobileConfig:",
+        "WAChatManager fetchMobileConfig:NO",
+        "handleFetchSuccessResponse:error:fetchType:attemptIndex:maxAttempts:attemptCompletion:",
+        "v64@0:8@16@24@32q40q48@?56",
+        "setLastSuccessFetchInPreferencesStore:unitType:unitId:appVersion:",
+        "v44@0:8@16i24@28@36",
+        "verified_server_response",
+    ):
+        require(mc_native, token, "WAGRMobileConfigNativeEngine.m", errors)
+    reject(mc_native, "writeToFile:", "WAGRMobileConfigNativeEngine.m", errors)
+
+    for token in (
+        "WAGRABPropsNativeSetOverride",
+        "WAGRABPropsNativeClearOverride",
+        "xwa2_native_fetch_observed",
+        "www_native_fetch_observed",
+        "globalValueHash",
+        "unitId",
+    ):
+        require(release_linkage, token, "WAGRABPropsReleaseNativeLinkage.m", errors)
+    for token in (
+        "WAGRLinkageStartupSet(",
+        "WAGRLinkageRefreshConfig(",
+    ):
+        reject(release_linkage, token, "WAGRABPropsReleaseNativeLinkage.m", errors)
+
+    for token in (
+        "Fetch from server · native",
+        "Export native id_name_mapping.json",
+        "Export native mc_overrides.json · read-only",
+        "Export native StartupConfigsOverride",
+        "Export custom mc_overrides · verified ABProps only",
+    ):
+        require(mc_export, token, "WAGRMobileConfigExportVC.m", errors)
+    reject(mc_export, "Aplicar no mc_overrides.json", "WAGRMobileConfigExportVC.m", errors)
 
     timeout_section = live.split("explicit_transaction_timeout", 1)
     if len(timeout_section) != 2:
