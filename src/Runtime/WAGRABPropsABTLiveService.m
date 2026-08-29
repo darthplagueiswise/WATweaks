@@ -235,19 +235,22 @@ static id ValueForPolicy(NSString *policy, id nativeValue, NSString *customValue
 
 static NSDictionary *BinaryEvidence(void) {
     return @{
-        @"sharedmodules_sha256": @"f0edef076c68d7f1f872401d774789a2cb3f50be5c96773a2d8ed763ed3015a7",
-        @"requestFreshABProps_thunk": @"0x003f55f8",
-        @"request_manager_full_path": @"0x003e5bf8",
-        @"request_builder": @"0x003f5820",
-        @"request_initializer": @"0x003f58ec",
-        @"query_enqueue_path": @"0x003f57b0",
-        @"response_handler": @"0x003fee38",
-        @"full_store_update_callsite": @"0x003ff0d0",
-        @"delta_store_update_callsite": @"0x003ff0e0",
+        @"analyzed_build": @"WhatsApp 26.33 / SharedModules(6)",
+        @"sharedmodules_sha256": @"b95c66b5d27476d323aaa1ba761fb76aa07f2df5b8f10d482ea6fd6953f6619a",
+        @"previous_sharedmodules_sha256": @"f0edef076c68d7f1f872401d774789a2cb3f50be5c96773a2d8ed763ed3015a7",
+        @"requestFreshABProps_thunk": @"0x0054285c",
+        @"request_manager_full_path": @"0x0054286c",
+        @"request_initializer": @"0x00549974",
+        @"response_handler": @"0x00565cf8",
+        @"full_store_update_imp": @"0x002dd5b8",
+        @"delta_store_update_imp": @"0x021b430c",
+        @"reset_config_hash_imp": @"0x021b432c",
+        @"WAABProperties_instance_size": @"0x8; no own ivars; inherits WAProperties",
         @"WAProperties_propertiesStore_ivar": @"0x8",
         @"WAPropertiesStore_preferencesStore_ivar": @"0x8",
         @"WAPropertiesStore_namespace_ivar": @"0x20",
         @"WAPropertiesStore_propertiesType_ivar": @"0x30",
+        @"WAPropertiesStore_propertiesType_size": @"0x8; stripped empty type encoding",
         @"WAPropertiesStore_groupJID_ivar": @"0x38",
         @"WAPropertiesStore_properties_ivar": @"0x60"
     };

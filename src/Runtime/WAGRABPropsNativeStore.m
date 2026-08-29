@@ -268,8 +268,8 @@ static BOOL WAGRABReadPropertiesType(id store, NSInteger *value, NSString **diag
         return NO;
     }
 
-    // SharedModules(5) deliberately has an empty type-encoding c-string for
-    // WAPropertiesStore's local ivars. The ivar-list entry still proves
+    // Both supplied SharedModules(5)/(6) builds deliberately have an empty
+    // type-encoding c-string for WAPropertiesStore's local ivars. The ivar-list entry still proves
     // offset=0x30, alignment=3 and size=8, while the designated initializer
     // independently proves that propertiesType is the q argument at +48:
     // @68@0:8@16@24@32@40q48@56B64. Do not reject the correct object merely

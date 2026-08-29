@@ -119,7 +119,8 @@ jobs:
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
-          grep -q 'requestFreshABProps:withCompletion:' src/Runtime/WAGRABPropsABTForceFull.m
+          grep -q 'WAGRABPropsABTLiveFetchVariant' src/Runtime/WAGRABPropsABTForceFull.m
+          grep -q 'WAGRABPropsABTVariantFullEmptyHash' src/Runtime/WAGRABPropsABTForceFull.m
           grep -q 'WAGRABPropsStableIDForTarget' src/Menu/WAGRRuntimeBrowsersGlassUI.m
 
           # ABProps/Runtime browsers must stay editable and exact-receiver based.
@@ -217,7 +218,7 @@ jobs:
           grep -q 'WAGRABPropsABTLabRunMatrix' src/Runtime/WAGRABPropsABTLab.m
           grep -q 'last_matrix_results_compact' src/Runtime/WAGRABPropsABTLab.m
           grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTTransactionGate.m
-          grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTForceFull.m
+          ! grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTForceFull.m
           grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTLiveService.m
           grep -q 'ABT Runtime Lab' src/Menu/WAGRABPropsABTLabVC.m
           grep -q 'Executar wire custom' src/Menu/WAGRABPropsABTLabVC.m

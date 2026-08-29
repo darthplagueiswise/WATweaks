@@ -9,11 +9,9 @@ NS_ASSUME_NONNULL_BEGIN
 extern "C" {
 #endif
 
-/// Runs a hook-free, account-scoped native full-fetch transaction. It invokes
-/// the active -[WAProperties resetConfigHashToEmptyString] pair and then calls
-/// -[XMPPConnectionABPropsRequestManager requestFreshABProps:NO ...]. Success is
-/// reported only when native completion fires and that exact WAProperties
-/// object has a non-empty configHash again; dispatch alone is not success.
+/// Compatibility entry point for older diagnostics UI. It delegates to the one
+/// correlated `full_empty_hash` service used by the ABT browser and Runtime Lab;
+/// it owns no independent request, gate or timeout state.
 BOOL WAGRABPropsABTLiveFetchForcedFull(id _Nullable userContext,
                                        WAGRABPropsABTLiveCompletion _Nullable completion,
                                        NSString * _Nullable * _Nullable diagnostic);

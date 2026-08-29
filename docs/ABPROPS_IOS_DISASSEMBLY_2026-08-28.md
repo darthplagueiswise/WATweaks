@@ -267,3 +267,32 @@ Objective-C quando recria as linhas; não conserva o documento verificado como
 snapshot congelado. Se fingerprint, identidade ou contagem mudarem depois de uma
 transação verificada, a tela mostra o estado atual e remove apenas o selo de
 proveniência da transação anterior.
+
+## 7. Revalidação no WhatsApp 26.33 (`SharedModules(6)`)
+
+O arquivo novo tem SHA-256
+`b95c66b5d27476d323aaa1ba761fb76aa07f2df5b8f10d482ea6fd6953f6619a`.
+O metadata e o ARM64 confirmam que o mesmo pipeline permanece ativo, com os
+seguintes IMPs desta versão:
+
+| Selector/etapa | IMP 26.33 | ABI/resultado |
+|---|---:|---|
+| `requestFreshABProps:withCompletion:` | `0x0054285c` | `v28@0:8B16@?20`; thunk ativo |
+| `requestFreshABPropsWithGroupJID:deltaUpdate:completion:` | `0x0054286c` | `v36@0:8@16B24@?28` |
+| `XMPPRequestABProperties initWithUserContext:…` | `0x00549974` | mesmo ABI de 56 bytes |
+| `handleABPropsResponseForGroupJID:…` | `0x00565cf8` | handler full/delta ativo |
+| `WAProperties updateWithProperties:…` | `0x002dd5b8` | substituição full |
+| `WAProperties deltaUpdateWithNewProperties:refreshID:` | `0x021b430c` | merge delta |
+| `WAProperties resetConfigHashToEmptyString` | `0x021b432c` | reset nativo ativo |
+
+`WAABProperties` continua sendo uma subclasse sem ivars próprios (instance size
+`0x8`) e herda `WAProperties._propertiesStore` em `+0x8`. O layout relevante de
+`WAPropertiesStore` também permanece `preferencesStore +0x8`, `namespace +0x20`,
+`propertiesType +0x30`, `groupJID +0x38` e `properties +0x60`. A ausência do type
+encoding de `propertiesType` é real nesta versão; nome, offset, slot de oito bytes,
+ivar adjacente e ABI do initializer são usados em conjunto para validar a leitura.
+
+O antigo `WAGRABPropsABTForceFull` deixou de possuir request/gate/timeout próprios:
+ele é apenas um adaptador para o mesmo `full_empty_hash` correlacionado usado pelo
+Browser e pelo Lab. Assim não existem duas transações concorrentes para o mesmo
+botão de produção.

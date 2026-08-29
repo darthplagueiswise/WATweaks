@@ -428,14 +428,16 @@ static NSDictionary *WAGRDebugApplicationInfo(id context) {
             self.document = document;
             NSDictionary *store = [result[@"store_confirmation"] isKindOfClass:NSDictionary.class]
                 ? result[@"store_confirmation"] : @{};
+            NSString *proof = nil;
+            BOOL verified = WAGRABPropsABTVerifiedFullEmptyHashResult(result ?: @{}, &proof);
             NSString *status = [NSString stringWithFormat:
-                @"ABT full %@ · completion=%@ · hash=%@ · props=%@ · gabpΔ=%@ · %@",
-                [result[@"verified"] boolValue] ? @"VERIFICADO" : @"NÃO CONFIRMADO",
+                @"ABT full %@ · completion=%@ · hash=%@ · wire=%@ · store=%@ · %@",
+                verified ? @"VERIFICADO" : @"NÃO CONFIRMADO",
                 [result[@"native_completion_observed"] boolValue] ? @"YES" : @"NO",
-                [store[@"config_hash_refilled"] boolValue] ? @"REFILLED" : @"EMPTY",
-                store[@"effective_prop_count"] ?: @0,
-                [store[@"fingerprint_changed"] boolValue] ? @"YES" : @"NO",
-                result[@"outcome"] ?: @"unknown"];
+                [store[@"reset_hash_refilled"] boolValue] ? @"REFILLED" : @"EMPTY",
+                result[@"wire_prop_count"] ?: @0,
+                result[@"effective_prop_count"] ?: @0,
+                proof ?: (result[@"outcome"] ?: @"unknown")];
             [self setWorkingStatus:status working:NO];
         }, &diagnostic);
     if (!invoked) {

@@ -54,16 +54,16 @@ def main() -> int:
     native_editor = read(NATIVE_EDITOR, errors)
     native_override = read(NATIVE_OVERRIDE, errors)
 
-    # Full fetch must be the active native hash-reset pair, never a process-wide
-    # interception of XMPPRequestABProperties.
+    # The legacy force-full symbol is a compatibility adapter only. It must use
+    # the same correlated full_empty_hash service as browser and Lab and may not
+    # own a second gate, timeout or request implementation.
     for token in (
-        "resetConfigHashToEmptyString",
-        "requestFreshABProps:withCompletion:",
-        "validator_reset_confirmed",
-        "config_hash_refilled",
-        "verified_native_completion_hash_refilled",
+        "WAGRABPropsABTLiveFetchVariant",
+        "WAGRABPropsABTVariantFullEmptyHash",
+        "WAGRABPropsABTVerifiedFullEmptyHashResult",
+        "watweaks_abprops_abt_force_full_adapter_v3",
+        "delegates_to",
         "hook_installed\": @NO",
-        "gate_quarantined_until_native_completion",
     ):
         require(force, token, "WAGRABPropsABTForceFull.m", errors)
     for token in (
@@ -73,6 +73,11 @@ def main() -> int:
         "ForceFullRequestInitHook",
         "initWithUserContext:groupJID:configHash:refreshID:completion:",
         "__attribute__((constructor))",
+        "WAGRABPropsABTTransactionAcquire",
+        "WAGRABPropsABTTransactionRelease",
+        "resetConfigHashToEmptyString",
+        "requestFreshABProps:withCompletion:",
+        "dispatch_after",
     ):
         reject(force, token, "WAGRABPropsABTForceFull.m", errors)
 
@@ -176,7 +181,6 @@ def main() -> int:
         "WAGRABPropsABTTransactionRelease",
     ):
         require(gate, token, "WAGRABPropsABTTransactionGate.m", errors)
-        require(force, token, "WAGRABPropsABTForceFull.m", errors)
         require(live, token, "WAGRABPropsABTLiveService.m", errors)
     for token in ("WAGRABPropsABTTransactionReleaseWhenIdle", "owner_release_when_idle"):
         require(gate, token, "WAGRABPropsABTTransactionGate.m", errors)
