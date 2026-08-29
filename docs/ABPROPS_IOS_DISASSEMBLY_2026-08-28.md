@@ -147,6 +147,13 @@ fatos coincidem:
 8. nas variantes full, o handler entrega resposta não-delta com props; na variante
    de hash vazio, o hash account-scoped também precisa ter sido reposto.
 
+No branch delta, a confirmação respeita o contrato efetivamente disassemblado:
+`deltaUpdateWithNewProperties:refreshID:` persiste o merge e o `refreshID`, mas
+não recebe `encryptedRID`. O relatório preserva a comparação bruta em
+`encrypted_rid_matches` e registra `encrypted_rid_persistence_expected=false`;
+uma rotação do RID presente apenas na resposta delta não é tratada como falha do
+store. No branch full, a correspondência do RID continua obrigatória.
+
 O Lab oferece execução individual, bateria sequencial das quatro variantes,
 timeout de 45 segundos por variante canônica (45–120 segundos no wire custom),
 histórico compacto persistente, log de sessão e exportação

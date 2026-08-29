@@ -474,12 +474,18 @@ static NSDictionary *BuildFinalResult(void) {
     BOOL fingerprintChanged = after.fingerprint.length && beforeFingerprint.length && ![after.fingerprint isEqualToString:beforeFingerprint];
     NSUInteger wireCount = [decoded[@"prop_count"] unsignedIntegerValue];
     BOOL delta = [decoded[@"delta_update"] boolValue];
+    // The native delta store selector is
+    // -deltaUpdateWithNewProperties:refreshID:. It intentionally has no
+    // encryptedRID argument, so a delta response must not be rejected merely
+    // because that response-only value differs from the last full metadata.
+    BOOL encryptedRIDPersistenceExpected = !delta;
     id handlerError = decoded[@"error"];
     BOOL handlerErrorPresent = handlerError && handlerError != NSNull.null;
     BOOL exactRequestSucceeded = didSucceed.count > 0;
     BOOL correlatedHandler = decoded.count > 0;
     BOOL nativeCompletionObserved = completionTime > 0;
-    BOOL metadataMatches = hashMatch && refreshMatch && eridMatch;
+    BOOL metadataMatches = hashMatch && refreshMatch &&
+                           (!encryptedRIDPersistenceExpected || eridMatch);
     BOOL wireShapeMatches = WireShapeMatchesVariant(variant, wireAttempts,
                                                     omitValidatorsApplied,
                                                     customConfiguration);
@@ -547,6 +553,7 @@ static NSDictionary *BuildFinalResult(void) {
             @"config_hash_matches": @(hashMatch),
             @"refresh_id_matches": @(refreshMatch),
             @"encrypted_rid_matches": @(eridMatch),
+            @"encrypted_rid_persistence_expected": @(encryptedRIDPersistenceExpected),
             @"metadata_matches": @(metadataMatches),
             @"after": SnapshotSummary(after)
         },

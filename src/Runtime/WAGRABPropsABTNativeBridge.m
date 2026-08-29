@@ -371,6 +371,11 @@ static void WAGRABTConfirmPersistedStore(NSString *token,
         BOOL hashMatch = configHash ? WAGRABTStringsEqual(configHash, persistedHash) : YES;
         BOOL refreshMatch = refreshID ? WAGRABTStringsEqual(refreshID, persistedRefreshID) : YES;
         BOOL eridMatch = encryptedRID ? WAGRABTStringsEqual(encryptedRID, persistedEncryptedRID) : YES;
+        // The active delta pair only receives properties + refreshID. The
+        // encrypted RID belongs to the full-replace persistence contract.
+        BOOL encryptedRIDPersistenceExpected = !isDeltaUpdate;
+        BOOL responseMetadataMatches = hashMatch && refreshMatch &&
+                                       (!encryptedRIDPersistenceExpected || eridMatch);
 
         NSDictionary *confirmation = @{
             @"checked_after_native_handler": @YES,
@@ -382,7 +387,8 @@ static void WAGRABTConfirmPersistedStore(NSString *token,
             @"config_hash_matches_persisted": @(hashMatch),
             @"refresh_id_matches_persisted": @(refreshMatch),
             @"encrypted_rid_matches_persisted": @(eridMatch),
-            @"response_metadata_matches_persisted": @(hashMatch && refreshMatch && eridMatch),
+            @"encrypted_rid_persistence_expected": @(encryptedRIDPersistenceExpected),
+            @"response_metadata_matches_persisted": @(responseMetadataMatches),
             @"after": WAGRABTSnapshotSummary(after)
         };
         @synchronized (gWAGRABTLock) {

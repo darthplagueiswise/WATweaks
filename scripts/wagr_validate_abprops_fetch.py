@@ -108,6 +108,7 @@ def main() -> int:
         "wire_shape_matches_variant",
         "wire_attempts",
         "handler_attempts",
+        "encrypted_rid_persistence_expected",
         "verified_native_response_applied",
         "timeoutSeconds * NSEC_PER_SEC",
         "gTimeoutReported",
