@@ -2,8 +2,7 @@
 #import "WAGRMenuTheme.h"
 #import "WAGRRuntimeValueEditor.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
-#import "../Runtime/WAGRABPropsNativeStore.h"
-#import "../Runtime/WAGRABPropsABTForceFull.h"
+#import "../Runtime/WAGRABPropsABTLiveService.h"
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRSurface.h"
 #import <objc/runtime.h>
@@ -26,7 +25,8 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 @property(nonatomic, strong) NSArray<NSString *> *sectionKeys;
 @property(nonatomic, strong) NSDictionary<NSString *, NSArray<WAGRABPropEntry *> *> *sections;
 @property(nonatomic, strong) NSDictionary<NSString *, NSDictionary *> *nativeEntriesBySelector;
-@property(nonatomic, strong) WAGRABPropsNativeSnapshot *nativeSnapshot;
+@property(nonatomic, copy) NSDictionary *nativeDocument;
+@property(nonatomic, copy) NSDictionary *verifiedABTFetchResult;
 @property(nonatomic, strong) UISearchController *searchController;
 @property(nonatomic, strong) UIBarButtonItem *fetchButton;
 @property(nonatomic, assign) BOOL didScan;
@@ -61,7 +61,7 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
     search.searchResultsUpdater = self;
     search.obscuresBackgroundDuringPresentation = NO;
     search.searchBar.delegate = self;
-    search.searchBar.placeholder = @"Buscar selector, AB ID ou param";
+    search.searchBar.placeholder = @"Buscar selector, AB ID ou valor";
     search.searchBar.scopeButtonTitles = @[ @"Todos", @"BOOL", @"Números", @"Objetos", @"Overrides" ];
     search.searchBar.selectedScopeButtonIndex = WAGRABBrowserScopeAll;
     self.navigationItem.searchController = search;
@@ -95,10 +95,8 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 
 #pragma mark - Live/native correlation
 
-static NSDictionary<NSString *, NSDictionary *> *WAGRABNativeIndexForSnapshot(
-    WAGRABPropsNativeSnapshot *snapshot) {
-    if (!snapshot) return @{};
-    NSDictionary *document = WAGRABPropsNativeExportDocument(snapshot);
+static NSDictionary<NSString *, NSDictionary *> *WAGRABNativeIndexForDocument(
+    NSDictionary *document) {
     NSArray *entries = [document[@"entries"] isKindOfClass:NSArray.class]
         ? document[@"entries"] : @[];
     NSMutableDictionary<NSString *, NSDictionary *> *index = [NSMutableDictionary dictionary];
@@ -153,19 +151,26 @@ static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
     self.title = @"Lendo WAAB + cache…";
 
     id context = self.userContext;
+    NSDictionary *verifiedDocument = self.verifiedABTFetchResult.count
+        ? self.verifiedABTFetchResult[@"effective_snapshot"] : nil;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSArray *objects = WAGRABPropsResolveRuntimeObjects(context);
         NSArray<WAGRABPropEntry *> *entries = WAGRABPropsScan(objects);
-        WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshot(NULL);
-        NSDictionary *nativeIndex = WAGRABNativeIndexForSnapshot(snapshot);
+        NSError *snapshotError = nil;
+        NSDictionary *document = verifiedDocument.count ? verifiedDocument
+            : WAGRABPropsABTAccountSnapshotDocument(context, &snapshotError);
+        NSDictionary *nativeIndex = WAGRABNativeIndexForDocument(document ?: @{});
 
         dispatch_async(dispatch_get_main_queue(), ^{
             self.scanning = NO;
             [self.refreshControl endRefreshing];
             self.runtimeObjects = objects ?: @[];
             self.allEntries = entries ?: @[];
-            self.nativeSnapshot = snapshot;
+            self.nativeDocument = document ?: @{};
             self.nativeEntriesBySelector = nativeIndex ?: @{};
+            if (!document.count && snapshotError.localizedDescription.length) {
+                self.lastFetchNote = snapshotError.localizedDescription;
+            }
             [self applyCurrentFilter];
         });
     });
@@ -174,40 +179,51 @@ static BOOL WAGRABNativeBoolValue(id value, BOOL *known) {
 #pragma mark - Fetch
 
 static NSString *WAGRABFullFetchSummary(NSDictionary *result) {
+    NSDictionary *didSucceed = [result[@"did_succeed_response"] isKindOfClass:NSDictionary.class]
+        ? result[@"did_succeed_response"] : @{};
     NSDictionary *store = [result[@"store_confirmation"] isKindOfClass:NSDictionary.class]
         ? result[@"store_confirmation"] : @{};
-    BOOL verified = [result[@"verified"] boolValue];
-    BOOL completed = [result[@"native_completion_observed"] boolValue];
-    BOOL refilled = [store[@"config_hash_refilled"] boolValue];
-    BOOL fingerprintChanged = [store[@"fingerprint_changed"] boolValue];
-    NSUInteger count = [store[@"effective_prop_count"] unsignedIntegerValue];
-    NSString *outcome = [result[@"outcome"] isKindOfClass:NSString.class]
-        ? result[@"outcome"] : @"unknown";
     return [NSString stringWithFormat:
-        @"ABT full nativo · reset=YES · completion=%@ · hash=%@ · props=%lu · gabpΔ=%@ · %@%@",
-        completed ? @"YES" : @"NO",
-        refilled ? @"REFILLED" : @"EMPTY",
-        (unsigned long)count,
-        fingerprintChanged ? @"YES" : @"NO",
-        outcome,
-        verified ? @" · VERIFICADO" : @""];
+        @"SERVER/IQ/STORE VERIFICADO · %@ · wire=%lu · store=%lu · hash=%@ · metadata=%@",
+        didSucceed[@"response_description"] ?: @"XMPPIQStanza",
+        (unsigned long)[result[@"wire_prop_count"] unsignedIntegerValue],
+        (unsigned long)[result[@"effective_prop_count"] unsignedIntegerValue],
+        [store[@"reset_hash_refilled"] boolValue] ? @"REFILLED" : @"INVALID",
+        [store[@"metadata_matches"] boolValue] ? @"MATCH" : @"MISMATCH"];
 }
 
 - (void)fetchNow {
     if (self.fetching) return;
     self.fetching = YES;
     self.fetchButton.enabled = NO;
-
-    self.title = @"ABT full: limpando hash…";
+    self.title = @"ABT server: aguardando IQ…";
 
     NSString *diagnostic = nil;
     __weak typeof(self) weakSelf = self;
-    BOOL invoked = WAGRABPropsABTLiveFetchForcedFull(self.userContext,
+    BOOL invoked = WAGRABPropsABTLiveFetchVariant(
+        WAGRABPropsABTVariantFullEmptyHash, self.userContext,
         ^(NSDictionary<NSString *,id> *result) {
             __strong typeof(weakSelf) self = weakSelf;
             if (!self) return;
             self.fetching = NO;
             self.fetchButton.enabled = YES;
+            NSString *proof = nil;
+            if (!WAGRABPropsABTVerifiedFullEmptyHashResult(result, &proof)) {
+                self.lastFetchNote = proof ?: @"ABT server fetch não confirmado.";
+                [self applyCurrentFilter];
+                UIAlertController *alert = [UIAlertController
+                    alertControllerWithTitle:@"ABT não confirmado"
+                    message:self.lastFetchNote preferredStyle:UIAlertControllerStyleAlert];
+                [alert addAction:[UIAlertAction actionWithTitle:@"Copiar"
+                    style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+                        UIPasteboard.generalPasteboard.string = self.lastFetchNote;
+                    }]];
+                [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+                    style:UIAlertActionStyleCancel handler:nil]];
+                [self presentViewController:alert animated:YES completion:nil];
+                return;
+            }
+            self.verifiedABTFetchResult = result;
             self.lastFetchNote = WAGRABFullFetchSummary(result);
             [self scanNow];
         }, &diagnostic);
@@ -222,7 +238,8 @@ static NSString *WAGRABFullFetchSummary(NSDictionary *result) {
         [self presentViewController:alert animated:YES completion:nil];
         return;
     }
-    self.lastFetchNote = diagnostic ?: @"ABT full nativo enviado; aguardando completion e hash reposto pelo store.";
+    self.lastFetchNote = diagnostic
+        ?: @"full_empty_hash enviado; aguardando XMPPIQStanza, handler full e store exato.";
     [self applyCurrentFilter];
 }
 
@@ -265,15 +282,12 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
     for (WAGRABPropEntry *entry in self.allEntries) {
         if (!WAGRABEntryMatchesScope(entry, scope)) continue;
         NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
-        NSDictionary *mc = [native[@"mobileconfig"] isKindOfClass:NSDictionary.class]
-            ? native[@"mobileconfig"] : @{};
         NSString *liveFamily = WAGRLiveRuntimeFamilyForSelector(entry.selectorName,
                                                                  entry.className);
-        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@ %@ %@",
+        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@",
             liveFamily ?: @"", entry.categoryName ?: @"", entry.selectorName ?: @"",
             entry.className ?: @"", entry.typeName ?: @"", entry.sourceImage ?: @"",
-            native[@"code"] ?: @"", native[@"value"] ?: @"",
-            mc[@"parameter_name"] ?: @"", mc[@"config_name"] ?: @""].lowercaseString;
+            native[@"code"] ?: @"", native[@"value"] ?: @""].lowercaseString;
         BOOL matches = YES;
         for (NSString *token in tokens) {
             if (![haystack containsString:token]) { matches = NO; break; }
@@ -336,9 +350,11 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
 
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
+    BOOL verified = self.verifiedABTFetchResult.count > 0;
     NSString *base = [NSString stringWithFormat:
-        @"WAAB = getters Objective-C carregados agora. Cache nativo = %lu ABProps em gabp.*p; %lu getters desta tela têm correlação direta por stable ID. Fetch relê os dois lados.",
-        (unsigned long)self.nativeSnapshot.numericPropCount,
+        @"WAAB = getters Objective-C carregados agora. Fonte ABT = %@ WAPropertiesStore da conta, %lu props; %lu getters têm correlação por stable ID. O botão Fetch só troca a fonte após prova server → IQ → handler → store.",
+        verified ? @"SERVER-VERIFICADA no" : @"cache local exato do",
+        (unsigned long)[self.nativeDocument[@"prop_count"] unsignedIntegerValue],
         (unsigned long)self.nativeEntriesBySelector.count];
     return self.lastFetchNote.length
         ? [base stringByAppendingFormat:@"\n%@", self.lastFetchNote]
@@ -394,8 +410,6 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
                                          entry.selectorName,
                                          entry.classMethod);
     NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
-    NSDictionary *mc = [native[@"mobileconfig"] isKindOfClass:NSDictionary.class]
-        ? native[@"mobileconfig"] : @{};
 
     cell.textLabel.text = [NSString stringWithFormat:@"%@%@",
         entry.classMethod ? @"+ " : @"- ", entry.selectorName];
@@ -404,16 +418,10 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     NSMutableString *detail = [NSMutableString stringWithFormat:@"Atual: %@%@ · %@",
         current ?: @"?", WAGRABOverrideDescription(forced, overridden), state];
     if (native) {
-        [detail appendFormat:@"\nAB #%@ · cache %@",
-            native[@"code"] ?: @"?", WAGRABCompactValue(native[@"value"])];
-        NSString *parameterName = [mc[@"parameter_name"] isKindOfClass:NSString.class]
-            ? mc[@"parameter_name"] : nil;
-        NSString *configName = [mc[@"config_name"] isKindOfClass:NSString.class]
-            ? mc[@"config_name"] : nil;
-        if (parameterName.length) {
-            if (configName.length) [detail appendFormat:@"\nMC: %@.%@", configName, parameterName];
-            else [detail appendFormat:@"\nMC param: %@", parameterName];
-        }
+        [detail appendFormat:@"\nAB #%@ · %@ %@",
+            native[@"code"] ?: @"?",
+            self.verifiedABTFetchResult.count ? @"server/store" : @"store local",
+            WAGRABCompactValue(native[@"value"])];
     }
     cell.detailTextLabel.text = detail;
 

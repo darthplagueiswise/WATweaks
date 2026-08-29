@@ -220,3 +220,33 @@ deve permanecer identificada como Web.
   conserva também o critério `config_hash_refilled=true`.
 - Nenhum resultado é rotulado como “download concluído” apenas porque o selector
   foi invocado.
+
+## Checkpoint ABT Browser: store account-scoped sem heurística
+
+A análise do metadata Objective-C do `SharedModules(5)` fecha o vínculo do
+objeto usado na requisição até o store que alimenta o browser:
+
+| Objeto | Campo/selector | Offset/IMP | Uso |
+|---|---|---:|---|
+| `WAProperties` | `_propertiesStore` / `propertiesStore` | `+0x8` / `0x0056ec` | Store pertencente ao mesmo `WAProperties` passado ao manager. |
+| `WAPropertiesStore` | `preferencesStore` | `+0x8` | Backend nativo que persiste no App Group. |
+| `WAPropertiesStore` | `namespace` | `+0x20` | Namespace nativo (`gabp.o` no fluxo pessoal observado). |
+| `WAPropertiesStore` | `propertiesType` | `+0x30` | Escopo/tipo do store. |
+| `WAPropertiesStore` | `groupJID` | `+0x38` | Escopo de grupo, quando existente. |
+| `WAPropertiesStore` | `properties` | `+0x60` | Dicionário ABProps exato carregado/persistido pelo store. |
+
+O reader de produção valida todos esses offsets em runtime e recusa o snapshot
+se a build divergir. Ele não enumera `group.net.whatsapp.WhatsApp.shared`, não
+seleciona o maior `gabp.*p` e não tenta inferir a conta pelo número de entries.
+A enumeração antiga permanece somente como diagnóstico não atribuído.
+
+O botão Fetch dos dois browsers usa apenas `full_empty_hash`. A UI só substitui
+sua fonte depois que a mesma transação confirma:
+
+1. `XMPPRequestABProperties` recebeu `didSucceedWithResponse:` com `XMPPIQStanza`;
+2. o handler foi correlacionado e trouxe resposta full com `prop_count > 0`;
+3. hash/refresh/encryptedRID do mesmo store correspondem à resposta e o hash foi reposto;
+4. as contagens wire, store exato, documento e `entries` são idênticas.
+
+O JSON do browser é ABT-only. MobileConfig fica deliberadamente fora deste
+checkpoint até que o fetch e os arquivos reais do container sejam analisados.

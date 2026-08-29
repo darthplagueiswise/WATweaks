@@ -16,6 +16,7 @@ LAB_UI = ROOT / "src/Menu/WAGRABPropsABTLabVC.m"
 ROOT_UI = ROOT / "src/Menu/WAGRABPropsRootVC.m"
 GATE = ROOT / "src/Runtime/WAGRABPropsABTTransactionGate.m"
 BRIDGE = ROOT / "src/Runtime/WAGRABPropsABTNativeBridge.m"
+NATIVE = ROOT / "src/Runtime/WAGRABPropsNativeStore.m"
 
 
 def read(path: pathlib.Path, errors: list[str]) -> str:
@@ -47,6 +48,7 @@ def main() -> int:
     root_ui = read(ROOT_UI, errors)
     gate = read(GATE, errors)
     bridge = read(BRIDGE, errors)
+    native = read(NATIVE, errors)
 
     # Full fetch must be the active native hash-reset pair, never a process-wide
     # interception of XMPPRequestABProperties.
@@ -71,8 +73,24 @@ def main() -> int:
         reject(force, token, "WAGRABPropsABTForceFull.m", errors)
 
     # The concrete controllers own the action. Late UI IMP races must not return.
-    require(browser, "WAGRABPropsABTLiveFetchForcedFull", "WAGRABPropsBrowserVC.m", errors)
-    require(snapshot, "WAGRABPropsABTLiveFetchForcedFull", "WAGRABPropsSnapshotVC.m", errors)
+    for controller, label in (
+        (browser, "WAGRABPropsBrowserVC.m"),
+        (snapshot, "WAGRABPropsSnapshotVC.m"),
+    ):
+        for token in (
+            "WAGRABPropsABTLiveFetchVariant",
+            "WAGRABPropsABTVariantFullEmptyHash",
+            "WAGRABPropsABTVerifiedFullEmptyHashResult",
+            "WAGRABPropsABTAccountSnapshotDocument",
+        ):
+            require(controller, token, label, errors)
+        for token in (
+            "WAGRABPropsABTLiveFetchForcedFull",
+            "WAGRABPropsReadNativeSnapshot(",
+            "WAGRABPropsNativeExportDocument",
+            'native[@"mobileconfig"]',
+        ):
+            reject(controller, token, label, errors)
     require(debug, "WAGRABPropsABTLiveFetchForcedFull", "WAGRDebugDiagnosticsVC.m", errors)
     reject(snapshot, "WAGRABPropsTriggerNativeFetch", "WAGRABPropsSnapshotVC.m", errors)
     reject(snapshot, "sleepForTimeInterval", "WAGRABPropsSnapshotVC.m", errors)
@@ -109,6 +127,11 @@ def main() -> int:
         "wire_attempts",
         "handler_attempts",
         "encrypted_rid_persistence_expected",
+        "exact_account_wa_properties_store_not_resolved",
+        "exact_native_wa_properties_store",
+        "WAGRABPropsReadNativeSnapshotForProperties",
+        "WAGRABPropsNativeABTOnlyExportDocument",
+        "WAGRABPropsABTVerifiedFullEmptyHashResult",
         "verified_native_response_applied",
         "timeoutSeconds * NSEC_PER_SEC",
         "gTimeoutReported",
@@ -153,6 +176,19 @@ def main() -> int:
         require(live, token, "WAGRABPropsABTLiveService.m", errors)
     for token in ("WAGRABPropsABTTransactionReleaseWhenIdle", "owner_release_when_idle"):
         require(gate, token, "WAGRABPropsABTTransactionGate.m", errors)
+
+    for token in (
+        'class_getInstanceVariable([properties class], "_propertiesStore")',
+        'ivar_getOffset(ownerIvar) != 8',
+        'ivar_getOffset(preferencesIvar) != 8',
+        'ivar_getOffset(namespaceIvar) != 32',
+        'ivar_getOffset(typeIvar) != 48',
+        'ivar_getOffset(groupIvar) != 56',
+        'ivar_getOffset(propsIvar) != 96',
+        "exact_native_wa_properties_store",
+        "WAGRABPropsNativeABTOnlyExportDocument",
+    ):
+        require(native, token, "WAGRABPropsNativeStore.m", errors)
 
     timeout_section = live.split("explicit_transaction_timeout", 1)
     if len(timeout_section) != 2:

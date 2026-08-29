@@ -243,7 +243,13 @@ static NSDictionary *BinaryEvidence(void) {
         @"query_enqueue_path": @"0x003f57b0",
         @"response_handler": @"0x003fee38",
         @"full_store_update_callsite": @"0x003ff0d0",
-        @"delta_store_update_callsite": @"0x003ff0e0"
+        @"delta_store_update_callsite": @"0x003ff0e0",
+        @"WAProperties_propertiesStore_ivar": @"0x8",
+        @"WAPropertiesStore_preferencesStore_ivar": @"0x8",
+        @"WAPropertiesStore_namespace_ivar": @"0x20",
+        @"WAPropertiesStore_propertiesType_ivar": @"0x30",
+        @"WAPropertiesStore_groupJID_ivar": @"0x38",
+        @"WAPropertiesStore_properties_ivar": @"0x60"
     };
 }
 
@@ -408,8 +414,12 @@ static NSDictionary *SnapshotSummary(WAGRABPropsNativeSnapshot *snapshot) {
         @"available": @YES,
         @"prop_count": @(snapshot.numericPropCount),
         @"fingerprint": snapshot.fingerprint ?: @"",
-        @"payload_key": snapshot.payloadKey.length ? @"gabp.<account>p" : @"",
-        @"metadata_key": snapshot.metadataKey.length ? @"gabp.<account>c" : @""
+        @"source_kind": snapshot.sourceKind ?: @"unknown",
+        @"store_class": snapshot.storeClassName ?: @"",
+        @"store_namespace": snapshot.storeNamespace ?: @"",
+        @"store_group_jid": snapshot.storeGroupJID ?: NSNull.null,
+        @"store_properties_type": @(snapshot.storePropertiesType),
+        @"store_identity": snapshot.payloadKey ?: @""
     } mutableCopy];
     id hash = MetadataValue(metadata, @[@"hash", @"configHash"]);
     id refreshID = MetadataValue(metadata, @[@"refreshID", @"refreshId", @"refresh_id"]);
@@ -463,7 +473,7 @@ static NSDictionary *BuildFinalResult(void) {
         customConfiguration = [gCustomWireConfiguration copy] ?: @{};
     }
 
-    WAGRABPropsNativeSnapshot *after = WAGRABPropsReadNativeSnapshot(NULL);
+    WAGRABPropsNativeSnapshot *after = WAGRABPropsReadNativeSnapshotForProperties(properties, NULL);
     NSDictionary *metadata = after.metadata ?: @{};
     id configHash = decoded[@"config_hash"];
     id refreshID = decoded[@"refresh_id"];
@@ -486,6 +496,7 @@ static NSDictionary *BuildFinalResult(void) {
     BOOL nativeCompletionObserved = completionTime > 0;
     BOOL metadataMatches = hashMatch && refreshMatch &&
                            (!encryptedRIDPersistenceExpected || eridMatch);
+    BOOL exactStore = [after.sourceKind isEqualToString:@"exact_native_wa_properties_store"];
     BOOL wireShapeMatches = WireShapeMatchesVariant(variant, wireAttempts,
                                                     omitValidatorsApplied,
                                                     customConfiguration);
@@ -499,7 +510,7 @@ static NSDictionary *BuildFinalResult(void) {
     BOOL resetHashRefilled = ![variant isEqualToString:WAGRABPropsABTVariantFullEmptyHash] ||
                             directHash.length > 0;
     BOOL verified = nativeCompletionObserved && exactRequestSucceeded && correlatedHandler &&
-                    !handlerErrorPresent && after != nil && metadataMatches &&
+                    !handlerErrorPresent && after != nil && exactStore && metadataMatches &&
                     nativeBranchMatches && wireShapeMatches && fullResponseConfirmed && resetHashRefilled;
     NSString *outcome = nil;
     if (verified) outcome = @"verified_native_response_applied";
@@ -507,6 +518,7 @@ static NSDictionary *BuildFinalResult(void) {
     else if (!nativeCompletionObserved) outcome = @"native_completion_not_observed";
     else if (!correlatedHandler) outcome = @"native_completion_without_correlated_handler";
     else if (handlerErrorPresent) outcome = @"native_handler_reported_error";
+    else if (!exactStore) outcome = @"exact_account_wa_properties_store_not_resolved";
     else if (!nativeBranchMatches) outcome = @"native_delta_branch_mismatch";
     else if (!wireShapeMatches) outcome = @"wire_shape_not_confirmed";
     else if (!fullResponseConfirmed) outcome = @"full_response_not_confirmed";
@@ -516,7 +528,8 @@ static NSDictionary *BuildFinalResult(void) {
         : (wireCount == 0 ? @"WAPropertiesStore after successful no-change response"
         : (delta ? @"wire delta + WAPropertiesStore merged state" : @"wire full response + WAPropertiesStore confirmed state"));
 
-    NSDictionary *effectiveDocument = after ? (WAGRABPropsNativeExportDocument(after) ?: @{}) : @{};
+    NSDictionary *effectiveDocument = after
+        ? (WAGRABPropsNativeABTOnlyExportDocument(after) ?: @{}) : @{};
     NSDictionary *result = @{
         @"schema": @"watweaks_abprops_abt_live_service_v2",
         @"token": token,
@@ -547,6 +560,8 @@ static NSDictionary *BuildFinalResult(void) {
         @"effective_snapshot": effectiveDocument,
         @"store_confirmation": @{
             @"available": @(after != nil),
+            @"exact_account_store": @(exactStore),
+            @"source_kind": after.sourceKind ?: @"unavailable",
             @"direct_config_hash": JSONSafe(directHashValue, 0),
             @"reset_hash_refilled": @(resetHashRefilled),
             @"fingerprint_changed": @(fingerprintChanged),
@@ -562,6 +577,90 @@ static NSDictionary *BuildFinalResult(void) {
         @"events": events
     };
     return result;
+}
+
+
+NSDictionary<NSString *, id> *WAGRABPropsABTAccountSnapshotDocument(
+    id userContext, NSError **outError) {
+    id context = userContext ?: WAGRCurrentUserContext();
+    id properties = ResolvePersonalProperties(context);
+    WAGRABPropsNativeSnapshot *snapshot =
+        WAGRABPropsReadNativeSnapshotForProperties(properties, outError);
+    if (!snapshot) return nil;
+    NSDictionary *document = WAGRABPropsNativeABTOnlyExportDocument(snapshot);
+    if (![document[@"source_kind"] isEqual:@"exact_native_wa_properties_store"]) {
+        if (outError) *outError = [NSError errorWithDomain:@"WATweaks.ABTLive" code:31
+            userInfo:@{NSLocalizedDescriptionKey:
+                @"Snapshot recusado porque não veio do WAPropertiesStore exato da conta."}];
+        return nil;
+    }
+    return document;
+}
+
+BOOL WAGRABPropsABTVerifiedFullEmptyHashResult(
+    NSDictionary<NSString *, id> *result, NSString **diagnostic) {
+    NSMutableArray<NSString *> *missing = [NSMutableArray array];
+    NSDictionary *document = [result[@"effective_snapshot"] isKindOfClass:NSDictionary.class]
+        ? result[@"effective_snapshot"] : @{};
+    NSArray *entries = [document[@"entries"] isKindOfClass:NSArray.class]
+        ? document[@"entries"] : @[];
+    NSDictionary *didSucceed = [result[@"did_succeed_response"] isKindOfClass:NSDictionary.class]
+        ? result[@"did_succeed_response"] : @{};
+    NSDictionary *decoded = [result[@"decoded_response"] isKindOfClass:NSDictionary.class]
+        ? result[@"decoded_response"] : @{};
+    NSArray *handlerAttempts = [result[@"handler_attempts"] isKindOfClass:NSArray.class]
+        ? result[@"handler_attempts"] : @[];
+    NSDictionary *store = [result[@"store_confirmation"] isKindOfClass:NSDictionary.class]
+        ? result[@"store_confirmation"] : @{};
+    NSUInteger wireCount = [result[@"wire_prop_count"] unsignedIntegerValue];
+    NSUInteger effectiveCount = [result[@"effective_prop_count"] unsignedIntegerValue];
+    NSUInteger documentCount = [document[@"prop_count"] unsignedIntegerValue];
+
+    if (![result[@"variant"] isEqual:WAGRABPropsABTVariantFullEmptyHash])
+        [missing addObject:@"variant != full_empty_hash"];
+    if (![result[@"outcome"] isEqual:@"verified_native_response_applied"] ||
+        ![result[@"verified"] boolValue])
+        [missing addObject:@"native result not verified"];
+    if (![result[@"wire_response_observed"] boolValue])
+        [missing addObject:@"exact XMPP response not observed"];
+    if (![result[@"native_completion_observed"] boolValue])
+        [missing addObject:@"native completion missing"];
+    if (![result[@"wire_shape_matches_variant"] boolValue])
+        [missing addObject:@"wire shape was not empty-hash/full"];
+    if (![didSucceed[@"request_class"] isEqual:@"XMPPRequestABProperties"] ||
+        ![didSucceed[@"response_class"] isEqual:@"XMPPIQStanza"])
+        [missing addObject:@"didSucceed XMPPIQStanza proof missing"];
+    if (!handlerAttempts.count || ![decoded[@"correlated_request_attempt"] unsignedIntegerValue])
+        [missing addObject:@"correlated native handler missing"];
+    if (!decoded[@"delta_update"] || [decoded[@"delta_update"] boolValue])
+        [missing addObject:@"handler was not confirmed as full"];
+    if (!wireCount) [missing addObject:@"server response contained zero properties"];
+    if (![store[@"available"] boolValue] || ![store[@"exact_account_store"] boolValue] ||
+        ![store[@"metadata_matches"] boolValue])
+        [missing addObject:@"exact account store did not match response"];
+    if (![store[@"reset_hash_refilled"] boolValue])
+        [missing addObject:@"configHash was not refilled by native store"];
+    if (![document[@"source_kind"] isEqual:@"exact_native_wa_properties_store"])
+        [missing addObject:@"snapshot did not come from exact WAPropertiesStore"];
+    if (!document.count || !entries.count)
+        [missing addObject:@"effective ABT snapshot missing"];
+    if (wireCount != effectiveCount || wireCount != documentCount ||
+        documentCount != entries.count)
+        [missing addObject:@"wire/store/snapshot counts differ"];
+
+    BOOL verified = missing.count == 0;
+    if (diagnostic) {
+        if (verified) {
+            *diagnostic = [NSString stringWithFormat:
+                @"server IQ -> full handler -> exact WAPropertiesStore verified: %@ · wire=%lu · snapshot=%lu",
+                didSucceed[@"response_description"] ?: @"XMPPIQStanza",
+                (unsigned long)wireCount, (unsigned long)entries.count];
+        } else {
+            *diagnostic = [NSString stringWithFormat:@"ABT fetch rejected: %@",
+                [missing componentsJoinedByString:@"; "]];
+        }
+    }
+    return verified;
 }
 
 static void Finish(NSString *expectedToken) {
@@ -1062,7 +1161,7 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
         return NO;
     }
 
-    WAGRABPropsNativeSnapshot *before = WAGRABPropsReadNativeSnapshot(NULL);
+    WAGRABPropsNativeSnapshot *before = WAGRABPropsReadNativeSnapshotForProperties(properties, NULL);
     id beforeConfigHash = CallObjectNoArg(properties, @"configHash");
     id beforeRefreshID = CallObjectNoArg(properties, @"refreshID");
     NSString *token = NSUUID.UUID.UUIDString;
@@ -1359,7 +1458,7 @@ NSDictionary<NSString *, id> *WAGRABPropsABTLiveCapabilityDocument(id userContex
         method_getImplementation(didSucceed) == (IMP)DidSucceedHook &&
         method_getImplementation(didFail) == (IMP)DidFailHook &&
         method_getImplementation(handler) == (IMP)HandleHook;
-    WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshot(NULL);
+    WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshotForProperties(properties, NULL);
 
     NSArray *variants = @[
         @{

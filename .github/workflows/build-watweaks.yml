@@ -221,7 +221,14 @@ jobs:
           grep -q 'WAGRABPropsABTTransactionAcquire' src/Runtime/WAGRABPropsABTLiveService.m
           grep -q 'ABT Runtime Lab' src/Menu/WAGRABPropsABTLabVC.m
           grep -q 'Executar wire custom' src/Menu/WAGRABPropsABTLabVC.m
-          grep -q 'WAGRABPropsABTLiveFetchForcedFull' src/Menu/WAGRABPropsSnapshotVC.m
+          grep -q 'WAGRABPropsABTVariantFullEmptyHash' src/Menu/WAGRABPropsSnapshotVC.m
+          grep -q 'WAGRABPropsABTVerifiedFullEmptyHashResult' src/Menu/WAGRABPropsSnapshotVC.m
+          grep -q 'WAGRABPropsABTAccountSnapshotDocument' src/Menu/WAGRABPropsSnapshotVC.m
+          grep -q 'WAGRABPropsABTVariantFullEmptyHash' src/Menu/WAGRABPropsBrowserVC.m
+          grep -q 'WAGRABPropsReadNativeSnapshotForProperties' src/Runtime/WAGRABPropsABTLiveService.m
+          grep -q 'ivar_getOffset(propsIvar) != 96' src/Runtime/WAGRABPropsNativeStore.m
+          ! grep -q 'WAGRABPropsABTLiveFetchForcedFull' src/Menu/WAGRABPropsSnapshotVC.m
+          ! grep -q 'WAGRABPropsABTLiveFetchForcedFull' src/Menu/WAGRABPropsBrowserVC.m
           ! grep -R -q 'WAGRABPropsTriggerNativeFetch' src
           ! grep -q '__attribute__((constructor))' src/Runtime/WAGRABPropsABTLab.m
 

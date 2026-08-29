@@ -61,6 +61,16 @@ NSDictionary<NSString *, id> *WAGRABPropsABTLiveCapabilityDocument(
 /// document is never replaced by unrelated/background ABProps traffic.
 NSDictionary<NSString *, id> *WAGRABPropsABTLiveServiceDocument(void);
 
+/// Exact account snapshot resolved through WAProperties._propertiesStore.
+NSDictionary<NSString *, id> * _Nullable WAGRABPropsABTAccountSnapshotDocument(
+    id _Nullable userContext,
+    NSError * _Nullable * _Nullable outError);
+
+/// Strict server/IQ/handler/exact-store gate for the production full path.
+BOOL WAGRABPropsABTVerifiedFullEmptyHashResult(
+    NSDictionary<NSString *, id> *result,
+    NSString * _Nullable * _Nullable diagnostic);
+
 #ifdef __cplusplus
 }
 #endif

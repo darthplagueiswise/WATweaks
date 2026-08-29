@@ -6,6 +6,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -238,9 +239,147 @@ WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshot(NSError **outError) {
     snapshot.loadedAt = [NSDate date];
     snapshot.numericPropCount = bestCount;
     snapshot.fingerprint = WAGRABFingerprint(bestKey, bestProps, metadata ?: @{});
+    snapshot.sourceKind = @"diagnostic_app_group_scan_unattributed";
+    snapshot.storePropertiesType = NSNotFound;
     WAGRABNativeSetDiagnostic([NSString stringWithFormat:@"cache payload=%@ props=%lu metadata=%@ fingerprint=%@",
                                bestKey, (unsigned long)bestCount,
                                metadataKey ?: @"none", snapshot.fingerprint]);
+    return snapshot;
+}
+
+
+#pragma mark - Exact WAPropertiesStore snapshot
+
+static id WAGRABObjectIvar(id object, const char *name) {
+    if (!object || !name) return nil;
+    Ivar ivar = class_getInstanceVariable([object class], name);
+    if (!ivar) return nil;
+    const char *type = ivar_getTypeEncoding(ivar);
+    if (type && type[0] && type[0] != '@') return nil;
+    @try { return object_getIvar(object, ivar); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
+static BOOL WAGRABSignedIvar(id object, const char *name, NSInteger *value) {
+    if (value) *value = NSNotFound;
+    Ivar ivar = object ? class_getInstanceVariable([object class], name) : NULL;
+    if (!ivar) return NO;
+    const char *type = ivar_getTypeEncoding(ivar);
+    if (!type || !type[0] || !strchr("qQiIlLsScCB", type[0])) return NO;
+    NSInteger result = 0;
+    memcpy(&result, ((const uint8_t *)(__bridge const void *)object) + ivar_getOffset(ivar),
+           sizeof(result));
+    if (value) *value = result;
+    return YES;
+}
+
+WAGRABPropsNativeSnapshot *WAGRABPropsReadNativeSnapshotForProperties(
+    id properties, NSError **outError) {
+    if (!properties) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:10
+            userInfo:@{NSLocalizedDescriptionKey:@"WAProperties account-scoped não resolvido."}];
+        return nil;
+    }
+
+    id store = WAGRABCallObjectNoArg(properties, @"propertiesStore");
+    Ivar ownerIvar = class_getInstanceVariable([properties class], "_propertiesStore");
+    id ownerStore = ownerIvar ? WAGRABObjectIvar(properties, "_propertiesStore") : nil;
+    if (!ownerIvar || ivar_getOffset(ownerIvar) != 8 || !store ||
+        (ownerStore && store != ownerStore)) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:11
+            userInfo:@{NSLocalizedDescriptionKey:
+                @"Layout/identidade de WAProperties._propertiesStore divergiu; leitura exata recusada."}];
+        return nil;
+    }
+
+    Ivar preferencesIvar = class_getInstanceVariable([store class], "preferencesStore");
+    Ivar namespaceIvar = class_getInstanceVariable([store class], "namespace");
+    Ivar typeIvar = class_getInstanceVariable([store class], "propertiesType");
+    Ivar groupIvar = class_getInstanceVariable([store class], "groupJID");
+    Ivar propsIvar = class_getInstanceVariable([store class], "properties");
+    if (!preferencesIvar || ivar_getOffset(preferencesIvar) != 8 ||
+        !namespaceIvar || ivar_getOffset(namespaceIvar) != 32 ||
+        !typeIvar || ivar_getOffset(typeIvar) != 48 ||
+        !groupIvar || ivar_getOffset(groupIvar) != 56 ||
+        !propsIvar || ivar_getOffset(propsIvar) != 96) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:12
+            userInfo:@{NSLocalizedDescriptionKey:
+                @"Layout de WAPropertiesStore difere do SharedModules analisado; leitura exata recusada."}];
+        return nil;
+    }
+
+    id rawProps = WAGRABObjectIvar(store, "properties");
+    if (![rawProps isKindOfClass:NSDictionary.class]) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:13
+            userInfo:@{NSLocalizedDescriptionKey:
+                @"WAPropertiesStore.properties não é o dicionário nativo esperado."}];
+        return nil;
+    }
+    NSDictionary *props = [(NSDictionary *)rawProps copy];
+    NSUInteger numericCount = WAGRABNumericKeyCount(props);
+    if (!numericCount) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:14
+            userInfo:@{NSLocalizedDescriptionKey:
+                @"O WAPropertiesStore exato não contém ABProps numéricas."}];
+        return nil;
+    }
+
+    id namespaceValue = WAGRABObjectIvar(store, "namespace");
+    id groupValue = WAGRABObjectIvar(store, "groupJID");
+    id preferencesStore = WAGRABObjectIvar(store, "preferencesStore");
+    id accountProvider = WAGRABObjectIvar(store, "accountProvider");
+    id storeUserContext = WAGRABObjectIvar(store, "userContext");
+    NSString *storeNamespace = [namespaceValue isKindOfClass:NSString.class]
+        ? namespaceValue : [namespaceValue description];
+    NSString *groupJID = [groupValue isKindOfClass:NSString.class]
+        ? groupValue : [groupValue description];
+    NSInteger propertiesType = NSNotFound;
+    if (!WAGRABSignedIvar(store, "propertiesType", &propertiesType)) {
+        if (outError) *outError = [NSError errorWithDomain:kWAGRABPropsErrorDomain code:15
+            userInfo:@{NSLocalizedDescriptionKey:
+                @"WAPropertiesStore.propertiesType não pôde ser lido pelo ABI provado."}];
+        return nil;
+    }
+
+    NSMutableDictionary *metadata = [NSMutableDictionary dictionary];
+    for (NSString *selectorName in @[@"configKey", @"configHash", @"refreshID",
+                                      @"encryptedRID", @"scheduledRefreshDate",
+                                      @"exposureKey", @"exposureKeyWithTimestamps"]) {
+        id value = WAGRABCallObjectNoArg(properties, selectorName);
+        if (value) metadata[selectorName] = value;
+    }
+    if (metadata[@"configKey"]) metadata[@"key"] = metadata[@"configKey"];
+    if (metadata[@"configHash"]) metadata[@"hash"] = metadata[@"configHash"];
+    metadata[@"_native_store_class"] = NSStringFromClass([store class]) ?: @"";
+    metadata[@"_native_store_namespace"] = storeNamespace ?: NSNull.null;
+    metadata[@"_native_group_jid"] = groupJID ?: NSNull.null;
+    metadata[@"_native_properties_type"] = @(propertiesType);
+    metadata[@"_preferences_store_class"] = preferencesStore
+        ? (NSStringFromClass([preferencesStore class]) ?: @"") : NSNull.null;
+    metadata[@"_account_provider_class"] = accountProvider
+        ? (NSStringFromClass([accountProvider class]) ?: @"") : NSNull.null;
+    metadata[@"_store_user_context_class"] = storeUserContext
+        ? (NSStringFromClass([storeUserContext class]) ?: @"") : NSNull.null;
+
+    NSString *identity = [NSString stringWithFormat:@"WAPropertiesStore:%@:%ld:%@",
+        storeNamespace ?: @"?", (long)propertiesType, groupJID ?: @"personal"];
+    WAGRABPropsNativeSnapshot *snapshot = [WAGRABPropsNativeSnapshot new];
+    snapshot.suiteName = kWAGRABPropsSharedSuite;
+    snapshot.payloadKey = identity;
+    snapshot.props = props;
+    snapshot.metadata = metadata;
+    snapshot.loadedAt = [NSDate date];
+    snapshot.numericPropCount = numericCount;
+    snapshot.fingerprint = WAGRABFingerprint(identity, props, metadata);
+    snapshot.sourceKind = @"exact_native_wa_properties_store";
+    snapshot.storeClassName = NSStringFromClass([store class]);
+    snapshot.storeNamespace = storeNamespace;
+    snapshot.storeGroupJID = groupJID;
+    snapshot.storePropertiesType = propertiesType;
+    WAGRABNativeSetDiagnostic([NSString stringWithFormat:
+        @"exact store class=%@ namespace=%@ type=%ld group=%@ props=%lu fingerprint=%@",
+        snapshot.storeClassName ?: @"?", storeNamespace ?: @"?", (long)propertiesType,
+        groupJID ?: @"personal", (unsigned long)numericCount, snapshot.fingerprint]);
     return snapshot;
 }
 
@@ -460,6 +599,68 @@ static id WAGRABJSONSafe(id value) {
         return dictionary;
     }
     return [value description] ?: @"";
+}
+
+
+NSDictionary<NSString *, id> *WAGRABPropsNativeABTOnlyExportDocument(
+    WAGRABPropsNativeSnapshot *snapshot) {
+    if (!snapshot) return @{};
+    NSArray *sortedKeys = [snapshot.props.allKeys sortedArrayUsingComparator:^NSComparisonResult(id left, id right) {
+        unsigned long long a = [[left description] longLongValue];
+        unsigned long long b = [[right description] longLongValue];
+        if (a < b) return NSOrderedAscending;
+        if (a > b) return NSOrderedDescending;
+        return [[left description] compare:[right description]];
+    }];
+    NSMutableArray *entries = [NSMutableArray arrayWithCapacity:sortedKeys.count];
+    NSUInteger canonicalNamed = 0;
+    for (id keyObject in sortedKeys) {
+        NSString *code = [keyObject description];
+        if (!WAGRABStringIsDecimal(code)) continue;
+        id rawEntry = snapshot.props[keyObject];
+        NSDictionary *entryDictionary = [rawEntry isKindOfClass:NSDictionary.class]
+            ? rawEntry : @{};
+        id wireValue = entryDictionary[@"value"] ?: rawEntry ?: NSNull.null;
+        NSString *displayName = WAGRABPropsDisplayNameForCode(code);
+        if (displayName.length && ![displayName hasPrefix:@"ABProp "]) canonicalNamed++;
+        NSMutableDictionary *entry = [@{
+            @"code": @([code longLongValue]),
+            @"name": displayName ?: [NSString stringWithFormat:@"ABProp %@", code],
+            @"value": WAGRABJSONSafe(wireValue),
+            @"native_entry": WAGRABJSONSafe(rawEntry),
+        } mutableCopy];
+        if (entryDictionary[@"expoKey"]) entry[@"expoKey"] = WAGRABJSONSafe(entryDictionary[@"expoKey"]);
+        [entries addObject:entry];
+    }
+    return @{
+        @"format": @"WATweaks WhatsApp native ABProps ABT snapshot v1",
+        @"scope": @"ABT only; MobileConfig intentionally excluded",
+        @"source_kind": snapshot.sourceKind ?: @"unknown",
+        @"source": @"WAProperties._propertiesStore.properties; native App Group-backed preferences store",
+        @"suite": snapshot.suiteName ?: kWAGRABPropsSharedSuite,
+        @"native_store": @{
+            @"class": snapshot.storeClassName ?: NSNull.null,
+            @"namespace": snapshot.storeNamespace ?: NSNull.null,
+            @"group_jid": snapshot.storeGroupJID ?: NSNull.null,
+            @"properties_type": @(snapshot.storePropertiesType),
+            @"layout_evidence": @{
+                @"WAProperties._propertiesStore": @8,
+                @"WAPropertiesStore.preferencesStore": @8,
+                @"WAPropertiesStore.namespace": @32,
+                @"WAPropertiesStore.propertiesType": @48,
+                @"WAPropertiesStore.groupJID": @56,
+                @"WAPropertiesStore.properties": @96,
+            }
+        },
+        @"store_identity": snapshot.payloadKey ?: @"",
+        @"prop_count": @(entries.count),
+        @"fingerprint": snapshot.fingerprint ?: @"",
+        @"loaded_at": snapshot.loadedAt.description ?: @"",
+        @"metadata": WAGRABJSONSafe(snapshot.metadata ?: @{}),
+        @"canonical_abprop_names": @(canonicalNamed),
+        @"canonical_catalog_size": @(WAGRABPropsCanonicalNameCount()),
+        @"entries": entries,
+    };
 }
 
 NSDictionary<NSString *, id> *WAGRABPropsNativeExportDocument(WAGRABPropsNativeSnapshot *snapshot) {

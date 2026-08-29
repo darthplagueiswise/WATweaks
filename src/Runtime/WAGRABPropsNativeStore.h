@@ -13,18 +13,31 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy) NSDate *loadedAt;
 @property(nonatomic, assign) NSUInteger numericPropCount;
 @property(nonatomic, copy) NSString *fingerprint;
+@property(nonatomic, copy) NSString *sourceKind;
+@property(nonatomic, copy, nullable) NSString *storeClassName;
+@property(nonatomic, copy, nullable) NSString *storeNamespace;
+@property(nonatomic, copy, nullable) NSString *storeGroupJID;
+@property(nonatomic, assign) NSInteger storePropertiesType;
 @end
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/// Reads the account-scoped ABProps cache that WhatsApp itself persists in
-/// group.net.whatsapp.WhatsApp.shared. The selected payload is the largest
-/// numeric-key dictionary under a gabp.*p key; abp.pnonep is intentionally not
-/// treated as the primary account snapshot.
+/// Diagnostic fallback only. It scans the suite without proving account
+/// ownership and must never source a correlated result or the ABT browser.
 WAGRABPropsNativeSnapshot * _Nullable WAGRABPropsReadNativeSnapshot(
     NSError * _Nullable * _Nullable outError);
+
+/// Exact account store owned by the WAProperties instance in the request.
+/// SharedModules proves _propertiesStore +0x8 and properties +0x60.
+WAGRABPropsNativeSnapshot * _Nullable WAGRABPropsReadNativeSnapshotForProperties(
+    id properties,
+    NSError * _Nullable * _Nullable outError);
+
+/// ABT-only export; performs no MobileConfig resolution.
+NSDictionary<NSString *, id> *WAGRABPropsNativeABTOnlyExportDocument(
+    WAGRABPropsNativeSnapshot *snapshot);
 
 /// Produces the portable JSON-ready v3 document from the native account cache.
 /// Each numeric ABProp is enriched, when available, with the canonical getter

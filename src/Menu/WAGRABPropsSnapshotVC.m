@@ -1,15 +1,12 @@
 #import "WAGRABPropsSnapshotVC.h"
 #import "WAGRMenuTheme.h"
-#import "../Runtime/WAGRABPropsNativeStore.h"
-#import "../Runtime/WAGRABPropsABTForceFull.h"
-#import "../Runtime/WAGRMobileConfigBridge.h"
-#import "../Runtime/WAGRMobileConfigInternalPreset.h"
+#import "../Runtime/WAGRABPropsABTLiveService.h"
 #import "../Runtime/WAGRLog.h"
 
 @interface WAGRABPropsSnapshotVC ()
 @property(nonatomic, strong) id userContext;
-@property(nonatomic, strong) WAGRABPropsNativeSnapshot *snapshot;
 @property(nonatomic, copy) NSDictionary *exportDocument;
+@property(nonatomic, copy) NSDictionary *verifiedFetchResult;
 @property(nonatomic, copy) NSArray<NSDictionary *> *allEntries;
 @property(nonatomic, copy) NSArray<NSDictionary *> *visibleEntries;
 @property(nonatomic, strong) UISearchController *searchController;
@@ -18,7 +15,6 @@
 @property(nonatomic, strong) UIBarButtonItem *fetchButton;
 @property(nonatomic, strong) UIBarButtonItem *exportButton;
 @property(nonatomic, assign) BOOL fetching;
-@property(nonatomic, assign) BOOL exportingPreset;
 @end
 
 @implementation WAGRABPropsSnapshotVC
@@ -27,9 +23,10 @@
     self = [super initWithStyle:UITableViewStyleInsetGrouped];
     if (!self) return nil;
     _userContext = userContext;
+    _exportDocument = @{};
+    _verifiedFetchResult = @{};
     _allEntries = @[];
     _visibleEntries = @[];
-    _exportDocument = @{};
     self.title = @"AB Props";
     return self;
 }
@@ -44,7 +41,7 @@
     UISearchController *search = [[UISearchController alloc] initWithSearchResultsController:nil];
     search.searchResultsUpdater = self;
     search.obscuresBackgroundDuringPresentation = NO;
-    search.searchBar.placeholder = @"Código, getter ou param MobileConfig";
+    search.searchBar.placeholder = @"Código, getter, valor ou expoKey";
     self.navigationItem.searchController = search;
     self.navigationItem.hidesSearchBarWhenScrolling = YES;
     self.definesPresentationContext = YES;
@@ -65,12 +62,12 @@
     self.navigationItem.rightBarButtonItems = @[self.exportButton, self.fetchButton];
 
     UIRefreshControl *pull = [UIRefreshControl new];
-    [pull addTarget:self action:@selector(reloadLocalSnapshot)
+    [pull addTarget:self action:@selector(reloadExactLocalSnapshot)
       forControlEvents:UIControlEventValueChanged];
     self.refreshControl = pull;
 
     [self installHeader];
-    [self reloadLocalSnapshot];
+    [self reloadExactLocalSnapshot];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -79,14 +76,13 @@
 }
 
 - (void)installHeader {
-    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 64)];
+    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 72)];
     container.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-
     UILabel *label = [UILabel new];
     label.translatesAutoresizingMaskIntoConstraints = NO;
     label.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     label.textColor = WAGRMenuSecondaryTextColor();
-    label.numberOfLines = 2;
+    label.numberOfLines = 3;
     [container addSubview:label];
     self.statusLabel = label;
 
@@ -95,14 +91,13 @@
     progress.hidden = YES;
     [container addSubview:progress];
     self.progressView = progress;
-
     [NSLayoutConstraint activateConstraints:@[
         [label.leadingAnchor constraintEqualToAnchor:container.leadingAnchor constant:20],
         [label.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-20],
-        [label.topAnchor constraintEqualToAnchor:container.topAnchor constant:10],
+        [label.topAnchor constraintEqualToAnchor:container.topAnchor constant:8],
         [progress.leadingAnchor constraintEqualToAnchor:label.leadingAnchor],
         [progress.trailingAnchor constraintEqualToAnchor:label.trailingAnchor],
-        [progress.topAnchor constraintEqualToAnchor:label.bottomAnchor constant:8],
+        [progress.topAnchor constraintEqualToAnchor:label.bottomAnchor constant:7],
     ]];
     self.tableView.tableHeaderView = container;
 }
@@ -115,108 +110,76 @@
     });
 }
 
-static NSString *WAGRABRedactedPayloadKey(NSString *key) {
-    if (!key.length) return @"—";
-    NSRange at = [key rangeOfString:@"@"]; 
-    if (at.location == NSNotFound) return key;
-    NSRange prefix = [key rangeOfString:@"gabp.o"];
-    if (prefix.location == NSNotFound || at.location <= NSMaxRange(prefix)) return key;
-    return [NSString stringWithFormat:@"%@<account>%@",
-            [key substringToIndex:NSMaxRange(prefix)],
-            [key substringFromIndex:at.location]];
+- (void)applyDocument:(NSDictionary *)document verifiedResult:(NSDictionary *)result {
+    self.exportDocument = [document isKindOfClass:NSDictionary.class] ? document : @{};
+    self.verifiedFetchResult = [result isKindOfClass:NSDictionary.class] ? result : @{};
+    NSArray *entries = [self.exportDocument[@"entries"] isKindOfClass:NSArray.class]
+        ? self.exportDocument[@"entries"] : @[];
+    self.allEntries = entries;
+    self.exportButton.enabled = entries.count > 0 && !self.fetching;
+    [self applyFilter];
 }
 
-- (void)reloadLocalSnapshot {
+- (void)reloadExactLocalSnapshot {
     NSError *error = nil;
-    WAGRABPropsNativeSnapshot *snapshot = WAGRABPropsReadNativeSnapshot(&error);
+    NSDictionary *document = WAGRABPropsABTAccountSnapshotDocument(self.userContext, &error);
     [self.refreshControl endRefreshing];
-    if (!snapshot) {
-        self.snapshot = nil;
-        self.exportDocument = @{};
-        self.allEntries = @[];
-        self.visibleEntries = @[];
-        self.exportButton.enabled = NO;
-        [self.tableView reloadData];
-        [self setStatus:error.localizedDescription ?: @"Snapshot ABProps indisponível."
+    if (!document) {
+        [self applyDocument:@{} verifiedResult:@{}];
+        [self setStatus:error.localizedDescription ?: @"WAPropertiesStore exato indisponível."
                 progress:0.0f busy:NO];
         return;
     }
-
-    self.snapshot = snapshot;
-    self.exportDocument = WAGRABPropsNativeExportDocument(snapshot) ?: @{};
-    NSArray *entries = self.exportDocument[@"entries"];
-    self.allEntries = [entries isKindOfClass:NSArray.class] ? entries : @[];
-    self.exportButton.enabled = self.allEntries.count > 0 && !self.exportingPreset;
-    [self applyFilter];
-
-    NSDictionary *mcResolution = [self.exportDocument[@"mobileconfig_resolution"]
-        isKindOfClass:NSDictionary.class] ? self.exportDocument[@"mobileconfig_resolution"] : @{};
-    NSUInteger stableResolved = [mcResolution[@"config_stable_ids_resolved"] unsignedIntegerValue];
-    __block NSUInteger parameterNames = 0;
-    for (NSDictionary *entry in self.allEntries) {
-        NSDictionary *mc = [entry[@"mobileconfig"] isKindOfClass:NSDictionary.class]
-            ? entry[@"mobileconfig"] : nil;
-        if ([mc[@"parameter_name"] isKindOfClass:NSString.class] && [mc[@"parameter_name"] length]) {
-            parameterNames++;
-        }
-    }
-
-    NSString *summary = nil;
-    if (stableResolved || parameterNames) {
-        summary = [NSString stringWithFormat:@"%lu ABProps · %lu external config IDs · %lu param names",
-            (unsigned long)snapshot.numericPropCount,
-            (unsigned long)stableResolved,
-            (unsigned long)parameterNames];
-    } else {
-        summary = [NSString stringWithFormat:@"%lu ABProps · %@",
-            (unsigned long)snapshot.numericPropCount,
-            WAGRABRedactedPayloadKey(snapshot.payloadKey)];
-    }
-    [self setStatus:summary progress:1.0f busy:NO];
+    [self applyDocument:document verifiedResult:@{}];
+    NSDictionary *store = [document[@"native_store"] isKindOfClass:NSDictionary.class]
+        ? document[@"native_store"] : @{};
+    [self setStatus:[NSString stringWithFormat:
+        @"STORE EXATO LOCAL, ainda sem prova de server nesta sessão · %lu props · %@ · namespace %@",
+        (unsigned long)self.allEntries.count, store[@"class"] ?: @"WAPropertiesStore",
+        store[@"namespace"] ?: @"?"] progress:1.0f busy:NO];
 }
 
 - (void)fetchNow {
-    if (self.fetching || self.exportingPreset) return;
+    if (self.fetching) return;
     self.fetching = YES;
     self.fetchButton.enabled = NO;
     self.exportButton.enabled = NO;
-
-    [self setStatus:@"ABT full: limpando configHash pelo par nativo…" progress:0.08f busy:YES];
+    [self setStatus:@"ABT server: full_empty_hash; aguardando IQ, handler full e store exato…"
+            progress:0.08f busy:YES];
 
     NSString *diagnostic = nil;
     __weak typeof(self) weakSelf = self;
-    BOOL invoked = WAGRABPropsABTLiveFetchForcedFull(self.userContext,
+    BOOL invoked = WAGRABPropsABTLiveFetchVariant(
+        WAGRABPropsABTVariantFullEmptyHash, self.userContext,
         ^(NSDictionary<NSString *,id> *result) {
             __strong typeof(weakSelf) self = weakSelf;
             if (!self) return;
             self.fetching = NO;
             self.fetchButton.enabled = YES;
-            [self reloadLocalSnapshot];
-            self.exportButton.enabled = self.snapshot != nil;
 
-            NSDictionary *store = [result[@"store_confirmation"] isKindOfClass:NSDictionary.class]
-                ? result[@"store_confirmation"] : @{};
-            NSString *status = [NSString stringWithFormat:
-                @"ABT full %@ · completion=%@ · hash=%@ · %lu props · gabpΔ=%@ · %@",
-                [result[@"verified"] boolValue] ? @"VERIFICADO" : @"NÃO CONFIRMADO",
-                [result[@"native_completion_observed"] boolValue] ? @"YES" : @"NO",
-                [store[@"config_hash_refilled"] boolValue] ? @"REFILLED" : @"EMPTY",
-                (unsigned long)[store[@"effective_prop_count"] unsignedIntegerValue],
-                [store[@"fingerprint_changed"] boolValue] ? @"YES" : @"NO",
-                result[@"outcome"] ?: @"unknown"];
-            [self setStatus:status progress:1.0f busy:NO];
+            NSString *proof = nil;
+            if (!WAGRABPropsABTVerifiedFullEmptyHashResult(result, &proof)) {
+                self.exportButton.enabled = self.allEntries.count > 0;
+                [self setStatus:proof progress:0.0f busy:NO];
+                [self showAlert:@"ABT não confirmado" message:proof];
+                return;
+            }
+            NSDictionary *document = [result[@"effective_snapshot"]
+                isKindOfClass:NSDictionary.class] ? result[@"effective_snapshot"] : @{};
+            [self applyDocument:document verifiedResult:result];
+            [self setStatus:[NSString stringWithFormat:@"SERVER/IQ/STORE VERIFICADO · %@",
+                proof ?: @""] progress:1.0f busy:NO];
         }, &diagnostic);
     if (!invoked) {
         self.fetching = NO;
         self.fetchButton.enabled = YES;
-        self.exportButton.enabled = self.snapshot != nil;
+        self.exportButton.enabled = self.allEntries.count > 0;
         NSString *message = diagnostic ?: @"O request manager nativo não foi resolvido.";
         [self setStatus:message progress:0.0f busy:NO];
         [self showAlert:@"ABProps Fetch" message:message];
         return;
     }
-
-    [self setStatus:diagnostic ?: @"ABT full enviado; aguardando completion e hash reposto pelo store…"
+    [self setStatus:diagnostic ?: @"full_empty_hash enviado; aguardando resposta correlacionada…"
             progress:0.20f busy:YES];
 }
 
@@ -234,14 +197,9 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
             NSCharacterSet.whitespaceAndNewlineCharacterSet];
         NSMutableArray *filtered = [NSMutableArray array];
         for (NSDictionary *entry in self.allEntries) {
-            NSDictionary *mc = [entry[@"mobileconfig"] isKindOfClass:NSDictionary.class]
-                ? entry[@"mobileconfig"] : @{};
-            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@ %@ %@",
+            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@",
                 entry[@"code"] ?: @"", entry[@"name"] ?: @"", entry[@"value"] ?: @"",
-                entry[@"expoKey"] ?: @"", mc[@"local_config_index"] ?: @"",
-                mc[@"parameter_index"] ?: @"", mc[@"param_specifier_hex"] ?: @"",
-                mc[@"config_stable_id"] ?: @"", mc[@"config_name"] ?: @"",
-                mc[@"parameter_name"] ?: @""].lowercaseString;
+                entry[@"expoKey"] ?: @""].lowercaseString;
             BOOL matches = YES;
             for (NSString *token in tokens) {
                 if (token.length && ![haystack containsString:token]) {
@@ -267,12 +225,15 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
 
 - (NSString *)tableView:(__unused UITableView *)tableView
  titleForHeaderInSection:(__unused NSInteger)section {
-    return @"Snapshot da conta";
+    return self.verifiedFetchResult.count
+        ? @"Resposta ABT confirmada nesta sessão" : @"WAPropertiesStore exato da conta";
 }
 
 - (NSString *)tableView:(__unused UITableView *)tableView
  titleForFooterInSection:(__unused NSInteger)section {
-    return @"Fetch executa reset nativo do configHash e aguarda o completion do manager. Só mostra VERIFICADO quando o mesmo WAProperties volta com hash não vazio; o fingerprint é evidência secundária.";
+    return self.verifiedFetchResult.count
+        ? @"VERIFICADO exige a mesma transação: full_empty_hash, XMPPIQStanza, handler full com props, metadata/hash persistidos e contagens wire/store/snapshot idênticas."
+        : @"Este conteúdo veio do WAPropertiesStore exato resolvido pelo userContext. Ele é cache local até um Fetch confirmar server → IQ → handler → store nesta sessão.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView
@@ -283,7 +244,6 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
                                       reuseIdentifier:identifier];
     }
-
     NSDictionary *entry = self.visibleEntries[(NSUInteger)indexPath.row];
     NSString *name = [entry[@"name"] description] ?: @"ABProp";
     NSString *code = [entry[@"code"] description] ?: @"?";
@@ -291,30 +251,11 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
     cell.textLabel.font = WAGRMenuRuntimeTitleFont();
     cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
     cell.textLabel.numberOfLines = 0;
-    cell.textLabel.lineBreakMode = NSLineBreakByCharWrapping;
     cell.detailTextLabel.numberOfLines = 0;
-    cell.detailTextLabel.lineBreakMode = NSLineBreakByCharWrapping;
     cell.textLabel.text = name;
-
-    NSDictionary *mc = [entry[@"mobileconfig"] isKindOfClass:NSDictionary.class]
-        ? entry[@"mobileconfig"] : nil;
-    NSString *stable = mc[@"config_stable_id"] ? [mc[@"config_stable_id"] description] : nil;
-    NSString *parameterName = [mc[@"parameter_name"] isKindOfClass:NSString.class]
-        ? mc[@"parameter_name"] : nil;
-    NSString *configName = [mc[@"config_name"] isKindOfClass:NSString.class]
-        ? mc[@"config_name"] : nil;
-
     NSMutableString *detail = [NSMutableString stringWithFormat:@"#%@ · valor %@",
         code, entry[@"value"] ?: @"nil"];
-    if (parameterName.length) {
-        if (configName.length) [detail appendFormat:@"\nMC: %@.%@", configName, parameterName];
-        else [detail appendFormat:@"\nMC param: %@", parameterName];
-    } else if (stable.length) {
-        [detail appendFormat:@" · MC %@ · p%@", stable, mc[@"parameter_index"] ?: @"?"];
-    } else if (mc) {
-        [detail appendFormat:@" · local %@ · p%@",
-            mc[@"local_config_index"] ?: @"?", mc[@"parameter_index"] ?: @"?"];
-    }
+    if (entry[@"expoKey"]) [detail appendFormat:@"\nexpoKey %@", entry[@"expoKey"]];
     cell.detailTextLabel.text = detail;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
@@ -336,34 +277,30 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
 }
 
 - (void)showExportMenu:(UIBarButtonItem *)sender {
-    if (!self.snapshot || self.exportingPreset) return;
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Exportar ABProps"
-        message:[NSString stringWithFormat:@"Snapshot: %lu propriedades.",
-                 (unsigned long)self.snapshot.numericPropCount]
+    if (!self.exportDocument.count || self.fetching) return;
+    NSString *kind = self.verifiedFetchResult.count ? @"server verificado" : @"store local exato";
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Exportar ABT"
+        message:[NSString stringWithFormat:@"%lu propriedades · %@ · MobileConfig excluído.",
+                 (unsigned long)self.allEntries.count, kind]
         preferredStyle:UIAlertControllerStyleActionSheet];
     __weak typeof(self) weakSelf = self;
-    [sheet addAction:[UIAlertAction actionWithTitle:@"JSON completo"
+    [sheet addAction:[UIAlertAction actionWithTitle:@"JSON ABT completo"
         style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
             [weakSelf exportJSON];
         }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"mc_overrides · Internal / Dogfood"
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Copiar prova do fetch"
         style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            [weakSelf exportInternalMobileConfigPreset];
-        }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Política do preset"
-        style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            [weakSelf showAlert:@"Internal / Dogfood preset"
-                        message:WAGRMobileConfigInternalPresetPolicyDescription()];
-        }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Copiar diagnóstico"
-        style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            UIPasteboard.generalPasteboard.string = [NSString stringWithFormat:@"%@\n\n%@",
-                WAGRABPropsNativeDiagnosticText(), WAGRMobileConfigDiagnosticText()];
+            NSDictionary *proof = weakSelf.verifiedFetchResult.count
+                ? weakSelf.verifiedFetchResult : weakSelf.exportDocument;
+            NSData *data = [NSJSONSerialization dataWithJSONObject:proof
+                options:NSJSONWritingPrettyPrinted error:nil];
+            UIPasteboard.generalPasteboard.string = data.length
+                ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]
+                : proof.description;
         }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Cancelar"
         style:UIAlertActionStyleCancel handler:nil]];
-    UIPopoverPresentationController *popover = sheet.popoverPresentationController;
-    if (popover) popover.barButtonItem = sender;
+    if (sheet.popoverPresentationController) sheet.popoverPresentationController.barButtonItem = sender;
     [self presentViewController:sheet animated:YES completion:nil];
 }
 
@@ -373,121 +310,30 @@ static NSString *WAGRABRedactedPayloadKey(NSString *key) {
     NSJSONWritingOptions options = NSJSONWritingPrettyPrinted;
     if (@available(iOS 11.0, *)) options |= NSJSONWritingSortedKeys;
     NSData *data = [NSJSONSerialization dataWithJSONObject:self.exportDocument
-                                                   options:options
-                                                     error:&error];
+                                                   options:options error:&error];
     if (!data.length) {
         [self showAlert:@"Export" message:error.localizedDescription ?: @"Falha ao serializar JSON."];
         return;
     }
-
     NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:@"WATweaksExports"];
     [[NSFileManager defaultManager] createDirectoryAtPath:directory
                               withIntermediateDirectories:YES attributes:nil error:nil];
-    NSString *path = [directory stringByAppendingPathComponent:@"whatsapp_abprops_native_snapshot.json"];
+    NSString *filename = self.verifiedFetchResult.count
+        ? @"whatsapp_abprops_abt_server_verified.json"
+        : @"whatsapp_abprops_abt_exact_local_store.json";
+    NSString *path = [directory stringByAppendingPathComponent:filename];
     if (![data writeToFile:path options:NSDataWritingAtomic error:&error]) {
         [self showAlert:@"Export" message:error.localizedDescription ?: @"Falha ao gravar JSON."];
         return;
     }
-
-    NSURL *url = [NSURL fileURLWithPath:path];
     UIActivityViewController *activity = [[UIActivityViewController alloc]
-        initWithActivityItems:@[url] applicationActivities:nil];
-    UIPopoverPresentationController *popover = activity.popoverPresentationController;
-    if (popover) popover.barButtonItem = self.exportButton;
+        initWithActivityItems:@[[NSURL fileURLWithPath:path]] applicationActivities:nil];
+    if (activity.popoverPresentationController) {
+        activity.popoverPresentationController.barButtonItem = self.exportButton;
+    }
     [self presentViewController:activity animated:YES completion:nil];
-    WAGRLogAppendF(@"[ABProps][Native] exported %@ (%lu bytes)",
-                   path, (unsigned long)data.length);
-}
-
-- (void)exportInternalMobileConfigPreset {
-    if (self.exportingPreset || self.fetching) return;
-    self.exportingPreset = YES;
-    self.exportButton.enabled = NO;
-    self.fetchButton.enabled = NO;
-    [self setStatus:@"Resolvendo WA stable IDs → UserSession MobileConfig…"
-            progress:0.01f busy:YES];
-
-    id context = self.userContext;
-    __weak typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSError *resolveError = nil;
-        NSArray<WAGRMobileConfigMapping *> *mappings = WAGRMobileConfigResolveAll(
-            context,
-            ^(NSUInteger current, NSUInteger total, NSUInteger translated, NSUInteger resolved) {
-                float value = total ? (float)current / (float)total : 0.0f;
-                [weakSelf setStatus:[NSString stringWithFormat:
-                    @"Crosswalk UserSession %lu/%lu · traduzidos %lu · external IDs %lu",
-                    (unsigned long)current, (unsigned long)total,
-                    (unsigned long)translated, (unsigned long)resolved]
-                    progress:value busy:YES];
-            },
-            &resolveError);
-
-        NSDictionary *stats = nil;
-        NSDictionary *preset = mappings
-            ? WAGRMobileConfigInternalPresetDocument(mappings, &stats)
-            : nil;
-        NSError *jsonError = nil;
-        NSData *data = preset.count ? WAGRMobileConfigJSONData(preset, &jsonError) : nil;
-
-        NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:@"WATweaksExports"];
-        NSString *path = [directory stringByAppendingPathComponent:@"mc_overrides_internal_dogfood_preset.json"];
-        NSError *writeError = nil;
-        BOOL wrote = NO;
-        if (data.length) {
-            [[NSFileManager defaultManager] createDirectoryAtPath:directory
-                                      withIntermediateDirectories:YES attributes:nil error:&writeError];
-            if (!writeError) wrote = [data writeToFile:path options:NSDataWritingAtomic error:&writeError];
-        }
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            __strong typeof(weakSelf) self = weakSelf;
-            if (!self) return;
-            self.exportingPreset = NO;
-            self.fetchButton.enabled = YES;
-            self.exportButton.enabled = self.snapshot != nil;
-
-            if (!mappings) {
-                NSString *message = resolveError.localizedDescription ?: WAGRMobileConfigDiagnosticText();
-                [self setStatus:@"Crosswalk UserSession indisponível" progress:0.0f busy:NO];
-                [self showAlert:@"mc_overrides preset" message:message];
-                return;
-            }
-            if (!preset.count || !data.length) {
-                NSString *message = [NSString stringWithFormat:
-                    @"Nenhuma entrada semanticamente nomeada pôde ser emitida.\n\nStats:\n%@\n\n%@\n\nJSON: %@",
-                    stats ?: @{}, WAGRMobileConfigDiagnosticText(),
-                    jsonError.localizedDescription ?: @"n/a"];
-                [self setStatus:@"Preset vazio — confira UserSession/id_name_mapping"
-                        progress:0.0f busy:NO];
-                [self showAlert:@"mc_overrides preset" message:message];
-                return;
-            }
-            if (!wrote) {
-                [self setStatus:@"Falha ao gravar preset" progress:0.0f busy:NO];
-                [self showAlert:@"mc_overrides preset"
-                        message:writeError.localizedDescription ?: @"Falha ao gravar JSON."];
-                return;
-            }
-
-            NSUInteger emitted = [stats[@"emitted"] unsignedIntegerValue];
-            NSUInteger configs = [stats[@"configs"] unsignedIntegerValue];
-            NSUInteger falseCount = [stats[@"negative_polarity_false"] unsignedIntegerValue];
-            [self setStatus:[NSString stringWithFormat:
-                @"Preset pronto · %lu params · %lu configs · %lu negativos=false",
-                (unsigned long)emitted, (unsigned long)configs, (unsigned long)falseCount]
-                    progress:1.0f busy:NO];
-
-            NSURL *url = [NSURL fileURLWithPath:path];
-            UIActivityViewController *activity = [[UIActivityViewController alloc]
-                initWithActivityItems:@[url] applicationActivities:nil];
-            UIPopoverPresentationController *popover = activity.popoverPresentationController;
-            if (popover) popover.barButtonItem = self.exportButton;
-            [self presentViewController:activity animated:YES completion:nil];
-            WAGRLogAppendF(@"[MobileConfig][InternalPreset] exported %@ bytes=%lu stats=%@",
-                           path, (unsigned long)data.length, stats ?: @{});
-        });
-    });
+    WAGRLogAppendF(@"[ABProps][ABTBrowser] exported %@ (%lu bytes) verified=%@",
+        path, (unsigned long)data.length, self.verifiedFetchResult.count ? @"YES" : @"NO");
 }
 
 - (void)showAlert:(NSString *)title message:(NSString *)message {
