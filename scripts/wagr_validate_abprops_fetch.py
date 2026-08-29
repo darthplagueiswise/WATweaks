@@ -244,6 +244,10 @@ def main() -> int:
         "v64@0:8@16@24@32q40q48@?56",
         "setLastSuccessFetchInPreferencesStore:unitType:unitId:appVersion:",
         "v44@0:8@16i24@28@36",
+        "preferenceKeyForLastSuccessFetch:unitId:",
+        "preferenceKeyForLastSuccessFetchAppVersion:unitId:",
+        "persistent_success_marker_verified",
+        "verified_native_persisted_success_marker",
         "verified_server_response",
     ):
         require(mc_native, token, "WAGRMobileConfigNativeEngine.m", errors)
