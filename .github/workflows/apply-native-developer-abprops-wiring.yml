@@ -1,0 +1,46 @@
+name: Apply native Developer ABProps wiring
+
+on:
+  push:
+    branches:
+      - dogfood2
+    paths:
+      - scripts/apply_native_developer_abprops_wiring.py
+      - .github/workflows/apply-native-developer-abprops-wiring.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: dogfood2
+          fetch-depth: 0
+
+      - name: Apply 26.33 native Developer ABProps wiring
+        run: python3 scripts/apply_native_developer_abprops_wiring.py
+
+      - name: Validate native invariants
+        run: |
+          python3 scripts/wagr_validate_abprops_fetch.py
+          grep -F 'watweaks_native_developer_abprops_wiring_v26_33' src/Hooks/WAGRNativeDevMenuHooks.xm
+          grep -F 'Private Experimentation Debug' src/Hooks/WAGRNativeDevMenuHooks.xm
+          grep -F 'privateABProperties' src/Hooks/WAGRNativeDevMenuHooks.xm
+          ! grep -F '0x107d2f938' src/Hooks/WAGRNativeDevMenuHooks.xm
+          ! grep -F '0x107d2f940' src/Hooks/WAGRNativeDevMenuHooks.xm
+
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/Hooks/WAGRNativeDevMenuHooks.xm scripts/wagr_validate_abprops_fetch.py
+          if git diff --cached --quiet; then
+            echo 'No implementation changes to commit'
+            exit 0
+          fi
+          git commit -m 'Wire native Private Experimentation into Developer AB Props'
+          git push origin HEAD:dogfood2
