@@ -36,6 +36,21 @@ static NSString *WAGRRuntimeValueNormalizedType(NSString *typeCode) {
     return *cursor ? [NSString stringWithFormat:@"%c", *cursor] : @"";
 }
 
+static BOOL WAGRRuntimeValueSelectorIsSafeGetter(NSString *selectorName) {
+    if (!selectorName.length || [selectorName containsString:@":"]) return NO;
+    static NSSet<NSString *> *unsafe = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        unsafe = [NSSet setWithArray:@[
+            @"alloc", @"init", @"new", @"dealloc", @"finalize", @"copy", @"mutableCopy",
+            @"retain", @"release", @"autorelease", @"retainCount", @"zone",
+            @"class", @"superclass", @"self", @"hash", @"description",
+            @"debugDescription", @"isProxy"
+        ]];
+    });
+    return ![unsafe containsObject:selectorName];
+}
+
 static id WAGRRuntimeValueEncodeNested(id value);
 static id WAGRRuntimeValueDecodeNested(id value);
 
@@ -389,7 +404,8 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
                                  NSString *typeCode) {
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
     NSString *normalized = WAGRRuntimeValueNormalizedType(typeCode);
-    if (!uid.length || !WAGRRuntimeValueTypeIsSupported(normalized)) return NO;
+    if (!uid.length || !WAGRRuntimeValueTypeIsSupported(normalized) ||
+        !WAGRRuntimeValueSelectorIsSafeGetter(selectorName)) return NO;
     WAGRRuntimeValueEnsureStorage();
     @synchronized (gWAGRValueLock) {
         if (gWAGRValueHooks[uid]) return YES;
@@ -465,6 +481,9 @@ NSString *WAGRRuntimeValueRead(NSString *className,
                                id instance,
                                id *rawValue) {
     if (rawValue) *rawValue = nil;
+    if (!WAGRRuntimeValueSelectorIsSafeGetter(selectorName)) {
+        return @"selector de lifecycle bloqueado";
+    }
     id receiver = WAGRRuntimeValueReceiver(className, selectorName, isClassMethod, instance);
     if (!receiver) return @"receiver exato indisponível";
     SEL selector = NSSelectorFromString(selectorName);

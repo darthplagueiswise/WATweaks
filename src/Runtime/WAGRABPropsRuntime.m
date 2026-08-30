@@ -1,6 +1,7 @@
 #import "WAGRABPropsRuntime.h"
 #import "WAGRRuntimeClassifier.h"
 #import "WAGRRuntimeValueStore.h"
+#import "WAGRABPropsStableIDResolver.h"
 #import "WAGRLog.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -42,17 +43,13 @@ static id WAGRABCallObject(id object, NSString *selectorName) {
 static BOOL WAGRABObjectLooksRelevant(id object) {
     if (!object) return NO;
     NSString *name = NSStringFromClass([object class]).lowercaseString ?: @"";
-    if ([name containsString:@"abpropert"] ||
-        [name containsString:@"privateexperiment"] ||
-        [name containsString:@"serverpropert"] ||
-        [name containsString:@"foawaab"] ||
-        [name containsString:@"wapropert"] ||
-        [name containsString:@"propoverride"] ||
-        [name containsString:@"debugoverride"]) {
+    if ([name containsString:@"waabproperties"] ||
+        [name containsString:@"foawaabproperties"] ||
+        [name containsString:@"privateabproperties"] ||
+        [name isEqualToString:@"waproperties"]) {
         return YES;
     }
-    return [object respondsToSelector:NSSelectorFromString(@"isMetaEmployeeOrInternalTester")] ||
-           [object respondsToSelector:NSSelectorFromString(@"waios_mc_debug_ui_enabled")] ||
+    return [object respondsToSelector:NSSelectorFromString(@"waios_mc_debug_ui_enabled")] &&
            [object respondsToSelector:NSSelectorFromString(@"boolForKey:defaultValue:")];
 }
 
@@ -157,12 +154,10 @@ static NSArray<Class> *WAGRABClassesToScan(NSArray *runtimeObjects) {
         Class cls = [object class];
         while (cls && cls != NSObject.class) {
             NSString *name = NSStringFromClass(cls).lowercaseString ?: @"";
-            if ([name containsString:@"abpropert"] ||
-                [name containsString:@"privateexperiment"] ||
-                [name containsString:@"serverpropert"] ||
-                [name containsString:@"foawaab"] ||
-                [name containsString:@"wapropert"] ||
-                [name containsString:@"propoverride"]) {
+            if ([name containsString:@"waabproperties"] ||
+                [name containsString:@"foawaabproperties"] ||
+                [name containsString:@"privateabproperties"] ||
+                [name isEqualToString:@"waproperties"]) {
                 [classes addObject:cls];
             }
             cls = class_getSuperclass(cls);
@@ -220,6 +215,13 @@ static void WAGRABAppendEntry(NSMutableArray<WAGRABPropEntry *> *entries,
                               &method, &runtimeType, &encoding)) return;
 
     NSString *className = NSStringFromClass(cls) ?: @"";
+    NSString *stableID = WAGRABPropsStableIDForTarget(className,
+                                                       selectorName,
+                                                       classMethod);
+    // A supported zero-argument return type is not sufficient evidence of an
+    // ABProp. Only generated getters with the verified stable-ID thunk ABI are
+    // allowed into the browser/export catalog.
+    if (!stableID.length) return;
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, classMethod);
     if (!uid.length || [seen containsObject:uid]) return;
     [seen addObject:uid];
@@ -232,6 +234,7 @@ static void WAGRABAppendEntry(NSMutableArray<WAGRABPropEntry *> *entries,
     entry.categoryName = WAGRLiveRuntimeFamilyForSelector(selectorName, className);
     entry.sourceImage = WAGRABImageForMethod(method, cls);
     entry.methodEncoding = encoding ?: @"";
+    entry.stableID = stableID;
     entry.classMethod = classMethod;
     entry.cataloged = NO;
     [entries addObject:entry];

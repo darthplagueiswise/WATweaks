@@ -14,8 +14,7 @@
 #import <substrate.h>
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRLog.h"
-#import "../Menu/WAGRABPropsRootVC.h"
-#import "../Menu/WAGRABPropsPresetsVC.h"
+#import "../Runtime/WAGRABPropsNativePresetBridge.h"
 #import "../Menu/WAGRABPropsConfigVC.h"
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
@@ -27,6 +26,10 @@ extern "C" void WAGRRememberUserContext(id ctx, NSString *source);
 extern "C" id WAGRCurrentUserContext(void);
 extern "C" void WAGRDebugMenuInstrumentationEnsureInstalled(void);
 extern "C" NSString *WAGRDebugMenuInstrumentationDiagnosticText(void);
+extern "C" void WAGRGateHooksEnsureInstalled(void);
+extern "C" NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
+extern "C" void WAGRDebugBuildEnsureInstalled(void);
+extern "C" void WAGRDogfoodKnownWAABEnsureInstalled(void);
 
 static BoolIMP orig_dmAllowed = NULL;
 static BoolIMP orig_dmShortcutEnabled = NULL;
@@ -43,15 +46,13 @@ static BOOL gPrivateExpVCHooked = NO;
 static BOOL gDebugABPropsSectionHooked = NO;
 
 
-// WhatsApp 26.33: the RC Developer controller compiles the yellow AB Props
-// placeholder directly into -createSections. There is no nil-driven branch to
-// flip and WADebugABPropertiesTableViewController is absent from this RC. Keep
-// WhatsApp's native AB Props section, but replace its compiled warning rows with
-// four functional WATableRows: the live WAAB backend, the 13 native Swift
-// presets, WhatsApp's Private Experimentation controller, and portable typed
-// export/import. Only the removed table chrome is reconstructed; values still
-// flow through real WAAB getters and the verified native StartupConfigs writer.
-static NSString * const kWAGRNativeDeveloperABPropsWiringSchema = @"watweaks_native_developer_abprops_wiring_v26_33";
+// WhatsApp 26.33 RC compiles the yellow AB Props placeholder directly into
+// -createSections and no longer ships WADebugABPropertiesTableViewController.
+// It does, however, still ship the complete 13-group Swift preset array and its
+// stable Objective-C entry point: WAABPropDeepLink. We keep the original
+// WADebugViewController/WATableSection and wire each compiled group through
+// WADeepLinkParser -> WAABPropDeepLink -> the native Set ABProps consumer.
+static NSString * const kWAGRNativeDeveloperABPropsWiringSchema = @"watweaks_native_setabprops_deeplink_v26_33";
 
 extern "C" void WAGRContextSpyInstallForObject(id obj);
 extern "C" void WAGRContextSpyInstallForContext(id ctx);
@@ -59,6 +60,13 @@ extern "C" void WAGRContextSpyInstallForContext(id ctx);
 static BOOL WAGRNativeMethodEncodingMatches(Class cls, SEL selector, const char *expected) {
     if (!cls || !selector || !expected) return NO;
     Method method = class_getInstanceMethod(cls, selector);
+    const char *encoding = method ? method_getTypeEncoding(method) : NULL;
+    return encoding && strcmp(encoding, expected) == 0;
+}
+
+static BOOL WAGRNativeClassMethodEncodingMatches(Class cls, SEL selector, const char *expected) {
+    if (!cls || !selector || !expected) return NO;
+    Method method = class_getClassMethod(cls, selector);
     const char *encoding = method ? method_getTypeEncoding(method) : NULL;
     return encoding && strcmp(encoding, expected) == 0;
 }
@@ -192,6 +200,152 @@ static void WAGROpenNativePrivateExperimentation(id debugController) {
     else dispatch_async(dispatch_get_main_queue(), openBlock);
 }
 
+extern "C" NSArray<NSDictionary<NSString *, NSString *> *> *WAGRABPropsNativePresetGroups(void) {
+    static NSArray<NSDictionary<NSString *, NSString *> *> *groups = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        // Identifiers and titles are the values compiled into the 13-element
+        // Swift array in WhatsApp 26.33. Do not duplicate their selector/value
+        // payloads here: WAABPropDeepLink owns and applies those native tuples.
+        groups = @[
+            @{ @"id": @"smbmktmsgs", @"title": @"SMB Marketing Messages" },
+            @{ @"id": @"smbmetaverifiedphase1a", @"title": @"SMB Blue Premium" },
+            @{ @"id": @"smbmetaverifiedphase1b", @"title": @"SMB Meta Verified · prod" },
+            @{ @"id": @"smbbusinessassistant", @"title": @"Meta AI for Business · Business Assistant", @"note": @"Payload nativo vazio nesta RC" },
+            @{ @"id": @"mv_storekit2", @"title": @"Meta Verified StoreKit2" },
+            @{ @"id": @"mv_partner_billing", @"title": @"Meta Verified Partner Billing" },
+            @{ @"id": @"iap_codegen_and_parse_errors", @"title": @"IAP GraphQL codegen / errors" },
+            @{ @"id": @"smb_premium_broadcast", @"title": @"Enable SMB Business Broadcast" },
+            @{ @"id": @"disable_smb_premium_broadcast", @"title": @"Disable SMB Business Broadcast" },
+            @{ @"id": @"smb_send_limit", @"title": @"Enable Business Broadcast Send Limit" },
+            @{ @"id": @"disable_smb_send_limit", @"title": @"Disable Business Broadcast Send Limit" },
+            @{ @"id": @"consumer_bl_capping", @"title": @"Enable Consumer Broadcast List Capping" },
+            @{ @"id": @"disable_consumer_bl_capping", @"title": @"Disable Consumer Broadcast List Capping" },
+        ];
+    });
+    return groups;
+}
+
+static id WAGRNativeDeepLinkContext(id userContext) {
+    Class cls = NSClassFromString(@"WADeepLinkContext");
+    SEL selector = NSSelectorFromString(@"inAppNavigationContextWithUserContext:");
+    if (!userContext ||
+        !WAGRNativeClassMethodEncodingMatches(cls, selector, "@24@0:8@16")) return nil;
+    @try {
+        return ((id (*)(id, SEL, id))objc_msgSend)((id)cls, selector, userContext);
+    } @catch (__unused NSException *exception) {
+        return nil;
+    }
+}
+
+static id WAGRNativeParsedABPropDeepLink(NSString *groupName,
+                                         id userContext,
+                                         NSString **diagnostic) {
+    if (diagnostic) *diagnostic = nil;
+    if (!groupName.length || !userContext) {
+        if (diagnostic) *diagnostic = @"grupo ou userContext ausente";
+        return nil;
+    }
+
+    Class parserClass = NSClassFromString(@"WADeepLinkParser");
+    Class expectedClass = NSClassFromString(@"WAABPropDeepLink");
+    SEL parseSelector = NSSelectorFromString(@"deepLinkWithURL:context:");
+    if (!parserClass || !expectedClass ||
+        !WAGRNativeMethodEncodingMatches(parserClass, parseSelector, "@32@0:8@16@24")) {
+        if (diagnostic) *diagnostic = @"WADeepLinkParser/WAABPropDeepLink ou ABI indisponível";
+        return nil;
+    }
+
+    id deepLinkContext = WAGRNativeDeepLinkContext(userContext);
+    id parser = nil;
+    @try {
+        parser = ((id (*)(id, SEL))objc_msgSend)((id)parserClass, sel_registerName("new"));
+    } @catch (__unused NSException *exception) {}
+    if (!parser || !deepLinkContext) {
+        if (diagnostic) *diagnostic = @"contexto/parser nativo não inicializou";
+        return nil;
+    }
+
+    NSString *escapedPath = [groupName stringByAddingPercentEncodingWithAllowedCharacters:
+        NSCharacterSet.URLPathAllowedCharacterSet] ?: groupName;
+    NSString *escapedQuery = [groupName stringByAddingPercentEncodingWithAllowedCharacters:
+        NSCharacterSet.URLQueryAllowedCharacterSet] ?: groupName;
+    // The first form is the 26.33 host/path contract. The query forms are kept
+    // as ABI-safe parser fallbacks for scheme normalizers; none bypasses the
+    // native parser or writes an ABProp directly.
+    NSArray<NSString *> *candidateStrings = @[
+        [NSString stringWithFormat:@"whatsapp://setabprops/%@", escapedPath],
+        [NSString stringWithFormat:@"whatsapp://setabprops?group=%@", escapedQuery],
+        [NSString stringWithFormat:@"whatsapp://setabprops?name=%@", escapedQuery],
+    ];
+
+    for (NSString *candidateString in candidateStrings) {
+        NSURL *url = [NSURL URLWithString:candidateString];
+        if (!url) continue;
+        @try {
+            id parsed = ((id (*)(id, SEL, id, id))objc_msgSend)(parser,
+                parseSelector, url, deepLinkContext);
+            if (parsed && [parsed isKindOfClass:expectedClass]) {
+                WAGRLogAppendF(@"[DeveloperABProps] native parser resolved group=%@ url=%@ class=%@",
+                               groupName, candidateString, NSStringFromClass([parsed class]));
+                return parsed;
+            }
+        } @catch (NSException *exception) {
+            WAGRLogAppendF(@"[DeveloperABProps] parser threw group=%@ %@: %@",
+                           groupName, exception.name, exception.reason);
+        }
+    }
+
+    if (diagnostic) *diagnostic = @"WADeepLinkParser não retornou WAABPropDeepLink";
+    return nil;
+}
+
+extern "C" BOOL WAGRABPropsRunNativePreset(UIViewController *rootViewController,
+                                            id userContext,
+                                            NSString *groupName,
+                                            NSString **diagnostic) {
+    if (diagnostic) *diagnostic = nil;
+    if (!NSThread.isMainThread) {
+        if (diagnostic) *diagnostic = @"o consumidor nativo exige a main thread";
+        return NO;
+    }
+    id deepLink = WAGRNativeParsedABPropDeepLink(groupName, userContext, diagnostic);
+    SEL handleSelector = NSSelectorFromString(@"handleDeepLinkWithRootVC:");
+    if (!deepLink ||
+        !WAGRNativeMethodEncodingMatches([deepLink class], handleSelector, "v24@0:8@16")) {
+        if (diagnostic && !*diagnostic) *diagnostic = @"handleDeepLinkWithRootVC: incompatível";
+        return NO;
+    }
+    @try {
+        ((void (*)(id, SEL, id))objc_msgSend)(deepLink, handleSelector,
+                                              rootViewController);
+        WAGRLogAppendF(@"[DeveloperABProps] handed group=%@ to native WAABPropDeepLink consumer",
+                       groupName);
+        return YES;
+    } @catch (NSException *exception) {
+        WAGRLogAppendF(@"[DeveloperABProps] native consumer threw group=%@ %@: %@",
+                       groupName, exception.name, exception.reason);
+        if (diagnostic) *diagnostic = exception.reason ?: exception.name ?: @"exceção nativa";
+        return NO;
+    }
+}
+
+static void WAGRRunNativeABPropGroup(id debugController, NSString *groupName) {
+    void (^runBlock)(void) = ^{
+        id userContext = WAGRDebugControllerUserContext(debugController);
+        NSString *diagnostic = nil;
+        UIViewController *root = [debugController isKindOfClass:UIViewController.class]
+            ? (UIViewController *)debugController : nil;
+        if (!root || !WAGRABPropsRunNativePreset(root, userContext, groupName, &diagnostic)) {
+            WAGRPresentNativeDeveloperABPropsError(debugController,
+                [NSString stringWithFormat:@"O preset nativo ‘%@’ não pôde ser resolvido: %@.",
+                 groupName ?: @"?", diagnostic ?: @"ABI incompatível"]);
+        }
+    };
+    if (NSThread.isMainThread) runBlock();
+    else dispatch_async(dispatch_get_main_queue(), runBlock);
+}
+
 static void WAGRPushDeveloperController(id debugController, UIViewController *controller) {
     if (!controller || ![debugController isKindOfClass:UIViewController.class]) return;
     UIViewController *owner = (UIViewController *)debugController;
@@ -245,23 +399,29 @@ static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
         NSArray *originalRows = [WAGRNativeObjectNoArg(section, @"rows") copy];
         if (![originalRows isKindOfClass:NSArray.class]) originalRows = @[];
         __weak id weakDebugController = debugController;
-        id runtimeRow = WAGRDeveloperABPropsRow(section,
-            @"AB Properties / Families",
-            @"Live WAABProperties getters, typed editor and runtime families",
-            @"switch.2", ^{
-                id owner = weakDebugController;
-                if (owner) WAGRPushDeveloperController(owner, [WAGRABPropsRootVC new]);
-            });
-        id presetsRow = WAGRDeveloperABPropsRow(section,
-            @"Native Debug Presets",
-            @"13 compiled ‘Set ABProps to …’ sets with stable-ID preflight",
-            @"list.bullet.rectangle.portrait.fill", ^{
-                id owner = weakDebugController;
-                if (!owner) return;
-                WAGRABPropsPresetsVC *controller = [[WAGRABPropsPresetsVC alloc]
-                    initWithUserContext:WAGRDebugControllerUserContext(owner)];
-                WAGRPushDeveloperController(owner, controller);
-            });
+        NSMutableArray *replacementRows = [NSMutableArray array];
+        for (NSDictionary<NSString *, NSString *> *group in WAGRABPropsNativePresetGroups()) {
+            NSString *identifier = group[@"id"];
+            NSString *note = group[@"note"];
+            NSString *detail = note.length
+                ? [NSString stringWithFormat:@"%@ · %@", identifier, note]
+                : [NSString stringWithFormat:@"Preset compilado · %@", identifier];
+            id row = WAGRDeveloperABPropsRow(section,
+                group[@"title"] ?: identifier,
+                detail,
+                @"switch.2", ^{
+                    id owner = weakDebugController;
+                    if (owner) WAGRRunNativeABPropGroup(owner, identifier);
+                });
+            if (!row) {
+                WAGRNativeVoidObjectArg(section, @"setRows:", originalRows);
+                WAGRLogAppendF(@"[DeveloperABProps] failed to build native group row=%@; restored RC rows",
+                               identifier);
+                return NO;
+            }
+            [replacementRows addObject:row];
+        }
+
         id privateRow = WAGRDeveloperABPropsRow(section,
             @"Private Experimentation Debug",
             @"WhatsApp native Allocated AB Props / Fetch / Sync controller",
@@ -270,8 +430,8 @@ static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
             if (strongDebugController) WAGROpenNativePrivateExperimentation(strongDebugController);
             });
         id configRow = WAGRDeveloperABPropsRow(section,
-            @"Export / Import ABProps Config",
-            @"Portable current values + verified native overrides",
+            @"Export / Import ABProps Config · WATweaks",
+            @"Backup portátil tipado; utilitário adicional solicitado",
             @"arrow.up.arrow.down.square.fill", ^{
                 id owner = weakDebugController;
                 if (!owner) return;
@@ -280,19 +440,24 @@ static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
                 WAGRPushDeveloperController(owner, controller);
             });
 
-        if (!runtimeRow || !presetsRow || !privateRow || !configRow) {
+        if (!privateRow || !configRow) {
             WAGRNativeVoidObjectArg(section, @"setRows:", originalRows);
             WAGRLogAppend(@"[DeveloperABProps] native WATableRow construction/handler ABI failed; restored RC rows");
             return NO;
         }
 
-        // addTableRow... temporarily appends to the RC warning rows. Replace
-        // the warning atomically only after all four functional rows exist.
-        WAGRNativeVoidObjectArg(section, @"setRows:", @[runtimeRow, presetsRow, privateRow, configRow]);
+        [replacementRows addObject:privateRow];
+        [replacementRows addObject:configRow];
+
+        // addTableRow... temporarily appends to the RC warning rows. Replace the
+        // warning atomically only after all 13 native deep-link rows plus the
+        // native Private Experimentation and requested backup utility exist.
+        WAGRNativeVoidObjectArg(section, @"setRows:", replacementRows);
         WAGRNativeVoidObjectArg(section, @"setFooterText:", nil);
         WAGRNativeVoidObjectArg(section, @"setFooterView:", nil);
 
-        WAGRLogAppendF(@"[DeveloperABProps] replaced compiled RC placeholder with four functional native rows; schema=%@",
+        WAGRLogAppendF(@"[DeveloperABProps] wired %lu compiled groups through WAABPropDeepLink; schema=%@",
+                       (unsigned long)[WAGRABPropsNativePresetGroups() count],
                        kWAGRNativeDeveloperABPropsWiringSchema);
         return YES;
     }
@@ -301,7 +466,81 @@ static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
     return NO;
 }
 
+static BOOL WAGRNativeInternalSurfacesRequested(void) {
+    return WAGRPref(kWAGRDebugMenuNative) ||
+           WAGRPref(kWAGRInternalMaster) ||
+           WAGRPref(kWAGREmployeeMaster) ||
+           WAGRPref(kWAGRDebugMode) ||
+           (WAGRGateIsSet(@"isInternalUser") && WAGRGateGet(@"isInternalUser")) ||
+           (WAGRGateIsSet(@"isMetaEmployeeOrInternalTester") &&
+            WAGRGateGet(@"isMetaEmployeeOrInternalTester"));
+}
+
+static void WAGRPrepareNativeInternalSurfaces(void) {
+    if (!WAGRNativeInternalSurfacesRequested()) return;
+    // These are the exact 26.33 gates consumed by the original Settings,
+    // MobileConfig, Bug Report/Rage Shake, Dogfood nudge, WAMO and Private
+    // Experimentation paths. They are installed before WhatsApp builds its own
+    // sections, so surviving native rows/controllers are created by the app
+    // instead of being copied into a WATweaks controller.
+    for (NSString *selector in @[
+            @"isDebugMenuAllowed",
+            @"isDebugMenuShortcutEnabled",
+            @"isInternalUser",
+            @"isDebugBuild",
+            @"isMetaEmployeeOrInternalTester",
+            @"is_meta_employee_or_internal_tester",
+            @"is_internal",
+            @"is_internal_tester",
+            @"_is_employee",
+            @"wamo_is_employee",
+            @"wamo_is_internal_tester",
+            @"wamo_enabled",
+            @"wamo_debug_tool_enabled",
+            @"wamo_include_demo",
+            @"waios_mc_debug_ui_enabled",
+            @"whatsbroken_enabled",
+            @"private_abprop_for_dev_only",
+            @"private_experimentation_should_sync",
+            @"private_experimentation_use_acs_config_id",
+            @"dogfooding_nudge_settings_entrypoint_enabled",
+            @"dogfooding_nudge_banner_home_screen_enabled",
+            @"username_dogfooding_pn_privacy_enabled",
+            @"give_dogfooders_task_id_for_bug_reporting",
+            @"ios_internal_in_app_bug_reporting_enable",
+            @"ios_internal_rage_shake_enabled",
+            @"groups_member_recommendations_debug_ui",
+            @"ig_fb_dogfooder",
+            @"hn_dogfooding",
+            @"malibu_dogfooding",
+    ]) {
+        if (!WAGRGateIsSet(selector) || !WAGRGateGet(selector)) {
+            WAGRGateSet(selector, YES);
+        }
+    }
+    for (NSString *selector in @[
+            @"serverPropsDisableExperimental",
+            @"graphQLEmployeeC1Disabled",
+            @"ios_contact_suggestions_internal_tool_exclude_employees_enabled",
+    ]) {
+        if (!WAGRGateIsSet(selector) || WAGRGateGet(selector)) {
+            WAGRGateSet(selector, NO);
+        }
+    }
+
+    // These installers are intentionally retried: several Swift/ObjC images
+    // load after the tweak constructor, and an early failed class lookup must
+    // not permanently mark native internal surfaces as prepared.
+    WAGRDebugBuildEnsureInstalled();
+    WAGRDogfoodKnownWAABEnsureInstalled();
+    WAGRGateHooksEnsureInstalled();
+    NSUInteger installed = WAGRWAABInstallHooksForAllRuntimeImages();
+    WAGRLogAppendF(@"[NativeInternal] prepared original Debug/Dogfood/BugReport/MobileConfig gates; WAAB hooks=%lu",
+                   (unsigned long)installed);
+}
+
 static void hookDebugVCCreateSections(id self, SEL _cmd) {
+    WAGRPrepareNativeInternalSurfaces();
     if (orig_debugVCCreateSections) orig_debugVCCreateSections(self, _cmd);
     WAGRWireNativeDeveloperABPropsSection(self);
 }
@@ -404,15 +643,6 @@ static NSMutableDictionary<NSString *, NSValue *> *gCtxBoolOrig = nil;
 static NSMutableSet<NSString *> *gCtxSpyInstalled = nil;
 
 
-static id WAGRDebugPropOverridesFallback(void) {
-    static NSMutableDictionary *fallback = nil;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        fallback = [NSMutableDictionary dictionary];
-    });
-    return fallback;
-}
-
 static NSString *WAGRContextSpyKey(Class cls, SEL sel) {
     return [NSString stringWithFormat:@"%@|%@", NSStringFromClass(cls), NSStringFromSelector(sel)];
 }
@@ -464,23 +694,14 @@ static id hookContextSpyObject(id self, SEL _cmd) {
                          (__bridge void *)ret];
     NSString *logKey = [NSString stringWithFormat:@"obj|%@|%@", clsName, selName];
 
-    if (!ret && [selName isEqualToString:@"debugPropOverrides"]) {
-        ret = WAGRDebugPropOverridesFallback();
-        summary = [NSString stringWithFormat:@"fallback:%@:%p", NSStringFromClass([ret class]), (__bridge void *)ret];
-        if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
-            WAGRLogAppendF(@"[ContextSpy] %@.%@ -> nil; returning fallback %@ (%p)",
-                           clsName, selName,
-                           NSStringFromClass([ret class]), (__bridge void *)ret);
-        }
-    } else if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
+    if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
         WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (%p)",
                        clsName, selName,
                        ret ? NSStringFromClass([ret class]) : @"nil", (__bridge void *)ret);
     }
 
-    // The PrivateExperimentationManager path appears to call isPrimaryDevice on
-    // the accountProvider dependency, not on WAContextMain itself. When we see
-    // the real provider, install the same diagnostic/force hook there too.
+    // PrivateExperimentationManager calls isPrimaryDevice on accountProvider.
+    // Observe that real dependency too, without modifying its return value.
     if (ret && [selName isEqualToString:@"accountProvider"]) {
         WAGRContextSpyInstallForObject(ret);
     }
@@ -498,30 +719,6 @@ static BOOL hookContextSpyBool(id self, SEL _cmd) {
 
     NSString *clsName = NSStringFromClass([self class]);
     NSString *logKey = [NSString stringWithFormat:@"bool|%@|%@", clsName, selName];
-
-    if ([selName isEqualToString:@"isPrimaryDevice"]) {
-        NSString *summary = [NSString stringWithFormat:@"%@->forcedYES", ret ? @"YES" : @"NO"];
-        if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
-            WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES for PrivateExp)",
-                           clsName, selName, ret ? @"YES" : @"NO");
-        }
-        return YES;
-    }
-
-    if ([selName isEqualToString:@"isInternalUser"] ||
-        [selName isEqualToString:@"isEmployee"] ||
-        [selName isEqualToString:@"isMetaEmployeeOrInternalTester"]) {
-        BOOL forced = WAGRPref(kWAGRInternalMaster) || WAGRPref(kWAGREmployeeMaster) ||
-                      WAGRGateGet(selName) || WAGRGateGet(@"isInternalUser");
-        if (forced) {
-            NSString *summary = [NSString stringWithFormat:@"%@->forcedYES", ret ? @"YES" : @"NO"];
-            if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
-                WAGRLogAppendF(@"[ContextSpy] %@.%@ -> %@ (forced YES by Internal/Employee master)",
-                               clsName, selName, ret ? @"YES" : @"NO");
-            }
-            return YES;
-        }
-    }
 
     NSString *summary = ret ? @"YES" : @"NO";
     if (WAGRContextSpyShouldLog(logKey, summary, 1.0)) {
@@ -623,11 +820,9 @@ extern "C" void WAGRContextSpyInstallForContext(id ctx) {
     for (NSString *sel in objectSelectors) if (WAGRContextSpyHookObjectSelector(cls, sel)) hooked++;
     for (NSString *sel in boolSelectors) if (WAGRContextSpyHookBoolSelector(cls, sel)) hooked++;
 
-    // Proactively hook accountProvider.isPrimaryDevice because the Swift
-    // PrivateExperimentationManager constructor calls a helper that resolves
-    // selector isPrimaryDevice on one of its injected dependencies. The logs
-    // showed WAContextMain.accountProvider is valid while WAContextMain.isPrimaryDevice
-    // reports NO.
+    // Observe accountProvider.isPrimaryDevice because the Swift manager resolves
+    // it on an injected dependency. This spy is read-only; primary-device state
+    // remains the value returned by WhatsApp.
     @try {
         SEL apSel = NSSelectorFromString(@"accountProvider");
         if ([ctx respondsToSelector:apSel]) {
@@ -682,6 +877,7 @@ static BOOL classHasClassMethod(Class cls, SEL sel) {
 
 // ── Installer ────────────────────────────────────────────────────────────────
 static void installNativeDevMenuHooks(void) {
+    WAGRPrepareNativeInternalSurfaces();
     installUserContextCaptureHooks();
     WAGRDebugMenuInstrumentationEnsureInstalled();
     if (gDevMenuHooked && gShortcutHooked) return;

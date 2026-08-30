@@ -9,6 +9,12 @@ extern id WAGRCurrentUserContext(void);
 
 static NSString * const kWAGRABPropsPortableSchema = @"watweaks_waab_runtime_config_v1";
 
+static void WAGRABConfigPerformOnMain(dispatch_block_t block) {
+    if (!block) return;
+    if (NSThread.isMainThread) block();
+    else dispatch_sync(dispatch_get_main_queue(), block);
+}
+
 static id WAGRABConfigJSONSafe(id value) {
     if (!value || value == NSNull.null) return NSNull.null;
     if ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSNumber.class]) return value;
@@ -138,19 +144,32 @@ typedef NS_ENUM(NSInteger, WAGRABConfigImportMode) {
     [self setWorkingState:YES];
     __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSArray *objects = WAGRABPropsResolveRuntimeObjects(context);
-        NSArray<WAGRABPropEntry *> *entries = WAGRABPropsScan(objects);
+        // WAAB getters are account-scoped application code. Resolve the object
+        // graph and invoke every getter on the main thread, then serialize/write
+        // the already-sanitized snapshot off-main. Build 580 did the inverse;
+        // it invoked a false-positive -[WAPropertiesStore init] on a global QoS
+        // queue and crashed in SharedModules with SIGTRAP.
+        __block NSArray *objects = nil;
+        __block NSArray<WAGRABPropEntry *> *entries = nil;
+        WAGRABConfigPerformOnMain(^{
+            objects = WAGRABPropsResolveRuntimeObjects(context);
+            entries = WAGRABPropsScan(objects);
+        });
         NSDictionary *tracked = WAGRABPropsNativeTrackedOverrides();
         NSMutableArray<NSDictionary *> *rows = [NSMutableArray arrayWithCapacity:entries.count];
         NSUInteger stableCount = 0;
         NSUInteger importableCount = 0;
 
         for (WAGRABPropEntry *entry in entries) {
-            NSString *stable = WAGRABPropsStableIDForTarget(entry.className, entry.selectorName, entry.classMethod);
+            NSString *stable = entry.stableID;
             if (stable.length) stableCount++;
-            id rawValue = nil;
-            NSString *display = WAGRABPropsCurrentValue(entry, objects, &rawValue);
-            id safeValue = WAGRABConfigJSONSafe(rawValue ?: display ?: NSNull.null);
+            __block NSString *display = nil;
+            __block id safeValue = nil;
+            WAGRABConfigPerformOnMain(^{
+                id rawValue = nil;
+                display = WAGRABPropsCurrentValue(entry, objects, &rawValue);
+                safeValue = WAGRABConfigJSONSafe(rawValue ?: display ?: NSNull.null);
+            });
             BOOL importable = stable.length && safeValue != NSNull.null &&
                 ([safeValue isKindOfClass:NSString.class] || [safeValue isKindOfClass:NSNumber.class] ||
                  [safeValue isKindOfClass:NSArray.class] || [safeValue isKindOfClass:NSDictionary.class]);
@@ -310,10 +329,14 @@ typedef NS_ENUM(NSInteger, WAGRABConfigImportMode) {
             NSString *selector = [item[@"selector"] isKindOfClass:NSString.class] ? item[@"selector"] : @"";
             NSString *exportedStable = WAGRABConfigStableString(item[@"stable_id"]);
             BOOL classMethod = [item[@"class_method"] boolValue];
-            NSString *currentStable = WAGRABPropsStableIDForTarget(className, selector, classMethod);
-            NSString *mappingDiagnostic = nil;
-            NSDictionary *mapping = currentStable.length
-                ? WAGRABPropsNativeOverrideMapping(currentStable, context, &mappingDiagnostic) : nil;
+            __block NSString *currentStable = nil;
+            __block NSString *mappingDiagnostic = nil;
+            __block NSDictionary *mapping = nil;
+            WAGRABConfigPerformOnMain(^{
+                currentStable = WAGRABPropsStableIDForTarget(className, selector, classMethod);
+                mapping = currentStable.length
+                    ? WAGRABPropsNativeOverrideMapping(currentStable, context, &mappingDiagnostic) : nil;
+            });
             if (!exportedStable.length || ![currentStable isEqualToString:exportedStable] || !mapping) {
                 if (preflightFailures.count < 40) {
                     [preflightFailures addObject:[NSString stringWithFormat:@"%@.%@: arquivo=%@ runtime=%@ (%@)",
@@ -330,9 +353,14 @@ typedef NS_ENUM(NSInteger, WAGRABConfigImportMode) {
         if (!preflightFailures.count) {
             for (NSDictionary *item in validated) {
                 NSString *stable = WAGRABConfigStableString(item[@"stable_id"]);
-                NSError *error = nil;
-                NSString *diagnostic = nil;
-                if (WAGRABPropsNativeSetOverride(stable, item[@"import_value"], context, &error, &diagnostic)) {
+                __block NSError *error = nil;
+                __block NSString *diagnostic = nil;
+                __block BOOL wrote = NO;
+                WAGRABConfigPerformOnMain(^{
+                    wrote = WAGRABPropsNativeSetOverride(stable, item[@"import_value"],
+                                                         context, &error, &diagnostic);
+                });
+                if (wrote) {
                     [changed addObject:stable];
                 } else {
                     [writeFailures addObject:[NSString stringWithFormat:@"%@ (AB %@): %@", item[@"selector"], stable, error.localizedDescription ?: diagnostic ?: @"falhou"]];
@@ -344,8 +372,10 @@ typedef NS_ENUM(NSInteger, WAGRABConfigImportMode) {
         if (preflightFailures.count || writeFailures.count) {
             for (NSString *stable in changed.reverseObjectEnumerator) {
                 id previous = before[stable];
-                if (previous) WAGRABPropsNativeSetOverride(stable, previous, context, NULL, NULL);
-                else WAGRABPropsNativeClearOverride(stable, context, NULL, NULL);
+                WAGRABConfigPerformOnMain(^{
+                    if (previous) WAGRABPropsNativeSetOverride(stable, previous, context, NULL, NULL);
+                    else WAGRABPropsNativeClearOverride(stable, context, NULL, NULL);
+                });
             }
         }
 
@@ -359,9 +389,13 @@ typedef NS_ENUM(NSInteger, WAGRABConfigImportMode) {
             }
             for (NSString *stable in before) {
                 if ([wanted containsObject:stable]) continue;
-                NSError *error = nil;
-                NSString *diagnostic = nil;
-                if (WAGRABPropsNativeClearOverride(stable, context, &error, &diagnostic)) cleared++;
+                __block NSError *error = nil;
+                __block NSString *diagnostic = nil;
+                __block BOOL didClear = NO;
+                WAGRABConfigPerformOnMain(^{
+                    didClear = WAGRABPropsNativeClearOverride(stable, context, &error, &diagnostic);
+                });
+                if (didClear) cleared++;
                 else if (clearFailures.count < 40) [clearFailures addObject:[NSString stringWithFormat:@"AB %@: %@", stable, error.localizedDescription ?: diagnostic ?: @"falhou"]];
             }
         }

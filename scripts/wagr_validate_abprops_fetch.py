@@ -25,6 +25,10 @@ MC_EXPORT = ROOT / "src/Menu/WAGRMobileConfigExportVC.m"
 DEV_MENU = ROOT / "src/Hooks/WAGRNativeDevMenuHooks.xm"
 PRESETS_UI = ROOT / "src/Menu/WAGRABPropsPresetsVC.m"
 CONFIG_UI = ROOT / "src/Menu/WAGRABPropsConfigVC.m"
+AB_RUNTIME = ROOT / "src/Runtime/WAGRABPropsRuntime.m"
+AB_STABLE_ID = ROOT / "src/Runtime/WAGRABPropsStableIDResolver.m"
+RUNTIME_VALUES = ROOT / "src/Runtime/WAGRRuntimeValueStore.m"
+NATIVE_PRESET_BRIDGE = ROOT / "src/Runtime/WAGRABPropsNativePresetBridge.h"
 DEBUG_LAUNCHER = ROOT / "src/Hooks/WAGRDebugMenuLauncher.xm"
 
 
@@ -66,6 +70,10 @@ def main() -> int:
     dev_menu = read(DEV_MENU, errors)
     presets_ui = read(PRESETS_UI, errors)
     config_ui = read(CONFIG_UI, errors)
+    ab_runtime = read(AB_RUNTIME, errors)
+    ab_stable_id = read(AB_STABLE_ID, errors)
+    runtime_values = read(RUNTIME_VALUES, errors)
+    native_preset_bridge = read(NATIVE_PRESET_BRIDGE, errors)
     debug_launcher = read(DEBUG_LAUNCHER, errors)
 
     # The legacy force-full symbol is a compatibility adapter only. It must use
@@ -286,27 +294,43 @@ def main() -> int:
         require(mc_export, token, "WAGRMobileConfigExportVC.m", errors)
     reject(mc_export, "Aplicar no mc_overrides.json", "WAGRMobileConfigExportVC.m", errors)
 
-    # WhatsApp 26.33 RC compiles the yellow AB Props placeholder directly
-    # into WADebugViewController.createSections. The tweak keeps that native
-    # section but atomically replaces the warning with four functional rows.
+    # WhatsApp 26.33 RC compiles the yellow AB Props placeholder directly into
+    # WADebugViewController.createSections, but its 13-group array and stable
+    # WAABPropDeepLink consumer remain. Every group must go through the app's
+    # parser/consumer; Developer may not route into the former custom writer.
     for token in (
-        "watweaks_native_developer_abprops_wiring_v26_33",
+        "watweaks_native_setabprops_deeplink_v26_33",
         "hookDebugVCCreateSections",
         "createSections",
         "v16@0:8",
         "Private Experimentation Debug",
-        "AB Properties / Families",
-        "Native Debug Presets",
-        "Export / Import ABProps Config",
+        "Export / Import ABProps Config · WATweaks",
         "privateABProperties",
         "addTableRowWithCellStyle:",
         "setRows:",
         "setFooterText:",
+        "WADeepLinkParser",
+        "WADeepLinkContext",
+        "WAABPropDeepLink",
+        "inAppNavigationContextWithUserContext:",
+        "deepLinkWithURL:context:",
+        "handleDeepLinkWithRootVC:",
+        "whatsapp://setabprops/%@",
+        "WAGRABPropsRunNativePreset",
+        "WAGRPrepareNativeInternalSurfaces",
+        "isDebugMenuAllowed",
+        "isDebugMenuShortcutEnabled",
+        "isDebugBuild",
+        "waios_mc_debug_ui_enabled",
+        "whatsbroken_enabled",
+        "ios_internal_in_app_bug_reporting_enable",
+        "ios_internal_rage_shake_enabled",
+        "dogfooding_nudge_settings_entrypoint_enabled",
+        "wamo_debug_tool_enabled",
         "_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController",
         'class_getInstanceVariable(cls, "experimentManager")',
         'class_getInstanceVariable(cls, "userContext")',
         "WAContextObjectProvider",
-        "@[runtimeRow, presetsRow, privateRow, configRow]",
         "WAGRContextSpyInstallForContext(userContext)",
         "WAGRContextSpyInstallForContext(context)",
         "WAGRContextSpyInstallForContext(realCtx)",
@@ -319,31 +343,72 @@ def main() -> int:
         "0x107d2f940",
         "orig_privateExpViewDidAppear",
         "Current WhatsApp(10)",
+        '#import "../Menu/WAGRABPropsRootVC.h"',
+        '#import "../Menu/WAGRABPropsPresetsVC.h"',
+        "WAGRABPropsNativeSetOverride",
+        "Aplicar pelo writer nativo",
+        "returning fallback",
+        "forced YES for PrivateExp",
     ):
         reject(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
+
     for token in (
-        "Set ABProps to enable SMB Marketing Messages.",
-        "Set ABProps to enable all SMB Blue Premium features.",
-        "Set ABProps to enable all SMB Meta Verified features for prod release.",
-        "Set ABProps to enable Meta AI for Business on DEBUG SMB app as Business Assistant",
-        "Set ABProps to enable Meta Verified StoreKit2 abprops",
-        "Set ABProps to enable Meta Verified Partner Billing abprops",
-        "Set ABProps to enable IAP graphql codegen and error parsing",
-        "Set ABProps to ENABLE SMB Business Broadcast abProps",
-        "Set ABProps to DISABLE SMB Business Broadcast abProps",
-        "Set ABProps to ENABLE SMB Business Broadcast Send Limit abProps",
-        "Set ABProps to DISABLE SMB Business Broadcast Send Limit abProps",
-        "Set ABProps to ENABLE Consumer Broadcast List Capping abProps",
-        "Set ABProps to DISABLE Consumer Broadcast List Capping abProps",
-        "com.whatsapp.w4b.1000000000000000",
-        "com.whatsapp.mv4b.6937685799644206",
-        "meta_business_suite",
-        "in_app_purchase",
-        '"native_noop" : @YES',
+        "smbmktmsgs",
+        "smbmetaverifiedphase1a",
+        "smbmetaverifiedphase1b",
+        "smbbusinessassistant",
+        "mv_storekit2",
+        "mv_partner_billing",
+        "iap_codegen_and_parse_errors",
+        "smb_premium_broadcast",
+        "disable_smb_premium_broadcast",
+        "smb_send_limit",
+        "disable_smb_send_limit",
+        "consumer_bl_capping",
+        "disable_consumer_bl_capping",
+    ):
+        require(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
+    for token in (
+        "WAGRABPropsNativePresetGroups",
+        "WAGRABPropsRunNativePreset",
+        "WADeepLinkParser",
+        "WAABPropDeepLink",
+        "não replica pares",
+    ):
+        require(presets_ui + native_preset_bridge, token,
+                "native preset bridge/UI", errors)
+    for token in (
         "WAGRABPropsNativeSetOverride",
         "WAGRABPropsNativeClearOverride",
+        "WAGRABPropsStableIDForTarget",
+        "convertSpecifierToParamName",
+        "Aplicar pelo writer nativo",
     ):
-        require(presets_ui, token, "WAGRABPropsPresetsVC.m", errors)
+        reject(presets_ui, token, "WAGRABPropsPresetsVC.m", errors)
+
+    # Export crash regression: only verified generated getter thunks enter the
+    # catalog, lifecycle selectors are blocked, and live getter/mapping/writer
+    # calls are marshalled to the main thread.
+    for token in (
+        "words[0]",
+        "words[1]",
+        "reg != 2",
+        "WAGRABDecodeUnconditionalBranch",
+        "hasTypedTailBranch",
+    ):
+        require(ab_stable_id, token, "WAGRABPropsStableIDResolver.m", errors)
+    for token in (
+        "WAGRABPropsStableIDForTarget",
+        "if (!stableID.length) return",
+        "entry.stableID = stableID",
+    ):
+        require(ab_runtime, token, "WAGRABPropsRuntime.m", errors)
+    for token in (
+        "WAGRRuntimeValueSelectorIsSafeGetter",
+        '@"init"',
+        "selector de lifecycle bloqueado",
+    ):
+        require(runtime_values, token, "WAGRRuntimeValueStore.m", errors)
     for token in (
         "watweaks_waab_runtime_config_v1",
         "Exportar configuração ABProps atual",
@@ -356,6 +421,9 @@ def main() -> int:
         "WAGRABPropsStableIDForTarget",
         "WAGRABPropsNativeOverrideMapping",
         "WAGRABPropsNativeSetOverride",
+        "WAGRABConfigPerformOnMain",
+        "entry.stableID",
+        "WAGRABPropsCurrentValue",
     ):
         require(config_ui, token, "WAGRABPropsConfigVC.m", errors)
     for token in (

@@ -1,114 +1,118 @@
-# WhatsApp 26.33 ABProps presets and Developer wiring
+# WhatsApp 26.33 native ABProps and internal-surface wiring
 
-## Result
+## Binary result
 
 The release-candidate `WADebugViewController -createSections` compiles the
-yellow “AB Props are not available in release candidate builds” section
-directly. It is not produced by `wamo_abprops_list == nil`, and setting build
-type or TestFlight flags does not restore the removed controller.
+yellow “AB Props are not available in release candidate builds” placeholder
+directly. It is not produced by `wamo_abprops_list == nil`.
+`WADebugABPropertiesTableViewController` is absent as an instantiable class;
+`_custom_WADebugABPropertiesTableViewController_1` is only a color token.
 
-`WADebugABPropertiesTableViewController` is not present as an instantiable
-Objective-C/Swift class in this RC. `_custom_WADebugABPropertiesTableViewController_1`
-is only a `WAColor` appearance token. The usable backends remain present:
+The RC still contains all of these native components:
 
-- live `WAABProperties` getters and their ARM64 stable-ID descriptors;
-- `WAMCEvaluation` and `FBMobileConfigStartupConfigs` typed overrides;
-- `PrivateExperimentationDebugViewController`, initialized with the exact
-  account `userContext`;
-- a separate Swift internal surface containing 13 “Set ABProps to …” presets.
+- the 13-element Swift `Set ABProps` group array;
+- `WAABPropDeepLink`, with Swift fields `setABPropsHost` and
+  `abPropsGroupName`;
+- `WADeepLinkParser -deepLinkWithURL:context:`;
+- `WAABPropDeepLink -handleDeepLinkWithRootVC:`, which loads the native array,
+  shows the native confirmation, and applies its selector/value tuples;
+- `PrivateExperimentationDebugViewController` and its Allocated AB Props,
+  Fetch, and Sync surfaces;
+- WAAB/MobileConfig backends and the original Settings, Bug Report, Rage Shake,
+  Dogfood, WAMO, Internal, and Developer builders that survive in this RC.
 
-Therefore WATweaks preserves the native `AB Props` WATableSection and replaces
-only its RC warning rows with four functional WATableRows: AB Properties /
-Families, Native Debug Presets, Private Experimentation, and portable Export /
-Import.
+The preset host literal is `setabprops`. WATweaks now feeds
+`whatsapp://setabprops/<group>` through `WADeepLinkParser`, requires the parsed
+object to be a `WAABPropDeepLink`, and then invokes its public Objective-C
+handler. No preset pair is copied into the Developer hook and no StartupConfigs
+writer is substituted for the app's consumer.
 
-## Native preset dataflow
+## Preset groups
 
-The 13-element Swift array is initialized in the main executable. A separate
-Swift consumer loads that global, labels its action `Set ABProps`, and consumes
-each `(selector, value)` array. That consumer is not the Developer placeholder
-and this stripped RC exposes no stable class/selector ABI for invoking it. Raw
-function offsets are intentionally not called: they are ASLR- and build-local.
+The compiled group identifiers are:
 
-The reconstructed UI uses the same data but resolves every selector against the
-currently loaded runtime, decodes its stable ID from the current getter IMP,
-and applies it through `WAGRABPropsNativeSetOverride`. The writer requires live
-readback, App Group persistence, invalidation, and effective MobileConfig
-readback; a failed batch is rolled back.
+1. `smbmktmsgs`
+2. `smbmetaverifiedphase1a`
+3. `smbmetaverifiedphase1b`
+4. `smbbusinessassistant`
+5. `mv_storekit2`
+6. `mv_partner_billing`
+7. `iap_codegen_and_parse_errors`
+8. `smb_premium_broadcast`
+9. `disable_smb_premium_broadcast`
+10. `smb_send_limit`
+11. `disable_smb_send_limit`
+12. `consumer_bl_capping`
+13. `disable_consumer_bl_capping`
 
-The presets are:
+`smbbusinessassistant` is a genuine `Array.empty` entry in this RC. It remains
+visible because it is present in WhatsApp's native array; WATweaks does not
+invent AI flags. Partner Billing and the dynamically interpolated
+`smb_subscription_config` are consequently owned by the native consumer too.
 
-1. SMB Marketing Messages
-2. SMB Blue Premium
-3. SMB Meta Verified for prod
-4. Meta AI for Business as Business Assistant
-5. Meta Verified StoreKit2
-6. Meta Verified Partner Billing
-7. IAP GraphQL codegen and error parsing
-8. Enable Business Broadcast
-9. Disable Business Broadcast
-10. Enable Business Broadcast Send Limit
-11. Disable Business Broadcast Send Limit
-12. Enable Consumer Broadcast List Capping
-13. Disable Consumer Broadcast List Capping
+## Developer, Internal, MobileConfig, Dogfood, and Bug Report
 
-The Business Assistant entry is a real compiled no-op in this RC: its payload
-is `Array.empty`. It remains visible and cannot be applied. Inventing AI flags
-would misrepresent the native preset.
+The native menu hook prepares the exact gates before WhatsApp calls its own
+section builders. This order matters: changing them after `createSections`
+cannot resurrect rows that the app already skipped.
 
-Partner Billing is the seven StoreKit2 pairs plus:
+| Surface | Native owner / effective gates |
+|---|---|
+| Developer | `DebugMenuProvider` and `WADebugViewController` |
+| MobileConfig / Internal settings | `waios_mc_debug_ui_enabled`, `whatsbroken_enabled` and the original plugin/section builders |
+| Private Experimentation | native Swift controller plus `privateABProperties` from the account `userContext` |
+| Dogfood | `dogfooding_nudge_settings_entrypoint_enabled`, banner/privacy/task-ID gates |
+| Bug Report / Rage Shake | `ios_internal_in_app_bug_reporting_enable`, `ios_internal_rage_shake_enabled` and native `WABugReport` / `WARageShakeSheetObjCBridge` |
+| WAMO | `wamo_enabled`, `wamo_debug_tool_enabled`, tester/employee and demo gates |
+| Debug build identity | `KmpAppleBuildInfo -getBuildType` with the real debug enum |
 
-- `wa_ios_iap_pb_payhub_enabled = true`
-- `wa_ios_iap_pb_payhub_params_enabled = true`
+The Developer `AB Props` section remains the original `WATableSection`. Its RC
+warning rows are atomically replaced by 13 native deep-link actions, the native
+Private Experimentation controller, and the explicitly requested WATweaks
+backup utility. The removed historical table controller is not falsely claimed
+to exist.
 
-## `smb_subscription_config`
+The context instrumentation is read-only. In particular, it no longer changes
+`isPrimaryDevice` and no longer fabricates an empty `debugPropOverrides`
+dictionary.
 
-The Blue/Meta Verified helper constructs this value dynamically as a JSON
-string (not a JSON object):
+## Export crash and regression guard
 
-```json
-{
-  "com.whatsapp.w4b.1000000000000000": {
-    "purchase_origin": "meta_business_suite"
-  },
-  "com.whatsapp.mv4b.6937685799644206": {
-    "purchase_origin": "in_app_purchase"
-  }
-}
+Build 580 crashed while exporting on a global user-initiated queue:
+
+```text
+SharedModules -[WAPropertiesStore init] + 0x8c
+WAGRRuntimeValueRead + 1536
+WAGRABPropsCurrentValue + 172
 ```
 
-It is applied to the runtime-resolved `smb_subscription_config` stable ID; no
-`gabp.*p` or `mc_overrides.json` file is manufactured.
+The old catalog treated any zero-argument supported-return method as a getter.
+Its broad stable-ID search crossed ordinary method instructions and admitted
+`-[WAPropertiesStore init]`; Export then called the initializer as a property
+getter off-main, producing `EXC_BREAKPOINT / SIGTRAP`.
 
-## Internal, employee, dogfood, bug report, and debug surfaces
+The fixed catalog only accepts the verified 26.33 generated-getter thunk:
 
-These are independent gates/surfaces rather than one universal “internal” bit:
+```text
+ADRP x2, stableIDCFString@PAGE
+ADD  x2, x2, stableIDCFString@PAGEOFF
+[optional default in x3]
+B    typed *ForKey:defaultValue: implementation
+```
 
-| Surface | Natural owner / gate | 26.33 result |
-|---|---|---|
-| Developer menu | `DebugMenuProvider` + native `WADebugViewController` | Present and used; AB Props rows reconstructed after `createSections` |
-| AB Properties | `WAABProperties` / account MobileConfig | Backend present; old Debug table controller removed |
-| Private Experimentation | native Swift `PrivateExperimentationDebugViewController` + `userContext.privateABProperties` | Present and launched with captured account context |
-| Employee/Internal identity | `WAServerProperties +isInternalUser`, `is_meta_employee_or_internal_tester`, `is_internal_tester` | Exact gates are independently overridable; not treated as an AB table provider |
-| Dogfood settings/nudges | `dogfooding_nudge_settings_entrypoint_enabled` and related WAAB getters | Native rows appear only when their own getters are effective |
-| Bug reporting / rage shake | `ios_internal_in_app_bug_reporting_enable`, `ios_internal_rage_shake_enabled`, `rage_shake_eligible_via_bug_form`, fishfood/pathfinder/upload gates | Preserved as separate typed runtime families |
-| Debug build type | `KmpAppleBuildInfo -getBuildType` | Telemetry/build gate only; cannot restore code removed from the RC |
-
-The runtime-family browser exposes Internal, Employee, Dogfood, Fishfood, Bug
-Reporting, Rage Shake, and Private Experimentation as live filters. It does not
-claim that enabling one master switch materializes controllers missing from the
-binary.
+Lifecycle selectors are independently denied by the generic runtime store.
+Runtime-object resolution, catalog scanning, every live getter read, native
+mapping, and native write/rollback are marshalled to the main thread. JSON
+serialization and file I/O remain off-main.
 
 ## Portable export/import
 
-The WAAB config document records class, selector, class/instance method,
-encoding, image, stable ID, effective value, and verified override state for
-each live getter. Import offers two explicit modes:
+The config document records class, selector, class/instance method, encoding,
+image, stable ID, effective value, and verified override state for each
+validated generated getter. Import still offers:
 
-- restore only exported overrides and remove other WATweaks-tracked native
-  overrides;
-- apply the entire importable effective snapshot as persistent overrides.
+- restore only exported overrides;
+- apply the full importable effective snapshot.
 
-Both modes require the current class/selector to resolve to the same stable ID
-and to a valid native mapping before the first write. A write failure rolls back
-the values already changed in that batch.
+Both modes revalidate class/selector/stable-ID/native mapping before the first
+write. They do not edit `gabp.*p` or manufacture `mc_overrides.json`.

@@ -54,6 +54,17 @@ static BOOL WAGRABDecodeADDImmediate(uint32_t instruction,
     return YES;
 }
 
+static BOOL WAGRABDecodeUnconditionalBranch(uint32_t instruction,
+                                             uintptr_t pc,
+                                             uintptr_t *outTarget) {
+    // B imm26 only. BL is deliberately rejected: a generated WAAB getter is a
+    // tiny tail-call thunk into boolForKey:/integerForKey:/stringForKey:.
+    if ((instruction & 0xFC000000u) != 0x14000000u) return NO;
+    int64_t immediate = WAGRABSignExtend(instruction & 0x03FFFFFFu, 26) << 2;
+    if (outTarget) *outTarget = pc + immediate;
+    return YES;
+}
+
 static BOOL WAGRABAddressBelongsToImage(uintptr_t address,
                                         const Dl_info *implementationInfo) {
     if (!address || !implementationInfo || !implementationInfo->dli_fbase) return NO;
@@ -124,26 +135,41 @@ static NSString *WAGRABResolveFromMethod(Method method, BOOL *outWasConstantStri
     const uint32_t *words = (const uint32_t *)(const void *)implementation;
     uintptr_t basePC = (uintptr_t)(const void *)implementation;
 
-    // Generated getters are tiny thunks. Twenty instructions leaves room for
-    // compiler/PAC prologues while still keeping the search local to the getter.
-    for (NSUInteger index = 0; index < 20; index++) {
-        uintptr_t page = 0;
-        uint32_t reg = 0;
-        if (!WAGRABDecodeADRP(words[index], basePC + index * 4, &page, &reg)) continue;
+    // WhatsApp 26.33 generated WAAB getters have a stable ABI:
+    //   ADRP x2, stableIDCFString@PAGE
+    //   ADD  x2, x2, stableIDCFString@PAGEOFF
+    //   [optional default materialization in x3]
+    //   B    typed *ForKey:defaultValue: implementation
+    //
+    // Requiring this exact prefix is intentional. The previous broad 20-word
+    // search crossed ordinary method bodies and classified -[WAPropertiesStore
+    // init] as an ABProp getter. Export then invoked that initializer as a
+    // zero-argument property getter and hit WhatsApp's Swift SIGTRAP.
+    uintptr_t page = 0;
+    uint32_t reg = 0;
+    if (!WAGRABDecodeADRP(words[0], basePC, &page, &reg) || reg != 2) return nil;
 
-        for (NSUInteger delta = 1; delta <= 6 && index + delta < 24; delta++) {
-            uintptr_t addImmediate = 0;
-            if (!WAGRABDecodeADDImmediate(words[index + delta], reg, &addImmediate)) continue;
-            BOOL wasConstant = NO;
-            NSString *candidate = WAGRABCandidateStableID(page + addImmediate,
-                                                           &info,
-                                                           &wasConstant);
-            if (!candidate.length) continue;
-            if (outWasConstantString) *outWasConstantString = wasConstant;
-            return candidate;
+    uintptr_t addImmediate = 0;
+    if (!WAGRABDecodeADDImmediate(words[1], 2, &addImmediate)) return nil;
+
+    uintptr_t branchTarget = 0;
+    BOOL hasTypedTailBranch = NO;
+    for (NSUInteger index = 2; index <= 5; index++) {
+        if (WAGRABDecodeUnconditionalBranch(words[index], basePC + index * 4,
+                                             &branchTarget)) {
+            hasTypedTailBranch = WAGRABAddressBelongsToImage(branchTarget, &info);
+            break;
         }
     }
-    return nil;
+    if (!hasTypedTailBranch) return nil;
+
+    BOOL wasConstant = NO;
+    NSString *candidate = WAGRABCandidateStableID(page + addImmediate,
+                                                   &info,
+                                                   &wasConstant);
+    if (!candidate.length) return nil;
+    if (outWasConstantString) *outWasConstantString = wasConstant;
+    return candidate;
 }
 
 NSString *WAGRABPropsStableIDForTarget(NSString *className,
