@@ -22,7 +22,19 @@ jobs:
           fetch-depth: 0
 
       - name: Apply 26.33 native Developer ABProps wiring
-        run: python3 scripts/apply_native_developer_abprops_wiring.py
+        run: |
+          python3 scripts/apply_native_developer_abprops_wiring.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/Hooks/WAGRNativeDevMenuHooks.xm')
+          s = p.read_text(encoding='utf-8')
+          if '#include <string.h>\n' not in s:
+              marker = '#import <objc/message.h>\n'
+              if marker not in s:
+                  raise SystemExit('objc/message.h anchor missing')
+              s = s.replace(marker, marker + '#include <string.h>\n', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
 
       - name: Validate native invariants
         run: |
@@ -30,6 +42,7 @@ jobs:
           grep -F 'watweaks_native_developer_abprops_wiring_v26_33' src/Hooks/WAGRNativeDevMenuHooks.xm
           grep -F 'Private Experimentation Debug' src/Hooks/WAGRNativeDevMenuHooks.xm
           grep -F 'privateABProperties' src/Hooks/WAGRNativeDevMenuHooks.xm
+          grep -F '#include <string.h>' src/Hooks/WAGRNativeDevMenuHooks.xm
           ! grep -F '0x107d2f938' src/Hooks/WAGRNativeDevMenuHooks.xm
           ! grep -F '0x107d2f940' src/Hooks/WAGRNativeDevMenuHooks.xm
 
@@ -42,5 +55,5 @@ jobs:
             echo 'No implementation changes to commit'
             exit 0
           fi
-          git commit -m 'Wire native Private Experimentation into Developer AB Props'
+          git commit -m 'Harden native Developer ABProps wiring'
           git push origin HEAD:dogfood2
