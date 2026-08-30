@@ -38,7 +38,6 @@
 #import "../Runtime/WAGRLog.h"
 
 extern "C" void WAGRContextSpyInstallForContext(id ctx);
-extern "C" void WAGRPrivateExpDumpDynamicFields(id instance, NSString *stage);
 extern "C" void WAGRPrivateExpKickManagerIfAvailable(id instance);
 
 // ── Real userContext cache ──────────────────────────────────────────────────
@@ -530,7 +529,6 @@ extern "C" BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, 
         return NO;
     }
 
-    WAGRPrivateExpDumpDynamicFields(vc, @"after launcher init");
     WAGRLogAppend(@"[PrivateExp] manager kick deferred to PrivateExpVC viewDidAppear");
 
     UIViewController *top = wagr_topPresenter(fromVC);

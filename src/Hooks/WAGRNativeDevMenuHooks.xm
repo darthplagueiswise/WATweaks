@@ -14,6 +14,9 @@
 #import <substrate.h>
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRLog.h"
+#import "../Menu/WAGRABPropsRootVC.h"
+#import "../Menu/WAGRABPropsPresetsVC.h"
+#import "../Menu/WAGRABPropsConfigVC.h"
 
 // ── Original IMPs ────────────────────────────────────────────────────────────
 typedef BOOL (*BoolIMP)(id, SEL);
@@ -42,16 +45,16 @@ static BOOL gDebugABPropsSectionHooked = NO;
 
 // WhatsApp 26.33: the RC Developer controller compiles the yellow AB Props
 // placeholder directly into -createSections. There is no nil-driven branch to
-// flip. The complete native AB/private-experimentation UI lives in
-// WAPrivateExperimentationViews.PrivateExperimentationDebugViewController.
-// Its initWithUserContext: asks WAContextObjectProvider for its manager and that
-// native initializer resolves userContext.privateABProperties. WATweaks only
-// replaces the compiled RC placeholder row with a native WATableRow navigation
-// entry; the destination controller, model, fetch and ABProps implementation are
-// all WhatsApp-owned.
+// flip and WADebugABPropertiesTableViewController is absent from this RC. Keep
+// WhatsApp's native AB Props section, but replace its compiled warning rows with
+// four functional WATableRows: the live WAAB backend, the 13 native Swift
+// presets, WhatsApp's Private Experimentation controller, and portable typed
+// export/import. Only the removed table chrome is reconstructed; values still
+// flow through real WAAB getters and the verified native StartupConfigs writer.
 static NSString * const kWAGRNativeDeveloperABPropsWiringSchema = @"watweaks_native_developer_abprops_wiring_v26_33";
 
 extern "C" void WAGRContextSpyInstallForObject(id obj);
+extern "C" void WAGRContextSpyInstallForContext(id ctx);
 
 static BOOL WAGRNativeMethodEncodingMatches(Class cls, SEL selector, const char *expected) {
     if (!cls || !selector || !expected) return NO;
@@ -99,7 +102,7 @@ static NSString *WAGRPrivateExperimentationRuntimeMetadata(Class cls) {
 
 static id WAGRNativePrivateABProperties(id userContext) {
     if (!userContext) return nil;
-    WAGRContextSpyInstallForObject(userContext);
+    WAGRContextSpyInstallForContext(userContext);
     SEL selector = NSSelectorFromString(@"privateABProperties");
     if (!WAGRNativeMethodEncodingMatches([userContext class], selector, "@16@0:8")) {
         WAGRLogAppendF(@"[DeveloperABProps] %@ has no compatible privateABProperties getter",
@@ -122,7 +125,7 @@ static id WAGRDebugControllerUserContext(id debugController) {
     if (!context) context = WAGRCurrentUserContext();
     if (context) {
         WAGRRememberUserContext(context, @"Developer AB Props native navigation");
-        WAGRContextSpyInstallForObject(context);
+        WAGRContextSpyInstallForContext(context);
     }
     return context;
 }
@@ -189,6 +192,45 @@ static void WAGROpenNativePrivateExperimentation(id debugController) {
     else dispatch_async(dispatch_get_main_queue(), openBlock);
 }
 
+static void WAGRPushDeveloperController(id debugController, UIViewController *controller) {
+    if (!controller || ![debugController isKindOfClass:UIViewController.class]) return;
+    UIViewController *owner = (UIViewController *)debugController;
+    if (owner.navigationController) [owner.navigationController pushViewController:controller animated:YES];
+    else [owner presentViewController:[[UINavigationController alloc] initWithRootViewController:controller]
+                              animated:YES completion:nil];
+}
+
+static id WAGRDeveloperABPropsRow(id section, NSString *title, NSString *detail,
+                                  NSString *symbolName, void (^handler)(void)) {
+    SEL addSelector = NSSelectorFromString(@"addTableRowWithCellStyle:");
+    Method addMethod = class_getInstanceMethod([section class], addSelector);
+    const char *addEncoding = addMethod ? method_getTypeEncoding(addMethod) : NULL;
+    id row = nil;
+    if (addEncoding && strcmp(addEncoding, "@24@0:8q16") == 0) {
+        row = ((id (*)(id, SEL, NSInteger))objc_msgSend)(section, addSelector, UITableViewCellStyleSubtitle);
+    } else {
+        row = WAGRNativeObjectNoArg(section, @"addDefaultTableRow");
+    }
+    if (!row) return nil;
+
+    id cellObject = WAGRNativeObjectNoArg(row, @"cell");
+    if ([cellObject isKindOfClass:UITableViewCell.class]) {
+        UITableViewCell *cell = (UITableViewCell *)cellObject;
+        cell.textLabel.text = title;
+        cell.detailTextLabel.text = detail;
+        cell.detailTextLabel.numberOfLines = 0;
+        if (@available(iOS 13.0, *)) cell.imageView.image = [UIImage systemImageNamed:symbolName];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    }
+
+    SEL handlerSelector = NSSelectorFromString(@"setHandler:");
+    Method handlerMethod = class_getInstanceMethod([row class], handlerSelector);
+    const char *handlerEncoding = handlerMethod ? method_getTypeEncoding(handlerMethod) : NULL;
+    if (!handlerEncoding || strcmp(handlerEncoding, "v24@0:8@?16") != 0) return nil;
+    ((void (*)(id, SEL, id))objc_msgSend)(row, handlerSelector, [handler copy]);
+    return row;
+}
+
 static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
     id sections = WAGRNativeObjectNoArg(debugController, @"sections");
     if (!sections || ![sections conformsToProtocol:@protocol(NSFastEnumeration)]) {
@@ -200,49 +242,57 @@ static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
         NSString *header = WAGRNativeObjectNoArg(section, @"headerText");
         if (![header isKindOfClass:NSString.class] || ![header isEqualToString:@"AB Props"]) continue;
 
-        SEL addSelector = NSSelectorFromString(@"addTableRowWithCellStyle:");
-        Method addMethod = class_getInstanceMethod([section class], addSelector);
-        const char *addEncoding = addMethod ? method_getTypeEncoding(addMethod) : NULL;
-        id row = nil;
-        if (addEncoding && strcmp(addEncoding, "@24@0:8q16") == 0) {
-            row = ((id (*)(id, SEL, NSInteger))objc_msgSend)(section, addSelector, UITableViewCellStyleSubtitle);
-        } else {
-            row = WAGRNativeObjectNoArg(section, @"addDefaultTableRow");
-        }
-        if (!row) {
-            WAGRLogAppend(@"[DeveloperABProps] WATableSection could not create a native row");
-            return NO;
-        }
-
-        id cellObject = WAGRNativeObjectNoArg(row, @"cell");
-        if ([cellObject isKindOfClass:UITableViewCell.class]) {
-            UITableViewCell *cell = (UITableViewCell *)cellObject;
-            cell.textLabel.text = @"Private Experimentation Debug";
-            cell.detailTextLabel.text = @"Native WAABProperties / privateABProperties";
-            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        }
-
+        NSArray *originalRows = [WAGRNativeObjectNoArg(section, @"rows") copy];
+        if (![originalRows isKindOfClass:NSArray.class]) originalRows = @[];
         __weak id weakDebugController = debugController;
-        void (^handler)(void) = ^{
+        id runtimeRow = WAGRDeveloperABPropsRow(section,
+            @"AB Properties / Families",
+            @"Live WAABProperties getters, typed editor and runtime families",
+            @"switch.2", ^{
+                id owner = weakDebugController;
+                if (owner) WAGRPushDeveloperController(owner, [WAGRABPropsRootVC new]);
+            });
+        id presetsRow = WAGRDeveloperABPropsRow(section,
+            @"Native Debug Presets",
+            @"13 compiled ‘Set ABProps to …’ sets with stable-ID preflight",
+            @"list.bullet.rectangle.portrait.fill", ^{
+                id owner = weakDebugController;
+                if (!owner) return;
+                WAGRABPropsPresetsVC *controller = [[WAGRABPropsPresetsVC alloc]
+                    initWithUserContext:WAGRDebugControllerUserContext(owner)];
+                WAGRPushDeveloperController(owner, controller);
+            });
+        id privateRow = WAGRDeveloperABPropsRow(section,
+            @"Private Experimentation Debug",
+            @"WhatsApp native Allocated AB Props / Fetch / Sync controller",
+            @"flask.fill", ^{
             id strongDebugController = weakDebugController;
             if (strongDebugController) WAGROpenNativePrivateExperimentation(strongDebugController);
-        };
-        SEL handlerSelector = NSSelectorFromString(@"setHandler:");
-        Method handlerMethod = class_getInstanceMethod([row class], handlerSelector);
-        const char *handlerEncoding = handlerMethod ? method_getTypeEncoding(handlerMethod) : NULL;
-        if (!handlerEncoding || strcmp(handlerEncoding, "v24@0:8@?16") != 0) {
-            WAGRLogAppendF(@"[DeveloperABProps] WATableRow setHandler ABI mismatch: %s", handlerEncoding ?: "missing");
+            });
+        id configRow = WAGRDeveloperABPropsRow(section,
+            @"Export / Import ABProps Config",
+            @"Portable current values + verified native overrides",
+            @"arrow.up.arrow.down.square.fill", ^{
+                id owner = weakDebugController;
+                if (!owner) return;
+                WAGRABPropsConfigVC *controller = [[WAGRABPropsConfigVC alloc]
+                    initWithUserContext:WAGRDebugControllerUserContext(owner)];
+                WAGRPushDeveloperController(owner, controller);
+            });
+
+        if (!runtimeRow || !presetsRow || !privateRow || !configRow) {
+            WAGRNativeVoidObjectArg(section, @"setRows:", originalRows);
+            WAGRLogAppend(@"[DeveloperABProps] native WATableRow construction/handler ABI failed; restored RC rows");
             return NO;
         }
-        ((void (*)(id, SEL, id))objc_msgSend)(row, handlerSelector, [handler copy]);
 
-        // addTableRow... temporarily appends to the RC placeholder rows. Make
-        // the new native navigation row the only row and clear the RC-only tip.
-        WAGRNativeVoidObjectArg(section, @"setRows:", @[row]);
+        // addTableRow... temporarily appends to the RC warning rows. Replace
+        // the warning atomically only after all four functional rows exist.
+        WAGRNativeVoidObjectArg(section, @"setRows:", @[runtimeRow, presetsRow, privateRow, configRow]);
         WAGRNativeVoidObjectArg(section, @"setFooterText:", nil);
         WAGRNativeVoidObjectArg(section, @"setFooterView:", nil);
 
-        WAGRLogAppendF(@"[DeveloperABProps] replaced compiled RC placeholder with native Private Experimentation row; schema=%@",
+        WAGRLogAppendF(@"[DeveloperABProps] replaced compiled RC placeholder with four functional native rows; schema=%@",
                        kWAGRNativeDeveloperABPropsWiringSchema);
         return YES;
     }
@@ -288,7 +338,7 @@ static id hookPrivateExpInitWithUserContext(id self, SEL _cmd, id ctx) {
     id realCtx = ctx ?: WAGRCurrentUserContext();
     if (realCtx) {
         WAGRRememberUserContext(realCtx, @"PrivateExperimentation initWithUserContext: arg/cache");
-        WAGRContextSpyInstallForObject(realCtx);
+        WAGRContextSpyInstallForContext(realCtx);
     }
     WAGRLogAppendF(@"[PrivateExpVC] native init context=%@ (%p) %@",
                    realCtx ? NSStringFromClass([realCtx class]) : @"nil",

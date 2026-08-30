@@ -1,6 +1,7 @@
 #import "WAGRFeatureBundlesVC.h"
 #import "WAGRABPropsFilteredBrowserVC.h"
 #import "WAGRMenuTheme.h"
+#import "WAGRABPropsPresetsVC.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsStableIDResolver.h"
 
@@ -169,11 +170,11 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
 
     if (indexPath.section == 1) {
         WAGRMenuApplyCellStyle(cell, indexPath.row, @"runtime-model");
-        cell.textLabel.text = @"Sem presets de gates";
-        cell.detailTextLabel.text = @"Cada submenu é somente um filtro sobre ABProps/Private Experimentation realmente presentes no runtime atual.";
-        cell.imageView.image = WAGRMenuSymbol(@"info.circle.fill", UIColor.whiteColor);
-        cell.accessoryType = UITableViewCellAccessoryNone;
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        cell.textLabel.text = @"Native Debug Presets";
+        cell.detailTextLabel.text = @"Abre os 13 conjuntos ‘Set ABProps to …’ recuperados do array Swift nativo desta versão.";
+        cell.imageView.image = WAGRMenuSymbol(@"list.bullet.rectangle.portrait.fill", UIColor.whiteColor);
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         cell.textLabel.font = WAGRMenuTitleFont();
         cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
         cell.detailTextLabel.numberOfLines = 0;
@@ -198,6 +199,12 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.section == 1) {
+        WAGRABPropsPresetsVC *presets = [[WAGRABPropsPresetsVC alloc]
+            initWithUserContext:WAGRCurrentUserContext()];
+        [self.navigationController pushViewController:presets animated:YES];
+        return;
+    }
     if (indexPath.section != 0 || indexPath.row >= (NSInteger)self.families.count) return;
     WAGRLiveFeatureFamily *family = self.families[(NSUInteger)indexPath.row];
     WAGRABPropsFilteredBrowserVC *browser = [[WAGRABPropsFilteredBrowserVC alloc]

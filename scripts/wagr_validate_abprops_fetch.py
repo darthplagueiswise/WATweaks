@@ -23,6 +23,9 @@ MC_NATIVE = ROOT / "src/Runtime/WAGRMobileConfigNativeEngine.m"
 RELEASE_LINKAGE = ROOT / "src/Runtime/WAGRABPropsReleaseNativeLinkage.m"
 MC_EXPORT = ROOT / "src/Menu/WAGRMobileConfigExportVC.m"
 DEV_MENU = ROOT / "src/Hooks/WAGRNativeDevMenuHooks.xm"
+PRESETS_UI = ROOT / "src/Menu/WAGRABPropsPresetsVC.m"
+CONFIG_UI = ROOT / "src/Menu/WAGRABPropsConfigVC.m"
+DEBUG_LAUNCHER = ROOT / "src/Hooks/WAGRDebugMenuLauncher.xm"
 
 
 def read(path: pathlib.Path, errors: list[str]) -> str:
@@ -61,6 +64,9 @@ def main() -> int:
     release_linkage = read(RELEASE_LINKAGE, errors)
     mc_export = read(MC_EXPORT, errors)
     dev_menu = read(DEV_MENU, errors)
+    presets_ui = read(PRESETS_UI, errors)
+    config_ui = read(CONFIG_UI, errors)
+    debug_launcher = read(DEBUG_LAUNCHER, errors)
 
     # The legacy force-full symbol is a compatibility adapter only. It must use
     # the same correlated full_empty_hash service as browser and Lab and may not
@@ -281,15 +287,17 @@ def main() -> int:
     reject(mc_export, "Aplicar no mc_overrides.json", "WAGRMobileConfigExportVC.m", errors)
 
     # WhatsApp 26.33 RC compiles the yellow AB Props placeholder directly
-    # into WADebugViewController.createSections. The tweak must replace only
-    # that placeholder with a native WATableRow that pushes WhatsApp's own
-    # PrivateExperimentationDebugViewController using the account userContext.
+    # into WADebugViewController.createSections. The tweak keeps that native
+    # section but atomically replaces the warning with four functional rows.
     for token in (
         "watweaks_native_developer_abprops_wiring_v26_33",
         "hookDebugVCCreateSections",
         "createSections",
         "v16@0:8",
         "Private Experimentation Debug",
+        "AB Properties / Families",
+        "Native Debug Presets",
+        "Export / Import ABProps Config",
         "privateABProperties",
         "addTableRowWithCellStyle:",
         "setRows:",
@@ -298,6 +306,10 @@ def main() -> int:
         'class_getInstanceVariable(cls, "experimentManager")',
         'class_getInstanceVariable(cls, "userContext")',
         "WAContextObjectProvider",
+        "@[runtimeRow, presetsRow, privateRow, configRow]",
+        "WAGRContextSpyInstallForContext(userContext)",
+        "WAGRContextSpyInstallForContext(context)",
+        "WAGRContextSpyInstallForContext(realCtx)",
     ):
         require(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
     for token in (
@@ -309,6 +321,50 @@ def main() -> int:
         "Current WhatsApp(10)",
     ):
         reject(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
+    for token in (
+        "Set ABProps to enable SMB Marketing Messages.",
+        "Set ABProps to enable all SMB Blue Premium features.",
+        "Set ABProps to enable all SMB Meta Verified features for prod release.",
+        "Set ABProps to enable Meta AI for Business on DEBUG SMB app as Business Assistant",
+        "Set ABProps to enable Meta Verified StoreKit2 abprops",
+        "Set ABProps to enable Meta Verified Partner Billing abprops",
+        "Set ABProps to enable IAP graphql codegen and error parsing",
+        "Set ABProps to ENABLE SMB Business Broadcast abProps",
+        "Set ABProps to DISABLE SMB Business Broadcast abProps",
+        "Set ABProps to ENABLE SMB Business Broadcast Send Limit abProps",
+        "Set ABProps to DISABLE SMB Business Broadcast Send Limit abProps",
+        "Set ABProps to ENABLE Consumer Broadcast List Capping abProps",
+        "Set ABProps to DISABLE Consumer Broadcast List Capping abProps",
+        "com.whatsapp.w4b.1000000000000000",
+        "com.whatsapp.mv4b.6937685799644206",
+        "meta_business_suite",
+        "in_app_purchase",
+        '"native_noop" : @YES',
+        "WAGRABPropsNativeSetOverride",
+        "WAGRABPropsNativeClearOverride",
+    ):
+        require(presets_ui, token, "WAGRABPropsPresetsVC.m", errors)
+    for token in (
+        "watweaks_waab_runtime_config_v1",
+        "Exportar configuração ABProps atual",
+        "Importar configuração ABProps",
+        "Restaurar somente overrides",
+        "Aplicar snapshot completo",
+        "effective_value",
+        "override_present",
+        "override_value",
+        "WAGRABPropsStableIDForTarget",
+        "WAGRABPropsNativeOverrideMapping",
+        "WAGRABPropsNativeSetOverride",
+    ):
+        require(config_ui, token, "WAGRABPropsConfigVC.m", errors)
+    for token in (
+        "WAGRPrivateExpDumpDynamicFields",
+        "WAGRContextSpyInstallForObject(userContext)",
+        "WAGRContextSpyInstallForObject(context)",
+        "WAGRContextSpyInstallForObject(realCtx)",
+    ):
+        reject(dev_menu + debug_launcher, token, "native Developer/linker wiring", errors)
 
     timeout_section = live.split("explicit_transaction_timeout", 1)
     if len(timeout_section) != 2:
