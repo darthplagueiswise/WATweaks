@@ -9,9 +9,8 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import <substrate.h>
-#import <mach-o/dyld.h>
-#import <mach-o/loader.h>
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRLog.h"
 
@@ -30,122 +29,230 @@ static BoolIMP orig_dmShortcutEnabled = NULL;
 static IDIMP orig_debugVCUserContext = NULL;
 static InitCtxIMP orig_debugVCInitWithUserContext = NULL;
 static InitCtxIMP orig_privateExpInitWithUserContext = NULL;
-typedef void (*VoidBoolIMP)(id, SEL, BOOL);
-static VoidBoolIMP orig_privateExpViewDidAppear = NULL;
+typedef void (*VoidIMP)(id, SEL);
+static VoidIMP orig_debugVCCreateSections = NULL;
 
 static BOOL gDevMenuHooked  = NO;
 static BOOL gShortcutHooked = NO;
 static BOOL gDebugVCHooked = NO;
 static BOOL gPrivateExpVCHooked = NO;
+static BOOL gDebugABPropsSectionHooked = NO;
 
 
-// Current WhatsApp(10) build: Swift stores field offsets in globals that are
-// filled by the Swift runtime. The earlier diagnostic that read self+0x8 and
-// self+0x30 was wrong: those are not object-base offsets for a Swift
-// UIViewController subclass. Use the real field-offset globals instead.
-static uintptr_t WAGRMainExecutableSlide(void) {
-    uint32_t count = _dyld_image_count();
-    for (uint32_t i = 0; i < count; i++) {
-        const struct mach_header *mh = _dyld_get_image_header(i);
-        if (!mh) continue;
-        if (mh->filetype == MH_EXECUTE) return (uintptr_t)_dyld_get_image_vmaddr_slide(i);
+// WhatsApp 26.33: the RC Developer controller compiles the yellow AB Props
+// placeholder directly into -createSections. There is no nil-driven branch to
+// flip. The complete native AB/private-experimentation UI lives in
+// WAPrivateExperimentationViews.PrivateExperimentationDebugViewController.
+// Its initWithUserContext: asks WAContextObjectProvider for its manager and that
+// native initializer resolves userContext.privateABProperties. WATweaks only
+// replaces the compiled RC placeholder row with a native WATableRow navigation
+// entry; the destination controller, model, fetch and ABProps implementation are
+// all WhatsApp-owned.
+static NSString * const kWAGRNativeDeveloperABPropsWiringSchema = @"watweaks_native_developer_abprops_wiring_v26_33";
+
+extern "C" void WAGRContextSpyInstallForObject(id obj);
+
+static BOOL WAGRNativeMethodEncodingMatches(Class cls, SEL selector, const char *expected) {
+    if (!cls || !selector || !expected) return NO;
+    Method method = class_getInstanceMethod(cls, selector);
+    const char *encoding = method ? method_getTypeEncoding(method) : NULL;
+    return encoding && strcmp(encoding, expected) == 0;
+}
+
+static id WAGRNativeObjectNoArg(id target, NSString *selectorName) {
+    if (!target || !selectorName.length) return nil;
+    SEL selector = NSSelectorFromString(selectorName);
+    if (!WAGRNativeMethodEncodingMatches([target class], selector, "@16@0:8")) return nil;
+    @try { return ((id (*)(id, SEL))objc_msgSend)(target, selector); }
+    @catch (__unused NSException *exception) { return nil; }
+}
+
+static void WAGRNativeVoidObjectArg(id target, NSString *selectorName, id value) {
+    if (!target || !selectorName.length) return;
+    SEL selector = NSSelectorFromString(selectorName);
+    if (!WAGRNativeMethodEncodingMatches([target class], selector, "v24@0:8@16")) return;
+    @try { ((void (*)(id, SEL, id))objc_msgSend)(target, selector, value); }
+    @catch (__unused NSException *exception) {}
+}
+
+static Class WAGRPrivateExperimentationDebugControllerClass(void) {
+    Class cls = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
+    if (!cls) cls = NSClassFromString(@"WAPrivateExperimentationViews.PrivateExperimentationDebugViewController");
+    if (!cls) cls = NSClassFromString(@"WAPrivateExperimentation.PrivateExperimentationDebugViewController");
+    return cls;
+}
+
+static NSString *WAGRPrivateExperimentationRuntimeMetadata(Class cls) {
+    Ivar managerIvar = cls ? class_getInstanceVariable(cls, "experimentManager") : NULL;
+    Ivar contextIvar = cls ? class_getInstanceVariable(cls, "userContext") : NULL;
+    ptrdiff_t managerOffset = managerIvar ? ivar_getOffset(managerIvar) : -1;
+    ptrdiff_t contextOffset = contextIvar ? ivar_getOffset(contextIvar) : -1;
+    return [NSString stringWithFormat:@"class=%@ experimentManagerOff=%@ userContextOff=%@ initABI=%@",
+        cls ? (NSStringFromClass(cls) ?: @"?") : @"nil",
+        managerIvar ? [NSString stringWithFormat:@"0x%tx", managerOffset] : @"missing",
+        contextIvar ? [NSString stringWithFormat:@"0x%tx", contextOffset] : @"missing",
+        cls && class_getInstanceMethod(cls, NSSelectorFromString(@"initWithUserContext:"))
+            ? [NSString stringWithUTF8String:method_getTypeEncoding(class_getInstanceMethod(cls, NSSelectorFromString(@"initWithUserContext:"))) ?: "?"]
+            : @"missing"];
+}
+
+static id WAGRNativePrivateABProperties(id userContext) {
+    if (!userContext) return nil;
+    WAGRContextSpyInstallForObject(userContext);
+    SEL selector = NSSelectorFromString(@"privateABProperties");
+    if (!WAGRNativeMethodEncodingMatches([userContext class], selector, "@16@0:8")) {
+        WAGRLogAppendF(@"[DeveloperABProps] %@ has no compatible privateABProperties getter",
+                       NSStringFromClass([userContext class]));
+        return nil;
     }
-    return (uintptr_t)_dyld_get_image_vmaddr_slide(0);
-}
-
-static uintptr_t WAGRReadMainPointerAtVM(uintptr_t vmaddr) {
-    uintptr_t slide = WAGRMainExecutableSlide();
-    uintptr_t *p = (uintptr_t *)(slide + vmaddr);
-    if (!p) return 0;
-    return *p;
-}
-
-static BOOL WAGRFieldOffsetLooksSane(uintptr_t off) {
-    return off >= 0x20 && off < 0x4000;
-}
-
-static uintptr_t WAGRPrivateExpUserContextOffset(void) {
-    // 0x104006788/790 loads [0x107d2f938] before storing userContext.
-    return WAGRReadMainPointerAtVM(0x107d2f938ULL);
-}
-
-static uintptr_t WAGRPrivateExpManagerOffset(void) {
-    // 0x104008030 loads [0x107d2f940]; init stores the 40-byte Swift existential there.
-    return WAGRReadMainPointerAtVM(0x107d2f940ULL);
-}
-
-extern "C" id WAGRPrivateExpManagerObject(id instance) {
-    if (!instance) return nil;
-    uintptr_t off = WAGRPrivateExpManagerOffset();
-    if (!WAGRFieldOffsetLooksSane(off)) return nil;
-    uintptr_t base = (uintptr_t)(__bridge void *)instance;
-    void **slot = (void **)(base + off);
-    if (!slot) return nil;
-    return (__bridge id)slot[0];
-}
-
-static void WAGRReloadTablesInView(UIView *view) {
-    if (!view) return;
-    if ([view isKindOfClass:UITableView.class]) {
-        [(UITableView *)view reloadData];
+    @try {
+        id value = ((id (*)(id, SEL))objc_msgSend)(userContext, selector);
+        WAGRLogAppendF(@"[DeveloperABProps] privateABProperties=%@ (%p)",
+                       value ? NSStringFromClass([value class]) : @"nil", (__bridge void *)value);
+        return value;
+    } @catch (NSException *exception) {
+        WAGRLogAppendF(@"[DeveloperABProps] privateABProperties threw %@: %@", exception.name, exception.reason);
+        return nil;
     }
-    for (UIView *sub in view.subviews) WAGRReloadTablesInView(sub);
 }
 
-extern "C" void WAGRPrivateExpKickManagerIfAvailable(id instance) {
-    id manager = WAGRPrivateExpManagerObject(instance);
-    if (!manager) {
-        WAGRLogAppend(@"[PrivateExpVC] native manager object not available at dynamic field offset");
-        return;
+static id WAGRDebugControllerUserContext(id debugController) {
+    id context = WAGRNativeObjectNoArg(debugController, @"userContext");
+    if (!context) context = WAGRCurrentUserContext();
+    if (context) {
+        WAGRRememberUserContext(context, @"Developer AB Props native navigation");
+        WAGRContextSpyInstallForObject(context);
     }
+    return context;
+}
 
-    SEL reqSel = NSSelectorFromString(@"requestPropsIfNeededWithCompletionHandler:");
-    if (![manager respondsToSelector:reqSel]) {
-        WAGRLogAppendF(@"[PrivateExpVC] manager=%@ (%p) does not respond requestPropsIfNeededWithCompletionHandler:",
-                       NSStringFromClass([manager class]), (__bridge void *)manager);
-        return;
-    }
+static void WAGRPresentNativeDeveloperABPropsError(id debugController, NSString *message) {
+    if (![debugController isKindOfClass:UIViewController.class]) return;
+    UIViewController *owner = (UIViewController *)debugController;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"AB Props"
+        message:message ?: @"Native Private Experimentation could not be initialized."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [owner presentViewController:alert animated:YES completion:nil];
+}
 
-    __weak id weakVC = instance;
-    WAGRLogAppendF(@"[PrivateExpVC] calling native requestPropsIfNeededWithCompletionHandler: on %@ (%p)",
-                   NSStringFromClass([manager class]), (__bridge void *)manager);
-    void (^completion)(void) = ^{
-        WAGRLogAppend(@"[PrivateExpVC] requestPropsIfNeeded completion");
-        id strongVC = weakVC;
-        if ([strongVC isKindOfClass:UIViewController.class]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                WAGRReloadTablesInView(((UIViewController *)strongVC).view);
-            });
+static void WAGROpenNativePrivateExperimentation(id debugController) {
+    void (^openBlock)(void) = ^{
+        id context = WAGRDebugControllerUserContext(debugController);
+        Class cls = WAGRPrivateExperimentationDebugControllerClass();
+        WAGRLogAppendF(@"[DeveloperABProps] open schema=%@ context=%@ (%p) %@",
+                       kWAGRNativeDeveloperABPropsWiringSchema,
+                       context ? NSStringFromClass([context class]) : @"nil",
+                       (__bridge void *)context,
+                       WAGRPrivateExperimentationRuntimeMetadata(cls));
+
+        if (!context || !cls || !WAGRNativeMethodEncodingMatches(cls, NSSelectorFromString(@"initWithUserContext:"), "@24@0:8@16")) {
+            WAGRPresentNativeDeveloperABPropsError(debugController, @"WhatsApp's native Private Experimentation controller or account userContext is unavailable.");
+            return;
+        }
+
+        // Preflight the exact dependency consumed by the native Swift manager.
+        // This does not replace the model; initWithUserContext: will resolve it
+        // again through WAContextObjectProvider as in WhatsApp's own path.
+        id privateProps = WAGRNativePrivateABProperties(context);
+        if (!privateProps) {
+            WAGRPresentNativeDeveloperABPropsError(debugController, @"WAContextMain.privateABProperties returned nil. See WATweaks diagnostics for the exact dependency that failed.");
+            return;
+        }
+
+        id allocated = ((id (*)(id, SEL))objc_msgSend)((id)cls, sel_registerName("alloc"));
+        id controller = nil;
+        @try {
+            controller = ((id (*)(id, SEL, id))objc_msgSend)(allocated, NSSelectorFromString(@"initWithUserContext:"), context);
+        } @catch (NSException *exception) {
+            WAGRLogAppendF(@"[DeveloperABProps] native init threw %@: %@", exception.name, exception.reason);
+        }
+        if (![controller isKindOfClass:UIViewController.class]) {
+            WAGRPresentNativeDeveloperABPropsError(debugController, @"Native Private Experimentation returned no view controller.");
+            return;
+        }
+
+        WAGRLogAppendF(@"[DeveloperABProps] native controller initialized=%@ (%p)",
+                       NSStringFromClass([controller class]), (__bridge void *)controller);
+        UIViewController *owner = [debugController isKindOfClass:UIViewController.class] ? (UIViewController *)debugController : nil;
+        UINavigationController *navigation = owner.navigationController;
+        if (navigation) {
+            [navigation pushViewController:(UIViewController *)controller animated:YES];
+            WAGRLogAppend(@"[DeveloperABProps] pushed native Private Experimentation controller");
+        } else if (owner) {
+            [owner presentViewController:(UIViewController *)controller animated:YES completion:nil];
+            WAGRLogAppend(@"[DeveloperABProps] presented native Private Experimentation controller");
         }
     };
-    @try {
-        ((void (*)(id, SEL, id))objc_msgSend)(manager, reqSel, completion);
-    } @catch (NSException *ex) {
-        WAGRLogAppendF(@"[PrivateExpVC] requestPropsIfNeeded threw %@: %@", ex.name, ex.reason);
-    }
+    if (NSThread.isMainThread) openBlock();
+    else dispatch_async(dispatch_get_main_queue(), openBlock);
 }
 
-extern "C" void WAGRPrivateExpDumpDynamicFields(id instance, NSString *stage) {
-    if (!instance) return;
-    uintptr_t base = (uintptr_t)(__bridge void *)instance;
-    uintptr_t managerOff = WAGRPrivateExpManagerOffset();
-    uintptr_t userOff = WAGRPrivateExpUserContextOffset();
-
-    void *userCtx = NULL;
-    void *m0 = NULL; void *m1 = NULL; void *m2 = NULL; void *m3 = NULL; void *m4 = NULL;
-
-    if (WAGRFieldOffsetLooksSane(userOff)) {
-        userCtx = *(void **)(base + userOff);
-    }
-    if (WAGRFieldOffsetLooksSane(managerOff)) {
-        void **m = (void **)(base + managerOff);
-        m0 = m[0]; m1 = m[1]; m2 = m[2]; m3 = m[3]; m4 = m[4];
+static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
+    id sections = WAGRNativeObjectNoArg(debugController, @"sections");
+    if (!sections || ![sections conformsToProtocol:@protocol(NSFastEnumeration)]) {
+        WAGRLogAppend(@"[DeveloperABProps] native sections collection unavailable");
+        return NO;
     }
 
-    WAGRLogAppendF(@"[PrivateExpVC] %@ dynamicOffsets managerOff=0x%lx userContextOff=0x%lx managerWords=[%p,%p,%p,%p,%p] userContext=%p",
-                   stage ?: @"dump",
-                   (unsigned long)managerOff, (unsigned long)userOff,
-                   m0, m1, m2, m3, m4, userCtx);
+    for (id section in sections) {
+        NSString *header = WAGRNativeObjectNoArg(section, @"headerText");
+        if (![header isKindOfClass:NSString.class] || ![header isEqualToString:@"AB Props"]) continue;
+
+        SEL addSelector = NSSelectorFromString(@"addTableRowWithCellStyle:");
+        Method addMethod = class_getInstanceMethod([section class], addSelector);
+        const char *addEncoding = addMethod ? method_getTypeEncoding(addMethod) : NULL;
+        id row = nil;
+        if (addEncoding && strcmp(addEncoding, "@24@0:8q16") == 0) {
+            row = ((id (*)(id, SEL, NSInteger))objc_msgSend)(section, addSelector, UITableViewCellStyleSubtitle);
+        } else {
+            row = WAGRNativeObjectNoArg(section, @"addDefaultTableRow");
+        }
+        if (!row) {
+            WAGRLogAppend(@"[DeveloperABProps] WATableSection could not create a native row");
+            return NO;
+        }
+
+        id cellObject = WAGRNativeObjectNoArg(row, @"cell");
+        if ([cellObject isKindOfClass:UITableViewCell.class]) {
+            UITableViewCell *cell = (UITableViewCell *)cellObject;
+            cell.textLabel.text = @"Private Experimentation Debug";
+            cell.detailTextLabel.text = @"Native WAABProperties / privateABProperties";
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        }
+
+        __weak id weakDebugController = debugController;
+        void (^handler)(void) = ^{
+            id strongDebugController = weakDebugController;
+            if (strongDebugController) WAGROpenNativePrivateExperimentation(strongDebugController);
+        };
+        SEL handlerSelector = NSSelectorFromString(@"setHandler:");
+        Method handlerMethod = class_getInstanceMethod([row class], handlerSelector);
+        const char *handlerEncoding = handlerMethod ? method_getTypeEncoding(handlerMethod) : NULL;
+        if (!handlerEncoding || strcmp(handlerEncoding, "v24@0:8@?16") != 0) {
+            WAGRLogAppendF(@"[DeveloperABProps] WATableRow setHandler ABI mismatch: %s", handlerEncoding ?: "missing");
+            return NO;
+        }
+        ((void (*)(id, SEL, id))objc_msgSend)(row, handlerSelector, [handler copy]);
+
+        // addTableRow... temporarily appends to the RC placeholder rows. Make
+        // the new native navigation row the only row and clear the RC-only tip.
+        WAGRNativeVoidObjectArg(section, @"setRows:", @[row]);
+        WAGRNativeVoidObjectArg(section, @"setFooterText:", nil);
+        WAGRNativeVoidObjectArg(section, @"setFooterView:", nil);
+
+        WAGRLogAppendF(@"[DeveloperABProps] replaced compiled RC placeholder with native Private Experimentation row; schema=%@",
+                       kWAGRNativeDeveloperABPropsWiringSchema);
+        return YES;
+    }
+
+    WAGRLogAppend(@"[DeveloperABProps] AB Props section not found after original createSections");
+    return NO;
+}
+
+static void hookDebugVCCreateSections(id self, SEL _cmd) {
+    if (orig_debugVCCreateSections) orig_debugVCCreateSections(self, _cmd);
+    WAGRWireNativeDeveloperABPropsSection(self);
 }
 
 static BOOL WAGRGateForcedOn(NSString *selectorName) {
@@ -179,61 +286,54 @@ static id hookDebugVCUserContext(id self, SEL _cmd) {
 static id hookPrivateExpInitWithUserContext(id self, SEL _cmd, id ctx) {
     id realCtx = ctx ?: WAGRCurrentUserContext();
     if (realCtx) {
-        WAGRLogAppendF(@"[PrivateExpVC] initWithUserContext arg/cache=%@ (%p)", NSStringFromClass([realCtx class]), (__bridge void *)realCtx);
         WAGRRememberUserContext(realCtx, @"PrivateExperimentation initWithUserContext: arg/cache");
-    } else {
-        WAGRLogAppend(@"[PrivateExpVC] initWithUserContext received nil and cache is nil");
+        WAGRContextSpyInstallForObject(realCtx);
     }
-
-    id instance = orig_privateExpInitWithUserContext ? orig_privateExpInitWithUserContext(self, _cmd, realCtx) : self;
-    if (instance) {
-        WAGRLogAppendF(@"[PrivateExpVC] initialized instance=%@", NSStringFromClass([instance class]));
-        WAGRPrivateExpDumpDynamicFields(instance, @"after initWithUserContext:");
-        WAGRLogAppend(@"[PrivateExpVC] manager kick deferred until viewDidAppear");
-    }
-    return instance;
-}
-
-
-static const char *kWAGRPrivateExpVisibleKickDone = "watweaks.privateexp.visiblekick";
-
-static void hookPrivateExpViewDidAppear(id self, SEL _cmd, BOOL animated) {
-    if (orig_privateExpViewDidAppear) orig_privateExpViewDidAppear(self, _cmd, animated);
-    if ([objc_getAssociatedObject(self, kWAGRPrivateExpVisibleKickDone) boolValue]) return;
-    objc_setAssociatedObject(self, kWAGRPrivateExpVisibleKickDone, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    WAGRLogAppend(@"[PrivateExpVC] viewDidAppear: first visible kick");
-    WAGRPrivateExpDumpDynamicFields(self, @"viewDidAppear");
-    WAGRPrivateExpKickManagerIfAvailable(self);
+    WAGRLogAppendF(@"[PrivateExpVC] native init context=%@ (%p) %@",
+                   realCtx ? NSStringFromClass([realCtx class]) : @"nil",
+                   (__bridge void *)realCtx,
+                   WAGRPrivateExperimentationRuntimeMetadata([self class]));
+    return orig_privateExpInitWithUserContext
+        ? orig_privateExpInitWithUserContext(self, _cmd, realCtx)
+        : self;
 }
 
 static void installUserContextCaptureHooks(void) {
-    if (!gDebugVCHooked) {
-        Class dbg = NSClassFromString(@"WADebugViewController");
-        if (dbg) {
+    Class dbg = NSClassFromString(@"WADebugViewController");
+    if (dbg) {
+        if (!orig_debugVCInitWithUserContext) {
             SEL initSel = NSSelectorFromString(@"initWithUserContext:");
-            if (class_getInstanceMethod(dbg, initSel)) {
+            if (WAGRNativeMethodEncodingMatches(dbg, initSel, "@24@0:8@16")) {
                 MSHookMessageEx(dbg, initSel, (IMP)hookDebugVCInitWithUserContext, (IMP *)&orig_debugVCInitWithUserContext);
             }
+        }
+        if (!orig_debugVCUserContext) {
             SEL ctxSel = NSSelectorFromString(@"userContext");
-            if (class_getInstanceMethod(dbg, ctxSel)) {
+            if (WAGRNativeMethodEncodingMatches(dbg, ctxSel, "@16@0:8")) {
                 MSHookMessageEx(dbg, ctxSel, (IMP)hookDebugVCUserContext, (IMP *)&orig_debugVCUserContext);
             }
-            gDebugVCHooked = (orig_debugVCInitWithUserContext != NULL || orig_debugVCUserContext != NULL);
         }
+        if (!gDebugABPropsSectionHooked) {
+            SEL createSel = NSSelectorFromString(@"createSections");
+            if (WAGRNativeMethodEncodingMatches(dbg, createSel, "v16@0:8")) {
+                MSHookMessageEx(dbg, createSel, (IMP)hookDebugVCCreateSections, (IMP *)&orig_debugVCCreateSections);
+                gDebugABPropsSectionHooked = (orig_debugVCCreateSections != NULL);
+                WAGRLogAppendF(@"[DeveloperABProps] createSections hook=%@ ABI=v16@0:8",
+                               gDebugABPropsSectionHooked ? @"installed" : @"failed");
+            } else {
+                WAGRLogAppend(@"[DeveloperABProps] WADebugViewController createSections ABI mismatch");
+            }
+        }
+        gDebugVCHooked = (orig_debugVCInitWithUserContext != NULL || orig_debugVCUserContext != NULL || gDebugABPropsSectionHooked);
     }
 
     if (!gPrivateExpVCHooked) {
-        Class pe = NSClassFromString(@"_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController");
-        if (!pe) pe = NSClassFromString(@"WAPrivateExperimentation.PrivateExperimentationDebugViewController");
+        Class pe = WAGRPrivateExperimentationDebugControllerClass();
         if (pe) {
             SEL initSel = NSSelectorFromString(@"initWithUserContext:");
-            if (class_getInstanceMethod(pe, initSel)) {
+            if (WAGRNativeMethodEncodingMatches(pe, initSel, "@24@0:8@16")) {
                 MSHookMessageEx(pe, initSel, (IMP)hookPrivateExpInitWithUserContext, (IMP *)&orig_privateExpInitWithUserContext);
                 gPrivateExpVCHooked = (orig_privateExpInitWithUserContext != NULL);
-            }
-            SEL appearSel = NSSelectorFromString(@"viewDidAppear:");
-            if (class_getInstanceMethod(pe, appearSel)) {
-                MSHookMessageEx(pe, appearSel, (IMP)hookPrivateExpViewDidAppear, (IMP *)&orig_privateExpViewDidAppear);
             }
         }
     }

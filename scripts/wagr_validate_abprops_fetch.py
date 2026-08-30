@@ -22,6 +22,7 @@ NATIVE_OVERRIDE = ROOT / "src/Runtime/WAGRABPropsNativeOverrideEngine.m"
 MC_NATIVE = ROOT / "src/Runtime/WAGRMobileConfigNativeEngine.m"
 RELEASE_LINKAGE = ROOT / "src/Runtime/WAGRABPropsReleaseNativeLinkage.m"
 MC_EXPORT = ROOT / "src/Menu/WAGRMobileConfigExportVC.m"
+DEV_MENU = ROOT / "src/Hooks/WAGRNativeDevMenuHooks.xm"
 
 
 def read(path: pathlib.Path, errors: list[str]) -> str:
@@ -59,6 +60,7 @@ def main() -> int:
     mc_native = read(MC_NATIVE, errors)
     release_linkage = read(RELEASE_LINKAGE, errors)
     mc_export = read(MC_EXPORT, errors)
+    dev_menu = read(DEV_MENU, errors)
 
     # The legacy force-full symbol is a compatibility adapter only. It must use
     # the same correlated full_empty_hash service as browser and Lab and may not
@@ -277,6 +279,36 @@ def main() -> int:
     ):
         require(mc_export, token, "WAGRMobileConfigExportVC.m", errors)
     reject(mc_export, "Aplicar no mc_overrides.json", "WAGRMobileConfigExportVC.m", errors)
+
+    # WhatsApp 26.33 RC compiles the yellow AB Props placeholder directly
+    # into WADebugViewController.createSections. The tweak must replace only
+    # that placeholder with a native WATableRow that pushes WhatsApp's own
+    # PrivateExperimentationDebugViewController using the account userContext.
+    for token in (
+        "watweaks_native_developer_abprops_wiring_v26_33",
+        "hookDebugVCCreateSections",
+        "createSections",
+        "v16@0:8",
+        "Private Experimentation Debug",
+        "privateABProperties",
+        "addTableRowWithCellStyle:",
+        "setRows:",
+        "setFooterText:",
+        "_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController",
+        'class_getInstanceVariable(cls, "experimentManager")',
+        'class_getInstanceVariable(cls, "userContext")',
+        "WAContextObjectProvider",
+    ):
+        require(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
+    for token in (
+        "WAGRReadMainPointerAtVM",
+        "WAGRPrivateExpKickManagerIfAvailable",
+        "0x107d2f938",
+        "0x107d2f940",
+        "orig_privateExpViewDidAppear",
+        "Current WhatsApp(10)",
+    ):
+        reject(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
 
     timeout_section = live.split("explicit_transaction_timeout", 1)
     if len(timeout_section) != 2:
