@@ -10,6 +10,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <string.h>
 #import <substrate.h>
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRLog.h"
