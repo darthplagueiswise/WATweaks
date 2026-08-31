@@ -55,6 +55,8 @@ DEV.md
 scratch/
 .local-backups/
 .vendor/
+__pycache__/
+*.pyc
 
 # WhatsApp IPA (user-provided, never commit)
 WhatsApp*.ipa

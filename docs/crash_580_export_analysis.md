@@ -64,23 +64,30 @@ Additional defenses:
 This fixes both independent defects visible in the crash: false getter identity
 and off-main execution of WhatsApp's account-scoped property code.
 
-## Native preset/UI distinction
+## Developer UI correction after build 581
 
-The build-580 “Native Debug Presets” screen was a WATweaks table coupled to a
-custom stable-ID/StartupConfigs writer. The screenshots show its predictable
-failure mode: selectors absent from the current generated catalog and selectors
-whose stable ID could not be converted back to a native parameter name.
+The build-580 custom preset writer failed on stale selectors and unresolved
+stable IDs. Build 581 then replaced it with a different unverified assumption:
+three guessed `setabprops` URL forms passed through `WADeepLinkParser`. Device
+screenshots prove that none returned a `WAABPropDeepLink`. A compiled host
+literal and a surviving handler did not establish the parser's URL grammar.
 
-WhatsApp 26.33 still contains the real 13-element preset array and its real
-consumer, `WAABPropDeepLink -handleDeepLinkWithRootVC:`. The corrected bridge
-routes each compiled group through `WADeepLinkParser` using the native
-`setabprops` deep-link contract. It no longer copies selector/value tuples or
-converts them through the WATweaks writer. Consequently the native consumer also
-owns the dynamic `smb_subscription_config` construction.
+Both custom preset surfaces have therefore been removed. The 26.33 Developer
+fix now registers the missing Objective-C runtime class
+`WADebugABPropertiesTableViewController` with the loaded
+`WAStaticTableViewController` as its actual superclass, restores the historical
+`showABProperties -> showABPropertiesTable` navigation chain, and passes the
+exact account-scoped `WAContext.abProperties` object into it. WhatsApp's native
+`AB Props` section keeps its original `WATableSection` and original single
+`WATableRow`; only that row's removed label/handler and the obsolete footer are
+restored. It is no longer replaced by thirteen preset rows, Private
+Experimentation, or WATweaks tools. Inside the controller, the table is built
+with `WATableSection`, `WATableRow`, and
+`WADebugKeyValueTableViewCell`; search uses `WASearchControllerDelegate`; and
+editing uses `WADebugInputViewController` followed by native StartupConfigs
+with persisted/effective readback. It has no generic WATweaks-browser
+inheritance and no swizzle fallback.
 
-The historical `WADebugABPropertiesTableViewController` implementation is not
-present in this RC binary; only a color-token string survives. A removed class
-cannot be enabled with a flag. The corrected Developer section therefore keeps
-WhatsApp's own `WADebugViewController`/`WATableSection`, exposes the surviving
-native preset consumer and native Private Experimentation controller, and labels
-WATweaks Export/Import explicitly as an additional utility.
+The export-crash defenses above remain unchanged and are reused by the
+reconstructed table: only verified generated getter thunks enter its catalog,
+and the live account receiver is preserved explicitly.

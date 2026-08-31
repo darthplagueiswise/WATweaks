@@ -2,7 +2,6 @@
 #import "WAGRABPropsBrowserVC.h"
 #import "WAGRABPropsSnapshotVC.h"
 #import "WAGRABPropsABTLabVC.h"
-#import "WAGRABPropsPresetsVC.h"
 #import "WAGRABPropsConfigVC.h"
 #import "WAGRRuntimeGatesVC.h"
 #import "WAGRLogViewController.h"
@@ -161,7 +160,6 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
     WAGRABPropsActionABTRuntimeLab,
     WAGRABPropsActionLiveBrowser,
     WAGRABPropsActionRuntimeFamilies,
-    WAGRABPropsActionNativePresets,
     WAGRABPropsActionPrivateExperimentation,
     WAGRABPropsActionPortableConfig,
     WAGRABPropsActionContextDiagnostic,
@@ -243,11 +241,6 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
                                 icon:@"square.grid.2x2.fill"
                            accentKey:@"runtime-live"
                               action:WAGRABPropsActionRuntimeFamilies],
-        [WAGRABPropsRow rowWithTitle:@"Native Debug Presets"
-                              detail:@"Os 13 conjuntos ‘Set ABProps to …’ compilados no cliente: 12 payloads aplicáveis e o Business Assistant no-op preservado como evidência."
-                                icon:@"list.bullet.rectangle.portrait.fill"
-                           accentKey:@"native-debug-presets"
-                              action:WAGRABPropsActionNativePresets],
         [WAGRABPropsRow rowWithTitle:@"Fetch Experiments / Private Experimentation"
                               detail:@"Abre o fluxo Swift nativo com o userContext capturado pelo Developer Menu."
                                 icon:@"arrow.down.doc.fill"
@@ -344,12 +337,6 @@ typedef NS_ENUM(NSInteger, WAGRABPropsAction) {
             [self.navigationController pushViewController:[WAGRRuntimeGatesVC new]
                                                  animated:YES];
             return;
-        case WAGRABPropsActionNativePresets: {
-            WAGRABPropsPresetsVC *controller = [[WAGRABPropsPresetsVC alloc]
-                initWithUserContext:WAGRABRootPrimeUserContext()];
-            [self.navigationController pushViewController:controller animated:YES];
-            return;
-        }
         case WAGRABPropsActionPrivateExperimentation: {
             NSError *error = nil;
             if (!WAGRLaunchPrivateExperimentationDebug(self, &error)) {

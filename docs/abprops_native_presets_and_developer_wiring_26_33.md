@@ -1,118 +1,113 @@
-# WhatsApp 26.33 native ABProps and internal-surface wiring
+# WhatsApp 26.33 Developer AB Properties reconstruction
 
-## Binary result
+## What the binaries actually contain
 
-The release-candidate `WADebugViewController -createSections` compiles the
-yellow “AB Props are not available in release candidate builds” placeholder
-directly. It is not produced by `wamo_abprops_list == nil`.
-`WADebugABPropertiesTableViewController` is absent as an instantiable class;
+The 26.33 release-candidate `WADebugViewController -createSections` compiles
+the yellow “AB Props are not available in release candidate builds” message
+directly. It is not produced by a nil `wamo_abprops_list`.
+
+The old `WADebugABPropertiesTableViewController` class and the
+`showABProperties` / `showABPropertiesTable` methods are absent from both
+analyzed 26.33 executables. The SharedModules string
 `_custom_WADebugABPropertiesTableViewController_1` is only a color token.
 
-The RC still contains all of these native components:
+The account-scoped backend was not removed:
 
-- the 13-element Swift `Set ABProps` group array;
-- `WAABPropDeepLink`, with Swift fields `setABPropsHost` and
-  `abPropsGroupName`;
-- `WADeepLinkParser -deepLinkWithURL:context:`;
-- `WAABPropDeepLink -handleDeepLinkWithRootVC:`, which loads the native array,
-  shows the native confirmation, and applies its selector/value tuples;
-- `PrivateExperimentationDebugViewController` and its Allocated AB Props,
-  Fetch, and Sync surfaces;
-- WAAB/MobileConfig backends and the original Settings, Bug Report, Rage Shake,
-  Dogfood, WAMO, Internal, and Developer builders that survive in this RC.
+- `WAContext(ABProperties) -abProperties` has ABI `@16@0:8`;
+- the returned object is `WAABProperties` in the device runtime;
+- its `WAPropertiesStore` identity is `gabp.o`, type 1, personal account;
+- the supplied runtime capture contains 5,936 effective properties;
+- generated getters still encode their decimal stable IDs in the verified
+  ARM64 thunk before tail-branching to the typed property reader.
 
-The preset host literal is `setabprops`. WATweaks now feeds
-`whatsapp://setabprops/<group>` through `WADeepLinkParser`, requires the parsed
-object to be a `WAABPropDeepLink`, and then invokes its public Objective-C
-handler. No preset pair is copied into the Developer hook and no StartupConfigs
-writer is substituted for the app's consumer.
+## Reconstructed native class contract
 
-## Preset groups
+The first reconstruction incorrectly compiled the removed class as a subclass
+of `WAGRABPropsBrowserVC`. That preserved only a class name; it did not restore
+the WhatsApp controller family or its table/search lifecycle.
 
-The compiled group identifiers are:
+The corrected implementation registers
+`WADebugABPropertiesTableViewController` with `objc_allocateClassPair`, using
+the loaded `WAStaticTableViewController` as its real superclass. This avoids an
+SDK-time private-framework link while producing the same runtime superclass
+relationship used by WhatsApp's debug controllers. Its initializer retains the
+exact `WAContextMain` and `WAContext.abProperties` objects supplied by the
+native Developer controller.
 
-1. `smbmktmsgs`
-2. `smbmetaverifiedphase1a`
-3. `smbmetaverifiedphase1b`
-4. `smbbusinessassistant`
-5. `mv_storekit2`
-6. `mv_partner_billing`
-7. `iap_codegen_and_parse_errors`
-8. `smb_premium_broadcast`
-9. `disable_smb_premium_broadcast`
-10. `smb_send_limit`
-11. `disable_smb_send_limit`
-12. `consumer_bl_capping`
-13. `disable_consumer_bl_capping`
+The contract is supported by two independent sources:
 
-`smbbusinessassistant` is a genuine `Array.empty` entry in this RC. It remains
-visible because it is present in WhatsApp's native array; WATweaks does not
-invent AI flags. Partner Billing and the dynamically interpolated
-`smb_subscription_config` are consequently owned by the native consumer too.
+- the current 26.33 Mach-O retains `WAStaticTableViewController`,
+  `WATableSection`, `WATableRow`, `WASearchController`,
+  `WADebugInputViewController`, and the Swift
+  `WADebugKeyValueTableViewCell` class;
+- the public WhatsApp class dump at
+  `IlannM/WhatsAppHeaders` records
+  `WADebugViewController : WAStaticTableViewController
+  <WASearchControllerDelegate>` and the complete search delegate selector
+  family. Its `WADebugInputViewController` header records
+  `initWithCompletionHandler:`, `initialText`, `keyboardType`, and
+  `possibleValues`.
 
-## Developer, Internal, MobileConfig, Dogfood, and Bug Report
-
-The native menu hook prepares the exact gates before WhatsApp calls its own
-section builders. This order matters: changing them after `createSections`
-cannot resurrect rows that the app already skipped.
-
-| Surface | Native owner / effective gates |
-|---|---|
-| Developer | `DebugMenuProvider` and `WADebugViewController` |
-| MobileConfig / Internal settings | `waios_mc_debug_ui_enabled`, `whatsbroken_enabled` and the original plugin/section builders |
-| Private Experimentation | native Swift controller plus `privateABProperties` from the account `userContext` |
-| Dogfood | `dogfooding_nudge_settings_entrypoint_enabled`, banner/privacy/task-ID gates |
-| Bug Report / Rage Shake | `ios_internal_in_app_bug_reporting_enable`, `ios_internal_rage_shake_enabled` and native `WABugReport` / `WARageShakeSheetObjCBridge` |
-| WAMO | `wamo_enabled`, `wamo_debug_tool_enabled`, tester/employee and demo gates |
-| Debug build identity | `KmpAppleBuildInfo -getBuildType` with the real debug enum |
-
-The Developer `AB Props` section remains the original `WATableSection`. Its RC
-warning rows are atomically replaced by 13 native deep-link actions, the native
-Private Experimentation controller, and the explicitly requested WATweaks
-backup utility. The removed historical table controller is not falsely claimed
-to exist.
-
-The context instrumentation is read-only. In particular, it no longer changes
-`isPrimaryDevice` and no longer fabricates an empty `debugPropOverrides`
-dictionary.
-
-## Export crash and regression guard
-
-Build 580 crashed while exporting on a global user-initiated queue:
+At hook installation, only the missing historical navigation contract is
+restored on `WADebugViewController`:
 
 ```text
-SharedModules -[WAPropertiesStore init] + 0x8c
-WAGRRuntimeValueRead + 1536
-WAGRABPropsCurrentValue + 172
+showABProperties
+    -> showABPropertiesTable
+        -> WAContext.abProperties
+        -> WADebugABPropertiesTableViewController
 ```
 
-The old catalog treated any zero-argument supported-return method as a getter.
-Its broad stable-ID search crossed ordinary method instructions and admitted
-`-[WAPropertiesStore init]`; Export then called the initializer as a property
-getter off-main, producing `EXC_BREAKPOINT / SIGTRAP`.
+If either selector unexpectedly exists with a non-stub implementation in a
+later build, WATweaks leaves it untouched. Replacement is permitted only when
+the method is absent or shares the verified RC no-op IMP used by
+`resetAllOverriddenABProps`.
 
-The fixed catalog only accepts the verified 26.33 generated-getter thunk:
+`createSections` continues to come from WhatsApp. Its machine code creates the
+`AB Props` section and one row with `-[WATableSection addDefaultTableRow]` before
+configuring the release-candidate warning. WATweaks reuses that exact section
+and row object, replaces only the removed label/handler, and clears the obsolete
+warning footer. It does not call `setRows:`, append rows, inject presets,
+Private Experimentation, Export/Import, or another root menu into that section.
 
-```text
-ADRP x2, stableIDCFString@PAGE
-ADD  x2, x2, stableIDCFString@PAGEOFF
-[optional default in x3]
-B    typed *ForKey:defaultValue: implementation
-```
+The recreated table scans only the exact account `WAABProperties` receiver.
+Only selectors with a stable ID decoded from the generated getter thunk enter
+the native `WATableSection` / `WATableRow` model. Rows use
+`WADebugKeyValueTableViewCell`; search is provided by
+`WASearchControllerDelegate`; and selection opens
+`WADebugInputViewController`, including its native `possibleValues` list for
+booleans. Families come from the generated selector namespace and do not use a
+bundled stale catalog.
 
-Lifecycle selectors are independently denied by the generic runtime store.
-Runtime-object resolution, catalog scanning, every live getter read, native
-mapping, and native write/rollback are marshalled to the main thread. JSON
-serialization and file I/O remain off-main.
+Effective getter values are read lazily for visible native rows, visible search
+results, or the selected editor. The controller does not eagerly call thousands
+of generated getters while constructing its static sections. Typed editing uses the verified native
+path `stable ID -> WAMCEvaluation -> FBMobileConfigStartupConfigs`, requires
+App Group persistence, invalidates the account UserSession, and confirms the
+effective getter. A tracked override can be cleared through the native editable
+row. There is no WAAB method-swizzle fallback.
 
-## Portable export/import
+## Why build 581 failed
 
-The config document records class, selector, class/instance method, encoding,
-image, stable ID, effective value, and verified override state for each
-validated generated getter. Import still offers:
+Build 581 did not recreate the removed controller. It replaced the native
+section with thirteen WATweaks rows and guessed three URL shapes for each
+compiled preset group. Device screenshots prove that `WADeepLinkParser`
+returned no `WAABPropDeepLink` for those URLs. Those guessed URLs, the custom
+“Native Debug Presets” controller, and its bridge have been removed.
 
-- restore only exported overrides;
-- apply the full importable effective snapshot.
+The thirteen `Set ABProps` artifacts still exist in the executable, but that
+fact is not equivalent to a supported public URL grammar. Several tuple names
+are no longer generated WAAB getters in this RC, and Business Assistant is an
+actual empty array. They are retained as reverse-engineering evidence only;
+they are not presented as working Developer actions.
 
-Both modes revalidate class/selector/stable-ID/native mapping before the first
-write. They do not edit `gabp.*p` or manufacture `mc_overrides.json`.
+## Other internal surfaces
+
+Developer, Private Experimentation, MobileConfig, WAMO, Dogfood, Bug Report,
+and Rage Shake remain separate owners. Their surviving native gates and
+controllers are prepared before WhatsApp builds its sections. None of those
+surfaces substitutes for `WADebugABPropertiesTableViewController`.
+
+Export/Import remains available in the WATweaks ABProps utility area because it
+was explicitly requested, but it is no longer injected into WhatsApp's native
+Developer `AB Props` section.

@@ -73,6 +73,8 @@ jobs:
             src/Menu/WAGRABPropsFilteredBrowserVC.m
             src/Menu/WAGRABPropsRootVC.m
             src/Menu/WAGRABPropsBrowserVC.m
+            src/Menu/WADebugABPropertiesTableViewController.h
+            src/Menu/WADebugABPropertiesTableViewController.m
             src/Menu/WAGRABPropsABTLabVC.h
             src/Menu/WAGRABPropsABTLabVC.m
             src/Menu/WAGRABPropsLiveCorrelation.m
@@ -119,6 +121,26 @@ jobs:
           grep -q 'imp_implementationWithBlock' src/Runtime/WAGRRuntimeValueStore.m
           grep -q 'class_copyMethodList' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'WAGRPresentRuntimeValueEditor' src/Menu/WAGRABPropsBrowserVC.m
+          grep -q 'WAGRPresentABPropsNativeEditor' src/Menu/WAGRABPropsBrowserVC.m
+          grep -q 'WAGRABPropsNativeSetOverride' src/Menu/WAGRABPropsBrowserVC.m
+          grep -q 'objc_allocateClassPair' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'NSClassFromString(@"WAStaticTableViewController")' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'NSClassFromString(@"WATableSection")' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'NSClassFromString(@"WATableRow")' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q '_TtC15WADebugMenuBase28WADebugKeyValueTableViewCell' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'NSClassFromString(@"WADebugInputViewController")' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'NSClassFromString(@"WASearchController")' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'tableView:willDisplayCell:forRowAtIndexPath:' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q '"v24@0:8@?16"' src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'WAGRABPropsNativeSetOverride' src/Menu/WADebugABPropertiesTableViewController.m
+          ! grep -q 'WAGRABPropsBrowserVC' src/Menu/WADebugABPropertiesTableViewController.h src/Menu/WADebugABPropertiesTableViewController.m
+          grep -q 'WAGRInstallABPropertiesNavigationMethods' src/Hooks/WAGRNativeDevMenuHooks.xm
+          grep -q 'showABPropertiesTable' src/Hooks/WAGRNativeDevMenuHooks.xm
+          grep -q 'id row = existingRow' src/Hooks/WAGRNativeDevMenuHooks.xm
+          ! grep -n 'WAGRNativeVoidObjectArg(section, @"setRows:"' src/Hooks/WAGRNativeDevMenuHooks.xm
+          ! grep -R -n -E 'WADeepLinkParser|whatsapp://setabprops|Native Debug Presets|WAGRABPropsPresetsVC' \
+              src/Hooks/WAGRNativeDevMenuHooks.xm src/Menu/WAGRABPropsRootVC.m \
+              src/Menu/WAGRFeatureBundlesVC.m
           grep -q 'WAGRABPropsABTLiveFetchVariant' src/Runtime/WAGRABPropsABTForceFull.m
           grep -q 'WAGRABPropsABTVariantFullEmptyHash' src/Runtime/WAGRABPropsABTForceFull.m
           grep -q 'WAGRABPropsStableIDForTarget' src/Menu/WAGRRuntimeBrowsersGlassUI.m

@@ -1,8 +1,10 @@
 #import "WAGRABPropsBrowserVC.h"
 #import "WAGRMenuTheme.h"
+#import "WAGRABPropsNativeEditor.h"
 #import "WAGRRuntimeValueEditor.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsABTLiveService.h"
+#import "../Runtime/WAGRABPropsNativeOverrideEngine.h"
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRSurface.h"
 #import <objc/runtime.h>
@@ -20,6 +22,7 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 
 @interface WAGRABPropsBrowserVC ()
 @property(nonatomic, strong) id userContext;
+@property(nonatomic, strong) id explicitABProperties;
 @property(nonatomic, strong) NSArray *runtimeObjects;
 @property(nonatomic, strong) NSArray<WAGRABPropEntry *> *allEntries;
 @property(nonatomic, strong) NSArray<NSString *> *sectionKeys;
@@ -38,17 +41,50 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 @implementation WAGRABPropsBrowserVC
 
 - (instancetype)initWithUserContext:(id)userContext {
+    return [self initWithUserContext:userContext abProperties:nil];
+}
+
+- (instancetype)initWithUserContext:(id)userContext abProperties:(id)abProperties {
     self = [super initWithStyle:UITableViewStyleInsetGrouped];
     if (!self) return nil;
     _userContext = userContext;
+    _explicitABProperties = abProperties;
     _runtimeObjects = @[];
     _allEntries = @[];
     _sectionKeys = @[];
     _sections = @{};
     _nativeEntriesBySelector = @{};
     _lastFetchNote = @"";
-    self.title = @"WAAB Runtime";
+    self.title = [self wagrInitialABPropertiesTitle];
     return self;
+}
+
+- (NSString *)wagrInitialABPropertiesTitle {
+    return @"WAAB Runtime";
+}
+
+- (NSString *)wagrABPropertiesTitleForEntryCount:(NSUInteger)entryCount {
+    return [NSString stringWithFormat:@"WAAB (%lu)", (unsigned long)entryCount];
+}
+
+- (BOOL)wagrUsesNativeABPropertiesWriter {
+    return NO;
+}
+
+- (BOOL)wagrAllowsRuntimeABPropertiesFallback {
+    return YES;
+}
+
+- (BOOL)wagrScopesToExplicitABProperties {
+    return NO;
+}
+
+- (BOOL)wagrShowsABTFetchControl {
+    return YES;
+}
+
+- (BOOL)wagrShowsDiagnosticFooter {
+    return YES;
 }
 
 - (void)viewDidLoad {
@@ -73,10 +109,14 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
         target:self action:@selector(scanNow)];
-    self.fetchButton = [[UIBarButtonItem alloc]
-        initWithTitle:@"Fetch" style:UIBarButtonItemStyleDone
-        target:self action:@selector(fetchNow)];
-    self.navigationItem.rightBarButtonItems = @[refresh, self.fetchButton];
+    if ([self wagrShowsABTFetchControl]) {
+        self.fetchButton = [[UIBarButtonItem alloc]
+            initWithTitle:@"Fetch" style:UIBarButtonItemStyleDone
+            target:self action:@selector(fetchNow)];
+        self.navigationItem.rightBarButtonItems = @[refresh, self.fetchButton];
+    } else {
+        self.navigationItem.rightBarButtonItem = refresh;
+    }
 
     UIRefreshControl *pull = [UIRefreshControl new];
     [pull addTarget:self action:@selector(scanNow) forControlEvents:UIControlEventValueChanged];
@@ -169,10 +209,23 @@ static BOOL WAGRABDocumentsIdentifySameStoreState(NSDictionary *left,
     self.title = @"Lendo WAAB + cache…";
 
     id context = self.userContext;
+    id exactABProperties = self.explicitABProperties;
+    // WAContext/WAContextMain getters are account/session owned. Resolve that
+    // object graph on the main thread, then do only method-list decoding and
+    // store parsing on the worker queue. The reconstructed native Developer
+    // controller always supplies WAContext.abProperties explicitly.
+    NSMutableOrderedSet *resolvedObjects = [NSMutableOrderedSet orderedSet];
+    if (exactABProperties) [resolvedObjects addObject:exactABProperties];
+    if (![self wagrScopesToExplicitABProperties] || !exactABProperties) {
+        for (id object in WAGRABPropsResolveRuntimeObjects(context)) {
+            if (object) [resolvedObjects addObject:object];
+        }
+    }
+    NSArray *accountRuntimeObjects = resolvedObjects.array ?: @[];
     NSDictionary *verifiedDocument = self.verifiedABTFetchResult.count
         ? self.verifiedABTFetchResult[@"effective_snapshot"] : nil;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSArray *objects = WAGRABPropsResolveRuntimeObjects(context);
+        NSArray *objects = accountRuntimeObjects;
         NSArray<WAGRABPropEntry *> *entries = WAGRABPropsScan(objects);
         NSError *snapshotError = nil;
         // Always reread the exact WAPropertiesStore. A previously verified
@@ -294,8 +347,7 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
         case WAGRABBrowserScopeObject:
             return WAGRRuntimeValueTypeIsObject(entry.typeCode);
         case WAGRABBrowserScopeOverrides:
-            return WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
-                                               entry.classMethod);
+            return YES;
     }
     return YES;
 }
@@ -306,8 +358,17 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
     WAGRABBrowserScope scope = (WAGRABBrowserScope)self.searchController.searchBar.selectedScopeButtonIndex;
 
     NSMutableArray<WAGRABPropEntry *> *filtered = [NSMutableArray array];
+    NSDictionary<NSString *, id> *nativeOverrides = [self wagrUsesNativeABPropertiesWriter]
+        ? WAGRABPropsNativeTrackedOverrides() : @{};
     for (WAGRABPropEntry *entry in self.allEntries) {
         if (!WAGRABEntryMatchesScope(entry, scope)) continue;
+        if (scope == WAGRABBrowserScopeOverrides) {
+            BOOL hasOverride = [self wagrUsesNativeABPropertiesWriter]
+                ? (entry.stableID.length && nativeOverrides[entry.stableID] != nil)
+                : WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
+                                              entry.classMethod);
+            if (!hasOverride) continue;
+        }
         NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
         NSString *liveFamily = WAGRLiveRuntimeFamilyForSelector(entry.selectorName,
                                                                  entry.className);
@@ -335,7 +396,7 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
                         @selector(localizedCaseInsensitiveCompare:)];
     self.sections = groups;
 
-    self.title = [NSString stringWithFormat:@"WAAB (%lu)", (unsigned long)filtered.count];
+    self.title = [self wagrABPropertiesTitleForEntryCount:filtered.count];
     [self.tableView reloadData];
 }
 
@@ -376,13 +437,18 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
 }
 
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (![self wagrShowsDiagnosticFooter]) return nil;
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
     BOOL verified = self.verifiedABTFetchResult.count > 0;
+    NSString *writer = [self wagrUsesNativeABPropertiesWriter]
+        ? @"Esta reconstrução usa exclusivamente FBMobileConfigStartupConfigs, exige persistência no App Group, invalida o UserSession e confirma o getter efetivo; não instala swizzle."
+        : @"O editor WAAB independente oferece o fallback runtime explicitamente identificado quando solicitado.";
     NSString *base = [NSString stringWithFormat:
-        @"WAAB = getters Objective-C avaliados ao recarregar as linhas. O ABT source é relido do WAPropertiesStore exato em cada scan/pull-to-refresh. Fonte atual = %@ store da conta, %lu props; %lu getters têm correlação por stable ID. Toque abre o editor tipado de FBMobileConfigStartupConfigs em memória; RUNTIME identifica apenas o fallback por swizzle. Nenhum deles afirma escrita física no App Group.",
+        @"WAAB = getters Objective-C reais avaliados ao recarregar. O ABT source é relido do WAPropertiesStore exato. Fonte atual = %@ store da conta, %lu props; %lu getters têm correlação por stable ID. %@",
         verified ? @"SERVER-VERIFICADA no" : @"cache local exato do",
         (unsigned long)[self.nativeDocument[@"prop_count"] unsignedIntegerValue],
-        (unsigned long)self.nativeEntriesBySelector.count];
+        (unsigned long)self.nativeEntriesBySelector.count,
+        writer];
     return self.lastFetchNote.length
         ? [base stringByAppendingFormat:@"\n%@", self.lastFetchNote]
         : base;
@@ -427,24 +493,40 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
 
     id raw = nil;
     NSString *current = WAGRABPropsCurrentValue(entry, self.runtimeObjects, &raw);
-    BOOL overridden = WAGRRuntimeValueHasOverride(entry.className,
-                                                   entry.selectorName,
-                                                   entry.classMethod);
-    BOOL installed = overridden && WAGRRuntimeValueHookIsInstalled(entry.className,
-                                                                    entry.selectorName,
-                                                                    entry.classMethod);
-    id forced = WAGRRuntimeValueOverride(entry.className,
-                                         entry.selectorName,
-                                         entry.classMethod);
+    BOOL nativeWriter = [self wagrUsesNativeABPropertiesWriter];
+    NSDictionary<NSString *, id> *nativeOverrides = nativeWriter
+        ? WAGRABPropsNativeTrackedOverrides() : @{};
+    id nativeForced = entry.stableID.length ? nativeOverrides[entry.stableID] : nil;
+    BOOL overridden = nativeWriter
+        ? (nativeForced != nil)
+        : WAGRRuntimeValueHasOverride(entry.className,
+                                      entry.selectorName,
+                                      entry.classMethod);
+    BOOL installed = nativeWriter
+        ? overridden
+        : (overridden && WAGRRuntimeValueHookIsInstalled(entry.className,
+                                                          entry.selectorName,
+                                                          entry.classMethod));
+    id forced = nativeWriter
+        ? nativeForced
+        : WAGRRuntimeValueOverride(entry.className,
+                                   entry.selectorName,
+                                   entry.classMethod);
     NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
 
     cell.textLabel.text = [NSString stringWithFormat:@"%@%@",
         entry.classMethod ? @"+ " : @"- ", entry.selectorName];
 
-    NSString *state = overridden
-        ? (installed ? @"RUNTIME INSTALLED" : @"RUNTIME PENDING") : @"ORIGINAL";
+    NSString *state = nativeWriter
+        ? (overridden ? @"STARTUPCONFIGS OVERRIDE" : @"EFFECTIVE")
+        : (overridden ? (installed ? @"RUNTIME INSTALLED" : @"RUNTIME PENDING")
+                      : @"ORIGINAL");
     NSMutableString *detail = [NSMutableString stringWithFormat:@"Atual: %@%@ · %@",
-        current ?: @"?", WAGRABOverrideDescription(forced, overridden), state];
+        current ?: @"?",
+        nativeWriter
+            ? (overridden ? [NSString stringWithFormat:@" · NATIVE %@", forced ?: @"nil"] : @"")
+            : WAGRABOverrideDescription(forced, overridden),
+        state];
     if (native) {
         [detail appendFormat:@"\nAB #%@ · %@ %@",
             native[@"code"] ?: @"?",
@@ -515,6 +597,31 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     WAGRABPropEntry *entry = objc_getAssociatedObject(sender, kWAGRABSwitchEntryKey);
     if (!entry) return;
     BOOL requested = sender.isOn;
+    if ([self wagrUsesNativeABPropertiesWriter]) {
+        sender.enabled = NO;
+        NSError *error = nil;
+        NSString *diagnostic = nil;
+        BOOL applied = entry.stableID.length &&
+            WAGRABPropsNativeSetOverride(entry.stableID, @(requested), self.userContext,
+                                         &error, &diagnostic);
+        sender.enabled = YES;
+        if (!applied) {
+            id raw = nil;
+            WAGRABPropsCurrentValue(entry, self.runtimeObjects, &raw);
+            sender.on = [raw respondsToSelector:@selector(boolValue)]
+                ? [raw boolValue] : !requested;
+            UIAlertController *alert = [UIAlertController
+                alertControllerWithTitle:@"AB Properties"
+                message:error.localizedDescription ?: diagnostic ?:
+                    @"O writer nativo rejeitou o override. Nenhum swizzle foi instalado."
+                preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+                style:UIAlertActionStyleCancel handler:nil]];
+            [self presentViewController:alert animated:YES completion:nil];
+        }
+        [self scanNow];
+        return;
+    }
     WAGRRuntimeValueSetOverride(entry.className, entry.selectorName,
                                 entry.classMethod, entry.typeCode, @(requested));
     BOOL installed = WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
@@ -539,9 +646,30 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
 
 - (void)presentEditorForEntry:(WAGRABPropEntry *)entry fromView:(UIView *)sourceView {
     if (!entry) return;
+    __weak typeof(self) weakSelf = self;
+    if ([self wagrUsesNativeABPropertiesWriter]) {
+        dispatch_block_t runtimeFallback = nil;
+        if ([self wagrAllowsRuntimeABPropertiesFallback]) {
+            runtimeFallback = ^{
+                id raw = nil;
+                NSString *current = WAGRABPropsCurrentValue(
+                    entry, weakSelf.runtimeObjects, &raw);
+                WAGRPresentRuntimeValueEditor(
+                    weakSelf, sourceView, entry.className, entry.selectorName,
+                    entry.classMethod, entry.typeCode, current, raw, ^{
+                        [weakSelf applyCurrentFilter];
+                    });
+            };
+        }
+        WAGRPresentABPropsNativeEditor(
+            self, sourceView, entry, self.runtimeObjects, self.userContext,
+            entry.stableID, runtimeFallback, ^{
+                [weakSelf scanNow];
+            });
+        return;
+    }
     id raw = nil;
     NSString *current = WAGRABPropsCurrentValue(entry, self.runtimeObjects, &raw);
-    __weak typeof(self) weakSelf = self;
     WAGRPresentRuntimeValueEditor(self, sourceView,
         entry.className, entry.selectorName, entry.classMethod, entry.typeCode,
         current, raw, ^{

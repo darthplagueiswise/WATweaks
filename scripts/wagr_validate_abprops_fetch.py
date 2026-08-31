@@ -23,12 +23,12 @@ MC_NATIVE = ROOT / "src/Runtime/WAGRMobileConfigNativeEngine.m"
 RELEASE_LINKAGE = ROOT / "src/Runtime/WAGRABPropsReleaseNativeLinkage.m"
 MC_EXPORT = ROOT / "src/Menu/WAGRMobileConfigExportVC.m"
 DEV_MENU = ROOT / "src/Hooks/WAGRNativeDevMenuHooks.xm"
-PRESETS_UI = ROOT / "src/Menu/WAGRABPropsPresetsVC.m"
+RECREATED_ABPROPS_H = ROOT / "src/Menu/WADebugABPropertiesTableViewController.h"
+RECREATED_ABPROPS = ROOT / "src/Menu/WADebugABPropertiesTableViewController.m"
 CONFIG_UI = ROOT / "src/Menu/WAGRABPropsConfigVC.m"
 AB_RUNTIME = ROOT / "src/Runtime/WAGRABPropsRuntime.m"
 AB_STABLE_ID = ROOT / "src/Runtime/WAGRABPropsStableIDResolver.m"
 RUNTIME_VALUES = ROOT / "src/Runtime/WAGRRuntimeValueStore.m"
-NATIVE_PRESET_BRIDGE = ROOT / "src/Runtime/WAGRABPropsNativePresetBridge.h"
 DEBUG_LAUNCHER = ROOT / "src/Hooks/WAGRDebugMenuLauncher.xm"
 
 
@@ -68,12 +68,12 @@ def main() -> int:
     release_linkage = read(RELEASE_LINKAGE, errors)
     mc_export = read(MC_EXPORT, errors)
     dev_menu = read(DEV_MENU, errors)
-    presets_ui = read(PRESETS_UI, errors)
+    recreated_abprops_h = read(RECREATED_ABPROPS_H, errors)
+    recreated_abprops = read(RECREATED_ABPROPS, errors)
     config_ui = read(CONFIG_UI, errors)
     ab_runtime = read(AB_RUNTIME, errors)
     ab_stable_id = read(AB_STABLE_ID, errors)
     runtime_values = read(RUNTIME_VALUES, errors)
-    native_preset_bridge = read(NATIVE_PRESET_BRIDGE, errors)
     debug_launcher = read(DEBUG_LAUNCHER, errors)
 
     # The legacy force-full symbol is a compatibility adapter only. It must use
@@ -294,29 +294,30 @@ def main() -> int:
         require(mc_export, token, "WAGRMobileConfigExportVC.m", errors)
     reject(mc_export, "Aplicar no mc_overrides.json", "WAGRMobileConfigExportVC.m", errors)
 
-    # WhatsApp 26.33 RC compiles the yellow AB Props placeholder directly into
-    # WADebugViewController.createSections, but its 13-group array and stable
-    # WAABPropDeepLink consumer remain. Every group must go through the app's
-    # parser/consumer; Developer may not route into the former custom writer.
+    # WhatsApp 26.33 RC removed WADebugABPropertiesTableViewController and the
+    # showABProperties navigation chain while leaving WAContext.abProperties and
+    # a release-candidate warning in createSections. The tweak must recreate the
+    # missing runtime contract; it may not replace AB Props with preset rows,
+    # guessed deep links, Private Experimentation, or WATweaks utilities.
     for token in (
-        "watweaks_native_setabprops_deeplink_v26_33",
+        "watweaks_recreated_wadebug_abproperties_native_v2",
         "hookDebugVCCreateSections",
         "createSections",
         "v16@0:8",
-        "Private Experimentation Debug",
-        "Export / Import ABProps Config · WATweaks",
-        "privateABProperties",
-        "addTableRowWithCellStyle:",
-        "setRows:",
+        "WAGRInstallABPropertiesNavigationMethods",
+        "showABProperties",
+        "showABPropertiesTable",
+        "class_addMethod",
+        "class_replaceMethod",
+        "resetAllOverriddenABProps",
+        "WAGRNativeABProperties",
+        "WAContext.abProperties",
+        "WADebugABPropertiesTableViewController",
+        "WAGRCreateWADebugABPropertiesTableViewController",
+        "reused native RC row and restored AB Properties",
+        "originalRows.count != 1",
+        "id row = existingRow",
         "setFooterText:",
-        "WADeepLinkParser",
-        "WADeepLinkContext",
-        "WAABPropDeepLink",
-        "inAppNavigationContextWithUserContext:",
-        "deepLinkWithURL:context:",
-        "handleDeepLinkWithRootVC:",
-        "whatsapp://setabprops/%@",
-        "WAGRABPropsRunNativePreset",
         "WAGRPrepareNativeInternalSurfaces",
         "isDebugMenuAllowed",
         "isDebugMenuShortcutEnabled",
@@ -327,10 +328,6 @@ def main() -> int:
         "ios_internal_rage_shake_enabled",
         "dogfooding_nudge_settings_entrypoint_enabled",
         "wamo_debug_tool_enabled",
-        "_TtC29WAPrivateExperimentationViews41PrivateExperimentationDebugViewController",
-        'class_getInstanceVariable(cls, "experimentManager")',
-        'class_getInstanceVariable(cls, "userContext")',
-        "WAContextObjectProvider",
         "WAGRContextSpyInstallForContext(userContext)",
         "WAGRContextSpyInstallForContext(context)",
         "WAGRContextSpyInstallForContext(realCtx)",
@@ -345,46 +342,102 @@ def main() -> int:
         "Current WhatsApp(10)",
         '#import "../Menu/WAGRABPropsRootVC.h"',
         '#import "../Menu/WAGRABPropsPresetsVC.h"',
+        '#import "../Runtime/WAGRABPropsNativePresetBridge.h"',
         "WAGRABPropsNativeSetOverride",
         "Aplicar pelo writer nativo",
         "returning fallback",
         "forced YES for PrivateExp",
+        "WADeepLinkParser",
+        "WADeepLinkContext",
+        "WAABPropDeepLink",
+        "whatsapp://setabprops",
+        "WAGRABPropsRunNativePreset",
+        "WAGRABPropsNativePresetGroups",
+        "Private Experimentation Debug",
+        "Export / Import ABProps Config · WATweaks",
+        "smbmktmsgs",
+        "smbmetaverifiedphase1a",
+        "smb_premium_broadcast",
+        'WAGRNativeVoidObjectArg(section, @"setRows:"',
     ):
         reject(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
 
     for token in (
-        "smbmktmsgs",
-        "smbmetaverifiedphase1a",
-        "smbmetaverifiedphase1b",
-        "smbbusinessassistant",
-        "mv_storekit2",
-        "mv_partner_billing",
-        "iap_codegen_and_parse_errors",
-        "smb_premium_broadcast",
-        "disable_smb_premium_broadcast",
-        "smb_send_limit",
-        "disable_smb_send_limit",
-        "consumer_bl_capping",
-        "disable_consumer_bl_capping",
+        "WAGRInstallWADebugABPropertiesTableViewController",
+        "WAGRCreateWADebugABPropertiesTableViewController",
+        "WAStaticTableViewController",
+        "WAContext.abProperties",
     ):
-        require(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
+        require(recreated_abprops_h, token,
+                "WADebugABPropertiesTableViewController.h", errors)
     for token in (
-        "WAGRABPropsNativePresetGroups",
-        "WAGRABPropsRunNativePreset",
-        "WADeepLinkParser",
-        "WAABPropDeepLink",
-        "não replica pares",
-    ):
-        require(presets_ui + native_preset_bridge, token,
-                "native preset bridge/UI", errors)
-    for token in (
+        "objc_allocateClassPair",
+        "objc_registerClassPair",
+        'NSClassFromString(@"WAStaticTableViewController")',
+        'NSClassFromString(@"WATableSection")',
+        'NSClassFromString(@"WATableRow")',
+        "_TtC15WADebugMenuBase28WADebugKeyValueTableViewCell",
+        'NSClassFromString(@"WADebugInputViewController")',
+        'NSClassFromString(@"WASearchController")',
+        'objc_getProtocol("WASearchControllerDelegate")',
+        'initWithInsetGroupedAndUserContext:',
+        'initWithHostViewController:searchBar:tableStyle:',
+        'searchController:updateResultsForSearchString:',
+        'searchController:cellForRowAtIndexPath:',
+        'tableView:willDisplayCell:forRowAtIndexPath:',
+        'initWithCompletionHandler:',
+        "setPossibleValues:",
+        '"v24@0:8@?16"',
+        '"@40@0:8@16@24q32"',
+        "WAGRABPropsScan(objects)",
         "WAGRABPropsNativeSetOverride",
         "WAGRABPropsNativeClearOverride",
-        "WAGRABPropsStableIDForTarget",
-        "convertSpecifierToParamName",
-        "Aplicar pelo writer nativo",
+        "state.runtimeObjects = objects",
+        "reloadAllSections invokes setUpTableView again",
     ):
-        reject(presets_ui, token, "WAGRABPropsPresetsVC.m", errors)
+        require(recreated_abprops, token,
+                "WADebugABPropertiesTableViewController.m", errors)
+    for token in (
+        '#import "WAGRABPropsBrowserVC.h"',
+        "@interface WADebugABPropertiesTableViewController : WAGRABPropsBrowserVC",
+        "@implementation WADebugABPropertiesTableViewController",
+        "initWithABProperties:",
+        "initWithProperties:",
+        "WAGRPresentRuntimeValueEditor",
+    ):
+        reject(recreated_abprops, token,
+               "WADebugABPropertiesTableViewController.m", errors)
+    for token in (
+        "explicitABProperties",
+        "initWithUserContext:(id)userContext abProperties:(id)abProperties",
+        "NSMutableOrderedSet *resolvedObjects",
+        "if (exactABProperties) [resolvedObjects addObject:exactABProperties]",
+        "if (![self wagrScopesToExplicitABProperties] || !exactABProperties)",
+        "wagrABPropertiesTitleForEntryCount",
+        "WAGRPresentABPropsNativeEditor",
+        "WAGRABPropsNativeSetOverride",
+        "Nenhum swizzle foi instalado",
+    ):
+        require(browser, token, "WAGRABPropsBrowserVC.m", errors)
+
+    for obsolete in (
+        ROOT / "src/Menu/WAGRABPropsPresetsVC.h",
+        ROOT / "src/Menu/WAGRABPropsPresetsVC.m",
+        ROOT / "src/Runtime/WAGRABPropsNativePresetBridge.h",
+    ):
+        if obsolete.exists():
+            errors.append(f"obsolete fabricated preset surface still present: {obsolete.relative_to(ROOT)}")
+
+    combined_ui = dev_menu + root_ui + read(ROOT / "src/Menu/WAGRFeatureBundlesVC.m", errors)
+    for token in (
+        "Native Debug Presets",
+        "WAGRABPropsPresetsVC",
+        "WAGRABPropsNativePresetBridge",
+        "WAGRABPropsRunNativePreset",
+        "WADeepLinkParser",
+        "whatsapp://setabprops",
+    ):
+        reject(combined_ui, token, "Developer/ABProps UI", errors)
 
     # Export crash regression: only verified generated getter thunks enter the
     # catalog, lifecycle selectors are blocked, and live getter/mapping/writer

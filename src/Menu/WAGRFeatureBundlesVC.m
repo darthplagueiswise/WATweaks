@@ -1,7 +1,6 @@
 #import "WAGRFeatureBundlesVC.h"
 #import "WAGRABPropsFilteredBrowserVC.h"
 #import "WAGRMenuTheme.h"
-#import "WAGRABPropsPresetsVC.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsStableIDResolver.h"
 
@@ -140,16 +139,15 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
 }
 
 - (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tableView {
-    return 2;
-}
-
-- (NSInteger)tableView:(__unused UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    if (section == 0) return (NSInteger)self.families.count;
     return 1;
 }
 
+- (NSInteger)tableView:(__unused UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return section == 0 ? (NSInteger)self.families.count : 0;
+}
+
 - (NSString *)tableView:(__unused UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return section == 0 ? @"Catálogo vivo" : @"Modelo";
+    return section == 0 ? @"Catálogo vivo" : nil;
 }
 
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
@@ -166,19 +164,6 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
                                       reuseIdentifier:identifier];
-    }
-
-    if (indexPath.section == 1) {
-        WAGRMenuApplyCellStyle(cell, indexPath.row, @"runtime-model");
-        cell.textLabel.text = @"Native Debug Presets";
-        cell.detailTextLabel.text = @"Abre os 13 conjuntos ‘Set ABProps to …’ recuperados do array Swift nativo desta versão.";
-        cell.imageView.image = WAGRMenuSymbol(@"list.bullet.rectangle.portrait.fill", UIColor.whiteColor);
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
-        cell.textLabel.font = WAGRMenuTitleFont();
-        cell.detailTextLabel.font = WAGRMenuRuntimeDetailFont();
-        cell.detailTextLabel.numberOfLines = 0;
-        return cell;
     }
 
     WAGRLiveFeatureFamily *family = self.families[(NSUInteger)indexPath.row];
@@ -199,12 +184,6 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section == 1) {
-        WAGRABPropsPresetsVC *presets = [[WAGRABPropsPresetsVC alloc]
-            initWithUserContext:WAGRCurrentUserContext()];
-        [self.navigationController pushViewController:presets animated:YES];
-        return;
-    }
     if (indexPath.section != 0 || indexPath.row >= (NSInteger)self.families.count) return;
     WAGRLiveFeatureFamily *family = self.families[(NSUInteger)indexPath.row];
     WAGRABPropsFilteredBrowserVC *browser = [[WAGRABPropsFilteredBrowserVC alloc]
