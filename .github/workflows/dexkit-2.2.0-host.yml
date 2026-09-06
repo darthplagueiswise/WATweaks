@@ -1,0 +1,73 @@
+name: DexKit 2.2.0 Host Toolchain
+
+on:
+  push:
+    branches: [dexkit-2.2.0-host-build]
+    paths: ['.github/workflows/dexkit-2.2.0-host.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build exact DexKit 2.2.0 host native
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ git zlib1g-dev curl unzip
+          git clone --recursive https://github.com/LuckyPray/DexKit /tmp/DexKit
+          cd /tmp/DexKit
+          git checkout ffa6c51c38fe3ecfddb18d8949c30c48dbfbfd6a
+          git submodule update --init --recursive
+          test "$(git rev-parse HEAD)" = "ffa6c51c38fe3ecfddb18d8949c30c48dbfbfd6a"
+          export JAVA_HOME="${JAVA_HOME}"
+          rm -rf /tmp/dexkit-build
+          cmake -S dexkit/src/main/cpp -B /tmp/dexkit-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS_RELEASE='-O3 -DNDEBUG' \
+            -DCMAKE_C_FLAGS_RELEASE='-O3 -DNDEBUG' \
+            -DDEXKIT_ENABLE_INTERNAL_METRICS=ON \
+            -DDEXKIT_ENABLE_INTERNAL_METRICS_API=ON \
+            -DJAVA_HOME="$JAVA_HOME"
+          cmake --build /tmp/dexkit-build
+          mkdir -p "$GITHUB_WORKSPACE/dexkit-host-2.2.0"
+          cp /tmp/dexkit-build/libdexkit.so "$GITHUB_WORKSPACE/dexkit-host-2.2.0/"
+          strip --strip-unneeded "$GITHUB_WORKSPACE/dexkit-host-2.2.0/libdexkit.so"
+          nm -D "$GITHUB_WORKSPACE/dexkit-host-2.2.0/libdexkit.so" | grep -q Java_org_luckypray_dexkit
+
+      - name: Fetch matching Java API and FlatBuffers runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          OUT="$GITHUB_WORKSPACE/dexkit-host-2.2.0"
+          curl -fL 'https://repo.maven.apache.org/maven2/org/luckypray/dexkit/2.2.0/dexkit-2.2.0.aar' -o "$OUT/dexkit-2.2.0.aar"
+          unzip -p "$OUT/dexkit-2.2.0.aar" classes.jar > "$OUT/dexkit-2.2.0-classes.jar"
+          curl -fL 'https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/23.5.26/flatbuffers-java-23.5.26.jar' -o "$OUT/flatbuffers-java-23.5.26.jar"
+          printf '%s\n' \
+            'DexKit version: 2.2.0' \
+            'DexKit commit: ffa6c51c38fe3ecfddb18d8949c30c48dbfbfd6a' \
+            "Runner: $(uname -a)" \
+            "Java: $(java -version 2>&1 | head -1)" \
+            > "$OUT/PROVENANCE.txt"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+          file "$OUT/libdexkit.so" >> "$OUT/PROVENANCE.txt"
+          ldd "$OUT/libdexkit.so" >> "$OUT/PROVENANCE.txt"
+          echo "JNI export count: $(nm -D "$OUT/libdexkit.so" | grep -ic Java_org_luckypray_dexkit)" >> "$OUT/PROVENANCE.txt"
+
+      - name: Upload host toolchain
+        uses: actions/upload-artifact@v6
+        with:
+          name: dexkit-2.2.0-linux-x86_64
+          path: dexkit-host-2.2.0/
+          retention-days: 7
