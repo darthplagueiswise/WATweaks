@@ -301,81 +301,7 @@ static BOOL WAGRWireNativeDeveloperABPropsSection(id debugController) {
     return NO;
 }
 
-static BOOL WAGRNativeInternalSurfacesRequested(void) {
-    return WAGRPref(kWAGRDebugMenuNative) ||
-           WAGRPref(kWAGRInternalMaster) ||
-           WAGRPref(kWAGREmployeeMaster) ||
-           WAGRPref(kWAGRDebugMode) ||
-           (WAGRGateIsSet(@"isInternalUser") && WAGRGateGet(@"isInternalUser")) ||
-           (WAGRGateIsSet(@"isMetaEmployeeOrInternalTester") &&
-            WAGRGateGet(@"isMetaEmployeeOrInternalTester"));
-}
-
-static void WAGRPrepareNativeInternalSurfaces(void) {
-    if (!WAGRNativeInternalSurfacesRequested()) return;
-    // These are the exact 26.33 gates consumed by the original Settings,
-    // MobileConfig, Bug Report/Rage Shake, Dogfood nudge, WAMO and Private
-    // Experimentation paths. They are installed before WhatsApp builds its own
-    // sections, so surviving native rows/controllers are created by the app
-    // instead of being copied into a WATweaks controller.
-    for (NSString *selector in @[
-            @"isDebugMenuAllowed",
-            @"isDebugMenuShortcutEnabled",
-            @"isInternalUser",
-            @"isDebugBuild",
-            @"isMetaEmployeeOrInternalTester",
-            @"is_meta_employee_or_internal_tester",
-            @"is_internal",
-            @"is_internal_tester",
-            @"_is_employee",
-            @"wamo_is_employee",
-            @"wamo_is_internal_tester",
-            @"wamo_enabled",
-            @"wamo_debug_tool_enabled",
-            @"wamo_include_demo",
-            @"waios_mc_debug_ui_enabled",
-            @"whatsbroken_enabled",
-            @"private_abprop_for_dev_only",
-            @"private_experimentation_should_sync",
-            @"private_experimentation_use_acs_config_id",
-            @"dogfooding_nudge_settings_entrypoint_enabled",
-            @"dogfooding_nudge_banner_home_screen_enabled",
-            @"username_dogfooding_pn_privacy_enabled",
-            @"give_dogfooders_task_id_for_bug_reporting",
-            @"ios_internal_in_app_bug_reporting_enable",
-            @"ios_internal_rage_shake_enabled",
-            @"groups_member_recommendations_debug_ui",
-            @"ig_fb_dogfooder",
-            @"hn_dogfooding",
-            @"malibu_dogfooding",
-    ]) {
-        if (!WAGRGateIsSet(selector) || !WAGRGateGet(selector)) {
-            WAGRGateSet(selector, YES);
-        }
-    }
-    for (NSString *selector in @[
-            @"serverPropsDisableExperimental",
-            @"graphQLEmployeeC1Disabled",
-            @"ios_contact_suggestions_internal_tool_exclude_employees_enabled",
-    ]) {
-        if (!WAGRGateIsSet(selector) || WAGRGateGet(selector)) {
-            WAGRGateSet(selector, NO);
-        }
-    }
-
-    // These installers are intentionally retried: several Swift/ObjC images
-    // load after the tweak constructor, and an early failed class lookup must
-    // not permanently mark native internal surfaces as prepared.
-    WAGRDebugBuildEnsureInstalled();
-    WAGRDogfoodKnownWAABEnsureInstalled();
-    WAGRGateHooksEnsureInstalled();
-    NSUInteger installed = WAGRWAABInstallHooksForAllRuntimeImages();
-    WAGRLogAppendF(@"[NativeInternal] prepared original Debug/Dogfood/BugReport/MobileConfig gates; WAAB hooks=%lu",
-                   (unsigned long)installed);
-}
-
 static void hookDebugVCCreateSections(id self, SEL _cmd) {
-    WAGRPrepareNativeInternalSurfaces();
     WAGRInstallABPropertiesNavigationMethods([self class]);
     if (orig_debugVCCreateSections) orig_debugVCCreateSections(self, _cmd);
     WAGRWireNativeDeveloperABPropsSection(self);
@@ -676,8 +602,6 @@ extern "C" void WAGRContextSpyInstallForContext(id ctx) {
 // Returns YES if any relevant master pref or runtime-browser gate is ON.
 static BOOL WAGRNativeDevAllowed(void) {
     if (WAGRPref(kWAGRDebugMenuNative)
-        || WAGRPref(kWAGRInternalMaster)
-        || WAGRPref(kWAGREmployeeMaster)
         || WAGRPref(kWAGRDebugMode)) {
         return YES;
     }
@@ -714,7 +638,6 @@ static BOOL classHasClassMethod(Class cls, SEL sel) {
 
 // ── Installer ────────────────────────────────────────────────────────────────
 static void installNativeDevMenuHooks(void) {
-    WAGRPrepareNativeInternalSurfaces();
     installUserContextCaptureHooks();
     WAGRDebugMenuInstrumentationEnsureInstalled();
     if (gDevMenuHooked && gShortcutHooked) return;

@@ -77,8 +77,7 @@ static NSString *WAGRABFastBoundedValue(id value) {
 static NSString *WAGRABFastFamily(WAGRABPropEntry *entry) {
     NSString *cached = objc_getAssociatedObject(entry, kWAGRABFastFamilyKey);
     if (cached) return cached;
-    NSString *family = WAGRLiveRuntimeFamilyForSelector(entry.selectorName,
-                                                         entry.className);
+    NSString *family = entry.categoryName;
     if (!family.length) family = @"Other Runtime";
     objc_setAssociatedObject(entry, kWAGRABFastFamilyKey, family,
                              OBJC_ASSOCIATION_COPY_NONATOMIC);

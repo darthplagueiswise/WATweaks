@@ -233,7 +233,15 @@
         self.scanButton.enabled = YES;
         self.exportButton.enabled = YES;
         BOOL verified = [result[@"verified_server_response"] boolValue];
-        [self setStatus:verified ? @"Server response verified; rescan schema if needed." : @"Fetch ended without verified server response." progress:1.0f];
+        NSDictionary *artifacts = [result[@"artifacts_after"] isKindOfClass:NSDictionary.class]
+            ? result[@"artifacts_after"] : @{};
+        NSDictionary *names = [artifacts[@"id_name_mapping"] isKindOfClass:NSDictionary.class]
+            ? artifacts[@"id_name_mapping"] : @{};
+        NSString *status = verified
+            ? ([names[@"exists"] boolValue] ? @"Fetch nativo confirmado · params names disponíveis para exportar."
+                                            : @"Fetch nativo confirmado · servidor/repositório ainda não materializou params names.")
+            : @"Fetch sem confirmação nativa · consulte rota, account state e artifacts no resultado.";
+        [self setStatus:status progress:1.0f];
         NSData *data = [NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:nil];
         NSString *text = data.length ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : [result description];
         [self showAlert:verified ? @"MobileConfig fetch ✓" : @"MobileConfig fetch" message:text ?: @""];
@@ -252,7 +260,7 @@
 #pragma mark - Export menu
 
 - (void)showExportMenu:(UIBarButtonItem *)sender {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"MobileConfig 26.33"
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"MobileConfig 26.40.10"
         message:@"Native artifacts are read-only exports. Custom artifacts are generated separately. No action writes mc_overrides.json."
         preferredStyle:UIAlertControllerStyleActionSheet];
     __weak typeof(self) weakSelf = self;

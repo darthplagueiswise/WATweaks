@@ -370,8 +370,7 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
             if (!hasOverride) continue;
         }
         NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
-        NSString *liveFamily = WAGRLiveRuntimeFamilyForSelector(entry.selectorName,
-                                                                 entry.className);
+        NSString *liveFamily = entry.categoryName;
         NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@",
             liveFamily ?: @"", entry.categoryName ?: @"", entry.selectorName ?: @"",
             entry.className ?: @"", entry.typeName ?: @"", entry.sourceImage ?: @"",
@@ -386,8 +385,7 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
     NSMutableDictionary<NSString *, NSMutableArray<WAGRABPropEntry *> *> *groups =
         [NSMutableDictionary dictionary];
     for (WAGRABPropEntry *entry in filtered) {
-        NSString *family = WAGRLiveRuntimeFamilyForSelector(entry.selectorName,
-                                                             entry.className);
+        NSString *family = entry.categoryName;
         if (!family.length) family = @"Other Runtime";
         if (!groups[family]) groups[family] = [NSMutableArray array];
         [groups[family] addObject:entry];

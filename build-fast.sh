@@ -71,7 +71,7 @@ echo -e '\033[1m\033[32mPackaging IPA (cyan)\033[0m'
 rm -f "$OUT_IPA"
 cyan -i "packages/${ipaFile}" \
 	-o "$OUT_IPA" \
-	-f packages/WATweaks.dylib \
+	-f packages/WATweaks.dylib resources/waab_family_catalog_26_40_10.json \
 	-c $COMPRESSION \
 	-m 16.0 \
 	-du

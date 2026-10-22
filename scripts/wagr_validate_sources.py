@@ -30,6 +30,9 @@ for rel in [
     "src/Menu/WAGRABPropsABTLabVC.m",
     "src/Runtime/WAGRABPropsReleaseNativeLinkage.m",
     "src/Runtime/WAGRMobileConfigNativeEngine.m",
+    "src/Runtime/WAGRWAABFamilyCatalog.h",
+    "src/Runtime/WAGRWAABFamilyCatalog.m",
+    "resources/waab_family_catalog_26_40_10.json",
 ]:
     if not (root / rel).exists():
         errors.append(f"missing {rel}")
@@ -62,6 +65,59 @@ models = read("src/Runtime/WAGRSurface.m")
 for token in ["AB Props", "MobileConfig / arquivos", "Runtime em tempo real"]:
     if token not in menu:
         errors.append(f"WAGRMainSettingsVC.m missing {token}")
+for token in ["Launcher dogfood", "WAGRLaunchNativeDeveloperMenu"]:
+    if token not in menu:
+        errors.append(f"WAGRMainSettingsVC.m missing verified dogfood surface {token}")
+
+# WhatsApp 26.40.10 exposes dogfood through the verified URL/settings nudge.
+# The removed debug-provider/private-experimentation controllers must not be
+# fabricated as launch targets when they are absent from all supplied Mach-O.
+launcher = read("src/Hooks/WAGRDebugMenuLauncher.xm")
+if "https://fburl.com/df_iphone" not in launcher:
+    errors.append("dogfood launcher missing verified https://fburl.com/df_iphone URL")
+for obsolete in ("DebugMenuProvider", "WADebugViewController", "PrivateExperimentationDebugViewController"):
+    if obsolete in launcher:
+        errors.append(f"dogfood launcher still assumes absent native class {obsolete}")
+for unsafe in ("wagr_bootstrapPrivateExpInternalGates", "WAGRGateSet("):
+    if unsafe in launcher:
+        errors.append(f"dogfood launcher still manufactures eligibility via {unsafe}")
+
+employee = read("src/Hooks/WAGREmployeeHooks.xm")
+native_menu = read("src/Hooks/WAGRNativeDevMenuHooks.xm")
+gate_hooks = read("src/Hooks/WAGRGateHooks.xm")
+for text, location, forbidden in (
+    (employee, "WAGREmployeeHooks.xm", "%hook WAServerProperties"),
+    (employee, "WAGREmployeeHooks.xm", "WAGRInstallKnownEmployeeHook"),
+    (native_menu, "WAGRNativeDevMenuHooks.xm", "WAGRPrepareNativeInternalSurfaces"),
+    (native_menu, "WAGRNativeDevMenuHooks.xm", 'WAGRGateSet(selector, YES)'),
+    (gate_hooks, "WAGRGateHooks.xm", '@{ @"class": @"WAServerProperties", @"sel": @"isInternalUser"'),
+):
+    if forbidden in text:
+        errors.append(f"{location} still synthesizes internal/employee eligibility via {forbidden}")
+
+legacy_root = read("src/Menu/WAGRSurfaceListVC.m")
+for obsolete in ("Abrir Private Experimentation", "Abrir Menu Developer Nativo",
+                 "WAGRLaunchPrivateExperimentationDebug"):
+    if obsolete in legacy_root:
+        errors.append(f"legacy root still presents absent launcher path {obsolete}")
+for required in ("Launcher dogfood", "https://fburl.com/df_iphone"):
+    if required not in legacy_root:
+        errors.append(f"legacy root missing verified dogfood label/evidence {required}")
+
+fast_build = read("build-fast.sh")
+if 'resources/waab_family_catalog_26_40_10.json' not in fast_build:
+    errors.append("build-fast.sh does not embed the IPA family catalog for sideload")
+
+secret_menus = read("src/Menu/WAGRSecretMenusVC.m")
+if "Modo Internal / Employee" in secret_menus or "WAGRSecretInternalRuntimeOverrides" in secret_menus:
+    errors.append("SecretMenus still exposes local internal/employee eligibility mutation")
+account_eligibility = read("src/Hooks/WAGRAccountEligibilityHooks.xm")
+for forbidden in ("MSHookMessageEx", "hook_eligibilityBool", "return YES;"):
+    if forbidden in account_eligibility:
+        errors.append(f"AccountEligibility hooks are not diagnostic-only: {forbidden}")
+global_stub = read("src/Hooks/WAGRGlobalGateStub.xm")
+if "WAGREligibilityOverrideIsProtectedCString" not in global_stub:
+    errors.append("GlobalGateStub does not apply the central eligibility protection policy")
 
 # Surface browser must not show segmented SYS/OFF/ON.
 browser = read("src/Menu/WAGRSurfaceBrowserVC.m")

@@ -1,86 +1,208 @@
-# WhatsApp 26.40.10: atualização de AbProps, MobileConfig e browser
+# WhatsApp 26.40.10: ABProps, MobileConfig e runtime
 
-Alvo analisado na sessão: `net.whatsapp.WhatsApp`, versão 26.40.10,
-build1086609742, arm64. Base: dogfood2/0466dff.
-Foram extraídos o payload e inventariadas17 imagens Mach-O. A investigação
-com LIEF/Capstone e Ghidra12.1.4/JDK25 foi direcionada aos fluxos relevantes,
-não à decompilação completa de todas as funções.
+Alvo: `net.whatsapp.WhatsApp`, versão `26.40.10`, build `1086609742`, arm64.
+SHA-256 da IPA analisada:
+`9c47c088a67a5e517adb2545f2719eb07f1e6dd43af183f27fde99d9ec281687`.
 
-## Defeitos confirmados
+O Payload da IPA do WhatsApp foi extraído e suas 17 imagens Mach-O foram
+inventariadas. A análise combinou metadata Objective-C, LIEF, Capstone e Ghidra
+12.1.4/JDK 25. O ZIP de Facebook enviado por engano não foi usado. Esta é uma
+análise estática dirigida aos fluxos relevantes; não é uma decompilação completa
+de todas as funções e não inclui dump de memória de um processo em execução.
 
-| Área | Evidência nativa / comportamento corrigido |
-|---|---|
-| Fetch MC | `WAChatManager.fetchMobileConfig:` não existe no alvo. Método atual: `fetchMobileConfig:stack:`, ABI `v24@0:8B16i20`, IMP0x1004ae184. Chamador nativo0x102d7a318 passa `NO,-1`; preservar seleção nativa do backend. |
-| Refresh MC | `forceInvalidate` (0x5e3298) é teardown: disposed=1, config manager zerado, callbacks/observadores removidos; também chamado por dealloc. Refresh comum agora usa somente `invalidateCachedLatestContext`. |
-| Callback ABT | Bloco0x4fa87c entrega três argumentos, primeiro success e segundo didChange; terceiro objeto associado ao resultado/configKey na análise. Wrapper antigo descartava argumentos. Preservar os três, registrar payload e exigir sucesso nativo. |
-| Confirmação MC | Resposta XWA sem erro não comprova persistência. Exigir marcador nativo da mesma unidade/store. Manager do fetch vem estritamente de `context.abProperties.mc`, não do último manager global de outra conta. |
-| Browser | Inventário dependia de getters ObjC e renderização podia executar métodos arbitrários. Agora lista imagens carregadas/incorporadas independentemente de getters; navegar/filtrar usa cache e metadados. Leitura é explícita. |
+## Resultado das correções
 
-Há testes para seleção do contrato MC e stack automático(-1), identidade da
-unidade/contexto, proibição de teardown no refresh, encaminhamento do callback,
-resultado nativo negativo, seletores de ciclo de vida/ações e inventário de
-frameworks aninhados/dormentes. Overrides tipados continuam disponíveis.
-Removidos os probes passivos e as tentativas de fabricar receivers por factories
-ou caminhar ivars arbitrários. Não há `dlopen` para forçar frameworks dormentes.
+| Área | Causa | Correção |
+|---|---|---|
+| Fetch ABProps | O pedido nativo era bloqueado se qualquer hook de correlação/observação não instalasse. | Os observers agora são best-effort e passivos. O request nativo preserva seu ABI e é enviado mesmo sem telemetria completa. |
+| Fetch MobileConfig | O código exigia observer XWA2/success marker antes de chamar `fetchMobileConfig:stack:`, embora o app também possa escolher WWW. | O dispatch nativo não depende de observers. O diagnóstico separa dispatch, FetchPlan, rota, request, marcador e persistência. |
+| Runtime browser | A tela principal tinha só dois atalhos fixos e cada toque fazia scan global síncrono. | Um hub único enumera todas as imagens do processo principal, faz scan em background e mantém cache por geração do dyld. |
+| Famílias | O nome era inferido apenas pelos tokens do selector. | Catálogo da build com 12.241 selectors e categorias Objective-C extraídas da IPA; fallback heurístico fica marcado como `Fallback ·`. |
+| Dogfood | O launcher tentava controllers ausentes e fabricava gates internal/employee. | Usa apenas `https://fburl.com/df_iphone`, confirmado na build, e mostra identidade/gates somente para diagnóstico read-only. |
 
-## Fluxos e persistência
+## As quatro rotas nativas
 
-AbProps: contexto da conta → XMPPConnectionABPropsRequestManager →
-WAABPropsRequestBuilder → XMPPRequestABProperties(namespace abt) → conexão
-nativa/autenticada → decoder/handler → WAProperties/WAPropertiesStore.
-IMPs sem ASLR: request0x4fa998; lower0x4fa608; builder0x70dce8;
-request initializer0x70de74; decoder0x70e10c; handler0x70e4f8.
-Assinaturas e offsets do store usados pela branch permanecem válidos neste build.
-O BOOL é deltaUpdate, não um parâmetro de eligibility. NO sozinho não força full:
-o hash atual pode resultar em resposta sem mudanças. O serviço full existente
-esvazia o hash pelo método nativo e exige resposta/handler/store correlacionados.
-O callback negativo não pode ser transformado em sucesso por um cache anterior.
+### 1. ABProps/ABT autenticado por XMPP
 
-MC: `WAChatManager.fetchMobileConfig:stack:` → `runWhenConnected:` →
-WAMobileConfigTask → backend escolhido pelo app. Stack -1 é unset/automático;
-0=erlang,1=www,2=ig_server. Contextos UserSession, sessionless e guest são
-unidades distintas. Tokens/validadores e seleção de backend permanecem nativos.
-Marcar sucesso exige o marcador persistido da unidade ativa, não qualquer evento
-global ou uma resposta de outra conta.
+Fluxo observado:
 
-Os dois sistemas coexistem com tradução via WAMCEvaluation: stableID ABProp →
-paramSpecifier → manager MC vivo → ID externo da config e índice do parâmetro.
-Esses IDs não são intercambiáveis. Fetch ABT não gera mc_overrides.json.
-Os caminhos físicos devem vir de getLatestConfigFilePath/getOverridesTablePath.
-O parser nativo aceita mapa configID:nome → array de strings
-`indice: nome: valor`, com ramo especial `_qe_overrides_`. Isso comprova a leitura,
-não a ativação segura por reescrita manual. `setOverrides:` usa shared_ptr C++;
-não pode receber NSDictionary via objc_msgSend. Writer compatível continua
-bloqueado; overrides existentes usam StartupConfigs e confirmação nativa.
+`userContext` → `XMPPConnectionABPropsRequestManager` →
+`WAABPropsRequestBuilder` → `XMPPRequestABProperties` (`namespace=abt`) →
+conexão autenticada → decoder/handler → `WAPropertiesStore`.
 
-Psiphon oferece túnel/proxy/GoPsi. Não foi encontrada evidência de que seja o
-store ou protocolo de download de flags. Frameworks CommonLibrary, Psiphon,
-WSVendor, FLEX/InMobi e bibliotecas injetadas podem estar incorporados sem ainda
-estarem carregados. Extensões têm seus próprios processos.
+O entrypoint superior é `requestFreshABProps:withCompletion:` com ABI
+`v28@0:8B16@?20`. Ele chega ao método
+`requestFreshABPropsWithGroupJID:deltaUpdate:completion:` com ABI
+`v36@0:8@16B24@?28`. O callback entrega
+`(success, didChange, configKey)`; nenhum desses valores pode ser descartado ou
+substituído por evidência de outro request.
 
-## Evidência e validação
+O BOOL é `deltaUpdate`, não eligibility. No full request, o protocolo usa o
+`configHash`; no delta, usa `refreshID`, com `"0"` como default. Um callback
+negativo continua sendo falha mesmo que exista cache antigo. O servidor ainda
+decide elegibilidade e conteúdo para a conta autenticada.
 
-SharedModules analisado: SHA256
-`48f3e91d8db16c6c7203ad5331aeb4e1642010cff06639ef6528206ec71769f1`,
-UUID`4c4c44a0-5555-3144-a142-002d3eaa13a4`.
-Os endereços acima são referências da análise estática da sessão, não offsets
-executados pelo patch. Dispatch/hooks são resolvidos por seletor/ABI; diagnóstico
-ABT identifica separadamente UUID/build do processo instalado.
+### 2. MobileConfig autenticado/account session
+
+O entrypoint atual é `fetchMobileConfig:stack:` com ABI `v24@0:8B16i20`.
+O chamador nativo padrão passa `NO, -1`; `-1` deixa a seleção de stack/backend
+para o próprio app. O FetchPlan nativo decide se haverá rede e qual rota será
+usada. O caminho WWW autenticado exige credenciais canônicas do usuário com a
+feature `mobile_config`; XWA2 permanece uma rota possível da sessão.
+
+### 3. MobileConfig sessionless
+
+É um pipeline distinto, com autenticação estática proveniente de
+`WAGraphQLStaticAuthTokens.staticAT`. Não deve receber credenciais inventadas,
+nem ser tratado como prova de que a rota account-scoped funcionou.
+
+### 4. MobileConfig guest
+
+Também possui unidade e ciclo próprios. Eventos de guest/sessionless não podem
+confirmar o fetch ou a persistência da unidade autenticada.
+
+## Hash, one_query, BLN e retry
+
+`one_query_hash`, `one_query_string`, `bln_li_hashes`, `bln_queries`,
+`global_value_hash` e `ep_refresh_id` pertencem ao protocolo GraphQL do
+MobileConfig, não ao ABT/XMPP. A build registra os erros
+`UnknownOneQueryHash`, `OneQueryHashError` e `BlnQueriesError`. Quando o servidor
+rejeita o hash conhecido, o cliente pode repetir com o `one_query_string`
+completo. Portanto, WATweaks apenas observa esses inputs; não calcula nem injeta
+hashes.
+
+Os estados diagnósticos agora distinguem:
+
+- `native_entrypoint_dispatched_waiting_fetch_plan_or_network`;
+- timeout antes de qualquer request;
+- timeout após request WWW;
+- timeout após request XWA2;
+- success marker e persistência da mesma unidade/account.
+
+Isso evita diagnosticar ausência de XWA2 como falha quando o FetchPlan escolheu
+WWW, ou confundir “nenhuma rede necessária” com erro de chamada.
+
+## Persistência, download e overrides MobileConfig
+
+`id_name_mapping.json`, `qe_info.json` e `mc_overrides.json` são artefatos do
+repositório MobileConfig nativo. A análise não comprovou endpoint independente
+para “baixar `id_name_mapping.json`”. Ele é materializado/consumido como parte do
+ciclo de config da unidade. Os caminhos corretos vêm dos resolvers nativos, como
+`getLatestConfigFilePath` e `getOverridesTablePath`; não devem ser reconstruídos
+com um UDID/UIDD presumido.
+
+Não foi encontrada evidência de que UDID ou uma chave chamada UIDD seja input
+direto desses entrypoints. A evidência aponta para contexto de conta/sessão,
+credenciais canônicas ou static auth, conforme a rota. Um problema de identidade
+de unidade deve ser verificado pelo `userContext` e pela unidade/store correlata,
+não corrigido inventando um identificador de dispositivo.
+
+O parser nativo lê o mapa `configID:nome` e linhas no formato
+`indice: nome: valor`, com ramo `_qe_overrides_`. `mc_overrides.json` é controlado
+por `FBMobileConfigOverridesTable`; o setter usa `shared_ptr` C++. Escrever o JSON
+diretamente ou passar `NSDictionary` por `objc_msgSend` é ABI incorreto e pode
+corromper o processo. Por isso:
+
+- artefatos MC nativos são exibidos/exportados read-only;
+- o WATweaks não reescreve `mc_overrides.json`;
+- overrides locais suportados continuam na camada `StartupConfigs`/stores
+  próprios, com confirmação nativa;
+- overrides de getters feitos pelo WATweaks continuam separados e identificados.
+
+MobileConfig vira source of truth apenas quando o status nativo não é 0, 1, 2 ou
+4, `gating.isSourceOfTruth` está ativo e não há emergency rollback. Uma simples
+resposta HTTP/GraphQL não comprova essa transição.
+
+## Como ABProps e MobileConfig se relacionam
+
+Eles não são dois downloads do mesmo arquivo. ABT entrega propriedades pelo
+pipeline XMPP; MC entrega configurações pelo pipeline MobileConfig/GraphQL.
+`WAMCEvaluation` faz a ponte de avaliação:
+
+`stableID ABProp` → `paramSpecifier` → manager MC da unidade → config ID externo
+e índice do parâmetro.
+
+Esses identificadores não são intercambiáveis. Fetch ABT não gera
+`mc_overrides.json`; fetch MC não substitui o callback/configHash do ABT. A
+“coligação” acontece na avaliação e resolução de parâmetros, respeitando a
+source-of-truth vigente e a unidade/account ativa.
+
+## Dogfood, internal/employee e famílias
+
+O entrypoint dogfood verificável nesta build é o nudge de Settings tipo 140 com
+URL `https://fburl.com/df_iphone`. As classes anteriormente presumidas para menu
+developer/private experimentation não aparecem em nenhuma das 17 imagens
+Mach-O; o tweak não tenta mais instanciá-las.
+
+`isInternalUser` vem do estado de servidor/conta (`adm`) e respeita
+`serverPropsDisableExperimental`. Isso não é equivalente a escolher stack MC,
+nem garante eligibility para uma família de experimentos. O launcher só lê e
+reporta esses estados; não os força.
+
+O painel Eligibility Employee/Internal lê separadamente `WAServerProperties
++isInternalUser`, `WAABProperties -adm`, `-isMetaEmployeeOrInternalTester` e
+`-is_meta_employee_or_internal_tester`. A metadata marca o primeiro getter
+employee/tester como `DeprecatedABProps1`, portanto ele não é promovido a prova
+única da identidade employee. Valor indisponível é registrado como tal, nunca
+como falso. O snapshot acompanha tanto a transação ABT quanto a MC, sem criar um
+gate extra que bloqueie a decisão nativa.
+
+O resultado MC registra tamanho/mtime/existência de latest config,
+`id_name_mapping.json` e `qe_info.json` antes e depois do fetch, a partir do
+manager preso à conta. Fetch confirmado e nomes materializados são estados
+separados; o botão de exportação entrega o artefato nativo quando ele existe.
+
+As famílias agora vêm das categorias Objective-C reais de `WAABProperties` em
+WhatsApp e SharedModules. Exemplos confirmados:
+
+| Selector | Imagem | Família |
+|---|---|---|
+| `ios_pause_video_preview` | SharedModules | `WAMediaPlayer` |
+| `bloks_theming_infra_enabled` | WhatsApp | `BloksExperiment` |
+
+Quando mais de uma categoria implementa o mesmo selector, todas são preservadas
+por imagem em vez de escolher arbitrariamente uma. O IMP do método identifica a
+imagem que contribuiu uma categoria, mesmo quando a classe veio de outro Mach-O.
+O catálogo só é autoritativo
+quando versão e build do app em execução coincidem com `26.40.10 (1086609742)`;
+metadata ausente ou de outra build degrada para fallback explicitamente marcado.
+O empacotamento `.deb` instala o recurso em Application Support e o fluxo
+`build-fast.sh` o copia para a raiz do app sideloaded.
+
+## Frameworks, processos e Psiphon
+
+Foram inventariadas 17 imagens Mach-O e 32.537 classes Objective-C, totalizando
+308.070 métodos. No processo principal, a IPA contém nove imagens inspecionáveis:
+
+1. WhatsApp;
+2. WSVendor.framework;
+3. OnlineNotify.dylib;
+4. FLEX.framework;
+5. SharedModules.framework;
+6. zxPluginsInject.dylib;
+7. CommonLibrary.framework;
+8. PsiphonTunnel.framework;
+9. InMobiSDK.framework.
+
+Extensões rodam em processos separados e não são misturadas com o inventário do
+processo principal. Imagens incorporadas, porém dormentes, aparecem como não
+carregadas e não sofrem `dlopen` apenas para inspeção.
+
+PsiphonTunnel expõe 53 classes e 402 métodos ObjC ligados a túnel/proxy/GoPsi.
+Não foi encontrada API ObjC de ABProps ou MobileConfig nele. Isso não prova que
+nenhum código nativo inferior possa influenciar transporte; apenas impede
+atribuir a ele, sem evidência, o store ou o protocolo desses downloads. Não houve
+dump de Psiphon em memória nesta sessão.
+
+## Limites da validação
+
+Os validators no host cobrem contratos de ABI, dispatch passivo, correlação por
+transação/unidade, rotas MC, catálogo, segurança de selectors e inventário. Eles
+não substituem build Theos, instalação em iPhone, conta elegível nem sessão real
+de rede. Sucesso ao vivo só pode ser confirmado no dispositivo, observando o
+callback nativo e a persistência da mesma unidade/account.
 
 ```sh
-python3 scripts/wagr_validate_sources.py
-python3 scripts/wagr_validate_sideload_hooks.py
-python3 scripts/wagr_validate_cold_start.py
-python3 scripts/wagr_validate_abprops_fetch.py
-python3 scripts/wagr_test_abt_completion.py
-python3 scripts/wagr_test_mobileconfig_fetch.py
-python3 scripts/wagr_validate_runtime_browser.py
-```
-
-Contratos C compilados e validação de integração não substituem compilação iOS,
-instalação ou sessão de rede real. O build completo usa o workflow dogfood2.
-Eligibility do servidor e recebimento real dos dados não podem ser certificados
-somente por strings, flags locais ou pelo sucesso dos testes no host.
-
-Arquivos privados de containers/contas Facebook não fazem parte deste patch de
-WhatsApp e não são publicados neste repositório.
+for test in scripts/wagr_test_*.py scripts/wagr_validate_*.py; do
+  python3 "$test" || exit 1
+done

@@ -3,6 +3,7 @@
 #import "WAGRABPropsNativeStore.h"
 #import "WAGRUserContextLinkage.h"
 #import "WAGRLog.h"
+#import "WAGRNativeAccountState.h"
 
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -551,6 +552,7 @@ static NSDictionary *BuildFinalResult(void) {
     BOOL nativeCompletionObserved = completionTime > 0;
     BOOL nativeCompletionSucceeded = nativeCompletionObserved &&
                                      [nativeCompletion[@"success"] boolValue];
+    BOOL correlationObserversInstalled = [request[@"correlation_observers_installed"] boolValue];
     BOOL metadataMatches = hashMatch && refreshMatch &&
                            (!encryptedRIDPersistenceExpected || eridMatch);
     BOOL exactStore = [after.sourceKind isEqualToString:@"exact_native_wa_properties_store"];
@@ -573,6 +575,7 @@ static NSDictionary *BuildFinalResult(void) {
     NSString *outcome = nil;
     if (verified) outcome = @"verified_native_response_applied";
     else if (nativeCompletionObserved && !nativeCompletionSucceeded) outcome = @"native_completion_reported_failure";
+    else if (nativeCompletionObserved && !correlationObserversInstalled) outcome = @"native_completion_success_reduced_observability";
     else if (!exactRequestSucceeded && didFailEvents.count) outcome = @"all_exact_request_attempts_failed";
     else if (!nativeCompletionObserved) outcome = @"native_completion_not_observed";
     else if (!correlatedHandler) outcome = @"native_completion_without_correlated_handler";
@@ -1212,11 +1215,10 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
         }
         customConfiguration = normalized;
     }
-    if (!InstallHooks()) {
-        NSString *text = @"ABT live correlation hooks unavailable or ABI mismatch";
-        if (diagnostic) *diagnostic = text;
-        return NO;
-    }
+    // Correlation hooks provide detailed proof only. The native request remains
+    // useful when a later WhatsApp build changes one observer ABI, so do not
+    // turn an instrumentation failure into a network-dispatch failure.
+    BOOL correlationObserversInstalled = InstallHooks();
     id context = userContext ?: WAGRCurrentUserContext();
     id manager = ResolveManager(context);
     if (!manager) {
@@ -1332,6 +1334,7 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
             @"variant": variant,
             @"namespace": @"abt",
             @"context_class": ClassName(context),
+            @"account_state_before": WAGRNativeAccountStateDocument(context),
             @"manager_class": ClassName(manager),
             @"properties_class": ClassName(properties),
             @"top_selector": kTopSelector,
@@ -1340,6 +1343,7 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
             @"lower_encoding": Encoding([manager class], kLowerSelector),
             @"request_initializer": kRequestInitSelector,
             @"request_initializer_encoding": Encoding(NSClassFromString(kRequestClass), kRequestInitSelector),
+            @"correlation_observers_installed": @(correlationObserversInstalled),
             @"delta_update_requested": @(deltaUpdate),
             @"before_config_hash": JSONSafe(beforeConfigHash, 0),
             @"before_refresh_id": JSONSafe(beforeRefreshID, 0),
@@ -1367,10 +1371,23 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
         @"native_hash_reset_confirmed": @(resetConfirmed)
     });
     WAGRABTNativeCompletion topCompletion = ^(BOOL success, BOOL didChange, id configKey) {
+        NSDictionary *payload = @{ @"success": @(success), @"did_change": @(didChange),
+                                   @"config_key": JSONSafe(configKey, 0) };
         Event(@"explicit_top_completion_forwarded", @{
             @"token": token, @"success": @(success), @"did_change": @(didChange),
             @"config_key": JSONSafe(configKey, 0)
         });
+        if (!correlationObserversInstalled) {
+            BOOL current = NO;
+            @synchronized (gLock) {
+                current = gPending && [gToken isEqualToString:token];
+                if (current) {
+                    gNativeCompletionTime = Now();
+                    gNativeCompletion = payload;
+                }
+            }
+            if (current) Finish(token);
+        }
     };
     @try {
         ((void (*)(id, SEL, BOOL, id))objc_msgSend)(manager,
@@ -1385,16 +1402,19 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
 
     BOOL lowerEntered = NO;
     @synchronized (gLock) { lowerEntered = gLowerEnteredTime > 0; }
-    if (!lowerEntered) {
+    if (correlationObserversInstalled && !lowerEntered) {
         NSString *text = @"requestFreshABProps returned without entering the exact lower native request method";
         AbortTransaction(token, @"lower_request_not_entered", text);
         if (diagnostic) *diagnostic = text;
         return NO;
     }
 
+    BOOL stillPending = NO;
+    @synchronized (gLock) { stillPending = gPending && [gToken isEqualToString:token]; }
     NSString *text = [NSString stringWithFormat:
-        @"ABT %@ %@ entered; awaiting exact request initializer, response handler and native completion",
-        variant, token];
+        @"ABT %@ %@ dispatched; correlation observers=%@; %@",
+        variant, token, correlationObserversInstalled ? @"YES" : @"NO",
+        stillPending ? @"awaiting native completion" : @"native completion received; transaction released"];
     if (diagnostic) *diagnostic = text;
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeoutSeconds * NSEC_PER_SEC)),

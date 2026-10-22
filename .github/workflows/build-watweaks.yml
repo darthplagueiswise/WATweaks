@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - dogfood2
+  pull_request:
+    branches:
+      - dogfood2
   workflow_dispatch:
 
 concurrency:
@@ -26,7 +29,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: dogfood2
           fetch-depth: 1
           submodules: recursive
 
@@ -208,7 +210,8 @@ jobs:
           # feature-master storage.
           ! grep -q 'kWAGREmployeeMaster' src/Hooks/WAGREmployeeHooks.xm
           ! grep -q 'kWAGRAuraSimulation' src/Hooks/WAAuraHooks.xm
-          grep -q 'parallelMaster=NO' src/Hooks/WAGREmployeeHooks.xm
+          grep -q 'localEligibilityHooks=NO' src/Hooks/WAGREmployeeHooks.xm
+          python3 scripts/wagr_validate_sources.py
           grep -q 'parallelMaster=NO' src/Hooks/WAAuraHooks.xm
           grep -q 'parallelMaster=NO' src/Hooks/WAGRLiquidGlassHooks.xm
 

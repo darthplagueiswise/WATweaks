@@ -8,6 +8,7 @@
 #import <objc/message.h>
 #import <substrate.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGREligibilityPolicy.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -146,16 +147,10 @@ static BOOL WAGRAuraHookUnmappedPositive(id self, SEL _cmd) {
     return WAGRAuraOriginalBool(self, _cmd, NO);
 }
 
-static BOOL WAGRAuraHookUserEligibleFor(id self, SEL _cmd, uintptr_t benefit) {
-    NSString *key = WAGRAuraOrigKey(self, _cmd);
-    NSValue *value = gAuraOrig[key];
-    WAAuraWordBoolIMP original = value ? reinterpret_cast<WAAuraWordBoolIMP>([value pointerValue]) : NULL;
-    if (WAGRAuraActive()) return YES;
-    return original ? original(self, _cmd, benefit) : NO;
-}
-
 static BOOL WAGRAuraInstallZeroArgHook(Class cls, NSString *selectorName, IMP replacement) {
     if (!cls || !selectorName.length || !replacement) return NO;
+    if (WAGREligibilityOverrideIsProtectedCString(NSStringFromClass(cls).UTF8String,
+                                                   selectorName.UTF8String)) return NO;
     SEL selector = NSSelectorFromString(selectorName);
     Method method = class_getInstanceMethod(cls, selector);
     if (!method || method_getNumberOfArguments(method) != 2 || !WAGRAuraMethodReturnsBool(method)) return NO;
@@ -163,23 +158,6 @@ static BOOL WAGRAuraInstallZeroArgHook(Class cls, NSString *selectorName, IMP re
     if (gAuraOrig[key]) return YES;
     IMP original = NULL;
     MSHookMessageEx(cls, selector, replacement, &original);
-    if (!original) return NO;
-    gAuraOrig[key] = [NSValue valueWithPointer:reinterpret_cast<const void *>(original)];
-    [gAuraHookedSelectors addObject:selectorName];
-    return YES;
-}
-
-static BOOL WAGRAuraInstallUserEligibleForHook(Class cls) {
-    if (!cls) return NO;
-    NSString *selectorName = @"isUserEligibleFor:";
-    SEL selector = NSSelectorFromString(selectorName);
-    Method method = class_getInstanceMethod(cls, selector);
-    if (!method || method_getNumberOfArguments(method) != 3 ||
-        !WAGRAuraMethodReturnsBool(method) || !WAGRAuraMethodHasWordArgument(method, 2)) return NO;
-    NSString *key = [NSString stringWithFormat:@"%@|%@", NSStringFromClass(cls) ?: @"WAAuraGating", selectorName];
-    if (gAuraOrig[key]) return YES;
-    IMP original = NULL;
-    MSHookMessageEx(cls, selector, (IMP)WAGRAuraHookUserEligibleFor, &original);
     if (!original) return NO;
     gAuraOrig[key] = [NSValue valueWithPointer:reinterpret_cast<const void *>(original)];
     [gAuraHookedSelectors addObject:selectorName];
@@ -203,7 +181,6 @@ static void installAuraHooks(void) {
     for (NSString *semantic in WAGRAuraUnmappedPositiveSelectors()) {
         WAGRAuraInstallZeroArgHook(cls, semantic, (IMP)WAGRAuraHookUnmappedPositive);
     }
-    WAGRAuraInstallUserEligibleForHook(cls);
     gAuraInstalled = gAuraOrig.count > 0;
 }
 

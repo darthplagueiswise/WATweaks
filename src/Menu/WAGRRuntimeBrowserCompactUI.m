@@ -294,8 +294,8 @@ static void WAGRNativeABApplyFilter(id self, SEL _cmd) {
     NSArray<WAGRABPropEntry *> *filtered = [bestBySelector.allValues sortedArrayUsingComparator:
         ^NSComparisonResult(WAGRABPropEntry *left, WAGRABPropEntry *right) {
             if (scope == 1) {
-                NSString *leftFamily = WAGRLiveRuntimeFamilyForSelector(left.selectorName, left.className) ?: @"";
-                NSString *rightFamily = WAGRLiveRuntimeFamilyForSelector(right.selectorName, right.className) ?: @"";
+                NSString *leftFamily = left.categoryName ?: @"";
+                NSString *rightFamily = right.categoryName ?: @"";
                 NSComparisonResult familyResult = [leftFamily localizedCaseInsensitiveCompare:rightFamily];
                 if (familyResult != NSOrderedSame) return familyResult;
             }
@@ -306,7 +306,7 @@ static void WAGRNativeABApplyFilter(id self, SEL _cmd) {
     NSArray<NSString *> *sectionKeys = nil;
     if (scope == 1) {
         for (WAGRABPropEntry *entry in filtered) {
-            NSString *family = WAGRLiveRuntimeFamilyForSelector(entry.selectorName, entry.className);
+            NSString *family = entry.categoryName;
             if (!family.length) family = @"Runtime";
             if (!groups[family]) groups[family] = [NSMutableArray array];
             [groups[family] addObject:entry];

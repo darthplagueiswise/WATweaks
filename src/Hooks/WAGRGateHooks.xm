@@ -9,6 +9,7 @@
 #import "../WAGramPrefix.h"
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRGateRegistry.h"
+#import "../Runtime/WAGREligibilityPolicy.h"
 
 static NSMutableDictionary<NSString *, NSValue *> *gGateOriginalIMPs = nil;
 static NSMutableSet<NSString *> *gGateInstalled = nil;
@@ -39,6 +40,7 @@ static NSString *WAGRGateHookID(NSString *className, BOOL isClassMethod, NSStrin
 }
 
 static BOOL WAGRGateValueForSelector(NSString *selectorName, BOOL original) {
+    if (WAGREligibilityOverrideIsProtectedCString(NULL, selectorName.UTF8String)) return original;
     NSString *ck = WAGRGateCanonicalKey(selectorName);
     if (WAGRGateIsSet(ck)) return WAGRGateGet(ck);
     return original;
@@ -62,6 +64,8 @@ static BOOL WAGRGateGenericBoolTrampoline(id self, SEL _cmd) {
 static BOOL WAGRGateInstallHookForSelectorInternal(NSString *className, NSString *selectorName, BOOL isClassMethod, BOOL remember) {
     WAGRGateStorageInit();
     if (!className.length || !selectorName.length) return NO;
+    if (WAGREligibilityOverrideIsProtectedCString(className.UTF8String,
+                                                   selectorName.UTF8String)) return NO;
     Class cls = NSClassFromString(className) ?: objc_getClass(className.UTF8String);
     if (!cls) return NO;
     SEL sel = NSSelectorFromString(selectorName);
@@ -251,7 +255,8 @@ static BOOL WAGRBoolForKeyTrampoline(id self, SEL _cmd, NSString *key, BOOL defa
     BoolKeyIMP orig = gBoolKeyOriginals[className] ? reinterpret_cast<BoolKeyIMP>([gBoolKeyOriginals[className] pointerValue]) : NULL;
     BOOL original = orig ? orig(self, _cmd, key, defaultVal) : defaultVal;
     WAGRWAABRememberObservedKey(key);
-    if (key.length && WAGRGateIsSet(key)) return WAGRGateGet(key);
+    if (key.length && !WAGREligibilityOverrideIsProtectedCString(NULL, key.UTF8String) &&
+        WAGRGateIsSet(key)) return WAGRGateGet(key);
     return original;
 }
 static id WAGRStringForKeyTrampoline(id self, SEL _cmd, NSString *key, id defaultVal) {
@@ -307,7 +312,6 @@ static void WAGRInstallWAABKeyHooksOnClass(Class cls) {
 
 static NSArray<NSDictionary *> *WAGRBootstrapSelectorHooks(void) {
     return @[
-        @{ @"class": @"WAServerProperties", @"sel": @"isInternalUser", @"meta": @YES },
         @{ @"class": @"WAServerProperties", @"sel": @"paymentsUPIOverdraftAccountEnabled", @"meta": @YES },
         @{ @"class": @"WAServerProperties", @"sel": @"listMessageReceptionDisabled", @"meta": @YES },
         @{ @"class": @"WAServerProperties", @"sel": @"frequentlyForwardedGroupSettingEnabled", @"meta": @YES },

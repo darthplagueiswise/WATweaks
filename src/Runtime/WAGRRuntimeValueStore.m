@@ -1,5 +1,6 @@
 #import "WAGRRuntimeValueStore.h"
 #import "WAGRRuntimeSafety.h"
+#import "WAGREligibilityPolicy.h"
 #import "../WAPrefix.h"
 #import <objc/runtime.h>
 #import <substrate.h>
@@ -157,6 +158,25 @@ static void WAGRRuntimeValueEnsureStorage(void) {
         gWAGRValueHooks = [NSMutableDictionary dictionary];
         NSDictionary *stored = [NSUserDefaults.standardUserDefaults dictionaryForKey:kWAGRRuntimeValueOverridesKey];
         gWAGRValueOverrides = stored ? [stored mutableCopy] : [NSMutableDictionary dictionary];
+        NSMutableArray<NSString *> *protectedUIDs = [NSMutableArray array];
+        [gWAGRValueOverrides enumerateKeysAndObjectsUsingBlock:
+            ^(NSString *uid, NSDictionary *spec, BOOL *stop) {
+                (void)stop;
+                NSString *className = [spec[kWAGRValueClassKey] isKindOfClass:NSString.class]
+                    ? spec[kWAGRValueClassKey] : @"";
+                NSString *selectorName = [spec[kWAGRValueSelectorKey] isKindOfClass:NSString.class]
+                    ? spec[kWAGRValueSelectorKey] : @"";
+                if (WAGREligibilityOverrideIsProtectedCString(className.UTF8String,
+                                                               selectorName.UTF8String)) {
+                    [protectedUIDs addObject:uid];
+                }
+            }];
+        if (protectedUIDs.count) {
+            [gWAGRValueOverrides removeObjectsForKeys:protectedUIDs];
+            [NSUserDefaults.standardUserDefaults setObject:gWAGRValueOverrides
+                                                    forKey:kWAGRRuntimeValueOverridesKey];
+            [NSUserDefaults.standardUserDefaults synchronize];
+        }
     });
 }
 
@@ -249,6 +269,11 @@ void WAGRRuntimeValueSetOverride(NSString *className,
                                  BOOL isClassMethod,
                                  NSString *typeCode,
                                  id value) {
+    if (WAGREligibilityOverrideIsProtectedCString(className.UTF8String,
+                                                   selectorName.UTF8String)) {
+        WAGRRuntimeValueClearOverride(className, selectorName, isClassMethod);
+        return;
+    }
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
     NSString *normalized = WAGRRuntimeValueNormalizedType(typeCode);
     if (!uid.length || !normalized.length) return;
@@ -392,6 +417,11 @@ BOOL WAGRRuntimeValueInstallHook(NSString *className,
                                  NSString *selectorName,
                                  BOOL isClassMethod,
                                  NSString *typeCode) {
+    if (WAGREligibilityOverrideIsProtectedCString(className.UTF8String,
+                                                   selectorName.UTF8String)) {
+        WAGRRuntimeValueClearOverride(className, selectorName, isClassMethod);
+        return NO;
+    }
     NSString *uid = WAGRRuntimeValueUID(className, selectorName, isClassMethod);
     NSString *normalized = WAGRRuntimeValueNormalizedType(typeCode);
     if (!uid.length || !WAGRRuntimeValueTypeIsSupported(normalized) ||

@@ -6,6 +6,17 @@ import tempfile
 import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 class MobileConfigFetchTests(unittest.TestCase):
+    def test_native_account_state_and_names_are_bound_to_the_fetch(self):
+        source = (ROOT / 'src/Runtime/WAGRMobileConfigNativeEngine.m').read_text()
+        self.assertIn('WAGRNativeAccountStateDocument(context)', source)
+        self.assertIn('@"account_state_before"', source)
+        self.assertIn('@"artifacts_before"', source)
+        self.assertIn('@"artifacts_after"', source)
+        self.assertIn('@"id_name_mapping"', source)
+        self.assertIn('@"qe_info"', source)
+        self.assertIn('WAGRMCNativeArtifactsForManager(manager)', source)
+        self.assertIn('WAGRMCNativeCallObjectNoArg(manager, @"getOverridesTablePath")', source)
+        self.assertNotIn('if (!WAGRNativeAccountStateDocument', source)
     def test_native_abi_and_account_policy(self):
         header = ROOT / 'src/Runtime/WAGRMobileConfigFetchPolicy.h'
         self.assertTrue(header.is_file(), 'Missing 26.40 native fetch routing/account policy')
@@ -38,5 +49,39 @@ class MobileConfigFetchTests(unittest.TestCase):
         marker = source.split('static void WAGRMCNativeFetchSuccessMarker(', 1)[1].split('static BOOL WAGRMCNativeInstallFetchSuccessMarkerObserver(', 1)[0]
         self.assertTrue('manager = gWAGRMCFetchManager;' in marker)
         self.assertTrue('WAGRMCNativeLatestConfigPathForManager(manager)' in marker)
+
+    def test_missing_diagnostic_observers_do_not_block_native_dispatch(self):
+        """Regression: deleting either observer must not suppress WAChatManager fetch."""
+        source = (ROOT / 'src/Runtime/WAGRMobileConfigNativeEngine.m').read_text()
+        fetch = source.split('BOOL WAGRMobileConfigNativeFetchAccount(', 1)[1].split(
+            'NSDictionary<NSString *, id> *WAGRMobileConfigNativeFetchState(', 1)[0]
+        dispatch = fetch.index('objc_msgSend)(chatManager, selector')
+        prefix = fetch[:dispatch]
+        self.assertIn('BOOL xwa2ObserverInstalled = WAGRMCNativeInstallXWA2SuccessObserver();', prefix)
+        self.assertIn('BOOL markerObserverInstalled = WAGRMCNativeInstallFetchSuccessMarkerObserver();', prefix)
+        self.assertNotIn('if (!WAGRMCNativeInstallXWA2SuccessObserver())', prefix)
+        self.assertNotIn('if (!WAGRMCNativeInstallFetchSuccessMarkerObserver())', prefix)
+        self.assertIn('@"xwa2_success_observer_installed" : @(xwa2ObserverInstalled)', fetch)
+        self.assertIn('@"success_marker_observer_installed" : @(markerObserverInstalled)', fetch)
+
+    def test_native_route_and_query_protocol_are_reported_without_synthesizing_input(self):
+        linkage = (ROOT / 'src/Runtime/WAGRABPropsReleaseNativeLinkage.m').read_text()
+        engine = (ROOT / 'src/Runtime/WAGRMobileConfigNativeEngine.m').read_text()
+        for token in ['snapshot[@"route"] = @"xwa2"', '@"www_authenticated"',
+                      '@"www_sessionless"',
+                      '@"canonical_user_credentials:mobile_config"',
+                      '@"WAGraphQLStaticAuthTokens.staticAT"',
+                      '@"global_value_hash"', '@"ep_refresh_id"', '@"query_string"',
+                      '@"bln_li_hashes"', '@"bln_queries"', '@"bool_opt_policy"']:
+            self.assertIn(token, linkage)
+        self.assertIn('@"native_entrypoint_dispatched_waiting_fetch_plan_or_network"', engine)
+        self.assertIn('@"timeout_after_www_request"', engine)
+        self.assertIn('@"timeout_after_xwa2_request"', engine)
+        self.assertIn('@"timeout_before_network_observed"', engine)
+        for token in ['UnknownOneQueryHash', 'OneQueryHashError', 'BlnQueriesError',
+                      'native retries with one_query_string']:
+            self.assertIn(token, engine)
+        self.assertNotIn('setQueryString:', linkage)
+        self.assertNotIn('setGlobalValueHash:', linkage)
 if __name__ == '__main__':
     unittest.main()

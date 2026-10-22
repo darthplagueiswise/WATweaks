@@ -30,8 +30,9 @@ typedef void (^WAGRMobileConfigNativeFetchCompletion)(NSDictionary<NSString *, i
 /// account pipeline. WhatsApp 26.40 uses fetchMobileConfig:NO stack:-1; older
 /// supported single-BOOL entrypoints remain a fallback. Success requires a native
 /// LastFetchStore marker matching the captured preferences store, unit type and
-/// unit ID. XWA2/WWW input and file state are diagnostics. No synthetic GraphQL
-/// input or token is constructed by WATweaks.
+/// unit ID. XWA2/WWW route, native input fields and file state are passive
+/// diagnostics. Observer availability never gates dispatch. No GraphQL input,
+/// query hash, credential, token or eligibility is constructed by WATweaks.
 BOOL WAGRMobileConfigNativeFetchAccount(id _Nullable userContext,
                                         WAGRMobileConfigNativeFetchCompletion _Nullable completion,
                                         NSString * _Nullable * _Nullable outDiagnostic);

@@ -9,12 +9,13 @@
 #import "WAGRFeatureBundlesVC.h"
 #import "WAGRMobileConfigExportVC.h"
 #import "WAGRRuntimeGatesVC.h"
-#import "WAGRSurfaceBrowserVC.h"
+#import "WAGRSurfaceListVC.h"
 #import "WAGRLogViewController.h"
 #import "WAGRDebugDiagnosticsVC.h"
 #import "WAGRMainSettingsVC.h"
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRSurface.h"
+#import "../Runtime/WAGRNativeAccountState.h"
 
 extern NSString *WAGRLGDiagnosticText(void);
 extern NSString *WAGRDogfoodDiagnosticText(void);
@@ -29,6 +30,7 @@ extern void WAGRLGPrefsDidChange(void);
 extern void WAGRGateHooksEnsureInstalled(void);
 extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern id WAGRCurrentUserContext(void);
+extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
 
 typedef NS_ENUM(NSInteger, WATCellType) {
     WATCellSwitch,
@@ -65,12 +67,6 @@ static WATCell *dtr(NSString *t, NSString *s, NSString *ico, void(^tap)(UIViewCo
     c.title=t; c.subtitle=s; c.icon=ico; c.onTap=tap; return c;
 }
 
-static WAGRSurfaceSpec *surface(NSString *sid) {
-    for (WAGRSurfaceSpec *s in [WAGRSurfaceSpec allSurfaces])
-        if ([s.surfaceID isEqualToString:sid]) return s;
-    return nil;
-}
-
 static void alert(UIViewController *from, NSString *title, NSString *msg) {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIAlertController *a=[UIAlertController alertControllerWithTitle:title?:@"WATweaks"
@@ -87,6 +83,24 @@ static WATSection *secFeatures(void) {
     WATSection *s=[WATSection new];
     s.header=@"Features / Experimentos";
     s.rows=@[
+        act(@"Launcher dogfood",
+            @"Abre o entrypoint nativo verificado desta build · elegibilidade continua no servidor/conta",
+            @"person.badge.key.fill",
+            ^(UIViewController *from){
+                NSError *error = nil;
+                if (!WAGRLaunchNativeDeveloperMenu(from, &error)) {
+                    alert(from, @"Launcher dogfood", error.localizedDescription ?: @"Não foi possível abrir o entrypoint.");
+                }
+            }),
+        act(@"Eligibility Employee / Internal",
+            @"Estado nativo da conta · adm · isInternalUser · gates de experimento",
+            @"person.crop.circle.badge.checkmark",
+            ^(UIViewController *from){
+                NSDictionary *state = WAGRNativeAccountStateDocument(WAGRCurrentUserContext());
+                NSData *data = [NSJSONSerialization dataWithJSONObject:state options:NSJSONWritingPrettyPrinted error:nil];
+                NSString *text = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : state.description;
+                alert(from, @"Eligibility Employee / Internal", text);
+            }),
         nav(@"Features / Experimentos",
             @"Descoberta live por versão · sem lista fixa de selectors/AB IDs",
             @"slider.horizontal.3",
@@ -122,17 +136,9 @@ static WATSection *secRuntime(void) {
             ^(UIViewController *from){
                 [from.navigationController pushViewController:[WAGRRuntimeGatesVC new] animated:YES];
             }),
-        nav(@"WhatsApp Executable",@"Runtime Browser do executável principal", @"app.dashed",
+        nav(@"Imagens Mach-O",@"Todos os frameworks e dylibs do processo principal · carregados e dormentes", @"shippingbox",
             ^(UIViewController *from){
-                WAGRSurfaceSpec *sp=surface(@"exec");
-                if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
-                else alert(from,@"Runtime",@"Surface 'exec' não encontrada.");
-            }),
-        nav(@"SharedModules",@"Runtime Browser do framework SharedModules", @"shippingbox.fill",
-            ^(UIViewController *from){
-                WAGRSurfaceSpec *sp=surface(@"sharedmodules");
-                if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
-                else alert(from,@"Runtime",@"Surface 'sharedmodules' não encontrada.");
+                [from.navigationController pushViewController:[WAGRRuntimeImagesVC new] animated:YES];
             }),
     ];
     return s;

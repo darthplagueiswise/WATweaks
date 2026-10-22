@@ -18,6 +18,7 @@
 #import <objc/runtime.h>
 #import <string.h>
 #import "../WAGramPrefix.h"
+#import "../Runtime/WAGREligibilityPolicy.h"
 
 static BOOL WAGRGateIsNegativeSelector(SEL selector) {
     NSString *name = NSStringFromSelector(selector).lowercaseString;
@@ -31,6 +32,9 @@ static BOOL WAGRGateIsNegativeSelector(SEL selector) {
 static BOOL WAGRResolveGateOverride(NSString *key,
                                     SEL selector,
                                     BOOL *value) {
+    NSString *selectorName = NSStringFromSelector(selector);
+    if ([key isEqualToString:kWAGRGateEligibility] ||
+        WAGREligibilityOverrideIsProtectedCString(NULL, selectorName.UTF8String)) return NO;
     if (!WAGRPref(key)) return NO;
     if (value) {
         *value = WAGRGateIsNegativeSelector(selector) ? NO : YES;

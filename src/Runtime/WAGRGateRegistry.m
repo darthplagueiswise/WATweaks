@@ -81,20 +81,16 @@ static inline WAGRGateFeaturedFlag *FInv(NSString *name, NSString *title, NSStri
         providers = @[
             // ── Server Properties ────────────────────────────────────────────
             // WAServerProperties has class methods (BOOL no-arg). Static dump
-            // confirmed +isInternalUser plus three UPI/list/group switches
-            // sharing one IMP — per-selector overrides handle that case
-            // because dispatch is by selector, not by IMP.
+            // Account eligibility (+isInternalUser) is intentionally omitted:
+            // it remains server-owned and is exposed only in diagnostics.
             WAGRMakeProvider(@"server",
                 @"WAServerProperties",
-                @"Conta master gates: internal user, UPI, list message, group settings",
+                @"Server properties não relacionados a eligibility de conta",
                 @"server.rack",
                 @[ @"WAServerProperties" ],
                 @[ @"WAServerProperties", @"ServerProperties" ],
                 @[],
                 @[
-                    F(@"isInternalUser",
-                      @"Internal User",
-                      @"+isInternalUser de WAServerProperties — destrava menu Developer e gates internos."),
                     F(@"paymentsUPIOverdraftAccountEnabled",
                       @"Payments UPI Overdraft Account",
                       @"UPI overdraft account opcional."),
@@ -277,7 +273,6 @@ static inline WAGRGateFeaturedFlag *FInv(NSString *name, NSString *title, NSStri
                 @[ @"WAContext", @"ContextMain", @"WAContextDependency" ],
                 @[],
                 @[
-                    F(@"isInternalUser",          @"isInternalUser",       @"Bridge para WAServerProperties."),
                     F(@"isEvolveAboutM1Enabled",  @"Evolve About M1",      @""),
                     F(@"isMeTabEnabled",          @"Me Tab",               @""),
                     F(@"isContactsHubEnabled",    @"Contacts Hub",         @""),
