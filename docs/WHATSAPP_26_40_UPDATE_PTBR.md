@@ -10,6 +10,54 @@ inventariadas. A análise combinou metadata Objective-C, LIEF, Capstone e Ghidra
 análise estática dirigida aos fluxos relevantes; não é uma decompilação completa
 de todas as funções e não inclui dump de memória de um processo em execução.
 
+O build e os testes de host validam compilação e contratos locais. Não houve
+execução no iPhone nem confirmação de resposta dos servidores. Em particular,
+ativação employee/internal e download de nomes ainda não foram demonstrados.
+
+## Falha reportada: getMCSpecifierForStableId
+
+O log `WAMCEvaluation.getMCSpecifierForStableId: não está disponível com ABI
+compatível` revelou uma incompatibilidade que a primeira revisão deixou passar.
+Esse selector não existe na metadata da IPA 26.40.10. A dependência afetava cinco
+consumidores: crosswalk MC, resolução de nomes, enriquecimento do store, overrides
+StartupConfigs e correlação do browser. Isso é uma falha local de tradução de
+IDs; o log isolado não prova rejeição de eligibility ou erro de rede.
+
+O substituto confirmado é `+getWAStableIdToParamSpecifierEntries`, ABI
+`r^v16@0:8`. Retorna ponteiro para `{const uint64_t *entries, uint64_t count}`,
+não um objeto Objective-C. O consumidor `WAPushPropertiesManager` verifica
+`stableID < count` antes de consultar `entries[stableID]`. A tabela desta IPA tem
+38.805 posições, com 13.747 descritores não nulos; o limite antigo de 34.666
+truncava o domínio.
+
+Os cinco consumidores agora partilham esse leitor: valida ABI e build, copia a
+estrutura/tabela com `mach_vm_read_overwrite`, rejeita limites inválidos e mantém
+um snapshot imutável. Falha de inicialização não fica em cache. Não há offsets
+fixos de funções na implementação. Outras builds exigem validação do layout,
+porque `const void *` sozinho não descreve a estrutura.
+
+Evidência adicional, reproduzida com Capstone a partir dos bytes da IPA:
+
+| Imagem / endereço virtual | Evidência |
+|---|---|
+| SharedModules `0x1cfbd4` | Getter Objective-C atual; resolve a função de schema pelo ID `0xe69`. |
+| WhatsApp `0x107b97fe0` | Registro da feature `0x0a076f93`; aponta para schema em `0x105df6190`. |
+| WhatsApp `0x105df6190` | Quarto `uint32_t` do schema é `0xe69`. |
+| SharedModules `0x3949248` | Entrada do dispatcher para `0xe69 - 0xd9e`, aponta para `0x1cfc0c`. |
+| SharedModules `0x1cfc0c` | Inicializa o span com tabela `0x29062f0` e count `0x9795` (38.805). |
+| SharedModules `0x1d44c8` | Lookup nativo usa a mesma tabela e limite `0x9794`. |
+| SharedModules `0x111ceb0`–`0x111cf80` | Consumidor lê ponteiro/count e faz lookup de 8 bytes por stable ID. |
+
+Esses endereços documentam esta IPA; não são usados como endereços de runtime.
+
+Também foi confirmado um vínculo estático real com Psiphon: o dispatcher
+`XPluginsGetFuncPtr` no executável trata ID `0xd9d` carregando
+`XPluginsGetFunctionInPsiphonTunnel`; no framework, a função exportada
+(`0x55df3c`) aceita índice 0 e devolve `0x55dfe8`, que chama
+`ProxyServiceImpl +sharedInstanceWithConfig:`. Isso demonstra integração de
+proxy, não que Psiphon produza hashes MC ou controle eligibility. Não houve dump
+de memória nem teste de tráfego pelo túnel.
+
 ## Resultado das correções
 
 | Área | Causa | Correção |

@@ -1,5 +1,9 @@
 # ABProps native fetch + MobileConfig crosswalk v2
 
+> Historical build. WhatsApp 26.40.10 no longer exposes
+> `getMCSpecifierForStableId:`. See [current IPA findings](WHATSAPP_26_40_UPDATE_PTBR.md)
+> for the native pointer/count mapping and remaining validation limits.
+
 This note documents the dogfood2 correction for the native ABProps snapshot workflow.
 
 ## 1. Exact fresh-fetch entrypoint

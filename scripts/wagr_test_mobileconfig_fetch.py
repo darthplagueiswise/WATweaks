@@ -1,11 +1,37 @@
 #!/usr/bin/env python3
 """Portable regression for native MobileConfig ABI routing and account correlation."""
 import pathlib
+import os
 import subprocess
 import tempfile
 import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 class MobileConfigFetchTests(unittest.TestCase):
+    def test_native_specifier_span_bounds_and_current_domain(self):
+        header = ROOT / 'src/Runtime/WAGRMobileConfigSpecifierSpan.h'
+        self.assertTrue(header.is_file(), 'Missing native pointer/count span reader; removed selector still required')
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = pathlib.Path(tmp) / 'mc-span'
+            subprocess.run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-I', str(ROOT / 'src/Runtime'), str(ROOT / 'scripts/fixtures/mobileconfig_specifier_span_test.c'), '-o', str(binary)], check=True)
+            # This fixture owns no heap allocations; LeakSanitizer cannot inspect
+            # /proc under some sandbox/ptrace hosts. Keep ASan/UBSan enabled.
+            subprocess.run([str(binary)], check=True,
+                           env={**os.environ, 'ASAN_OPTIONS': 'detect_leaks=0'})
+
+    def test_all_specifier_consumers_share_the_current_native_mapper(self):
+        for path in ['Runtime/WAGRMobileConfigBridge.m',
+                     'Runtime/WAGRABPropsNativeOverrideEngine.m',
+                     'Runtime/WAGRABPropsNativeStore.m',
+                     'Runtime/WAGRABPropsCanonicalNamesV2.m',
+                     'Menu/WAGRABPropsLiveCorrelation.m']:
+            source = (ROOT / 'src' / path).read_text()
+            self.assertNotIn('getMCSpecifierForStableId:', source, path)
+            self.assertIn('WAGRMobileConfigSpecifierForWAStableID(', source, path)
+        bridge = (ROOT / 'src/Runtime/WAGRMobileConfigBridge.m').read_text()
+        self.assertNotIn('34666', bridge)
+        self.assertIn('getWAStableIdToParamSpecifierEntries', bridge)
+        self.assertIn('mach_vm_read_overwrite(', bridge)
+
     def test_native_account_state_and_names_are_bound_to_the_fetch(self):
         source = (ROOT / 'src/Runtime/WAGRMobileConfigNativeEngine.m').read_text()
         self.assertIn('WAGRNativeAccountStateDocument(context)', source)

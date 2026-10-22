@@ -1,5 +1,8 @@
 #import "WAGRMobileConfigBridge.h"
+#import "WAGRMobileConfigSpecifierSpan.h"
 #import "WAGRLog.h"
+#import <mach/mach.h>
+#import <mach/mach_vm.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
@@ -9,7 +12,6 @@
 
 extern id WAGRCurrentUserContext(void);
 
-static const NSUInteger kWAGRValidatedWAStableIdCount = 34666;
 static NSString * const kWAGRMCErrorDomain = @"WATweaks.MobileConfig";
 
 @implementation WAGRMobileConfigMapping
@@ -86,18 +88,6 @@ static BOOL WAGRMCMethodReturnsInteger(Method method) {
     }
 }
 
-static BOOL WAGRMCMethodReturnsWord(Method method) {
-    if (!method) return NO;
-    char raw[128] = {0};
-    method_getReturnType(method, raw, sizeof(raw));
-    const char *type = WAGRMCSkipQualifiers(raw);
-    if (!*type || type[0] == '@' || type[0] == 'v' || type[0] == 'f' || type[0] == 'd') return NO;
-    NSUInteger size = 0, alignment = 0;
-    @try { NSGetSizeAndAlignment(type, &size, &alignment); }
-    @catch (__unused NSException *exception) { return NO; }
-    return size > 0 && size <= sizeof(uint64_t);
-}
-
 static BOOL WAGRMCMethodReturnsDouble(Method method) {
     if (!method) return NO;
     char raw[64] = {0};
@@ -116,11 +106,6 @@ static BOOL WAGRMCMethodIsObjectNoArg(Method method) {
     return method && method_getNumberOfArguments(method) == 2 && WAGRMCMethodReturnsObject(method);
 }
 
-static BOOL WAGRMCMethodIsWordToWord(Method method) {
-    return method && method_getNumberOfArguments(method) == 3 &&
-           WAGRMCMethodReturnsWord(method) && WAGRMCMethodArgumentFitsWord(method, 2);
-}
-
 static id WAGRMCCallObjectNoArg(id target, NSString *selectorName) {
     if (!target || !selectorName.length) return nil;
     SEL selector = NSSelectorFromString(selectorName);
@@ -137,14 +122,6 @@ static id WAGRMCCallClassObjectNoArg(Class cls, NSString *selectorName) {
     if (!WAGRMCMethodIsObjectNoArg(method)) return nil;
     @try { return ((id (*)(id, SEL))objc_msgSend)((id)cls, selector); }
     @catch (__unused NSException *exception) { return nil; }
-}
-
-static uint64_t WAGRMCClassIntegerReturnValue(Class cls, SEL selector, uint64_t argument) {
-    if (!cls || !selector) return 0;
-    Method method = class_getClassMethod(cls, selector);
-    if (!WAGRMCMethodIsWordToWord(method)) return 0;
-    @try { return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, argument); }
-    @catch (__unused NSException *exception) { return 0; }
 }
 
 #pragma mark - Live context-manager resolution
@@ -391,35 +368,70 @@ static NSDictionary *WAGRMCLoadCanonicalNames(NSString *path) {
 
 #pragma mark - Mapping
 
-static NSUInteger WAGRMCStableIdDomainCount(Class evaluationClass) {
-    NSArray<NSString *> *countSelectors = @[
-        @"getWAStableIdToParamSpecifierEntriesCount",
-        @"getWAStableIdToParamSpecifierEntriesSize",
-        @"waStableIdToParamSpecifierEntryCount",
-        @"waStableIdToParamSpecifierEntriesCount"
-    ];
-    for (NSString *selectorName in countSelectors) {
-        SEL selector = NSSelectorFromString(selectorName);
-        Method method = class_getClassMethod(evaluationClass, selector);
-        if (!method || method_getNumberOfArguments(method) != 2 || !WAGRMCMethodReturnsInteger(method)) continue;
-        @try {
-            uint64_t count = ((uint64_t (*)(id, SEL))objc_msgSend)((id)evaluationClass, selector);
-            if (count > 0 && count <= UINT16_MAX + 1ULL) return (NSUInteger)count;
-        } @catch (__unused NSException *exception) {}
-    }
+static BOOL WAGRMCReadSelf(uint64_t address, void *destination, size_t length) {
+    if (!address || !destination || !length || address > UINT64_MAX - length) return NO;
+    mach_vm_size_t copied = 0;
+    return mach_vm_read_overwrite(mach_task_self(), (mach_vm_address_t)address,
+        (mach_vm_size_t)length, (mach_vm_address_t)(uintptr_t)destination, &copied) == KERN_SUCCESS && copied == length;
+}
 
-    SEL entriesSelector = NSSelectorFromString(@"getWAStableIdToParamSpecifierEntries");
-    Method entriesMethod = class_getClassMethod(evaluationClass, entriesSelector);
-    if (WAGRMCMethodIsObjectNoArg(entriesMethod)) {
-        @try {
-            id entries = ((id (*)(id, SEL))objc_msgSend)((id)evaluationClass, entriesSelector);
-            if ([entries respondsToSelector:@selector(count)]) {
-                NSUInteger count = [entries count];
-                if (count > 0 && count <= UINT16_MAX + 1ULL) return count;
-            }
-        } @catch (__unused NSException *exception) {}
+static NSData *WAGRMCSpecifierSnapshot(NSString **outReason) {
+    static NSObject *lock;
+    static NSData *snapshot;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ lock = [NSObject new]; });
+    @synchronized (lock) {
+        if (snapshot) return snapshot;
+        // The void-pointer ABI carries no layout information. Fail closed on
+        // builds whose span layout has not been checked against their IPA.
+        NSDictionary *info = NSBundle.mainBundle.infoDictionary;
+        if (![info[@"CFBundleShortVersionString"] isEqual:@"26.40.10"] ||
+            ![info[@"CFBundleVersion"] isEqual:@"1086609742"]) {
+            if (outReason) *outReason = @"layout da tabela não validado para esta build";
+            return nil;
+        }
+        Class cls = NSClassFromString(@"WAMCEvaluation");
+        SEL selector = NSSelectorFromString(@"getWAStableIdToParamSpecifierEntries");
+        Method method = cls ? class_getClassMethod(cls, selector) : NULL;
+        char raw[64] = {0};
+        if (method) method_getReturnType(method, raw, sizeof(raw));
+        if (!method || method_getNumberOfArguments(method) != 2 ||
+            strcmp(WAGRMCSkipQualifiers(raw), "^v") != 0) {
+            if (outReason) *outReason = @"getter da tabela ausente ou ABI diferente de const void *";
+            return nil;
+        }
+        const void *address = NULL;
+        @try { address = ((const void *(*)(id, SEL))objc_msgSend)((id)cls, selector); }
+        @catch (__unused NSException *exception) {}
+        WAGRMCSpecifierSpan span = {0};
+        if (!WAGRMCReadSelf((uint64_t)(uintptr_t)address, &span, sizeof(span))) {
+            if (outReason) *outReason = @"tabela nativa ainda indisponível ou ilegível";
+            return nil; // No negative cache: the native schema may initialize later.
+        }
+        size_t length = WAGRMCSpecifierSpanByteLength(span);
+        if (!length) {
+            if (outReason) *outReason = @"ponteiro/quantidade da tabela inválidos";
+            return nil;
+        }
+        NSMutableData *copy = [NSMutableData dataWithLength:length];
+        if (!WAGRMCReadSelf(span.entries, copy.mutableBytes, length)) {
+            if (outReason) *outReason = @"não foi possível copiar a tabela nativa completa";
+            return nil;
+        }
+        snapshot = [copy copy]; // Schema table is immutable; never retain raw native memory.
+        WAGRLogAppendF(@"[MobileConfig] native specifier span count=%lu bytes=%lu",
+            (unsigned long)span.count, (unsigned long)length);
+        return snapshot;
     }
-    return kWAGRValidatedWAStableIdCount;
+}
+
+uint64_t WAGRMobileConfigSpecifierForWAStableID(uint64_t stableID) {
+    NSData *snapshot = WAGRMCSpecifierSnapshot(NULL);
+    return WAGRMCSpecifierSnapshotValue(snapshot.bytes, snapshot.length, stableID);
+}
+
+NSUInteger WAGRMobileConfigStableIDDomainCount(void) {
+    return WAGRMCSpecifierSnapshot(NULL).length / sizeof(uint64_t);
 }
 
 static uint64_t WAGRMCExternalStableId(id manager, uint64_t specifier) {
@@ -456,19 +468,18 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
         return nil;
     }
 
-    Class evaluationClass = NSClassFromString(@"WAMCEvaluation");
-    SEL specifierSelector = NSSelectorFromString(@"getMCSpecifierForStableId:");
-    Method specifierMethod = class_getClassMethod(evaluationClass, specifierSelector);
-    if (!evaluationClass || !WAGRMCMethodIsWordToWord(specifierMethod)) {
+    NSString *mappingReason = nil;
+    NSData *specifierSnapshot = WAGRMCSpecifierSnapshot(&mappingReason);
+    if (!specifierSnapshot.length) {
         if (outError) {
             *outError = [NSError errorWithDomain:kWAGRMCErrorDomain code:2
                 userInfo:@{NSLocalizedDescriptionKey:
-                    @"WAMCEvaluation.getMCSpecifierForStableId: não está disponível com ABI compatível."}];
+                    [NSString stringWithFormat:@"WAMCEvaluation: %@.", mappingReason ?: @"tabela indisponível"]}];
         }
         return nil;
     }
 
-    NSUInteger total = WAGRMCStableIdDomainCount(evaluationClass);
+    NSUInteger total = specifierSnapshot.length / sizeof(uint64_t);
     NSDictionary *names = WAGRMCLoadCanonicalNames(WAGRMobileConfigNamesPath(userContext));
     NSDictionary *configNames = names[@"configs"] ?: @{};
     NSDictionary *parameterNames = names[@"parameters"] ?: @{};
@@ -477,7 +488,7 @@ NSArray<WAGRMobileConfigMapping *> *WAGRMobileConfigResolveAll(
 
     for (NSUInteger stableId = 0; stableId < total; stableId++) {
         @autoreleasepool {
-            uint64_t specifier = WAGRMCClassIntegerReturnValue(evaluationClass, specifierSelector, (uint64_t)stableId);
+            uint64_t specifier = WAGRMCSpecifierSnapshotValue(specifierSnapshot.bytes, specifierSnapshot.length, stableId);
             if (!specifier || (specifier & (1ULL << 62))) {
                 if (progress && ((stableId & 0xFF) == 0 || stableId + 1 == total)) {
                     progress(stableId + 1, total, mappings.count, resolved);
@@ -692,8 +703,10 @@ NSString *WAGRMobileConfigDiagnosticText(void) {
     }
     id userSession = WAGRMobileConfigUserSessionContextManager(nil);
     id generic = userSession ?: captured ?: WAGRMobileConfigContextManager(nil);
+    NSString *mappingReason = nil;
+    NSData *specifierSnapshot = WAGRMCSpecifierSnapshot(&mappingReason);
     return [NSString stringWithFormat:
-        @"manager=%@\nsource=%@\nuserSession=%@\nfamilyValid=%@\npathHook=%@\nboolHook=%@\noverridesPath=%@\nnamesPath=%@\nvalidatedStableIdDomain=%lu\nmc_overrides identity=external config stable ID + parameterIndex",
+        @"manager=%@\nsource=%@\nuserSession=%@\nfamilyValid=%@\npathHook=%@\nboolHook=%@\noverridesPath=%@\nnamesPath=%@\nnativeStableIdDomain=%lu\nspecifierMap=%@\nmc_overrides identity=external config stable ID + parameterIndex",
         generic ? NSStringFromClass([generic class]) : @"nil",
         source ?: @"none",
         userSession ? @"YES" : @"NO",
@@ -702,7 +715,8 @@ NSString *WAGRMobileConfigDiagnosticText(void) {
         gWAGRMCBoolHooked ? @"YES" : @"NO",
         WAGRMobileConfigOverridesPath(nil) ?: @"unresolved",
         WAGRMobileConfigNamesPath(nil) ?: @"unresolved",
-        (unsigned long)kWAGRValidatedWAStableIdCount];
+        (unsigned long)(specifierSnapshot.length / sizeof(uint64_t)),
+        specifierSnapshot ? @"native pointer/count snapshot" : (mappingReason ?: @"unavailable")];
 }
 
 __attribute__((constructor))

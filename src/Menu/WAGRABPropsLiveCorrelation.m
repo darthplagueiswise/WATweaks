@@ -8,6 +8,7 @@
 #import "../Runtime/WAGRABPropsNativeStore.h"
 #import "../Runtime/WAGRABPropsStableIDResolver.h"
 #import "../Runtime/WAGRMobileConfigRuntimeResolver.h"
+#import "../Runtime/WAGRMobileConfigBridge.h"
 
 static NSDictionary *(*orig_WAGRABNativeEntryForRuntimeEntry)(id, SEL, WAGRABPropEntry *) = NULL;
 
@@ -41,16 +42,7 @@ static BOOL WAGRABLiveCorrWordReturn(Method method) {
 }
 
 static uint64_t WAGRABLiveCorrMCSpecifier(unsigned long long stableID) {
-    Class cls = NSClassFromString(@"WAMCEvaluation") ?: objc_getClass("WAMCEvaluation");
-    SEL selector = NSSelectorFromString(@"getMCSpecifierForStableId:");
-    Method method = cls ? class_getClassMethod(cls, selector) : NULL;
-    if (!method || method_getNumberOfArguments(method) != 3 ||
-        !WAGRABLiveCorrWordArgument(method, 2) || !WAGRABLiveCorrWordReturn(method)) return 0;
-    @try {
-        return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, stableID);
-    } @catch (__unused NSException *exception) {
-        return 0;
-    }
+    return WAGRMobileConfigSpecifierForWAStableID(stableID);
 }
 
 static void WAGRABLiveCorrSplitName(NSString *full, NSString **config, NSString **parameter) {

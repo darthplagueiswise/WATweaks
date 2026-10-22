@@ -449,13 +449,7 @@ NSString *WAGRABPropsDisplayNameForCode(NSString *code) {
 #pragma mark - MobileConfig enrichment
 
 static uint64_t WAGRABMCSpecifierForCode(unsigned long long code) {
-    Class cls = NSClassFromString(@"WAMCEvaluation");
-    SEL selector = NSSelectorFromString(@"getMCSpecifierForStableId:");
-    Method method = class_getClassMethod(cls, selector);
-    if (!cls || !method || method_getNumberOfArguments(method) != 3 ||
-        !WAGRABMethodWordArgument(method, 2) || !WAGRABMethodWordReturn(method)) return 0;
-    @try { return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, code); }
-    @catch (__unused NSException *exception) { return 0; }
+    return WAGRMobileConfigSpecifierForWAStableID(code);
 }
 
 static BOOL WAGRABMCBoolean(id manager, NSString *selectorName, BOOL *available) {
