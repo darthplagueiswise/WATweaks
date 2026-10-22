@@ -30,7 +30,9 @@ class MobileConfigFetchTests(unittest.TestCase):
         bridge = (ROOT / 'src/Runtime/WAGRMobileConfigBridge.m').read_text()
         self.assertNotIn('34666', bridge)
         self.assertIn('getWAStableIdToParamSpecifierEntries', bridge)
-        self.assertIn('mach_vm_read_overwrite(', bridge)
+        self.assertIn('vm_read_overwrite(', bridge)
+        self.assertNotIn('mach_vm_read_overwrite(', bridge)
+        self.assertNotIn('<mach/mach_vm.h>', bridge)
 
     def test_native_account_state_and_names_are_bound_to_the_fetch(self):
         source = (ROOT / 'src/Runtime/WAGRMobileConfigNativeEngine.m').read_text()

@@ -31,7 +31,7 @@ não um objeto Objective-C. O consumidor `WAPushPropertiesManager` verifica
 truncava o domínio.
 
 Os cinco consumidores agora partilham esse leitor: valida ABI e build, copia a
-estrutura/tabela com `mach_vm_read_overwrite`, rejeita limites inválidos e mantém
+estrutura/tabela com `vm_read_overwrite`, rejeita limites inválidos e mantém
 um snapshot imutável. Falha de inicialização não fica em cache. Não há offsets
 fixos de funções na implementação. Outras builds exigem validação do layout,
 porque `const void *` sozinho não descreve a estrutura.

@@ -2,7 +2,6 @@
 #import "WAGRMobileConfigSpecifierSpan.h"
 #import "WAGRLog.h"
 #import <mach/mach.h>
-#import <mach/mach_vm.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <substrate.h>
@@ -370,9 +369,9 @@ static NSDictionary *WAGRMCLoadCanonicalNames(NSString *path) {
 
 static BOOL WAGRMCReadSelf(uint64_t address, void *destination, size_t length) {
     if (!address || !destination || !length || address > UINT64_MAX - length) return NO;
-    mach_vm_size_t copied = 0;
-    return mach_vm_read_overwrite(mach_task_self(), (mach_vm_address_t)address,
-        (mach_vm_size_t)length, (mach_vm_address_t)(uintptr_t)destination, &copied) == KERN_SUCCESS && copied == length;
+    vm_size_t copied = 0;
+    return vm_read_overwrite(mach_task_self(), (vm_address_t)address,
+        (vm_size_t)length, (vm_address_t)(uintptr_t)destination, &copied) == KERN_SUCCESS && copied == length;
 }
 
 static NSData *WAGRMCSpecifierSnapshot(NSString **outReason) {
