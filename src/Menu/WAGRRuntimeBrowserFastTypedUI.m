@@ -29,7 +29,6 @@ static const void *kWAGRFastSurfaceEntryKey = &kWAGRFastSurfaceEntryKey;
 static const void *kWAGRFastSurfaceSemanticKey = &kWAGRFastSurfaceSemanticKey;
 static const void *kWAGRFastSurfaceHaystackKey = &kWAGRFastSurfaceHaystackKey;
 static const void *kWAGRFastSurfaceGenerationKey = &kWAGRFastSurfaceGenerationKey;
-static const void *kWAGRFastSurfaceReceiverCacheKey = &kWAGRFastSurfaceReceiverCacheKey;
 static const void *kWAGRFastABGenerationKey = &kWAGRFastABGenerationKey;
 
 static NSMutableSet<NSString *> *gWAGRFastPendingUIDs;
@@ -92,178 +91,10 @@ static void WAGRFastReloadControlRow(id self, UIView *control) {
     }
 }
 
-#pragma mark - Safe live receiver resolution
-
-static BOOL WAGRFastExactReceiver(id object, Class cls, SEL selector) {
-    return object && cls && [object isKindOfClass:cls] && [object respondsToSelector:selector];
-}
-
-static id WAGRFastFindInViewTree(UIView *view, Class cls, SEL selector) {
-    if (!view) return nil;
-    if (WAGRFastExactReceiver(view, cls, selector)) return view;
-    for (UIView *subview in view.subviews) {
-        id found = WAGRFastFindInViewTree(subview, cls, selector);
-        if (found) return found;
-    }
-    return nil;
-}
-
-static id WAGRFastFindInControllerTree(UIViewController *controller, Class cls, SEL selector) {
-    if (!controller) return nil;
-    if (WAGRFastExactReceiver(controller, cls, selector)) return controller;
-    id inView = WAGRFastFindInViewTree(controller.viewIfLoaded, cls, selector);
-    if (inView) return inView;
-    if (controller.presentedViewController) {
-        id found = WAGRFastFindInControllerTree(controller.presentedViewController, cls, selector);
-        if (found) return found;
-    }
-    if ([controller isKindOfClass:UINavigationController.class]) {
-        for (UIViewController *child in ((UINavigationController *)controller).viewControllers.reverseObjectEnumerator) {
-            id found = WAGRFastFindInControllerTree(child, cls, selector);
-            if (found) return found;
-        }
-    }
-    if ([controller isKindOfClass:UITabBarController.class]) {
-        for (UIViewController *child in ((UITabBarController *)controller).viewControllers ?: @[]) {
-            id found = WAGRFastFindInControllerTree(child, cls, selector);
-            if (found) return found;
-        }
-    }
-    for (UIViewController *child in controller.childViewControllers) {
-        id found = WAGRFastFindInControllerTree(child, cls, selector);
-        if (found) return found;
-    }
-    return nil;
-}
-
-static id WAGRFastSingletonReceiver(Class cls, SEL selector) {
-    if (!cls) return nil;
-    for (NSString *name in @[ @"shared", @"sharedInstance", @"current", @"defaultInstance",
-                               @"defaultManager", @"manager", @"provider", @"properties",
-                               @"instance", @"getInstance" ]) {
-        SEL factory = NSSelectorFromString(name);
-        Method method = class_getClassMethod(cls, factory);
-        if (!method || method_getNumberOfArguments(method) != 2) continue;
-        char raw[32] = {0};
-        method_getReturnType(method, raw, sizeof(raw));
-        const char *cursor = raw;
-        while (*cursor && strchr("rnNoORV", *cursor)) cursor++;
-        if (*cursor != '@') continue;
-        @try {
-            id value = ((id (*)(id, SEL))objc_msgSend)((id)cls, factory);
-            if (WAGRFastExactReceiver(value, cls, selector)) return value;
-        } @catch (__unused NSException *exception) {}
-    }
-    return nil;
-}
-
-static id WAGRFastGraphSearch(id root, Class wantedClass, SEL selector,
-                              NSHashTable *visited, NSUInteger depth, NSUInteger *budget) {
-    if (!root || !wantedClass || !budget || *budget == 0 || depth > 3) return nil;
-    if ([visited containsObject:root]) return nil;
-    [visited addObject:root];
-    (*budget)--;
-    if (WAGRFastExactReceiver(root, wantedClass, selector)) return root;
-
-    for (Class current = [root class]; current && current != NSObject.class;
-         current = class_getSuperclass(current)) {
-        unsigned int count = 0;
-        Ivar *ivars = class_copyIvarList(current, &count);
-        for (unsigned int i = 0; i < count; i++) {
-            const char *encoding = ivar_getTypeEncoding(ivars[i]);
-            if (!encoding) continue;
-            while (*encoding && strchr("rnNoORV", *encoding)) encoding++;
-            if (*encoding != '@') continue;
-            id child = nil;
-            @try { child = object_getIvar(root, ivars[i]); }
-            @catch (__unused NSException *exception) { child = nil; }
-            if (!child || child == root) continue;
-            id found = WAGRFastGraphSearch(child, wantedClass, selector, visited, depth + 1, budget);
-            if (found) { free(ivars); return found; }
-            if (*budget == 0) { free(ivars); return nil; }
-        }
-        free(ivars);
-    }
-    return nil;
-}
-
-static id WAGRFastSurfaceReceiver(id self, SEL _cmd, WAGREntry *entry) {
-    (void)_cmd;
-    if (!entry || entry.isClassMethod) return nil;
-    Class cls = NSClassFromString(entry.className) ?: objc_getClass(entry.className.UTF8String);
-    SEL selector = NSSelectorFromString(entry.selectorName);
-    if (!cls || !selector) return nil;
-
-    NSMutableDictionary *cache = objc_getAssociatedObject(self, kWAGRFastSurfaceReceiverCacheKey);
-    if (!cache) {
-        cache = [NSMutableDictionary dictionary];
-        objc_setAssociatedObject(self, kWAGRFastSurfaceReceiverCacheKey, cache,
-                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    NSString *cacheKey = [NSString stringWithFormat:@"%@|%@", entry.className ?: @"", entry.selectorName ?: @""];
-    id cached = cache[cacheKey];
-    if (cached && cached != NSNull.null && WAGRFastExactReceiver(cached, cls, selector)) return cached;
-    if (cached == NSNull.null) return nil;
-
-    NSArray *runtimeObjects = WAGRFastKVC(self, @"runtimeObjects") ?: @[];
-    for (id object in runtimeObjects) {
-        if (WAGRFastExactReceiver(object, cls, selector)) {
-            cache[cacheKey] = object;
-            return object;
-        }
-    }
-
-    id singleton = WAGRFastSingletonReceiver(cls, selector);
-    if (singleton) { cache[cacheKey] = singleton; return singleton; }
-
-    UIApplication *application = UIApplication.sharedApplication;
-    id delegate = application.delegate;
-    if (WAGRFastExactReceiver(delegate, cls, selector)) {
-        cache[cacheKey] = delegate;
-        return delegate;
-    }
-    for (UIWindow *window in application.windows) {
-        if (WAGRFastExactReceiver(window, cls, selector)) {
-            cache[cacheKey] = window;
-            return window;
-        }
-        id found = WAGRFastFindInControllerTree(window.rootViewController, cls, selector);
-        if (found) { cache[cacheKey] = found; return found; }
-    }
-
-    NSHashTable *visited = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality];
-    NSUInteger budget = 220;
-    for (id root in runtimeObjects) {
-        id found = WAGRFastGraphSearch(root, cls, selector, visited, 0, &budget);
-        if (found) { cache[cacheKey] = found; return found; }
-        if (!budget) break;
-    }
-    if (budget && delegate) {
-        id found = WAGRFastGraphSearch(delegate, cls, selector, visited, 0, &budget);
-        if (found) { cache[cacheKey] = found; return found; }
-    }
-
-    cache[cacheKey] = NSNull.null;
-    return nil;
-}
-
 #pragma mark - Fast filtering
 
 static BOOL WAGRFastStructuralSelector(NSString *selector) {
-    if (!selector.length) return YES;
-    NSString *lower = selector.lowercaseString;
-    if ([lower hasPrefix:@"init"] || [lower hasPrefix:@"dealloc"] ||
-        [lower hasPrefix:@"copy"] || [lower hasPrefix:@"mutablecopy"]) return YES;
-    static NSSet<NSString *> *blocked;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        blocked = [NSSet setWithArray:@[
-            @"hash", @"description", @"debugdescription", @"class", @"superclass",
-            @"self", @"zone", @"retaincount", @"autorelease", @"retain", @"release",
-            @"isproxy", @"isfault", @"observationinfo", @"methodsignatureforselector"
-        ]];
-    });
-    return [blocked containsObject:lower];
+    return !WAGRRuntimeValueSelectorIsSafeGetter(selector);
 }
 
 static NSArray<NSString *> *WAGRFastTokens(NSString *query) {
@@ -357,6 +188,10 @@ static void WAGRFastScheduleSurfaceFilter(id self, NSTimeInterval delay) {
             NSString *title = [NSString stringWithFormat:@"%@ (%lu)", baseTitle, (unsigned long)filteredCount];
             ((UIViewController *)target).title = active
                 ? [title stringByAppendingFormat:@" · %lu ativos", (unsigned long)active] : title;
+            SEL emptyState = NSSelectorFromString(@"updateEmptyState");
+            if ([target respondsToSelector:emptyState]) {
+                ((void (*)(id, SEL))objc_msgSend)(target, emptyState);
+            }
             [((UITableViewController *)target).tableView reloadData];
         });
     });
@@ -455,7 +290,8 @@ static UITableViewCell *WAGRFastSurfaceCell(id self, SEL _cmd, UITableView *tabl
 
     cell.textLabel.text = entry.selectorName ?: @"?";
     NSString *type = WAGRRuntimeValueTypeName(entry.typeCode) ?: entry.typeName ?: @"?";
-    NSString *valueText = effective ? WAGRFastCompactObject(effective) : (current ?: @"?");
+    // Native object descriptions are captured only by explicit Read.
+    NSString *valueText = overridden ? WAGRFastCompactObject(forced) : (current ?: @"?");
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@\n%@%@",
         entry.className ?: @"Runtime", type, valueText,
         pending ? @" · pendente" : (overridden ? @" · override" : @"")];
@@ -476,7 +312,8 @@ static UITableViewCell *WAGRFastSurfaceCell(id self, SEL _cmd, UITableView *tabl
                WAGRRuntimeValueTypeIsFloatingPoint(entry.typeCode) ||
                (WAGRRuntimeValueTypeIsObject(entry.typeCode) &&
                 (!effective || [effective isKindOfClass:NSString.class]))) {
-        NSString *fieldText = effective ? [effective description] : @"";
+        NSString *fieldText = [effective isKindOfClass:NSString.class] ? effective
+            : ([effective isKindOfClass:NSNumber.class] ? [effective stringValue] : @"");
         UITextField *field = WAGRFastField(self, entry, fieldText);
         field.textColor = pending ? UIColor.systemOrangeColor
             : (overridden ? UIColor.systemBlueColor : UIColor.labelColor);
@@ -622,7 +459,6 @@ static void WAGRFastInstall(void) {
     if (surface) {
         WAGRFastReplace(surface, NSSelectorFromString(@"applyCurrentFilter"), (IMP)WAGRFastSurfaceApplyFilter);
         WAGRFastReplace(surface, @selector(updateSearchResultsForSearchController:), (IMP)WAGRFastSurfaceSearchUpdated);
-        WAGRFastReplace(surface, NSSelectorFromString(@"receiverForEntry:"), (IMP)WAGRFastSurfaceReceiver);
         WAGRFastReplace(surface, @selector(tableView:cellForRowAtIndexPath:), (IMP)WAGRFastSurfaceCell);
         WAGRFastReplace(surface, NSSelectorFromString(@"applyVisibleOverrides"), (IMP)WAGRFastApplyAllSurfaceOverrides);
         WAGRFastAddOrReplace(surface, NSSelectorFromString(@"wagr_fastSurfaceSwitchChanged:"),

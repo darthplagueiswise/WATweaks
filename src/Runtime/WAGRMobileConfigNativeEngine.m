@@ -1,5 +1,6 @@
 #import "WAGRMobileConfigNativeEngine.h"
 #import "WAGRMobileConfigBridge.h"
+#import "WAGRMobileConfigFetchPolicy.h"
 #import "WAGRLog.h"
 
 #import <objc/runtime.h>
@@ -91,9 +92,8 @@ BOOL WAGRMobileConfigNativeInvalidate(id userContext, NSString **outDiagnostic) 
     if (WAGRMCNativeInvokeVoidNoArg(manager, @"invalidateCachedLatestContext")) {
         [invoked addObject:@"invalidateCachedLatestContext"];
     }
-    if (WAGRMCNativeInvokeVoidNoArg(manager, @"forceInvalidate")) {
-        [invoked addObject:@"forceInvalidate"];
-    }
+    // forceInvalidate is native teardown: it marks this object disposed,
+    // clears the C++ manager/listeners, and is also called by -dealloc.
 
     NSString *diagnostic = [NSString stringWithFormat:
         @"manager=%@; localInvalidation=%@; setOverrides ABI=%@",
@@ -126,6 +126,11 @@ static NSObject *gWAGRMCFetchLock = nil;
 static NSMutableDictionary<NSString *, id> *gWAGRMCFetchState = nil;
 static NSString *gWAGRMCFetchToken = nil;
 static NSTimeInterval gWAGRMCFetchStarted = 0;
+static id gWAGRMCFetchContext = nil;
+static id gWAGRMCFetchManager = nil;
+static id gWAGRMCFetchExpectedPreferencesStore = nil;
+static NSString *gWAGRMCFetchExpectedUnitId = nil;
+static int gWAGRMCFetchExpectedUnitType = 0;
 static WAGRMobileConfigNativeFetchCompletion gWAGRMCFetchCompletion = nil;
 static void (*gWAGRMCXWA2SuccessOriginal)(id, SEL, id, id, id, long long, long long, id) = NULL;
 static void (*gWAGRMCFetchSuccessMarkerOriginal)(id, SEL, id, int, id, id) = NULL;
@@ -153,8 +158,18 @@ static NSDictionary *WAGRMCNativeFileState(NSString *path) {
     };
 }
 
-static NSString *WAGRMCNativeLatestConfigPath(id userContext) {
-    id manager = WAGRMobileConfigUserSessionContextManager(userContext);
+static id WAGRMCNativeBoundAccountManager(id context) {
+    // The global capture resolver can return another account's most recently
+    // observed manager. Account operations must follow this context's native
+    // properties.mc route; a missing route is not permission to use that capture.
+    if (!context) return nil;
+    id properties = WAGRMCNativeCallObjectNoArg(context, @"abProperties");
+    id manager = WAGRMCNativeCallObjectNoArg(properties, @"mc");
+    Class expected = NSClassFromString(@"FBMobileConfigUserSessionContextManager");
+    return expected && manager && [manager isKindOfClass:expected] ? manager : nil;
+}
+
+static NSString *WAGRMCNativeLatestConfigPathForManager(id manager) {
     id pathValue = WAGRMCNativeCallObjectNoArg(manager, @"getLatestConfigFilePath");
     if ([pathValue isKindOfClass:NSString.class]) return pathValue;
     if ([pathValue isKindOfClass:NSURL.class]) return [(NSURL *)pathValue path];
@@ -167,7 +182,13 @@ static NSString *WAGRMCNativeLatestConfigPath(id userContext) {
     return nil;
 }
 
-static NSDictionary *WAGRMCNativeLatestReleaseFetchEvent(NSTimeInterval start) {
+static NSString *WAGRMCNativeLatestConfigPath(id context) {
+    return WAGRMCNativeLatestConfigPathForManager(WAGRMCNativeBoundAccountManager(context));
+}
+
+static BOOL WAGRMCNativeStringsDescribeEqual(id left, id right);
+
+static NSDictionary *WAGRMCNativeLatestReleaseFetchEvent(NSTimeInterval start, int unitType, NSString *unitId) {
     NSDictionary *doc = WAGRABPropsReleaseNativeLinkageDiagnosticDocument();
     NSArray *events = [doc[@"events"] isKindOfClass:NSArray.class] ? doc[@"events"] : @[];
     for (NSDictionary *event in [events reverseObjectEnumerator]) {
@@ -175,8 +196,11 @@ static NSDictionary *WAGRMCNativeLatestReleaseFetchEvent(NSTimeInterval start) {
         NSTimeInterval time = [event[@"time"] doubleValue];
         if (time + 0.001 < start) break;
         NSString *kind = [event[@"kind"] isKindOfClass:NSString.class] ? event[@"kind"] : @"";
-        if ([kind isEqualToString:@"xwa2_native_fetch_observed"] ||
-            [kind isEqualToString:@"www_native_fetch_observed"]) return event;
+        if (([kind isEqualToString:@"xwa2_native_fetch_observed"] ||
+             [kind isEqualToString:@"www_native_fetch_observed"]) &&
+            [event[@"unitType"] isKindOfClass:NSNumber.class] &&
+            [event[@"unitType"] intValue] == unitType &&
+            WAGRMCNativeStringsDescribeEqual(event[@"unitId"], unitId)) return event;
     }
     return nil;
 }
@@ -303,38 +327,32 @@ static void WAGRMCNativeFinishFetch(NSString *token, NSDictionary *extra) {
         gWAGRMCFetchCompletion = nil;
         gWAGRMCFetchToken = nil;
         gWAGRMCFetchStarted = 0;
+        gWAGRMCFetchContext = nil;
+        gWAGRMCFetchManager = nil;
+        gWAGRMCFetchExpectedPreferencesStore = nil;
+        gWAGRMCFetchExpectedUnitId = nil;
+        gWAGRMCFetchExpectedUnitType = 0;
     }
     if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion([result copy]); });
 }
 
 static void WAGRMCNativeXWA2Success(id self, SEL _cmd, id response, id error, id fetchType,
                                      long long attemptIndex, long long maxAttempts, id attemptCompletion) {
-    NSString *token = nil;
-    NSTimeInterval started = 0;
-    @synchronized (gWAGRMCFetchLock) {
-        token = [gWAGRMCFetchToken copy];
-        started = gWAGRMCFetchStarted;
-    }
-    NSDictionary *summary = token.length ? WAGRMCNativeXWA2ResponseSummary(response, error, fetchType, attemptIndex, maxAttempts) : nil;
     if (gWAGRMCXWA2SuccessOriginal) {
         gWAGRMCXWA2SuccessOriginal(self, _cmd, response, error, fetchType, attemptIndex, maxAttempts, attemptCompletion);
     }
-    if (!token.length) return;
-    BOOL finalError = error && (attemptIndex + 1 >= maxAttempts);
-    if (error && !finalError) return; // native retry pipeline still owns the request
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        NSDictionary *backend = WAGRMCNativeLatestReleaseFetchEvent(started);
-        NSDictionary *file = WAGRMCNativeFileState(WAGRMCNativeLatestConfigPath(WAGRCurrentUserContext()));
-        NSMutableDictionary *extra = [NSMutableDictionary dictionaryWithDictionary:@{
-            @"state" : error ? @"server_error_final" : @"verified_xwa2_response",
-            @"verified_server_response" : @(!error),
-            @"xwa2_success" : summary ?: @{},
-            @"latest_config_after" : file ?: @{},
-            @"network_input" : backend ?: @{}
-        }];
-        WAGRMCNativeFinishFetch(token, extra);
-    });
+    // This callback has no unit ID. A response alone cannot complete an account
+    // request; the native persisted-success marker below supplies that identity.
+    // Only retain scoped diagnostic data when the fetcher's actual native ivar
+    // points at the context captured before dispatch.
+    Ivar contextIvar = class_getInstanceVariable([self class], "_context");
+    const char *contextType = contextIvar ? ivar_getTypeEncoding(contextIvar) : NULL;
+    id fetcherContext = contextType && contextType[0] == '@' ? object_getIvar(self, contextIvar) : nil;
+    @synchronized (gWAGRMCFetchLock) {
+        if (!gWAGRMCFetchToken.length || !fetcherContext || fetcherContext != gWAGRMCFetchContext) return;
+        NSDictionary *summary = WAGRMCNativeXWA2ResponseSummary(response, error, fetchType, attemptIndex, maxAttempts);
+        gWAGRMCFetchState[@"xwa2_response_observed"] = summary ?: @{};
+    }
 }
 
 static BOOL WAGRMCNativeInstallXWA2SuccessObserver(void) {
@@ -371,12 +389,22 @@ static void WAGRMCNativeFetchSuccessMarker(id self, SEL _cmd,
     }
     if (!token.length) return;
 
-    NSDictionary *backend = WAGRMCNativeLatestReleaseFetchEvent(started);
-    id backendUnitId = [backend isKindOfClass:NSDictionary.class] ? backend[@"unitId"] : nil;
-    if (backendUnitId && unitId && !WAGRMCNativeStringsDescribeEqual(backendUnitId, unitId)) {
-        return;
+    id manager = nil;
+    id expectedStore = nil;
+    NSString *expectedUnitId = nil;
+    int expectedUnitType = 0;
+    @synchronized (gWAGRMCFetchLock) {
+        if (![gWAGRMCFetchToken isEqualToString:token]) return;
+        manager = gWAGRMCFetchManager;
+        expectedStore = gWAGRMCFetchExpectedPreferencesStore;
+        expectedUnitId = gWAGRMCFetchExpectedUnitId;
+        expectedUnitType = gWAGRMCFetchExpectedUnitType;
     }
-    NSDictionary *file = WAGRMCNativeFileState(WAGRMCNativeLatestConfigPath(WAGRCurrentUserContext()));
+    if (!WAGRMCFetchMarkerMatches(token.length > 0, expectedStore && preferencesStore == expectedStore,
+                                  expectedUnitType, unitType,
+                                  WAGRMCNativeStringsDescribeEqual(unitId, expectedUnitId))) return;
+    NSDictionary *backend = WAGRMCNativeLatestReleaseFetchEvent(started, expectedUnitType, expectedUnitId);
+    NSDictionary *file = WAGRMCNativeFileState(WAGRMCNativeLatestConfigPathForManager(manager));
     NSDictionary *persistentMarker = WAGRMCNativeLastFetchPersistenceReadback(
         preferencesStore, unitType, unitId, appVersion);
     BOOL persistentVerified = [persistentMarker[@"persistent_success_marker_verified"] boolValue];
@@ -421,26 +449,47 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
                                         NSString **outDiagnostic) {
     WAGRMCNativeEnsureFetchState();
     if (!WAGRMCNativeInstallXWA2SuccessObserver()) {
-        if (outDiagnostic) *outDiagnostic = @"XWA2 success observer ABI did not match WhatsApp 26.33.";
+        if (outDiagnostic) *outDiagnostic = @"XWA2 success observer ABI is not supported by this installed WhatsApp build.";
         return NO;
     }
     if (!WAGRMCNativeInstallFetchSuccessMarkerObserver()) {
-        if (outDiagnostic) *outDiagnostic = @"WAMobileConfigLastFetchStore success-marker ABI did not match WhatsApp 26.33.";
+        if (outDiagnostic) *outDiagnostic = @"WAMobileConfigLastFetchStore success-marker ABI is not supported by this installed WhatsApp build.";
         return NO;
     }
     id context = userContext ?: WAGRCurrentUserContext();
     id chatManager = WAGRMCNativeCallObjectNoArg(context, @"chatManager");
-    SEL selector = NSSelectorFromString(@"fetchMobileConfig:");
-    Method method = chatManager ? class_getInstanceMethod([chatManager class], selector) : NULL;
-    if (!method || method_getNumberOfArguments(method) != 3 ||
-        !WAGRMCNativeMethodReturnsVoid(method) || !WAGRMCNativeArgBool(method, 2)) {
-        if (outDiagnostic) *outDiagnostic = @"WAContextMain.chatManager / WAChatManager fetchMobileConfig: ABI unresolved.";
+    SEL modernSelector = NSSelectorFromString(@"fetchMobileConfig:stack:");
+    SEL legacySelector = NSSelectorFromString(@"fetchMobileConfig:");
+    Method modernMethod = chatManager ? class_getInstanceMethod([chatManager class], modernSelector) : NULL;
+    Method legacyMethod = chatManager ? class_getInstanceMethod([chatManager class], legacySelector) : NULL;
+    WAGRMCFetchRoute route = WAGRMCFetchSelectRoute(modernMethod ? method_getTypeEncoding(modernMethod) : NULL,
+                                                  legacyMethod ? method_getTypeEncoding(legacyMethod) : NULL);
+    if (route == WAGRMCFetchRouteUnavailable) {
+        if (outDiagnostic) *outDiagnostic = @"WAContextMain.chatManager native MobileConfig fetch ABI unresolved.";
         return NO;
     }
+    SEL selector = route == WAGRMCFetchRouteBoolStack ? modernSelector : legacySelector;
+    Method method = route == WAGRMCFetchRouteBoolStack ? modernMethod : legacyMethod;
+    id manager = WAGRMCNativeBoundAccountManager(context);
+    id preferencesStore = WAGRMCNativeCallObjectNoArg(manager, @"preferencesStore");
+    id rawUnitId = WAGRMCNativeCallObjectNoArg(manager, @"getUnitId");
+    NSString *unitId = [rawUnitId isKindOfClass:NSString.class] ? rawUnitId : nil;
+    Method unitTypeMethod = manager ? class_getInstanceMethod([manager class], NSSelectorFromString(@"getUnitType")) : NULL;
+    int unitType = 0;
+    if (unitTypeMethod && strcmp(method_getTypeEncoding(unitTypeMethod), "i16@0:8") == 0) {
+        @try { unitType = ((int (*)(id, SEL))objc_msgSend)(manager, NSSelectorFromString(@"getUnitType")); }
+        @catch (__unused NSException *exception) { unitType = 0; }
+    }
+    if (!context || !preferencesStore || !unitId.length || unitType != WAGRMCFetchUserSessionUnitType) {
+        if (outDiagnostic) *outDiagnostic = @"Live UserSession identity/preferencesStore unresolved; account fetch was not dispatched.";
+        return NO;
+    }
+    NSString *entrypoint = route == WAGRMCFetchRouteBoolStack
+        ? @"WAChatManager fetchMobileConfig:NO stack:-1" : @"WAChatManager fetchMobileConfig:NO";
 
     NSString *token = NSUUID.UUID.UUIDString;
     NSTimeInterval started = [[NSDate date] timeIntervalSince1970];
-    NSString *latestPath = WAGRMCNativeLatestConfigPath(context);
+    NSString *latestPath = WAGRMCNativeLatestConfigPathForManager(manager);
     NSDictionary *before = WAGRMCNativeFileState(latestPath);
     @synchronized (gWAGRMCFetchLock) {
         if (gWAGRMCFetchToken.length) {
@@ -449,6 +498,11 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
         }
         gWAGRMCFetchToken = token;
         gWAGRMCFetchStarted = started;
+        gWAGRMCFetchContext = context;
+        gWAGRMCFetchManager = manager;
+        gWAGRMCFetchExpectedPreferencesStore = preferencesStore;
+        gWAGRMCFetchExpectedUnitId = [unitId copy];
+        gWAGRMCFetchExpectedUnitType = unitType;
         gWAGRMCFetchCompletion = [completion copy];
         gWAGRMCFetchState = [@{
             @"schema" : @"watweaks_mobileconfig_native_fetch_v1",
@@ -457,14 +511,21 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
             @"started_at" : @(started),
             @"context_class" : context ? (NSStringFromClass([context class]) ?: @"?") : @"nil",
             @"chat_manager_class" : NSStringFromClass([chatManager class]) ?: @"?",
-            @"entrypoint" : @"WAChatManager fetchMobileConfig:NO",
+            @"entrypoint" : entrypoint,
+            @"expected_unit_type" : @(unitType),
+            @"expected_unit_id" : unitId,
+            @"native_stack" : route == WAGRMCFetchRouteBoolStack ? @(WAGRMCFetchNativeStackAutomatic) : (id)NSNull.null,
             @"latest_config_before" : before,
             @"policy" : @"Normal authenticated fetch. WATweaks does not construct WAMobileConfigFetchInput, GraphQL, access tokens, or hashes; the native pipeline supplies globalValueHash/epRefreshId."
         } mutableCopy];
     }
 
     @try {
-        ((void (*)(id, SEL, BOOL))objc_msgSend)(chatManager, selector, NO);
+        if (route == WAGRMCFetchRouteBoolStack) {
+            ((void (*)(id, SEL, BOOL, int))objc_msgSend)(chatManager, selector, NO, WAGRMCFetchNativeStackAutomatic);
+        } else {
+            ((void (*)(id, SEL, BOOL))objc_msgSend)(chatManager, selector, NO);
+        }
     } @catch (NSException *exception) {
         WAGRMCNativeFinishFetch(token, @{
             @"state" : @"entrypoint_exception",
@@ -480,8 +541,8 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
     WAGRLogAppendF(@"[MobileConfig][NativeFetch] started %@", token);
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(30.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        NSDictionary *backend = WAGRMCNativeLatestReleaseFetchEvent(started);
-        NSDictionary *file = WAGRMCNativeFileState(WAGRMCNativeLatestConfigPath(WAGRCurrentUserContext()));
+        NSDictionary *backend = WAGRMCNativeLatestReleaseFetchEvent(started, unitType, unitId);
+        NSDictionary *file = WAGRMCNativeFileState(WAGRMCNativeLatestConfigPathForManager(manager));
         WAGRMCNativeFinishFetch(token, @{
             @"state" : backend ? @"timeout_after_network_request" : @"timeout_before_network_observed",
             @"verified_server_response" : @NO,
@@ -531,8 +592,9 @@ NSDictionary<NSString *, id> *WAGRMobileConfigNativeEngineDiagnosticDocument(id 
         @"fetch_state" : WAGRMobileConfigNativeFetchState(),
         @"invalidate_cached_latest_context_encoding" : WAGRMCNativeEncoding(manager, @"invalidateCachedLatestContext"),
         @"force_invalidate_encoding" : WAGRMCNativeEncoding(manager, @"forceInvalidate"),
+        @"force_invalidate_role" : @"Native manager teardown; never used for local cache refresh",
         @"force_refresh_config_encoding" : WAGRMCNativeEncoding(manager, @"forceRefreshOfConfig:"),
-        @"policy" : @"ABProp local overrides use FBMobileConfigStartupConfigs and exact App Group readback; server fetch uses WAChatManager fetchMobileConfig:NO. Direct mc_overrides.json writes remain blocked until the FBMobileConfigOverridesTable C++ serializer is proven."
+        @"policy" : @"ABProp local overrides use FBMobileConfigStartupConfigs and exact App Group readback; server fetch selects the validated WAChatManager ABI (26.40: fetchMobileConfig:NO stack:-1). Direct mc_overrides.json writes remain blocked until the FBMobileConfigOverridesTable C++ serializer is proven."
     };
 }
 

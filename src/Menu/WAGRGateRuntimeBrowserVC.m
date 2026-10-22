@@ -2,6 +2,7 @@
 #import "WAGRGateRuntimeBrowserVC.h"
 #import "../Runtime/WAGRGateStore.h"
 #import "../Runtime/WAGRRuntimeClassifier.h"
+#import "../Runtime/WAGRRuntimeValueStore.h"
 #import <objc/runtime.h>
 #import "WAGRMenuTheme.h"
 
@@ -161,6 +162,7 @@ static BOOL WAGRRuntimeShouldSkipApply(WAGRRuntimeRow *row) {
             Method m = methods[i];
             SEL sel = method_getName(m);
             NSString *selName = NSStringFromSelector(sel);
+            if (!WAGRRuntimeValueSelectorIsSafeGetter(selName)) continue;
             if (method_getNumberOfArguments(m) != 2) continue;
             char ret[8] = {0};
             method_getReturnType(m, ret, sizeof(ret));

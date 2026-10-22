@@ -20,6 +20,7 @@ BOOL WAGRRuntimeValueTypeIsSignedInteger(NSString *typeCode);
 BOOL WAGRRuntimeValueTypeIsUnsignedInteger(NSString *typeCode);
 BOOL WAGRRuntimeValueTypeIsFloatingPoint(NSString *typeCode);
 BOOL WAGRRuntimeValueTypeIsObject(NSString *typeCode);
+BOOL WAGRRuntimeValueSelectorIsSafeGetter(NSString *selectorName);
 
 BOOL WAGRRuntimeValueHasOverride(NSString *className,
                                  NSString *selectorName,

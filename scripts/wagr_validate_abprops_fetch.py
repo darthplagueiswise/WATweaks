@@ -458,10 +458,18 @@ def main() -> int:
         require(ab_runtime, token, "WAGRABPropsRuntime.m", errors)
     for token in (
         "WAGRRuntimeValueSelectorIsSafeGetter",
-        '@"init"',
+        "WAGRRuntimeSelectorIsSafeGetterCString",
         "selector de lifecycle bloqueado",
     ):
         require(runtime_values, token, "WAGRRuntimeValueStore.m", errors)
+    # The deny rule is shared portable C; exercise the production policy.
+    import subprocess
+    safety = subprocess.run([
+        sys.executable, str(ROOT / "scripts/wagr_validate_runtime_browser.py"),
+        "RuntimeBrowserTests.test_binary_action_selectors_are_rejected_but_getters_remain_editable",
+    ], capture_output=True, text=True)
+    if safety.returncode:
+        errors.append("runtime selector admission regression: " + safety.stderr.strip())
     for token in (
         "watweaks_waab_runtime_config_v1",
         "Exportar configuração ABProps atual",

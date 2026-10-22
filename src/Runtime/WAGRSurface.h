@@ -41,13 +41,14 @@ NS_ASSUME_NONNULL_BEGIN
 // Dynamic filters. An exact image path identifies a loaded Mach-O. A family
 // is generated from the live selector/class names, never from a static list.
 @property(nonatomic, copy, nullable) NSString *runtimeImagePath;
+@property(nonatomic, assign) BOOL runtimeImageLoaded;
 @property(nonatomic, copy, nullable) NSString *runtimeFamilyKey;
 @property(nonatomic, assign) BOOL runtimeGenerated;
 @property(nonatomic, assign) NSUInteger runtimeClassCount;
 @property(nonatomic, assign) NSUInteger runtimeEntryCount;
 
 // Compatibility entry point used by the raw runtime list. It now returns a
-// fresh image-backed snapshot instead of a hard-coded surface array.
+// fresh loaded/bundled image snapshot instead of a hard-coded surface array.
 + (NSArray<WAGRSurfaceSpec *> *)allSurfaces;
 @end
 

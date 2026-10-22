@@ -1,4 +1,5 @@
 #import "WAGRRuntimeValueStore.h"
+#import "WAGRRuntimeSafety.h"
 #import "../WAPrefix.h"
 #import <objc/runtime.h>
 #import <substrate.h>
@@ -36,19 +37,8 @@ static NSString *WAGRRuntimeValueNormalizedType(NSString *typeCode) {
     return *cursor ? [NSString stringWithFormat:@"%c", *cursor] : @"";
 }
 
-static BOOL WAGRRuntimeValueSelectorIsSafeGetter(NSString *selectorName) {
-    if (!selectorName.length || [selectorName containsString:@":"]) return NO;
-    static NSSet<NSString *> *unsafe = nil;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        unsafe = [NSSet setWithArray:@[
-            @"alloc", @"init", @"new", @"dealloc", @"finalize", @"copy", @"mutableCopy",
-            @"retain", @"release", @"autorelease", @"retainCount", @"zone",
-            @"class", @"superclass", @"self", @"hash", @"description",
-            @"debugDescription", @"isProxy"
-        ]];
-    });
-    return ![unsafe containsObject:selectorName];
+BOOL WAGRRuntimeValueSelectorIsSafeGetter(NSString *selectorName) {
+    return WAGRRuntimeSelectorIsSafeGetterCString(selectorName.UTF8String);
 }
 
 static id WAGRRuntimeValueEncodeNested(id value);
@@ -490,7 +480,7 @@ NSString *WAGRRuntimeValueRead(NSString *className,
     Method method = isClassMethod
         ? class_getClassMethod((Class)receiver, selector)
         : class_getInstanceMethod([receiver class], selector);
-    if (!method) return @"método indisponível";
+    if (!method || method_getNumberOfArguments(method) != 2) return @"método indisponível";
     char rawType[64] = {0};
     method_getReturnType(method, rawType, sizeof(rawType));
     NSString *type = WAGRRuntimeValueNormalizedType([NSString stringWithUTF8String:rawType]);

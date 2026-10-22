@@ -6,6 +6,8 @@
 
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import <mach-o/dyld.h>
+#import <mach-o/loader.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -37,6 +39,10 @@ static void (*gOriginalDidSucceed)(id, SEL, id) = NULL;
 static void (*gOriginalDidFail)(id, SEL, id) = NULL;
 static void (*gOriginalHandle)(id, SEL, id, id, id, id, int, id, id,
                                int64_t, id, id, BOOL, int64_t, int64_t, id) = NULL;
+// Native final block at SharedModules 26.40.10 0x004fa87c passes success,
+// outcome.didChange and outcome.configKey (x1/x2/x3) to its caller.
+typedef void (^WAGRABTNativeCompletion)(BOOL success, BOOL didChange, id configKey);
+
 static BOOL gInstalled = NO;
 
 static NSObject *gLock;
@@ -61,6 +67,7 @@ static NSTimeInterval gStartTime = 0;
 static NSTimeInterval gLowerEnteredTime = 0;
 static BOOL gLowerDeltaUpdate = NO;
 static NSTimeInterval gNativeCompletionTime = 0;
+static NSDictionary *gNativeCompletion;
 static BOOL gTimeoutReported = NO;
 static NSDictionary *gRequest;
 static NSMutableArray<NSDictionary *> *gWireAttempts;
@@ -233,19 +240,61 @@ static id ValueForPolicy(NSString *policy, id nativeValue, NSString *customValue
     return nativeValue;
 }
 
+static NSDictionary *RuntimeBinaryIdentity(void) {
+    NSString *imagePath = @"";
+    NSString *imageUUID = @"";
+    for (uint32_t imageIndex = 0; imageIndex < _dyld_image_count(); imageIndex++) {
+        const char *rawPath = _dyld_get_image_name(imageIndex);
+        NSString *path = rawPath ? [NSString stringWithUTF8String:rawPath] : nil;
+        if (![path hasSuffix:@"/SharedModules.framework/SharedModules"]) continue;
+        imagePath = path;
+        const struct mach_header *header = _dyld_get_image_header(imageIndex);
+        if (!header || header->magic != MH_MAGIC_64) break;
+        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
+        const uint8_t *cursor = (const uint8_t *)(header64 + 1);
+        const uint8_t *end = cursor + header64->sizeofcmds;
+        for (uint32_t commandIndex = 0; commandIndex < header64->ncmds; commandIndex++) {
+            if ((NSUInteger)(end - cursor) < sizeof(struct load_command)) break;
+            const struct load_command *command = (const struct load_command *)cursor;
+            if (command->cmdsize < sizeof(struct load_command) ||
+                command->cmdsize > (NSUInteger)(end - cursor)) break;
+            if (command->cmd == LC_UUID && command->cmdsize >= sizeof(struct uuid_command)) {
+                const struct uuid_command *uuidCommand = (const struct uuid_command *)cursor;
+                NSUUID *uuid = [[NSUUID alloc] initWithUUIDBytes:uuidCommand->uuid];
+                imageUUID = uuid.UUIDString.lowercaseString ?: @"";
+                break;
+            }
+            cursor += command->cmdsize;
+        }
+        break;
+    }
+    NSBundle *bundle = NSBundle.mainBundle;
+    return @{
+        @"bundle_short_version": [bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"",
+        @"bundle_version": [bundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"",
+        @"sharedmodules_image_path": imagePath,
+        @"sharedmodules_uuid": imageUUID,
+        @"matches_analyzed_sharedmodules_uuid":
+            @([imageUUID isEqualToString:@"4c4c44a0-5555-3144-a142-002d3eaa13a4"])
+    };
+}
+
 static NSDictionary *BinaryEvidence(void) {
     return @{
-        @"analyzed_build": @"WhatsApp 26.33 / SharedModules(6)",
-        @"sharedmodules_sha256": @"b95c66b5d27476d323aaa1ba761fb76aa07f2df5b8f10d482ea6fd6953f6619a",
-        @"previous_sharedmodules_sha256": @"f0edef076c68d7f1f872401d774789a2cb3f50be5c96773a2d8ed763ed3015a7",
-        @"requestFreshABProps_thunk": @"0x0054285c",
-        @"request_manager_full_path": @"0x0054286c",
-        @"request_initializer": @"0x00549974",
-        @"response_handler": @"0x00565cf8",
-        @"full_store_update_imp": @"0x002dd5b8",
-        @"delta_store_update_imp": @"0x021b430c",
-        @"reset_config_hash_imp": @"0x021b432c",
-        @"WAABProperties_instance_size": @"0x8; no own ivars; inherits WAProperties",
+        @"analyzed_build": @"WhatsApp 26.40.10 (1086609742) / supplied decrypted SharedModules(1)",
+        @"sharedmodules_sha256": @"48f3e91d8db16c6c7203ad5331aeb4e1642010cff06639ef6528206ec71769f1",
+        @"sharedmodules_uuid": @"4c4c44a0-5555-3144-a142-002d3eaa13a4",
+        @"evidence_scope": @"Static unslid addresses describe the supplied analyzed image. Runtime identity is reported separately; different UUIDs are not claimed as this analyzed build.",
+        @"runtime_identity": RuntimeBinaryIdentity(),
+        @"requestFreshABProps_thunk": @"0x004fa998",
+        @"request_manager_full_path": @"0x004fa608",
+        @"request_initializer": @"0x0070de74",
+        @"response_handler": @"0x0070e4f8",
+        @"native_final_completion_block": @"0x004fa87c; v(B,B,@): success/didChange/configKey",
+        @"full_store_update_imp": @"0x005dd6e0",
+        @"delta_store_update_imp": @"0x0261b3b8",
+        @"reset_config_hash_imp": @"0x0261b3d8",
+        @"WAABProperties_instance_size": @"0x8 in static class_ro; no own ivars; inherits WAProperties",
         @"WAProperties_propertiesStore_ivar": @"0x8",
         @"WAPropertiesStore_preferencesStore_ivar": @"0x8",
         @"WAPropertiesStore_namespace_ivar": @"0x20",
@@ -444,7 +493,7 @@ static NSDictionary *CompactHandlerRecord(NSDictionary *decoded) {
 }
 
 static NSDictionary *BuildFinalResult(void) {
-    NSDictionary *request = nil, *didSucceed = nil, *decoded = nil;
+    NSDictionary *request = nil, *didSucceed = nil, *decoded = nil, *nativeCompletion = nil;
     NSArray *wireAttempts = nil, *didFailEvents = nil, *handlerAttempts = nil;
     NSArray *events = nil;
     NSString *beforeFingerprint = nil, *token = nil, *variant = nil;
@@ -470,6 +519,7 @@ static NSDictionary *BuildFinalResult(void) {
         lowerTime = gLowerEnteredTime;
         lowerDeltaUpdate = gLowerDeltaUpdate;
         completionTime = gNativeCompletionTime;
+        nativeCompletion = [gNativeCompletion copy] ?: @{};
         omitValidatorsApplied = gOmitValidatorsApplied;
         customWireOverrideApplied = gCustomWireOverrideApplied;
         timeoutReported = gTimeoutReported;
@@ -499,6 +549,8 @@ static NSDictionary *BuildFinalResult(void) {
     BOOL exactRequestSucceeded = didSucceed.count > 0;
     BOOL correlatedHandler = decoded.count > 0;
     BOOL nativeCompletionObserved = completionTime > 0;
+    BOOL nativeCompletionSucceeded = nativeCompletionObserved &&
+                                     [nativeCompletion[@"success"] boolValue];
     BOOL metadataMatches = hashMatch && refreshMatch &&
                            (!encryptedRIDPersistenceExpected || eridMatch);
     BOOL exactStore = [after.sourceKind isEqualToString:@"exact_native_wa_properties_store"];
@@ -514,11 +566,13 @@ static NSDictionary *BuildFinalResult(void) {
     NSString *directHash = [directHashValue isKindOfClass:NSString.class] ? directHashValue : nil;
     BOOL resetHashRefilled = ![variant isEqualToString:WAGRABPropsABTVariantFullEmptyHash] ||
                             directHash.length > 0;
-    BOOL verified = nativeCompletionObserved && exactRequestSucceeded && correlatedHandler &&
+    BOOL verified = nativeCompletionObserved && nativeCompletionSucceeded &&
+                    exactRequestSucceeded && correlatedHandler &&
                     !handlerErrorPresent && after != nil && exactStore && metadataMatches &&
                     nativeBranchMatches && wireShapeMatches && fullResponseConfirmed && resetHashRefilled;
     NSString *outcome = nil;
     if (verified) outcome = @"verified_native_response_applied";
+    else if (nativeCompletionObserved && !nativeCompletionSucceeded) outcome = @"native_completion_reported_failure";
     else if (!exactRequestSucceeded && didFailEvents.count) outcome = @"all_exact_request_attempts_failed";
     else if (!nativeCompletionObserved) outcome = @"native_completion_not_observed";
     else if (!correlatedHandler) outcome = @"native_completion_without_correlated_handler";
@@ -529,7 +583,9 @@ static NSDictionary *BuildFinalResult(void) {
     else if (!fullResponseConfirmed) outcome = @"full_response_not_confirmed";
     else if (!resetHashRefilled) outcome = @"native_hash_not_refilled_after_full_response";
     else outcome = @"native_response_store_not_verified";
-    NSString *effectiveSource = handlerErrorPresent ? @"native handler error; store state is not attributed to this request"
+    NSString *effectiveSource = nativeCompletionObserved && !nativeCompletionSucceeded
+        ? @"native completion reported failure; store state is not attributed to this request"
+        : handlerErrorPresent ? @"native handler error; store state is not attributed to this request"
         : (wireCount == 0 ? @"WAPropertiesStore after successful no-change response"
         : (delta ? @"wire delta + WAPropertiesStore merged state" : @"wire full response + WAPropertiesStore confirmed state"));
 
@@ -552,6 +608,8 @@ static NSDictionary *BuildFinalResult(void) {
         @"lower_delta_update_observed": @(lowerDeltaUpdate),
         @"native_delta_branch_matches_variant": @(nativeBranchMatches),
         @"native_completion_observed": @(nativeCompletionObserved),
+        @"native_completion_succeeded": @(nativeCompletionSucceeded),
+        @"native_completion": nativeCompletion,
         @"native_completion_time": @(completionTime),
         @"timeout_reported_before_completion": @(timeoutReported),
         @"did_succeed_response": didSucceed,
@@ -631,6 +689,8 @@ BOOL WAGRABPropsABTVerifiedFullEmptyHashResult(
         [missing addObject:@"exact XMPP response not observed"];
     if (![result[@"native_completion_observed"] boolValue])
         [missing addObject:@"native completion missing"];
+    if (![result[@"native_completion_succeeded"] boolValue])
+        [missing addObject:@"native completion did not report success"];
     if (![result[@"wire_shape_matches_variant"] boolValue])
         [missing addObject:@"wire shape was not empty-hash/full"];
     if (![didSucceed[@"request_class"] isEqual:@"XMPPRequestABProperties"] ||
@@ -753,26 +813,32 @@ static void LowerHook(id self, SEL _cmd, id groupJID, BOOL deltaUpdate, id compl
         @"delta_update": @(deltaUpdate)
     });
 
-    void (^originalCompletion)(void) = [completion copy];
-    void (^wrappedCompletion)(void) = ^{
+    WAGRABTNativeCompletion originalCompletion = [completion copy];
+    WAGRABTNativeCompletion wrappedCompletion = ^(BOOL success, BOOL didChange, id configKey) {
+        NSDictionary *payload = @{ @"success": @(success), @"did_change": @(didChange),
+                                   @"config_key": JSONSafe(configKey, 0) };
         BOOL current = NO, afterReportedTimeout = NO;
         @synchronized (gLock) {
             current = gPending && [gToken isEqualToString:transactionToken];
             if (current) {
                 afterReportedTimeout = gTimeoutReported;
                 gNativeCompletionTime = Now();
+                gNativeCompletion = payload;
             }
         }
         if (current) {
             Event(@"explicit_native_completion", @{
                 @"token": transactionToken ?: @"",
-                @"after_reported_timeout": @(afterReportedTimeout)
+                @"after_reported_timeout": @(afterReportedTimeout),
+                @"success": @(success),
+                @"did_change": @(didChange),
+                @"config_key": JSONSafe(configKey, 0)
             });
         } else {
             WAGRLogAppendF(@"[ABProps][ABTLive] late completion no longer owns result token=%@",
                            transactionToken ?: @"?");
         }
-        if (originalCompletion) originalCompletion();
+        if (originalCompletion) originalCompletion(success, didChange, configKey);
         if (current) {
             FinishWhenHandlerSettled(transactionToken);
         } else {
@@ -1214,6 +1280,7 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
             gLowerEnteredTime = 0;
             gLowerDeltaUpdate = NO;
             gNativeCompletionTime = 0;
+            gNativeCompletion = nil;
             gTimeoutReported = NO;
             gDidSucceed = nil;
             [gDidFailEvents removeAllObjects];
@@ -1299,7 +1366,12 @@ static BOOL WAGRABPropsABTLiveFetchVariantInternal(NSString *variant,
         @"delta_update": @(deltaUpdate),
         @"native_hash_reset_confirmed": @(resetConfirmed)
     });
-    void (^topCompletion)(void) = ^{ Event(@"explicit_top_completion_forwarded", @{ @"token": token }); };
+    WAGRABTNativeCompletion topCompletion = ^(BOOL success, BOOL didChange, id configKey) {
+        Event(@"explicit_top_completion_forwarded", @{
+            @"token": token, @"success": @(success), @"did_change": @(didChange),
+            @"config_key": JSONSafe(configKey, 0)
+        });
+    };
     @try {
         ((void (*)(id, SEL, BOOL, id))objc_msgSend)(manager,
             NSSelectorFromString(kTopSelector), deltaUpdate, topCompletion);

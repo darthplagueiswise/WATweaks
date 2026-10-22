@@ -70,18 +70,41 @@ static void WAGRAlert(NSString *title, NSString *message) {
 
 @interface WAGRRawSurfaceListVC : UITableViewController
 @property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *surfaces;
+@property(nonatomic, assign) BOOL scanning;
 @end
 
 @implementation WAGRRawSurfaceListVC
 - (instancetype)init {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
     self.title = @"Runtime Avançado";
-    _surfaces = [WAGRSurfaceSpec allSurfaces];
+    _surfaces = @[];
     return self;
 }
 - (void)viewDidLoad {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(reloadSurfaces)];
+    self.refreshControl = [UIRefreshControl new];
+    [self.refreshControl addTarget:self action:@selector(reloadSurfaces) forControlEvents:UIControlEventValueChanged];
+    [self reloadSurfaces];
+}
+- (void)reloadSurfaces {
+    if (self.scanning) return;
+    self.scanning = YES;
+    self.title = @"Lendo imagens do app…";
+    self.navigationItem.rightBarButtonItem.enabled = NO;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSArray<WAGRSurfaceSpec *> *surfaces = [WAGRScanner runtimeImageSurfaces];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.surfaces = surfaces ?: @[];
+            self.scanning = NO;
+            self.title = [NSString stringWithFormat:@"Imagens do app (%lu)", (unsigned long)self.surfaces.count];
+            self.navigationItem.rightBarButtonItem.enabled = YES;
+            [self.refreshControl endRefreshing];
+            [self.tableView reloadData];
+        });
+    });
 }
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section { return (NSInteger)_surfaces.count; }
 - (void)tableView:(UITableView *)tv willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
@@ -91,9 +114,9 @@ static void WAGRAlert(NSString *title, NSString *message) {
         h.textLabel.textColor = [UIColor colorWithWhite:.5 alpha:1];
     }
 }
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section { return @"Surfaces técnicas"; }
+- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section { return @"Imagens Mach-O do app"; }
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
-    return @"Browser bruto para debug. A UI principal usa bundles compactos.";
+    return @"Frameworks e dylibs do app, com estado carregada/não carregada. Inclui imagens sem getters Objective-C editáveis. Atualize para refazer o inventário.";
 }
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     WAGRSurfaceSpec *s = _surfaces[(NSUInteger)ip.row];
@@ -101,6 +124,7 @@ static void WAGRAlert(NSString *title, NSString *message) {
     WAGRMenuApplyCellStyle(c, ip.row, s.title);
     c.textLabel.text = s.title;
     c.detailTextLabel.text = s.subtitle ?: @"";
+    c.detailTextLabel.numberOfLines = 0;
     c.detailTextLabel.textColor = WAGRSub();
     c.imageView.image = WAGRMenuSymbol(s.icon ?: @"circle", nil);
     c.imageView.tintColor = WAGRMenuAccentForKey(s.title, ip.row);

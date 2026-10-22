@@ -1,6 +1,5 @@
 #import "WAGRSurfaceBrowserVC.h"
 #import "WAGRRuntimeValueEditor.h"
-#import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -9,7 +8,6 @@
 extern id WAGRCurrentUserContext(void);
 
 static const void *kWAGRSurfaceEntryKey = &kWAGRSurfaceEntryKey;
-static const void *kWAGRSurfaceLongPressKey = &kWAGRSurfaceLongPressKey;
 
 typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
     WAGRLiveBrowserScopeAll = 0,
@@ -25,6 +23,7 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
 @property(nonatomic, strong) NSArray<NSString *> *sectionKeys;
 @property(nonatomic, strong) NSDictionary<NSString *, NSArray<WAGREntry *> *> *sections;
 @property(nonatomic, strong) NSArray *runtimeObjects;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, NSDictionary *> *readValueCache;
 @property(nonatomic, strong) UISearchController *search;
 @property(nonatomic, assign) BOOL didScan;
 @property(nonatomic, assign) BOOL scanning;
@@ -39,6 +38,7 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
     _sectionKeys = @[];
     _sections = @{};
     _runtimeObjects = @[];
+    _readValueCache = [NSMutableDictionary dictionary];
     self.title = spec.title ?: @"Runtime";
     return self;
 }
@@ -76,6 +76,12 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
     UIRefreshControl *pull = [UIRefreshControl new];
     [pull addTarget:self action:@selector(scanNow) forControlEvents:UIControlEventValueChanged];
     self.refreshControl = pull;
+
+    // Own the gesture on the table: late cell renderers must retain Read/Edit.
+    UILongPressGestureRecognizer *press = [[UILongPressGestureRecognizer alloc]
+        initWithTarget:self action:@selector(longPressRow:)];
+    press.minimumPressDuration = 0.45;
+    [self.tableView addGestureRecognizer:press];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -89,31 +95,35 @@ typedef NS_ENUM(NSInteger, WAGRLiveBrowserScope) {
 }
 
 - (NSArray *)resolveRuntimeObjects {
+    // Only already-captured objects; no singleton guesses or dependency walks.
     id context = WAGRCurrentUserContext();
-    NSMutableOrderedSet *objects = [NSMutableOrderedSet orderedSet];
+    NSMutableArray *objects = [NSMutableArray array];
     if (context) [objects addObject:context];
-    for (id object in WAGRABPropsResolveRuntimeObjects(context)) {
-        if (object) [objects addObject:object];
+    // Deliberate context -> abProperties -> getter reads can reuse the result
+    // of an earlier explicit Read without inspecting unrequested dependencies.
+    for (NSDictionary *cached in self.readValueCache.allValues) {
+        id value = cached[@"raw"];
+        if (value && value != NSNull.null) [objects addObject:value];
     }
-    return objects.array ?: @[];
+    return objects;
 }
 
 - (void)scanNow {
     if (self.scanning) return;
     self.scanning = YES;
     self.didScan = YES;
+    [self.readValueCache removeAllObjects];
+    self.runtimeObjects = @[];
     self.title = @"Lendo runtime carregado…";
     self.navigationItem.rightBarButtonItems.firstObject.enabled = NO;
 
     WAGRSurfaceSpec *spec = self.spec;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSArray *objects = [self resolveRuntimeObjects];
         NSArray<WAGREntry *> *entries = [WAGRScanner scanSurface:spec];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.scanning = NO;
             self.navigationItem.rightBarButtonItems.firstObject.enabled = YES;
             [self.refreshControl endRefreshing];
-            self.runtimeObjects = objects ?: @[];
             self.allEntries = entries ?: @[];
             [self applyCurrentFilter];
         });
@@ -202,7 +212,28 @@ static BOOL WAGRLiveEntryMatchesScope(WAGREntry *entry, WAGRLiveBrowserScope sco
                       (unsigned long)filtered.count];
     self.title = active ? [base stringByAppendingFormat:@" · %lu ativos", (unsigned long)active]
                         : base;
+    [self updateEmptyState];
     [self.tableView reloadData];
+}
+
+- (void)updateEmptyState {
+    if (self.sectionKeys.count) {
+        self.tableView.backgroundView = nil;
+        return;
+    }
+    UILabel *label = [UILabel new];
+    label.numberOfLines = 0;
+    label.textAlignment = NSTextAlignmentCenter;
+    label.font = [UIFont systemFontOfSize:14.0];
+    label.textColor = UIColor.secondaryLabelColor;
+    if (!self.allEntries.count && self.spec.runtimeImagePath.length) {
+        label.text = self.spec.runtimeImageLoaded
+            ? @"Imagem carregada.\n\nNão expõe getters Objective-C sem argumentos\ncom tipos compatíveis e permitidos para edição.\n\nCódigo C/C++ e Swift sem exposição ObjC\nnão pode ser editado por este browser."
+            : @"Imagem presente no app, ainda não carregada.\n\nNão há classes ou getters no runtime deste processo.\nO browser não carrega frameworks para inspecioná-los.\n\nAtualize depois que o próprio app usar este módulo.";
+    } else {
+        label.text = self.allEntries.count ? @"Nenhum resultado para este filtro." : @"Nenhum getter compatível encontrado.";
+    }
+    self.tableView.backgroundView = label;
 }
 
 - (void)updateSearchResultsForSearchController:(__unused UISearchController *)searchController {
@@ -242,9 +273,9 @@ static BOOL WAGRLiveEntryMatchesScope(WAGREntry *entry, WAGRLiveBrowserScope sco
 
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section != (NSInteger)self.sectionKeys.count - 1) return nil;
-    return @"Este conteúdo é reconstruído ao abrir ou atualizar: imagem Mach-O, classe, selector, "
-            "class/instance e ABI são lidos do runtime atual. Toque para editar BOOL, inteiros, "
-            "float/double ou objetos Foundation; Usar original remove somente o alvo exato.";
+    return @"Metadados do runtime carregado. Toque para editar; mantenha pressionado para ler "
+            "um valor no receiver vivo exato. A lista mostra overrides ou leituras anteriores, "
+            "sem executar getters ao rolar ou buscar.";
 }
 
 - (WAGREntry *)entryAtIndexPath:(NSIndexPath *)indexPath {
@@ -254,26 +285,37 @@ static BOOL WAGRLiveEntryMatchesScope(WAGREntry *entry, WAGRLiveBrowserScope sco
     return rows[(NSUInteger)indexPath.row];
 }
 
-static id WAGRLiveSharedReceiver(Class cls, SEL selector) {
-    if (!cls || !selector) return nil;
-    for (NSString *name in @[ @"shared", @"sharedInstance", @"current", @"defaultInstance",
-                               @"defaultManager", @"manager", @"provider", @"properties" ]) {
-        SEL factory = NSSelectorFromString(name);
-        Method method = class_getClassMethod(cls, factory);
-        if (!method || method_getNumberOfArguments(method) != 2) continue;
-        char type[32] = {0};
-        method_getReturnType(method, type, sizeof(type));
-        if (type[0] != '@') continue;
-        @try {
-            id value = ((id (*)(id, SEL))objc_msgSend)(cls, factory);
-            if (value && [value isKindOfClass:cls] && [value respondsToSelector:selector]) return value;
-        } @catch (__unused NSException *exception) {}
+static BOOL WAGRLiveReceiverMatches(id object, Class cls, SEL selector) {
+    return object && [object isKindOfClass:cls] && [object respondsToSelector:selector];
+}
+
+static id WAGRLiveReceiverInView(UIView *view, Class cls, SEL selector, NSUInteger depth) {
+    if (!view || depth > 40) return nil;
+    if (WAGRLiveReceiverMatches(view, cls, selector)) return view;
+    for (UIView *child in view.subviews) {
+        id found = WAGRLiveReceiverInView(child, cls, selector, depth + 1);
+        if (found) return found;
     }
     return nil;
 }
 
+static id WAGRLiveReceiverInController(UIViewController *controller, Class cls,
+                                       SEL selector, NSUInteger depth) {
+    if (!controller || depth > 20) return nil;
+    if (WAGRLiveReceiverMatches(controller, cls, selector)) return controller;
+    UIView *loadedView = controller.isViewLoaded ? controller.view : nil;
+    id inView = WAGRLiveReceiverInView(loadedView, cls, selector, 0);
+    if (inView) return inView;
+    for (UIViewController *child in controller.childViewControllers) {
+        id found = WAGRLiveReceiverInController(child, cls, selector, depth + 1);
+        if (found) return found;
+    }
+    return WAGRLiveReceiverInController(controller.presentedViewController, cls, selector, depth + 1);
+}
+
 - (id)receiverForEntry:(WAGREntry *)entry {
-    if (!entry || entry.isClassMethod) return nil;
+    if (!entry || entry.isClassMethod ||
+        !WAGRRuntimeValueSelectorIsSafeGetter(entry.selectorName)) return nil;
     Class cls = NSClassFromString(entry.className) ?: objc_getClass(entry.className.UTF8String);
     SEL selector = NSSelectorFromString(entry.selectorName);
     if (!cls) return nil;
@@ -281,12 +323,41 @@ static id WAGRLiveSharedReceiver(Class cls, SEL selector) {
         if (![object isKindOfClass:cls]) continue;
         if ([object respondsToSelector:selector]) return object;
     }
-    return WAGRLiveSharedReceiver(cls, selector);
+    UIApplication *application = UIApplication.sharedApplication;
+    if (WAGRLiveReceiverMatches(application.delegate, cls, selector)) return application.delegate;
+    for (UIWindow *window in application.windows) {
+        if (WAGRLiveReceiverMatches(window, cls, selector)) return window;
+        id found = WAGRLiveReceiverInController(window.rootViewController, cls, selector, 0);
+        if (found) return found;
+    }
+    return nil;
 }
 
 - (NSString *)currentForEntry:(WAGREntry *)entry raw:(id *)raw {
-    return WAGRRuntimeValueRead(entry.className, entry.selectorName,
-                                entry.isClassMethod, [self receiverForEntry:entry], raw);
+    if (raw) *raw = nil;
+    if (!entry) return @"entrada indisponível";
+    if (WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.isClassMethod)) {
+        id forced = WAGRRuntimeValueOverride(entry.className, entry.selectorName, entry.isClassMethod);
+        if (raw) *raw = forced;
+        return forced ? [forced description] : @"nil";
+    }
+    NSString *uid = WAGRRuntimeValueUID(entry.className, entry.selectorName, entry.isClassMethod);
+    NSDictionary *cached = self.readValueCache[uid];
+    id value = cached[@"raw"];
+    if (raw) *raw = value == NSNull.null ? nil : value;
+    return cached[@"text"] ?: @"Não lido · mantenha pressionado para ler";
+}
+
+- (void)readValueForEntry:(WAGREntry *)entry {
+    if (!entry || !WAGRRuntimeValueSelectorIsSafeGetter(entry.selectorName)) return;
+    self.runtimeObjects = [self resolveRuntimeObjects];
+    id raw = nil;
+    NSString *text = WAGRRuntimeValueRead(entry.className, entry.selectorName,
+        entry.isClassMethod, [self receiverForEntry:entry], &raw);
+    NSString *uid = WAGRRuntimeValueUID(entry.className, entry.selectorName, entry.isClassMethod);
+    self.readValueCache[uid] = @{ @"text": [@"Leitura anterior: " stringByAppendingString:text ?: @"?"],
+                                  @"raw": raw ?: NSNull.null };
+    [self.tableView reloadData];
 }
 
 static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
@@ -360,14 +431,6 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     }
 
-    UILongPressGestureRecognizer *press = objc_getAssociatedObject(cell, kWAGRSurfaceLongPressKey);
-    if (!press) {
-        press = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressRow:)];
-        press.minimumPressDuration = 0.45;
-        [cell addGestureRecognizer:press];
-        objc_setAssociatedObject(cell, kWAGRSurfaceLongPressKey, press,
-                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
     return cell;
 }
 
@@ -399,14 +462,6 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
         return;
     }
 
-    id readbackRaw = nil;
-    NSString *readback = [self currentForEntry:entry raw:&readbackRaw];
-    BOOL verified = [readbackRaw respondsToSelector:@selector(boolValue)] &&
-                    ([readbackRaw boolValue] == requested);
-    if (!verified) {
-        sender.on = requested;
-        [self presentPendingForEntry:entry readback:readback];
-    }
     [self applyCurrentFilter];
 }
 
@@ -430,9 +485,21 @@ static NSString *WAGRLiveForcedDescription(id value, BOOL overridden) {
 
 - (void)longPressRow:(UILongPressGestureRecognizer *)gesture {
     if (gesture.state != UIGestureRecognizerStateBegan) return;
-    UITableViewCell *cell = (UITableViewCell *)gesture.view;
-    NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
-    if (indexPath) [self presentEditorForEntry:[self entryAtIndexPath:indexPath] fromView:cell];
+    NSIndexPath *indexPath = [self.tableView indexPathForRowAtPoint:[gesture locationInView:self.tableView]];
+    WAGREntry *entry = [self entryAtIndexPath:indexPath];
+    if (!entry) return;
+    UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:indexPath];
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:entry.selectorName
+        message:@"Ler executa este getter uma vez no receiver vivo exato."
+        preferredStyle:UIAlertControllerStyleActionSheet];
+    menu.popoverPresentationController.sourceView = cell ?: self.tableView;
+    menu.popoverPresentationController.sourceRect = cell ? cell.bounds : self.tableView.bounds;
+    [menu addAction:[UIAlertAction actionWithTitle:@"Ler valor atual" style:UIAlertActionStyleDefault
+        handler:^(__unused UIAlertAction *action) { [self readValueForEntry:entry]; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Editar override" style:UIAlertActionStyleDefault
+        handler:^(__unused UIAlertAction *action) { [self presentEditorForEntry:entry fromView:cell]; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:menu animated:YES completion:nil];
 }
 
 - (void)applyVisibleOverrides {

@@ -83,7 +83,6 @@ jobs:
             src/Menu/WAGRDebugDiagnosticsVC.h
             src/Menu/WAGRDebugDiagnosticsVC.m
             src/Menu/WAGRDebugNativeEngineEnrichment.m
-            src/Menu/WAGRRuntimeBrowserCrashGuard.m
             src/Menu/WAGRRuntimeBrowsersGlassUI.m
             src/Menu/WAGRRuntimeValueEditor.m
             src/Menu/WAGRSurfaceBrowserVC.m
@@ -148,8 +147,9 @@ jobs:
           # ABProps/Runtime browsers must stay editable and exact-receiver based.
           ! grep -R -n -E 'read[- ]only|somente leitura' \
               src/Menu/WAGRABPropsBrowserVC.m src/Menu/WAGRSurfaceBrowserVC.m
-          ! grep -n 'object_getIvar' src/Menu/WAGRRuntimeBrowserCrashGuard.m
-          ! grep -n '\[cls alloc\]' src/Menu/WAGRRuntimeBrowserCrashGuard.m
+          python3 scripts/wagr_validate_runtime_browser.py
+          python3 scripts/wagr_test_abt_completion.py
+          python3 scripts/wagr_test_mobileconfig_fetch.py
           grep -q 'isKindOfClass:cls' src/Runtime/WAGRABPropsRuntime.m
           grep -q 'PENDING' src/Menu/WAGRABPropsBrowserVC.m
           grep -q 'WAGRRuntimeValueHookIsInstalled' src/Menu/WAGRABPropsBrowserVC.m

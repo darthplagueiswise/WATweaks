@@ -19,17 +19,18 @@ BOOL WAGRMobileConfigNativeWriteOverrideDocument(
     NSError * _Nullable * _Nullable outError,
     NSString * _Nullable * _Nullable outDiagnostic);
 
-/// Invalidates the account-scoped MobileConfig context using ABI-safe native
-/// Objective-C entrypoints. This is a LOCAL invalidation, not a server fetch.
+/// Invalidates the account-scoped cached latest context using the validated
+/// native selector. Does not call forceInvalidate, which tears down the manager.
 BOOL WAGRMobileConfigNativeInvalidate(id _Nullable userContext,
                                       NSString * _Nullable * _Nullable outDiagnostic);
 
 typedef void (^WAGRMobileConfigNativeFetchCompletion)(NSDictionary<NSString *, id> *result);
 
 /// Requests the normal authenticated MobileConfig fetch through the WhatsApp
-/// account pipeline: WAContextMain.chatManager -> fetchMobileConfig:NO. The
-/// result correlates the native XWA2/WWW input observer with the XWA2 response
-/// and WAMobileConfigLastFetchStore success markers plus the account-scoped latest-config file state. No synthetic GraphQL
+/// account pipeline. WhatsApp 26.40 uses fetchMobileConfig:NO stack:-1; older
+/// supported single-BOOL entrypoints remain a fallback. Success requires a native
+/// LastFetchStore marker matching the captured preferences store, unit type and
+/// unit ID. XWA2/WWW input and file state are diagnostics. No synthetic GraphQL
 /// input or token is constructed by WATweaks.
 BOOL WAGRMobileConfigNativeFetchAccount(id _Nullable userContext,
                                         WAGRMobileConfigNativeFetchCompletion _Nullable completion,

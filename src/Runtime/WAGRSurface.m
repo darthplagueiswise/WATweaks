@@ -1,6 +1,8 @@
 #import "WAGRSurface.h"
 #import "WAGRRuntimeValueStore.h"
+#import "WAGRRuntimeSafety.h"
 #import <objc/runtime.h>
+#import <mach-o/dyld.h>
 #include <stdlib.h>
 
 @implementation WAGREntry
@@ -25,11 +27,88 @@ NSString *WAGRCleanDisplayName(NSString *name) {
     return value;
 }
 
+static NSString *WAGRLiveCanonicalImagePath(NSString *path) {
+    if (!path.length) return @"";
+    static NSMutableDictionary<NSString *, NSString *> *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+    @synchronized (cache) {
+        NSString *cached = cache[path];
+        if (cached) return cached;
+    }
+    NSString *resolved = path.stringByResolvingSymlinksInPath;
+    @synchronized (cache) { cache[path] = resolved; }
+    return resolved;
+}
+
 static BOOL WAGRRuntimePathIsAppOwned(NSString *path) {
     if (!path.length) return NO;
     NSString *bundle = NSBundle.mainBundle.bundlePath ?: @"";
-    if (bundle.length && [path hasPrefix:bundle]) return YES;
-    return [path rangeOfString:@"/WhatsApp.app/" options:NSCaseInsensitiveSearch].location != NSNotFound;
+    return WAGRRuntimePathIsWithinBundleCString(WAGRLiveCanonicalImagePath(path).UTF8String,
+                                                WAGRLiveCanonicalImagePath(bundle).UTF8String);
+}
+
+static NSString *WAGRLiveRelativeImagePath(NSString *path) {
+    NSString *bundle = NSBundle.mainBundle.bundlePath ?: @"";
+    if (!WAGRRuntimePathIsWithinBundleCString(path.UTF8String, bundle.UTF8String)) {
+        path = WAGRLiveCanonicalImagePath(path);
+        bundle = WAGRLiveCanonicalImagePath(bundle);
+    }
+    if (bundle.length && path.length > bundle.length &&
+        WAGRRuntimePathIsWithinBundleCString(path.UTF8String, bundle.UTF8String)) {
+        return [path substringFromIndex:bundle.length + 1];
+    }
+    return path;
+}
+
+static NSArray<NSString *> *WAGRLiveAppImagePaths(void) {
+    NSMutableOrderedSet<NSString *> *paths = [NSMutableOrderedSet orderedSet];
+    uint32_t count = _dyld_image_count();
+    for (uint32_t index = 0; index < count; index++) {
+        const char *rawPath = _dyld_get_image_name(index);
+        NSString *path = rawPath ? [NSString stringWithUTF8String:rawPath] : nil;
+        if (WAGRRuntimePathIsAppOwned(path)) [paths addObject:WAGRLiveCanonicalImagePath(path)];
+    }
+    return paths.array;
+}
+
+static NSArray<NSString *> *WAGRLiveBundledImagePaths(void) {
+    NSMutableOrderedSet<NSString *> *paths = [NSMutableOrderedSet orderedSet];
+    NSString *bundlePath = WAGRLiveCanonicalImagePath(NSBundle.mainBundle.bundlePath);
+    NSURL *bundleURL = [NSURL fileURLWithPath:bundlePath isDirectory:YES];
+    NSString *executable = NSBundle.mainBundle.executablePath;
+    if (WAGRRuntimeFileIsMachOCString(executable.fileSystemRepresentation)) {
+        [paths addObject:WAGRLiveCanonicalImagePath(executable)];
+    }
+    NSDirectoryEnumerator<NSURL *> *enumerator = [NSFileManager.defaultManager
+        enumeratorAtURL:bundleURL includingPropertiesForKeys:@[NSURLIsDirectoryKey]
+        options:NSDirectoryEnumerationSkipsHiddenFiles errorHandler:^BOOL(__unused NSURL *url, __unused NSError *error) {
+            return YES;
+        }];
+    for (NSURL *url in enumerator) {
+        NSNumber *directory = nil;
+        [url getResourceValue:&directory forKey:NSURLIsDirectoryKey error:nil];
+        NSString *relativePath = WAGRLiveRelativeImagePath(url.path);
+        if (!WAGRRuntimeBundledPathIsInspectableCString(relativePath.UTF8String)) {
+            if (directory.boolValue) [enumerator skipDescendants];
+            continue;
+        }
+        NSString *candidate = nil;
+        if (directory.boolValue && [url.pathExtension isEqualToString:@"framework"]) {
+            NSDictionary *info = [NSDictionary dictionaryWithContentsOfURL:[url URLByAppendingPathComponent:@"Info.plist"]];
+            NSString *name = [info[@"CFBundleExecutable"] isKindOfClass:NSString.class]
+                ? [info[@"CFBundleExecutable"] lastPathComponent] : url.lastPathComponent.stringByDeletingPathExtension;
+            if (name.length) candidate = [url.path stringByAppendingPathComponent:name];
+            // Descend into nested frameworks, including Watusi/FLEX and InMobi.
+        } else if (!directory.boolValue && [url.pathExtension isEqualToString:@"dylib"]) {
+            candidate = url.path;
+        }
+        if (WAGRRuntimePathIsAppOwned(candidate) &&
+            WAGRRuntimeFileIsMachOCString(candidate.fileSystemRepresentation)) {
+            [paths addObject:WAGRLiveCanonicalImagePath(candidate)];
+        }
+    }
+    return paths.array;
 }
 
 NSString *WAGRLiveRuntimeImageNameForPath(NSString *imagePath) {
@@ -170,7 +249,7 @@ static NSArray<Class> *WAGRLiveAppClasses(void) {
 static BOOL WAGRLiveMethodIsSupported(Method method, NSString **selectorName, NSString **typeCode) {
     if (!method || method_getNumberOfArguments(method) != 2) return NO;
     NSString *selector = NSStringFromSelector(method_getName(method));
-    if (!selector.length || [selector containsString:@":"]) return NO;
+    if (!WAGRRuntimeValueSelectorIsSafeGetter(selector)) return NO;
     char rawType[64] = {0};
     method_getReturnType(method, rawType, sizeof(rawType));
     NSString *type = [NSString stringWithUTF8String:rawType] ?: @"";
@@ -221,17 +300,24 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
 
 + (NSArray<WAGRSurfaceSpec *> *)runtimeImageSurfaces {
     NSMutableDictionary<NSString *, NSMutableDictionary *> *groups = [NSMutableDictionary dictionary];
+    for (NSString *path in WAGRLiveBundledImagePaths()) {
+        groups[path] = [@{ @"classes": [NSMutableSet set], @"methods": @0, @"loaded": @NO } mutableCopy];
+    }
+    // Image presence is independent of Objective-C getter eligibility.
+    for (NSString *path in WAGRLiveAppImagePaths()) {
+        groups[path] = [@{ @"classes": [NSMutableSet set], @"methods": @0, @"loaded": @YES } mutableCopy];
+    }
     for (Class cls in WAGRLiveAppClasses()) {
         NSUInteger methods = WAGRLiveSupportedMethodCount(cls);
-        if (!methods) continue;
         const char *rawPath = class_getImageName(cls);
-        NSString *path = rawPath ? [NSString stringWithUTF8String:rawPath] : @"";
+        NSString *path = WAGRLiveCanonicalImagePath(rawPath ? [NSString stringWithUTF8String:rawPath] : @"");
         if (!path.length) continue;
         NSMutableDictionary *group = groups[path];
         if (!group) {
-            group = [@{ @"classes": [NSMutableSet set], @"methods": @0 } mutableCopy];
+            group = [@{ @"classes": [NSMutableSet set], @"methods": @0, @"loaded": @YES } mutableCopy];
             groups[path] = group;
         }
+        group[@"loaded"] = @YES;
         [group[@"classes"] addObject:NSStringFromClass(cls) ?: @"Unknown"];
         group[@"methods"] = @([group[@"methods"] unsignedIntegerValue] + methods);
     }
@@ -241,13 +327,18 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
         (void)stop;
         NSUInteger classCount = [group[@"classes"] count];
         NSUInteger methodCount = [group[@"methods"] unsignedIntegerValue];
+        BOOL loaded = [group[@"loaded"] boolValue];
         NSString *name = WAGRLiveRuntimeImageNameForPath(path);
-        NSString *subtitle = [NSString stringWithFormat:@"%lu classes · %lu getters tipados carregados agora",
-            (unsigned long)classCount, (unsigned long)methodCount];
-        NSString *identifier = [NSString stringWithFormat:@"image:%lu", (unsigned long)path.hash];
+        NSString *relativePath = WAGRLiveRelativeImagePath(path);
+        NSString *subtitle = loaded
+            ? [NSString stringWithFormat:@"%@\nCarregada · %lu classes ObjC · %lu getters editáveis",
+                relativePath, (unsigned long)classCount, (unsigned long)methodCount]
+            : [NSString stringWithFormat:@"%@\nNo bundle · não carregada", relativePath];
+        NSString *identifier = [@"image:" stringByAppendingString:relativePath];
         NSString *icon = [name containsString:@"Executable"] ? @"app.dashed" : @"shippingbox";
         WAGRSurfaceSpec *surface = WAGRLiveSurface(identifier, name, subtitle, icon);
         surface.runtimeImagePath = path;
+        surface.runtimeImageLoaded = loaded;
         surface.runtimeClassCount = classCount;
         surface.runtimeEntryCount = methodCount;
         [surfaces addObject:surface];
@@ -257,6 +348,7 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
         BOOL leftExec = [left.title containsString:@"Executable"];
         BOOL rightExec = [right.title containsString:@"Executable"];
         if (leftExec != rightExec) return leftExec ? NSOrderedAscending : NSOrderedDescending;
+        if (left.runtimeImageLoaded != right.runtimeImageLoaded) return left.runtimeImageLoaded ? NSOrderedAscending : NSOrderedDescending;
         if (left.runtimeEntryCount != right.runtimeEntryCount) {
             return left.runtimeEntryCount > right.runtimeEntryCount ? NSOrderedAscending : NSOrderedDescending;
         }
@@ -335,7 +427,7 @@ static BOOL WAGRClassMatchesSurface(WAGRSurfaceSpec *spec, Class cls) {
     const char *rawPath = class_getImageName(cls);
     NSString *path = rawPath ? [NSString stringWithUTF8String:rawPath] : @"";
 
-    if (spec.runtimeImagePath.length) return [path isEqualToString:spec.runtimeImagePath];
+    if (spec.runtimeImagePath.length) return [WAGRLiveCanonicalImagePath(path) isEqualToString:spec.runtimeImagePath];
     if (spec.runtimeFamilyKey.length) return WAGRRuntimePathIsAppOwned(path);
 
     for (NSString *name in spec.classNames) {
@@ -398,6 +490,10 @@ static void WAGRAddEntry(NSMutableArray<WAGREntry *> *output,
 
 + (NSArray<WAGREntry *> *)scanSurface:(WAGRSurfaceSpec *)spec {
     if (!spec) return @[];
+    if (spec.runtimeImagePath.length) {
+        spec.runtimeImageLoaded = [WAGRLiveAppImagePaths() containsObject:spec.runtimeImagePath];
+        if (!spec.runtimeImageLoaded) return @[];
+    }
     NSMutableArray<WAGREntry *> *output = [NSMutableArray array];
     NSMutableSet<NSString *> *seen = [NSMutableSet set];
 
