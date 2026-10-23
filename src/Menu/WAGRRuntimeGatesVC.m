@@ -64,6 +64,7 @@
     self.navigationItem.rightBarButtonItem.enabled = NO;
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        @autoreleasepool {
         NSArray<WAGRSurfaceSpec *> *surfaces = [WAGRScanner runtimeFamilySurfaces];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.scanning = NO;
@@ -72,6 +73,7 @@
             self.allSurfaces = surfaces ?: @[];
             [self applyFilter:self.searchController.searchBar.text ?: @""];
         });
+        }
     });
 }
 

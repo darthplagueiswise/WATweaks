@@ -10,20 +10,15 @@
 // dismissal because their Swift teardown reads ivars that were never
 // populated.
 //
-// The right model for users is not "instantiate this controller" but
-// "make the app believe you are an internal/employee user". When that
-// belief lands, the native Settings → Developer / Subscriptions screens
-// expose their internal cells through WhatsApp's own navigation, which
-// guarantees every cell is wired correctly and nothing crashes.
+// Account eligibility is server-owned. This page exposes read-only diagnostics
+// and non-eligibility feature bundles without pretending the account is an
+// internal/employee user.
 //
 // Schema-v2 alignment
 // ───────────────────
 // Every runtime/WAAB override now goes through WAGRGateStore.h. The
-// master toggle for "Internal mode" sets the *master prefs* (which the
-// dogfood hook reads directly) and additionally writes selector-name
-// overrides (so the runtime hook also fires). The runtime hook bootstrap
-// is reinstalled at the end of every master flip in case the toggle is
-// the first thing the user does.
+// Runtime overrides still go through WAGRGateStore, whose common boundary
+// rejects protected server/account eligibility selectors.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #import "WAGRSecretMenusVC.h"
@@ -126,50 +121,6 @@ static NSArray<NSDictionary *> *WAGRSecretMeTabRuntimeOverrides(void) {
 }
 
 
-// ── Internal / employee / dogfood WAAB flags ───────────────────────────────
-// These are not Objective-C selectors on WAContextMain. They are WAAB/private
-// experimentation keys read through WAABProperties / FOAWAABPropertiesImpl.
-// The previous Internal master only wrote selector overrides, so these keys
-// stayed at server defaults and the app still behaved as non-internal.
-static NSArray<NSString *> *WAGRSecretInternalWAABOnFlags(void) {
-    return @[
-        @"waios_mc_debug_ui_enabled",
-        @"whatsbroken_enabled",
-        @"private_abprop_for_dev_only",
-        @"private_experimentation_should_sync",
-        @"private_experimentation_use_acs_config_id",
-        @"dogfooding_nudge_settings_entrypoint_enabled",
-        @"dogfooding_nudge_banner_home_screen_enabled",
-        @"username_dogfooding_pn_privacy_enabled",
-        @"give_dogfooders_task_id_for_bug_reporting",
-        @"groups_member_recommendations_debug_ui",
-        @"is_internal",
-        @"is_internal_tester",
-        @"_is_employee",
-        @"wamo_is_employee",
-        @"ig_fb_dogfooder",
-        @"hn_dogfooding",
-        @"malibu_dogfooding"
-    ];
-}
-
-static NSArray<NSString *> *WAGRSecretInternalWAABOffFlags(void) {
-    return @[
-        @"serverPropsDisableExperimental",
-        @"graphQLEmployeeC1Disabled",
-        @"ios_contact_suggestions_internal_tool_exclude_employees_enabled"
-    ];
-}
-
-// ── Internal / isInternalUser override bundle ────────────────────────────────
-static NSArray<NSDictionary *> *WAGRSecretInternalRuntimeOverrides(void) {
-    return @[
-        @{@"class": @"WAServerProperties", @"selector": @"isInternalUser", @"classMethod": @YES},
-        @{@"class": @"WAContextMain",      @"selector": @"isInternalUser", @"classMethod": @NO},
-        @{@"class": @"WAContext",          @"selector": @"isInternalUser", @"classMethod": @NO}
-    ];
-}
-
 // ── Me-Tab diagnostic ────────────────────────────────────────────────────────
 static NSString *WAGRSecretMeTabDiagnosticText(void) {
     NSMutableArray<NSString *> *lines = [NSMutableArray array];
@@ -206,20 +157,6 @@ typedef NS_ENUM(NSInteger, WAGRSecretSection) {
 // runtimeOn write schema-v2 gate overrides (selector-name keys).
 static NSArray<NSDictionary *> *WAGRMasterToggles(void) {
     return @[
-        @{ @"title":    @"Modo Internal / Employee",
-           @"subtitle": @"Liga masters + selectors reais + WAAB/private experimentation gates usados pelo Developer.",
-           @"icon":     @"person.crop.circle.badge.checkmark",
-           @"masterKeys": @[ kWAGREmployeeMaster,
-                             kWAGRDogfoodGateInternalUser,
-                             kWAGRDogfoodGateMetaEmployee,
-                             kWAGRDogfoodGateMetaEmployeeSnake,
-                             kWAGRDogfoodGateGraphQLEmpC1,
-                             kWAGRInternalMaster,
-                             kWAGRDebugMode ],
-           @"waabOn":   WAGRSecretInternalWAABOnFlags(),
-           @"waabOff":  WAGRSecretInternalWAABOffFlags(),
-           @"runtimeOn": WAGRSecretInternalRuntimeOverrides() },
-
         @{ @"title":    @"Simulação Aura / WA Plus",
            @"subtitle": @"Aplica o bundle Aura via WAGRAuraActivateAllFlags/DeactivateAllFlags.",
            @"icon":     @"sparkles",
@@ -455,10 +392,10 @@ static NSArray<NSString *> *WAGRSecretVCRoster(void) {
         case WAGRSecretSectionHowTo: {
             c.textLabel.text = @"Sequência recomendada";
             c.textLabel.textColor = WAGRMenuTextColor();
-            c.detailTextLabel.text = @"1. Ligue \"Modo Internal\" e/ou \"Simulação Aura\" acima.\n"
-                                      "2. Force-quit e reabra o WhatsApp uma vez.\n"
-                                      "3. Abra Configurações no app. A row Developer aparece abaixo do bloco Meta; Subscriptions / WA Plus aparece com Aura ligado.\n"
-                                      "4. Toque NATIVAMENTE — não use o launcher modal do WATweaks para essas células.";
+            c.detailTextLabel.text = @"1. Use o launcher dogfood na tela principal.\n"
+                                      "2. Consulte os diagnósticos read-only acima.\n"
+                                      "3. Internal/employee depende exclusivamente da conta e do servidor.\n"
+                                      "4. Nenhum override local transforma a conta em elegível.";
             c.detailTextLabel.textColor = WAGRMenuSecondaryTextColor();
             c.detailTextLabel.numberOfLines = 0;
             UIImage *icon = [UIImage systemImageNamed:@"list.number"];

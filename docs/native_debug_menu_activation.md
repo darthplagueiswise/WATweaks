@@ -1,5 +1,9 @@
 # WhatsApp 26.33 native Developer surface map
 
+> Historical build. WhatsApp 26.40.10 no longer exposes
+> `getMCSpecifierForStableId:`. See [current IPA findings](WHATSAPP_26_40_UPDATE_PTBR.md)
+> for the native mapping, launcher, and read-only account-state conclusions.
+
 This document records the current `WhatsApp(7)` / `SharedModules(7)` result.
 It separates surviving native owners from code removed or stubbed in the
 release-candidate build. A selector name or string by itself is not treated as

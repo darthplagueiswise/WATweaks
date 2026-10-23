@@ -14,7 +14,9 @@
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, strong) UIBarButtonItem *scanButton;
 @property(nonatomic, strong) UIBarButtonItem *exportButton;
+@property(nonatomic, strong) UIBarButtonItem *fetchButton;
 @property(nonatomic, assign) BOOL scanning;
+@property(nonatomic, assign) BOOL fetching;
 @property(nonatomic, assign) NSUInteger translatedCount;
 @property(nonatomic, assign) NSUInteger resolvedCount;
 @end
@@ -56,13 +58,15 @@
         self.exportButton = [[UIBarButtonItem alloc]
             initWithTitle:@"Exportar" style:UIBarButtonItemStylePlain target:self action:@selector(showExportMenu:)];
     }
-    self.navigationItem.rightBarButtonItems = @[self.exportButton, self.scanButton];
+    self.fetchButton = [[UIBarButtonItem alloc] initWithTitle:@"Fetch MC"
+        style:UIBarButtonItemStylePlain target:self action:@selector(fetchServerNow)];
+    self.navigationItem.rightBarButtonItems = @[self.fetchButton, self.exportButton, self.scanButton];
     [self installHeader];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    if (!self.allMappings.count && !self.scanning) [self scanNow];
+    if (!self.allMappings.count && !self.scanning && !self.fetching) [self scanNow];
 }
 
 - (void)installHeader {
@@ -102,10 +106,16 @@
 #pragma mark - Mapping scan
 
 - (void)scanNow {
-    if (self.scanning) return;
+    if (self.scanning || self.fetching) return;
     self.scanning = YES;
+    self.allMappings = @[];
+    self.visibleMappings = @[];
+    self.translatedCount = 0;
+    self.resolvedCount = 0;
+    [self.tableView reloadData];
     self.scanButton.enabled = NO;
     self.exportButton.enabled = NO;
+    self.fetchButton.enabled = NO;
     self.title = @"Resolvendo MobileConfig…";
     [self setStatus:@"Resolvendo UserSession + WAMCEvaluation…" progress:0.0f];
     id context = self.userContext;
@@ -122,6 +132,7 @@
             self.scanning = NO;
             self.scanButton.enabled = YES;
             self.exportButton.enabled = YES;
+            self.fetchButton.enabled = YES;
             if (!mappings) {
                 self.title = @"AB → MobileConfig";
                 [self setStatus:error.localizedDescription ?: @"Falha ao resolver MobileConfig." progress:0.0f];
@@ -219,29 +230,43 @@
 #pragma mark - Native server fetch
 
 - (void)fetchServerNow {
-    if (self.scanning) return;
-    self.scanning = YES;
+    if (self.scanning || self.fetching) return;
+    self.fetching = YES;
     self.scanButton.enabled = NO;
     self.exportButton.enabled = NO;
+    self.fetchButton.enabled = NO;
     [self setStatus:@"Starting native MobileConfig fetch…" progress:0.05f];
     __weak typeof(self) weakSelf = self;
     NSString *diagnostic = nil;
     BOOL started = WAGRMobileConfigNativeFetchAccount(self.userContext, ^(NSDictionary<NSString *,id> *result) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
-        self.scanning = NO;
+        self.fetching = NO;
         self.scanButton.enabled = YES;
         self.exportButton.enabled = YES;
+        self.fetchButton.enabled = YES;
         BOOL verified = [result[@"verified_server_response"] boolValue];
-        [self setStatus:verified ? @"Server response verified; rescan schema if needed." : @"Fetch ended without verified server response." progress:1.0f];
+        NSDictionary *artifacts = [result[@"artifacts_after"] isKindOfClass:NSDictionary.class]
+            ? result[@"artifacts_after"] : @{};
+        NSDictionary *names = [artifacts[@"id_name_mapping"] isKindOfClass:NSDictionary.class]
+            ? artifacts[@"id_name_mapping"] : @{};
+        NSString *status = verified
+            ? ([names[@"exists"] boolValue] ? @"Fetch nativo confirmado · params names disponíveis para exportar."
+                                            : @"Fetch nativo confirmado · servidor/repositório ainda não materializou params names.")
+            : @"Fetch sem confirmação nativa · consulte rota, account state e artifacts no resultado.";
+        [self setStatus:status progress:1.0f];
         NSData *data = [NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:nil];
         NSString *text = data.length ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : [result description];
         [self showAlert:verified ? @"MobileConfig fetch ✓" : @"MobileConfig fetch" message:text ?: @""];
+        // Reload mapping names from the native artifact after a confirmed fetch.
+        // This scan is local and never submits another network request.
+        if (verified) [self scanNow];
     }, &diagnostic);
     if (!started) {
-        self.scanning = NO;
+        self.fetching = NO;
         self.scanButton.enabled = YES;
         self.exportButton.enabled = YES;
+        self.fetchButton.enabled = YES;
         [self setStatus:diagnostic ?: @"Native fetch could not start." progress:0.0f];
         [self showAlert:@"MobileConfig fetch" message:diagnostic ?: @"Could not start native fetch."];
     } else {
@@ -252,12 +277,10 @@
 #pragma mark - Export menu
 
 - (void)showExportMenu:(UIBarButtonItem *)sender {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"MobileConfig 26.33"
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"MobileConfig 26.40.10"
         message:@"Native artifacts are read-only exports. Custom artifacts are generated separately. No action writes mc_overrides.json."
         preferredStyle:UIAlertControllerStyleActionSheet];
     __weak typeof(self) weakSelf = self;
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Fetch from server · native" style:UIAlertActionStyleDefault
-        handler:^(__unused UIAlertAction *action) { [weakSelf fetchServerNow]; }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Export native latest config" style:UIAlertActionStyleDefault
         handler:^(__unused UIAlertAction *action) { [weakSelf exportNativeLatestConfig]; }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Export native id_name_mapping.json" style:UIAlertActionStyleDefault

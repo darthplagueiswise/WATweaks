@@ -1,5 +1,9 @@
 # WhatsApp ABProps -> FBMobileConfig descriptor analysis
 
+> Historical build. WhatsApp 26.40.10 no longer exposes
+> `getMCSpecifierForStableId:`. See [current IPA findings](WHATSAPP_26_40_UPDATE_PTBR.md)
+> for the native pointer/count mapping and remaining validation limits.
+
 This note records only findings that were directly validated from the supplied WhatsApp iOS binaries and runtime exports. It deliberately separates proven structure from unresolved fields.
 
 ## Runtime context

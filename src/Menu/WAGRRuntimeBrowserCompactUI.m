@@ -294,8 +294,8 @@ static void WAGRNativeABApplyFilter(id self, SEL _cmd) {
     NSArray<WAGRABPropEntry *> *filtered = [bestBySelector.allValues sortedArrayUsingComparator:
         ^NSComparisonResult(WAGRABPropEntry *left, WAGRABPropEntry *right) {
             if (scope == 1) {
-                NSString *leftFamily = WAGRLiveRuntimeFamilyForSelector(left.selectorName, left.className) ?: @"";
-                NSString *rightFamily = WAGRLiveRuntimeFamilyForSelector(right.selectorName, right.className) ?: @"";
+                NSString *leftFamily = left.categoryName ?: @"";
+                NSString *rightFamily = right.categoryName ?: @"";
                 NSComparisonResult familyResult = [leftFamily localizedCaseInsensitiveCompare:rightFamily];
                 if (familyResult != NSOrderedSame) return familyResult;
             }
@@ -306,7 +306,7 @@ static void WAGRNativeABApplyFilter(id self, SEL _cmd) {
     NSArray<NSString *> *sectionKeys = nil;
     if (scope == 1) {
         for (WAGRABPropEntry *entry in filtered) {
-            NSString *family = WAGRLiveRuntimeFamilyForSelector(entry.selectorName, entry.className);
+            NSString *family = entry.categoryName;
             if (!family.length) family = @"Runtime";
             if (!groups[family]) groups[family] = [NSMutableArray array];
             [groups[family] addObject:entry];
@@ -639,21 +639,11 @@ static void WAGRNativeAddSectionHeights(Class cls) {
 __attribute__((constructor))
 static void WAGRRuntimeBrowserNativeUICtor(void) {
     @autoreleasepool {
-        Class ab = NSClassFromString(@"WAGRABPropsBrowserVC");
         Class surface = NSClassFromString(@"WAGRSurfaceBrowserVC");
         Class gates = NSClassFromString(@"WAGRRuntimeGatesVC");
         Class root = NSClassFromString(@"WAGRABPropsRootVC");
 
-        if (ab) {
-            orig_WAGRABViewDidLoad = (void (*)(id, SEL))WAGRNativeReplaceAndCapture(ab, @selector(viewDidLoad), (IMP)WAGRNativeABViewDidLoad);
-            WAGRNativeReplaceMethod(ab, NSSelectorFromString(@"applyCurrentFilter"), (IMP)WAGRNativeABApplyFilter);
-            WAGRNativeReplaceMethod(ab, @selector(tableView:cellForRowAtIndexPath:), (IMP)WAGRNativeABCell);
-            WAGRNativeReplaceMethod(ab, @selector(tableView:titleForHeaderInSection:), (IMP)WAGRNativeNoHeader);
-            WAGRNativeReplaceMethod(ab, @selector(tableView:titleForFooterInSection:), (IMP)WAGRNativeNoHeader);
-            WAGRNativeAddSectionHeights(ab);
-            class_addMethod(ab, NSSelectorFromString(@"wagr_nativeABSwitchChanged:"), (IMP)WAGRNativeABSwitchChanged, "v@:@");
-            class_addMethod(ab, @selector(searchBar:selectedScopeButtonIndexDidChange:), (IMP)WAGRNativeABScopeChanged, "v@:@q");
-        }
+        // ABProps owns its filter, renderer and backend-aware controls directly.
 
         if (surface) {
             orig_WAGRSurfaceViewDidLoad = (void (*)(id, SEL))WAGRNativeReplaceAndCapture(surface, @selector(viewDidLoad), (IMP)WAGRNativeSurfaceViewDidLoad);

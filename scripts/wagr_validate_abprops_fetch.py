@@ -138,6 +138,18 @@ def main() -> int:
     reject(live, "__attribute__((constructor))", "WAGRABPropsABTLiveService.m", errors)
     reject(bridge, "__attribute__((constructor))", "WAGRABPropsABTNativeBridge.m", errors)
 
+    # Correlation hooks are instrumentation. A missing hook may reduce proof,
+    # but must not prevent the exact native top-level request from dispatching.
+    require(live, "BOOL correlationObserversInstalled = InstallHooks();",
+            "WAGRABPropsABTLiveService.m", errors)
+    reject(live,
+           'if (!InstallHooks()) {\n        NSString *text = @"ABT live correlation hooks unavailable or ABI mismatch";',
+           "WAGRABPropsABTLiveService.m", errors)
+    require(live, '@"correlation_observers_installed": @(correlationObserversInstalled)',
+            "WAGRABPropsABTLiveService.m", errors)
+    require(live, "if (correlationObserversInstalled && !lowerEntered)",
+            "WAGRABPropsABTLiveService.m", errors)
+
     # The on-demand lab covers every supported validator shape and correlates
     # every retry with the exact request object; no hook may install at launch.
     for token in (
@@ -285,7 +297,9 @@ def main() -> int:
         reject(release_linkage, token, "WAGRABPropsReleaseNativeLinkage.m", errors)
 
     for token in (
-        "Fetch from server · native",
+        'self.fetchButton',
+        'initWithTitle:@"Fetch MC"',
+        'action:@selector(fetchServerNow)',
         "Export native id_name_mapping.json",
         "Export native mc_overrides.json · read-only",
         "Export native StartupConfigsOverride",
@@ -318,16 +332,6 @@ def main() -> int:
         "originalRows.count != 1",
         "id row = existingRow",
         "setFooterText:",
-        "WAGRPrepareNativeInternalSurfaces",
-        "isDebugMenuAllowed",
-        "isDebugMenuShortcutEnabled",
-        "isDebugBuild",
-        "waios_mc_debug_ui_enabled",
-        "whatsbroken_enabled",
-        "ios_internal_in_app_bug_reporting_enable",
-        "ios_internal_rage_shake_enabled",
-        "dogfooding_nudge_settings_entrypoint_enabled",
-        "wamo_debug_tool_enabled",
         "WAGRContextSpyInstallForContext(userContext)",
         "WAGRContextSpyInstallForContext(context)",
         "WAGRContextSpyInstallForContext(realCtx)",
@@ -359,6 +363,8 @@ def main() -> int:
         "smbmetaverifiedphase1a",
         "smb_premium_broadcast",
         'WAGRNativeVoidObjectArg(section, @"setRows:"',
+        "WAGRPrepareNativeInternalSurfaces",
+        "WAGRGateSet(selector, YES)",
     ):
         reject(dev_menu, token, "WAGRNativeDevMenuHooks.xm", errors)
 

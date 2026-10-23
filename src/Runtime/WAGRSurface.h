@@ -60,6 +60,9 @@ NSString *WAGRCleanDisplayName(NSString *name);
 NSString *WAGRLiveRuntimeImageNameForPath(NSString * _Nullable imagePath);
 NSString *WAGRLiveRuntimeFamilyForSelector(NSString * _Nullable selectorName,
                                             NSString * _Nullable className);
+NSString *WAGRLiveRuntimeFamilyForSelectorInImage(NSString * _Nullable selectorName,
+                                                   NSString * _Nullable className,
+                                                   NSString * _Nullable imagePath);
 NSString *WAGRLiveRuntimeSubcategoryForEntry(NSString * _Nullable selectorName,
                                               NSString * _Nullable className,
                                               NSString * _Nullable imagePath);
@@ -71,6 +74,7 @@ NSString *WAGRLiveRuntimeSubcategoryForEntry(NSString * _Nullable selectorName,
 + (NSArray<WAGREntry *> *)scanSurface:(WAGRSurfaceSpec *)spec;
 + (NSArray<WAGRSurfaceSpec *> *)runtimeImageSurfaces;
 + (NSArray<WAGRSurfaceSpec *> *)runtimeFamilySurfaces;
++ (void)invalidateRuntimeImageCache;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -42,6 +42,13 @@ static inline bool WAGRRuntimePathIsWithinBundleCString(const char *path, const 
         (path[length] == '/' || path[length] == '\0');
 }
 
+/* Image membership follows the method IMP, including cross-image categories. */
+static inline bool WAGRRuntimeMethodMatchesImageCString(const char *methodImage,
+                                                         const char *requestedImage) {
+    if (!requestedImage || !requestedImage[0]) return true;
+    return methodImage && strcmp(methodImage, requestedImage) == 0;
+}
+
 /* Nested apps/extensions have separate processes. Skip hidden/localized data. */
 static inline bool WAGRRuntimeBundledPathIsInspectableCString(const char *relativePath) {
     if (!relativePath || !relativePath[0] || relativePath[0] == '/') return false;

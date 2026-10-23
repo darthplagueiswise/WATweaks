@@ -1,4 +1,5 @@
 #import "WAGRABPropsCanonicalNamesV2.h"
+#import "WAGRMobileConfigBridge.h"
 #import "WAGRLog.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -247,22 +248,8 @@ static NSString *WAGRCanonicalSchemaNameForCode(NSString *code) {
         if (cached.length) return cached;
     }
 
-    Class evaluation = NSClassFromString(@"WAMCEvaluation") ?: objc_getClass("WAMCEvaluation");
-    SEL specifierSelector = NSSelectorFromString(@"getMCSpecifierForStableId:");
-    Method specifierMethod = class_getClassMethod(evaluation, specifierSelector);
-    if (!evaluation || !specifierMethod || method_getNumberOfArguments(specifierMethod) != 3 ||
-        !WAGRCanonicalMethodWordArgument(specifierMethod, 2) ||
-        !WAGRCanonicalMethodWordReturn(specifierMethod)) return nil;
-
     uint64_t stableId = strtoull(code.UTF8String ?: "0", NULL, 10);
-    uint64_t specifier = 0;
-    @try {
-        specifier = ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)evaluation,
-                                                                    specifierSelector,
-                                                                    stableId);
-    } @catch (__unused NSException *exception) {
-        return nil;
-    }
+    uint64_t specifier = WAGRMobileConfigSpecifierForWAStableID(stableId);
     if (!specifier || (specifier & (1ULL << 62))) return nil;
 
     Class startup = NSClassFromString(@"FBMobileConfigStartupConfigs") ?:

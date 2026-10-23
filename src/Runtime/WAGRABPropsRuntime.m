@@ -2,6 +2,7 @@
 #import "WAGRRuntimeClassifier.h"
 #import "WAGRRuntimeValueStore.h"
 #import "WAGRABPropsStableIDResolver.h"
+#import "WAGRWAABFamilyCatalog.h"
 #import "WAGRLog.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -231,12 +232,19 @@ static void WAGRABAppendEntry(NSMutableArray<WAGRABPropEntry *> *entries,
     entry.selectorName = selectorName;
     entry.typeCode = runtimeType;
     entry.typeName = WAGRRuntimeValueTypeName(runtimeType) ?: runtimeType;
-    entry.categoryName = WAGRLiveRuntimeFamilyForSelector(selectorName, className);
     entry.sourceImage = WAGRABImageForMethod(method, cls);
+    BOOL cataloged = NO;
+    NSString *fallback = WAGRLiveRuntimeFamilyForSelectorInImage(selectorName,
+                                                                 className,
+                                                                 entry.sourceImage);
+    entry.categoryName = WAGRWAABFamilyForSelector(selectorName,
+                                                    entry.sourceImage,
+                                                    fallback,
+                                                    &cataloged);
     entry.methodEncoding = encoding ?: @"";
     entry.stableID = stableID;
     entry.classMethod = classMethod;
-    entry.cataloged = NO;
+    entry.cataloged = cataloged;
     [entries addObject:entry];
 }
 

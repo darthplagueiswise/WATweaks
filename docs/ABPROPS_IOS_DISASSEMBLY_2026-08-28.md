@@ -1,5 +1,9 @@
 # WhatsApp iOS ABProps: pesquisa, disassembly e técnica de full fetch
 
+> Histórico de outra build. `getMCSpecifierForStableId:` está ausente na
+> 26.40.10. Consulte a [análise atual da IPA](WHATSAPP_26_40_UPDATE_PTBR.md)
+> para o mapeamento nativo ponteiro/count e os limites da validação.
+
 Artefatos analisados diretamente:
 
 - `SharedModules(5)` — SHA-256 `f0edef076c68d7f1f872401d774789a2cb3f50be5c96773a2d8ed763ed3015a7`

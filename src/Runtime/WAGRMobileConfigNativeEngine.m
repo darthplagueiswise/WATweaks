@@ -2,6 +2,7 @@
 #import "WAGRMobileConfigBridge.h"
 #import "WAGRMobileConfigFetchPolicy.h"
 #import "WAGRLog.h"
+#import "WAGRNativeAccountState.h"
 
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -186,6 +187,22 @@ static NSString *WAGRMCNativeLatestConfigPath(id context) {
     return WAGRMCNativeLatestConfigPathForManager(WAGRMCNativeBoundAccountManager(context));
 }
 
+static NSDictionary *WAGRMCNativeArtifactsForManager(id manager) {
+    id raw = WAGRMCNativeCallObjectNoArg(manager, @"getOverridesTablePath");
+    NSString *path = [raw isKindOfClass:NSString.class] ? raw
+        : ([raw isKindOfClass:NSURL.class] ? [(NSURL *)raw path] : nil);
+    NSString *directory = [path.pathExtension.lowercaseString isEqualToString:@"json"]
+        ? path.stringByDeletingLastPathComponent : path;
+    NSString *names = directory.length ? [directory stringByAppendingPathComponent:@"id_name_mapping.json"] : nil;
+    NSString *qe = directory.length ? [directory stringByAppendingPathComponent:@"qe_info.json"] : nil;
+    return @{
+        @"latest_config": WAGRMCNativeFileState(WAGRMCNativeLatestConfigPathForManager(manager)),
+        @"id_name_mapping": WAGRMCNativeFileState(names),
+        @"qe_info": WAGRMCNativeFileState(qe),
+        @"names_policy": @"Native repository artifact; absence does not imply an independent names endpoint or a failed config fetch"
+    };
+}
+
 static BOOL WAGRMCNativeStringsDescribeEqual(id left, id right);
 
 static NSDictionary *WAGRMCNativeLatestReleaseFetchEvent(NSTimeInterval start, int unitType, NSString *unitId) {
@@ -203,6 +220,13 @@ static NSDictionary *WAGRMCNativeLatestReleaseFetchEvent(NSTimeInterval start, i
             WAGRMCNativeStringsDescribeEqual(event[@"unitId"], unitId)) return event;
     }
     return nil;
+}
+
+static NSString *WAGRMCNativeTimeoutState(NSDictionary *backend) {
+    NSString *kind = [backend[@"kind"] isKindOfClass:NSString.class] ? backend[@"kind"] : @"";
+    if ([kind isEqualToString:@"www_native_fetch_observed"]) return @"timeout_after_www_request";
+    if ([kind isEqualToString:@"xwa2_native_fetch_observed"]) return @"timeout_after_xwa2_request";
+    return @"timeout_before_network_observed";
 }
 
 static BOOL WAGRMCNativeStringsDescribeEqual(id left, id right) {
@@ -315,12 +339,19 @@ static NSDictionary *WAGRMCNativeXWA2ResponseSummary(id response, id error, id f
 
 static void WAGRMCNativeFinishFetch(NSString *token, NSDictionary *extra) {
     WAGRMCNativeEnsureFetchState();
+    id manager = nil;
+    @synchronized (gWAGRMCFetchLock) {
+        if (!token.length || ![gWAGRMCFetchToken isEqualToString:token]) return;
+        manager = gWAGRMCFetchManager;
+    }
+    NSDictionary *artifacts = WAGRMCNativeArtifactsForManager(manager);
     WAGRMobileConfigNativeFetchCompletion completion = nil;
     NSMutableDictionary *result = nil;
     @synchronized (gWAGRMCFetchLock) {
         if (!token.length || ![gWAGRMCFetchToken isEqualToString:token]) return;
         result = [gWAGRMCFetchState mutableCopy] ?: [NSMutableDictionary dictionary];
         [result addEntriesFromDictionary:extra ?: @{}];
+        result[@"artifacts_after"] = artifacts;
         result[@"finished_at"] = @([[NSDate date] timeIntervalSince1970]);
         gWAGRMCFetchState = result;
         completion = [gWAGRMCFetchCompletion copy];
@@ -448,14 +479,11 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
                                         WAGRMobileConfigNativeFetchCompletion completion,
                                         NSString **outDiagnostic) {
     WAGRMCNativeEnsureFetchState();
-    if (!WAGRMCNativeInstallXWA2SuccessObserver()) {
-        if (outDiagnostic) *outDiagnostic = @"XWA2 success observer ABI is not supported by this installed WhatsApp build.";
-        return NO;
-    }
-    if (!WAGRMCNativeInstallFetchSuccessMarkerObserver()) {
-        if (outDiagnostic) *outDiagnostic = @"WAMobileConfigLastFetchStore success-marker ABI is not supported by this installed WhatsApp build.";
-        return NO;
-    }
+    // Instrumentation is passive. A route may legitimately use WWW instead of
+    // XWA2, and a changed diagnostic ABI must never suppress WhatsApp's own
+    // fetch entry point.
+    BOOL xwa2ObserverInstalled = WAGRMCNativeInstallXWA2SuccessObserver();
+    BOOL markerObserverInstalled = WAGRMCNativeInstallFetchSuccessMarkerObserver();
     id context = userContext ?: WAGRCurrentUserContext();
     id chatManager = WAGRMCNativeCallObjectNoArg(context, @"chatManager");
     SEL modernSelector = NSSelectorFromString(@"fetchMobileConfig:stack:");
@@ -491,6 +519,8 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
     NSTimeInterval started = [[NSDate date] timeIntervalSince1970];
     NSString *latestPath = WAGRMCNativeLatestConfigPathForManager(manager);
     NSDictionary *before = WAGRMCNativeFileState(latestPath);
+    NSDictionary *accountState = WAGRNativeAccountStateDocument(context);
+    NSDictionary *artifactsBefore = WAGRMCNativeArtifactsForManager(manager);
     @synchronized (gWAGRMCFetchLock) {
         if (gWAGRMCFetchToken.length) {
             if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"MobileConfig fetch already active: %@", gWAGRMCFetchToken];
@@ -506,7 +536,7 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
         gWAGRMCFetchCompletion = [completion copy];
         gWAGRMCFetchState = [@{
             @"schema" : @"watweaks_mobileconfig_native_fetch_v1",
-            @"state" : @"requesting",
+            @"state" : @"native_entrypoint_dispatched_waiting_fetch_plan_or_network",
             @"token" : token,
             @"started_at" : @(started),
             @"context_class" : context ? (NSStringFromClass([context class]) ?: @"?") : @"nil",
@@ -515,7 +545,11 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
             @"expected_unit_type" : @(unitType),
             @"expected_unit_id" : unitId,
             @"native_stack" : route == WAGRMCFetchRouteBoolStack ? @(WAGRMCFetchNativeStackAutomatic) : (id)NSNull.null,
+            @"xwa2_success_observer_installed" : @(xwa2ObserverInstalled),
+            @"success_marker_observer_installed" : @(markerObserverInstalled),
             @"latest_config_before" : before,
+            @"account_state_before" : accountState,
+            @"artifacts_before" : artifactsBefore,
             @"policy" : @"Normal authenticated fetch. WATweaks does not construct WAMobileConfigFetchInput, GraphQL, access tokens, or hashes; the native pipeline supplies globalValueHash/epRefreshId."
         } mutableCopy];
     }
@@ -536,15 +570,17 @@ BOOL WAGRMobileConfigNativeFetchAccount(id userContext,
         return NO;
     }
 
-    if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:@"Native MobileConfig fetch started token=%@ via %@ (%s)",
-        token, NSStringFromClass([chatManager class]) ?: @"?", method_getTypeEncoding(method) ?: "?"];
+    if (outDiagnostic) *outDiagnostic = [NSString stringWithFormat:
+        @"Native MobileConfig fetch started token=%@ via %@ (%s); observers xwa2=%@ marker=%@",
+        token, NSStringFromClass([chatManager class]) ?: @"?", method_getTypeEncoding(method) ?: "?",
+        xwa2ObserverInstalled ? @"YES" : @"NO", markerObserverInstalled ? @"YES" : @"NO"];
     WAGRLogAppendF(@"[MobileConfig][NativeFetch] started %@", token);
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(30.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         NSDictionary *backend = WAGRMCNativeLatestReleaseFetchEvent(started, unitType, unitId);
         NSDictionary *file = WAGRMCNativeFileState(WAGRMCNativeLatestConfigPathForManager(manager));
         WAGRMCNativeFinishFetch(token, @{
-            @"state" : backend ? @"timeout_after_network_request" : @"timeout_before_network_observed",
+            @"state" : WAGRMCNativeTimeoutState(backend),
             @"verified_server_response" : @NO,
             @"network_input" : backend ?: @{},
             @"latest_config_after" : file ?: @{}
@@ -575,6 +611,7 @@ NSDictionary<NSString *, id> *WAGRMobileConfigNativeEngineDiagnosticDocument(id 
     Method startupSet = startup ? class_getInstanceMethod([startup class], NSSelectorFromString(@"setOverrideForParam:andValue:")) : NULL;
     return @{
         @"user_session_resolved" : @(manager != nil),
+        @"account_state" : WAGRNativeAccountStateDocument(userContext ?: WAGRCurrentUserContext()),
         @"manager_class" : manager ? (NSStringFromClass([manager class]) ?: @"?") : @"nil",
         @"overrides_path" : WAGRMobileConfigOverridesPath(userContext) ?: (id)NSNull.null,
         @"latest_config_path" : WAGRMCNativeLatestConfigPath(userContext) ?: (id)NSNull.null,
@@ -594,6 +631,12 @@ NSDictionary<NSString *, id> *WAGRMobileConfigNativeEngineDiagnosticDocument(id 
         @"force_invalidate_encoding" : WAGRMCNativeEncoding(manager, @"forceInvalidate"),
         @"force_invalidate_role" : @"Native manager teardown; never used for local cache refresh",
         @"force_refresh_config_encoding" : WAGRMCNativeEncoding(manager, @"forceRefreshOfConfig:"),
+        @"native_query_protocol" : @{
+            @"hash_rejection_errors" : @[@"UnknownOneQueryHash", @"OneQueryHashError"],
+            @"delta_parse_error" : @"BlnQueriesError",
+            @"fallback" : @"native retries with one_query_string after a rejected one_query_hash",
+            @"ownership" : @"WhatsApp constructs and retries the query; WATweaks only observes input"
+        },
         @"policy" : @"ABProp local overrides use FBMobileConfigStartupConfigs and exact App Group readback; server fetch selects the validated WAChatManager ABI (26.40: fetchMobileConfig:NO stack:-1). Direct mc_overrides.json writes remain blocked until the FBMobileConfigOverridesTable C++ serializer is proven."
     };
 }

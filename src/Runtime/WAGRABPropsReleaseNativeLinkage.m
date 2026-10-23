@@ -292,11 +292,25 @@ static NSDictionary *WAGRLinkageXWA2InputSnapshot(id input) {
         id value = WAGRLinkageScalarOrObjectNoArg(input, selector);
         if (value) snapshot[selector] = ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSNumber.class]) ? value : ([value description] ?: @"?");
     }
+    NSDictionary<NSString *, NSString *> *protocolNames = @{
+        @"globalValueHash" : @"global_value_hash",
+        @"epRefreshId" : @"ep_refresh_id",
+        @"queryString" : @"query_string",
+        @"blnLiHashes" : @"bln_li_hashes",
+        @"blnQueries" : @"bln_queries",
+        @"boolOptPolicy" : @"bool_opt_policy"
+    };
+    [protocolNames enumerateKeysAndObjectsUsingBlock:^(NSString *accessor, NSString *field, __unused BOOL *stop) {
+        id value = snapshot[accessor];
+        if (value) snapshot[field] = value;
+    }];
     return snapshot;
 }
 
 static void WAGRLinkageXWA2Fetch(id self, SEL _cmd, id input, id completion) {
-    NSDictionary *snapshot = WAGRLinkageXWA2InputSnapshot(input);
+    NSMutableDictionary *snapshot = [WAGRLinkageXWA2InputSnapshot(input) mutableCopy];
+    snapshot[@"route"] = @"xwa2";
+    snapshot[@"auth_requirement"] = @"account_user_context";
     WAGRLinkageRecord(@"xwa2_native_fetch_observed", snapshot);
     WAGRLogAppendF(@"[MobileConfig][ReleaseLinkage] XWA2 fetch observed %@", snapshot);
     if (gWAGRXWA2FetchOriginal) gWAGRXWA2FetchOriginal(self, _cmd, input, completion);
@@ -306,6 +320,10 @@ static void WAGRLinkageWWWFetch(id self, SEL _cmd, id input, BOOL sessionless, i
     NSMutableDictionary *snapshot = [WAGRLinkageXWA2InputSnapshot(input) mutableCopy];
     if (!snapshot) snapshot = [NSMutableDictionary dictionary];
     snapshot[@"sessionless"] = @(sessionless);
+    snapshot[@"route"] = sessionless ? @"www_sessionless" : @"www_authenticated";
+    snapshot[@"auth_requirement"] = sessionless
+        ? @"WAGraphQLStaticAuthTokens.staticAT"
+        : @"canonical_user_credentials:mobile_config";
     WAGRLinkageRecord(@"www_native_fetch_observed", snapshot);
     WAGRLogAppendF(@"[MobileConfig][ReleaseLinkage] WWW fetch observed %@", snapshot);
     if (gWAGRWWWFetchOriginal) gWAGRWWWFetchOriginal(self, _cmd, input, sessionless, completion);

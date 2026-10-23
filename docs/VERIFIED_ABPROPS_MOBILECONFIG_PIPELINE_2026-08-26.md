@@ -1,5 +1,9 @@
 # Verified WhatsApp iOS ABProps / MobileConfig pipeline
 
+> Historical build. WhatsApp 26.40.10 no longer exposes
+> `getMCSpecifierForStableId:`. See [current IPA findings](WHATSAPP_26_40_UPDATE_PTBR.md)
+> for the native pointer/count mapping and remaining validation limits.
+
 Build artifacts analyzed directly on 2026-08-26:
 
 - `WhatsApp(5)` SHA-256 `9f08516fa766f3697a54804207721d5bf14fbc5a22d6930236e43510e44ee7af`

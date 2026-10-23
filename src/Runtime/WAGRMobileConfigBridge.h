@@ -5,7 +5,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface WAGRMobileConfigMapping : NSObject
-/// WhatsApp/ABProp stable ID passed to WAMCEvaluation.getMCSpecifierForStableId:.
+/// WhatsApp/ABProp stable ID indexing WAMCEvaluation's native specifier span.
 @property(nonatomic, assign) NSUInteger waStableId;
 @property(nonatomic, assign) uint64_t paramSpecifier;
 @property(nonatomic, assign) uint16_t localConfigIndex;
@@ -64,6 +64,11 @@ id _Nullable WAGRMobileConfigUserSessionContextManager(id _Nullable userContext)
 
 NSString * _Nullable WAGRMobileConfigOverridesPath(id _Nullable userContext);
 NSString * _Nullable WAGRMobileConfigNamesPath(id _Nullable userContext);
+
+/// Reads WAMCEvaluation's validated native span. Returns zero for an unavailable
+/// map, unassigned ID or out-of-range ID. The domain comes from the native count.
+uint64_t WAGRMobileConfigSpecifierForWAStableID(uint64_t stableID);
+NSUInteger WAGRMobileConfigStableIDDomainCount(void);
 
 /// Resolves the current-build WA stable-ID domain through:
 /// WA stable ID -> WAMCEvaluation paramSpecifier -> account-scoped

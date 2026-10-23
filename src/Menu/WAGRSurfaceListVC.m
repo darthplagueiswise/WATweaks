@@ -16,11 +16,8 @@
 #import "WAGRMenuTheme.h"
 
 extern void WAGRWAABEnsureHooksInstalled(void);
-// The native dev-menu launcher lives in src/Hooks/WAGRDebugMenuLauncher.xm.
-// It does the heavy lifting of locating a WAContextMain and instantiating
-// WADebugViewController via initWithUserContext:.
+// The verified dogfood URL launcher lives in WAGRDebugMenuLauncher.xm.
 extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
-extern BOOL WAGRLaunchPrivateExperimentationDebug(UIViewController *fromVC, NSError **outError);
 extern NSString *WAGRDebugMenuLauncherDiagnosticText(void);
 static UIColor *WAGRBG(void)     { return WAGRMenuBackgroundColor(); }
 static UIColor *WAGRCell(void)   { return WAGRMenuCellColor(); }
@@ -68,12 +65,12 @@ static void WAGRAlert(NSString *title, NSString *message) {
     });
 }
 
-@interface WAGRRawSurfaceListVC : UITableViewController
+@interface WAGRRuntimeImagesVC ()
 @property(nonatomic, strong) NSArray<WAGRSurfaceSpec *> *surfaces;
 @property(nonatomic, assign) BOOL scanning;
 @end
 
-@implementation WAGRRawSurfaceListVC
+@implementation WAGRRuntimeImagesVC
 - (instancetype)init {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
     self.title = @"Runtime Avançado";
@@ -84,17 +81,22 @@ static void WAGRAlert(NSString *title, NSString *message) {
     [super viewDidLoad];
     WAGRMenuApplyTableStyle(self.tableView, self);
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(reloadSurfaces)];
+        initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshSurfaces)];
     self.refreshControl = [UIRefreshControl new];
-    [self.refreshControl addTarget:self action:@selector(reloadSurfaces) forControlEvents:UIControlEventValueChanged];
-    [self reloadSurfaces];
+    [self.refreshControl addTarget:self action:@selector(refreshSurfaces) forControlEvents:UIControlEventValueChanged];
+    [self loadSurfaces];
 }
-- (void)reloadSurfaces {
+- (void)refreshSurfaces {
+    [WAGRScanner invalidateRuntimeImageCache];
+    [self loadSurfaces];
+}
+- (void)loadSurfaces {
     if (self.scanning) return;
     self.scanning = YES;
     self.title = @"Lendo imagens do app…";
     self.navigationItem.rightBarButtonItem.enabled = NO;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        @autoreleasepool {
         NSArray<WAGRSurfaceSpec *> *surfaces = [WAGRScanner runtimeImageSurfaces];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.surfaces = surfaces ?: @[];
@@ -104,6 +106,7 @@ static void WAGRAlert(NSString *title, NSString *message) {
             [self.refreshControl endRefreshing];
             [self.tableView reloadData];
         });
+        }
     });
 }
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section { return (NSInteger)_surfaces.count; }
@@ -116,7 +119,7 @@ static void WAGRAlert(NSString *title, NSString *message) {
 }
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section { return @"Imagens Mach-O do app"; }
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
-    return @"Frameworks e dylibs do app, com estado carregada/não carregada. Inclui imagens sem getters Objective-C editáveis. Atualize para refazer o inventário.";
+    return @"Frameworks e dylibs do processo principal, com estado carregada/não carregada. Inclui imagens sem getters Objective-C editáveis. Extensões rodam em processos separados e não são carregadas para inspeção.";
 }
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     WAGRSurfaceSpec *s = _surfaces[(NSUInteger)ip.row];
@@ -158,7 +161,6 @@ typedef NS_ENUM(NSInteger, WAGRRootSection) {
 // One row inside the new top section.
 typedef NS_ENUM(NSInteger, WAGRDevMenuRow) {
     WAGRDevMenuRowOpen = 0,
-    WAGRDevMenuRowPrivateExperimentation,
 };
 
 typedef NS_ENUM(NSInteger, WAGRAdvancedRow) {
@@ -200,7 +202,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
-        case WAGRRootSectionDevMenu: return 2;
+        case WAGRRootSectionDevMenu: return 1;
         case WAGRRootSectionSecret: return 1;
         case WAGRRootSectionAbout: return 1;
         case WAGRRootSectionAdvanced: return 5;
@@ -218,7 +220,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 }
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
     switch ((WAGRRootSection)section) {
-        case WAGRRootSectionDevMenu: return @"Menu Developer Nativo";
+        case WAGRRootSectionDevMenu: return @"Dogfood";
         case WAGRRootSectionSecret: return @"Menus Secretos do App";
         case WAGRRootSectionAbout: return nil;
         case WAGRRootSectionAdvanced: return @"Avançado";
@@ -234,30 +236,19 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
     return nil;
 }
 
-// The headline action: a single, prominent cell that directly invokes the
-// native WADebugViewController bypassing all gating. The blue tint and the
-// `</>` SF Symbol match the visual contract of WhatsApp's own Developer row.
+// The only verified launcher surface in WhatsApp 26.40.10.
 - (UITableViewCell *)devMenuCellForRow:(NSInteger)row {
     UITableViewCell *c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    WAGRMenuApplyCellStyle(c, row, row == WAGRDevMenuRowPrivateExperimentation ? @"private_experimentation" : @"developer");
+    WAGRMenuApplyCellStyle(c, row, @"dogfood");
     c.textLabel.textColor = WAGRText();
     c.detailTextLabel.textColor = WAGRSub();
 
-    if (row == WAGRDevMenuRowPrivateExperimentation) {
-        c.textLabel.text = @"Abrir Private Experimentation";
-        c.detailTextLabel.text = @"Usa o userContext real capturado do WADebugViewController";
-        UIImage *icon = [UIImage systemImageNamed:@"testtube.2"];
-        if (!icon) icon = [UIImage systemImageNamed:@"flask"];
-        c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-        c.imageView.tintColor = UIColor.systemPurpleColor;
-    } else {
-        c.textLabel.text = @"Abrir Menu Developer Nativo";
-        c.detailTextLabel.text = @"Apresenta WADebugViewController pelo provider nativo";
-        UIImage *icon = [UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right"];
-        if (!icon) icon = [UIImage systemImageNamed:@"curlybraces"];
-        c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-        c.imageView.tintColor = UIColor.systemBlueColor;
-    }
+    c.textLabel.text = @"Launcher dogfood";
+    c.detailTextLabel.text = @"https://fburl.com/df_iphone · eligibility permanece no servidor/conta";
+    UIImage *icon = [UIImage systemImageNamed:@"person.badge.key.fill"];
+    if (!icon) icon = [UIImage systemImageNamed:@"link"];
+    c.imageView.image = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    c.imageView.tintColor = UIColor.systemBlueColor;
 
     c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return c;
@@ -395,17 +386,10 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
 
     if (ip.section == WAGRRootSectionDevMenu) {
         UIViewController *presentedBy = self.presentingViewController;
-        NSInteger row = ip.row;
         [self dismissViewControllerAnimated:YES completion:^{
             NSError *err = nil;
-            BOOL ok = NO;
-            if (row == WAGRDevMenuRowPrivateExperimentation) {
-                ok = WAGRLaunchPrivateExperimentationDebug(presentedBy ?: WAGRTopController(), &err);
-                if (!ok) WAGRAlert(@"Não foi possível abrir Private Experimentation", err.localizedDescription ?: @"Erro desconhecido.");
-            } else {
-                ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
-                if (!ok) WAGRAlert(@"Não foi possível abrir o menu nativo", err.localizedDescription ?: @"Erro desconhecido.");
-            }
+            BOOL ok = WAGRLaunchNativeDeveloperMenu(presentedBy ?: WAGRTopController(), &err);
+            if (!ok) WAGRAlert(@"Não foi possível abrir o launcher dogfood", err.localizedDescription ?: @"Erro desconhecido.");
         }];
         return;
     }
@@ -428,7 +412,7 @@ typedef NS_ENUM(NSInteger, WAGRSystemRow) {
         if (ip.row == WAGRAdvancedRowRuntimeGates) {
             [self.navigationController pushViewController:[WAGRRuntimeGatesVC new] animated:YES];
         } else if (ip.row == WAGRAdvancedRowRawRuntime) {
-            [self.navigationController pushViewController:[WAGRRawSurfaceListVC new] animated:YES];
+            [self.navigationController pushViewController:[WAGRRuntimeImagesVC new] animated:YES];
         } else if (ip.row == WAGRAdvancedRowInstallPersisted) {
             NSUInteger n = WAGRReinstallPersistedHooks();
             WAGRAlert(@"Hooks", [NSString stringWithFormat:@"%lu hooks reinstalados.", (unsigned long)n]);

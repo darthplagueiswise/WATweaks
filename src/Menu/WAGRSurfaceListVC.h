@@ -43,3 +43,8 @@ NSString  *WAGRHookRouterDiagnostic(void);
 
 @interface WAGRSurfaceListVC : UITableViewController
 @end
+
+/// Complete main-process Mach-O image inventory. Extension executables are
+/// intentionally excluded because they run in other processes.
+@interface WAGRRuntimeImagesVC : UITableViewController
+@end

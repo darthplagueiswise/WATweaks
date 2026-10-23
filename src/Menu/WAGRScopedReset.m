@@ -9,6 +9,7 @@
 #import "../Runtime/WAGRRuntimeValueStore.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRUserContextLinkage.h"
+#import "../Runtime/WAGRABPropsNativeOverrideEngine.h"
 
 extern void WAGRLGPrefsDidChange(void);
 extern void WAGRAuraEnsureHooksInstalled(void);
@@ -31,6 +32,7 @@ typedef struct {
     NSUInteger gateValues;
     NSUInteger gateHookSpecs;
     NSUInteger preferences;
+    NSUInteger nativeValues;
 } WAGRResetCounts;
 
 static NSString *WAGRResetUID(NSString *className, NSString *selector, BOOL meta) {
@@ -248,7 +250,7 @@ static NSArray<NSString *> *WAGRResetAuraKeys(void) {
 }
 
 static WAGRResetCounts WAGRResetPerform(WAGRResetScope scope) {
-    WAGRResetCounts counts = {0, 0, 0, 0};
+    WAGRResetCounts counts = {0};
 
     if (scope == WAGRResetScopeAll) {
         counts.runtimeValues += WAGRResetClearRuntimeMatching(nil);
@@ -369,11 +371,12 @@ static void WAGRResetShowResult(UIViewController *presenter,
                                 WAGRResetScope scope,
                                 WAGRResetCounts counts) {
     NSString *message = [NSString stringWithFormat:
-        @"Runtime overrides removidos: %lu\nGateStore overrides removidos: %lu\nGate hook specs esquecidos: %lu\nPreferências removidas: %lu\n\nOs hooks já instalados passam a usar o valor original quando o override some. Reiniciar garante que caches do WhatsApp também sejam reconstruídos.",
+        @"Runtime overrides removidos: %lu\nGateStore overrides removidos: %lu\nGate hook specs esquecidos: %lu\nPreferências removidas: %lu\nOverrides MC removidos: %lu\n\nOs hooks já instalados passam a usar o valor original quando o override some. Reiniciar garante que caches do WhatsApp também sejam reconstruídos.",
         (unsigned long)counts.runtimeValues,
         (unsigned long)counts.gateValues,
         (unsigned long)counts.gateHookSpecs,
-        (unsigned long)counts.preferences];
+        (unsigned long)counts.preferences,
+        (unsigned long)counts.nativeValues];
     UIAlertController *done = [UIAlertController alertControllerWithTitle:WAGRResetScopeTitle(scope)
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -400,7 +403,21 @@ static void WAGRResetConfirm(UIViewController *presenter, WAGRResetScope scope) 
     [confirm addAction:[UIAlertAction actionWithTitle:@"Remover"
                                                  style:UIAlertActionStyleDestructive
                                                handler:^(__unused UIAlertAction *action) {
+        NSInteger nativeCleared = 0;
+        if (scope == WAGRResetScopeAll || scope == WAGRResetScopeABProps) {
+            NSString *diagnostic = nil;
+            nativeCleared = WAGRABPropsNativeClearTrackedOverrides(WAGRCurrentUserContext(), &diagnostic);
+            if (WAGRABPropsNativeTrackedOverrides().count) {
+                UIAlertController *failed = [UIAlertController alertControllerWithTitle:@"Reset incompleto"
+                    message:[NSString stringWithFormat:@"Remoção MC incompleta. O registro e as preferências foram preservados para tentar novamente.\n\n%@", diagnostic ?: @""]
+                    preferredStyle:UIAlertControllerStyleAlert];
+                [failed addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+                [presenter presentViewController:failed animated:YES completion:nil];
+                return;
+            }
+        }
         WAGRResetCounts counts = WAGRResetPerform(scope);
+        counts.nativeValues = (NSUInteger)MAX(0, nativeCleared);
         WAGRResetShowResult(presenter, scope, counts);
     }]];
     [confirm addAction:[UIAlertAction actionWithTitle:@"Cancelar"
@@ -412,7 +429,7 @@ static void WAGRResetConfirm(UIViewController *presenter, WAGRResetScope scope) 
 void WAGRPresentScopedReset(UIViewController *presenter) {
     if (!presenter) return;
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Remover tweaks"
-                                                                    message:@"Escolha exatamente o que deve ser removido."
+                                                                    message:@"Tudo e ABProps incluem overrides MC rastreados. As outras categorias removem somente leituras locais e GateStore."
                                                              preferredStyle:UIAlertControllerStyleActionSheet];
 
     NSArray<NSDictionary *> *rows = @[

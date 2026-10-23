@@ -1,8 +1,10 @@
 #import "WAGRSurface.h"
 #import "WAGRRuntimeValueStore.h"
 #import "WAGRRuntimeSafety.h"
+#import "WAGRWAABFamilyCatalog.h"
 #import <objc/runtime.h>
 #import <mach-o/dyld.h>
+#import <dlfcn.h>
 #include <stdlib.h>
 
 @implementation WAGREntry
@@ -15,6 +17,22 @@
 }
 
 @end
+
+static NSArray<WAGRSurfaceSpec *> *gWAGRImageSurfaceCache = nil;
+static NSArray<Class> *gWAGRAppClassCache = nil;
+static uint32_t gWAGRImageSurfaceCacheGeneration = UINT32_MAX;
+static uint32_t gWAGRAppClassCacheGeneration = UINT32_MAX;
+
+static NSObject *WAGRLiveCacheLock(void) {
+    static NSObject *lock = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ lock = [NSObject new]; });
+    return lock;
+}
+
+static uint32_t WAGRLiveImageGeneration(void) {
+    return _dyld_image_count();
+}
 
 #pragma mark - Live naming
 
@@ -180,7 +198,7 @@ static NSString *WAGRLiveDisplayToken(NSString *token) {
     return token.localizedCapitalizedString;
 }
 
-NSString *WAGRLiveRuntimeFamilyForSelector(NSString *selectorName, NSString *className) {
+static NSString *WAGRLiveHeuristicFamilyForSelector(NSString *selectorName, NSString *className) {
     NSArray<NSString *> *source = WAGRLiveRawTokens(selectorName.length ? selectorName : className);
     NSMutableArray<NSString *> *meaningful = [NSMutableArray array];
     NSSet<NSString *> *stop = WAGRLiveStopWords();
@@ -210,10 +228,21 @@ NSString *WAGRLiveRuntimeFamilyForSelector(NSString *selectorName, NSString *cla
     return [display componentsJoinedByString:@" "];
 }
 
+NSString *WAGRLiveRuntimeFamilyForSelector(NSString *selectorName, NSString *className) {
+    return WAGRLiveRuntimeFamilyForSelectorInImage(selectorName, className, nil);
+}
+
+NSString *WAGRLiveRuntimeFamilyForSelectorInImage(NSString *selectorName,
+                                                    NSString *className,
+                                                    NSString *imagePath) {
+    NSString *fallback = WAGRLiveHeuristicFamilyForSelector(selectorName, className);
+    return WAGRWAABFamilyForSelector(selectorName, imagePath, fallback, NULL);
+}
+
 NSString *WAGRLiveRuntimeSubcategoryForEntry(NSString *selectorName,
                                               NSString *className,
                                               NSString *imagePath) {
-    NSString *family = WAGRLiveRuntimeFamilyForSelector(selectorName, className);
+    NSString *family = WAGRLiveRuntimeFamilyForSelectorInImage(selectorName, className, imagePath);
     NSString *owner = className.length ? className : WAGRLiveRuntimeImageNameForPath(imagePath);
     NSString *ownerLower = owner.lowercaseString ?: @"";
     BOOL genericABOwner = [ownerLower containsString:@"waabproperties"] ||
@@ -229,6 +258,12 @@ NSString *WAGRCategoryForSelector(NSString *selectorName) {
 #pragma mark - Snapshot helpers
 
 static NSArray<Class> *WAGRLiveAppClasses(void) {
+    uint32_t generation = WAGRLiveImageGeneration();
+    @synchronized (WAGRLiveCacheLock()) {
+        if (gWAGRAppClassCache && gWAGRAppClassCacheGeneration == generation) {
+            return gWAGRAppClassCache;
+        }
+    }
     unsigned int count = 0;
     Class *list = objc_copyClassList(&count);
     if (!list || !count) {
@@ -243,7 +278,14 @@ static NSArray<Class> *WAGRLiveAppClasses(void) {
         if (WAGRRuntimePathIsAppOwned(path)) [classes addObject:cls];
     }
     free(list);
-    return classes;
+    NSArray<Class> *snapshot = [classes copy];
+    @synchronized (WAGRLiveCacheLock()) {
+        if (generation == WAGRLiveImageGeneration()) {
+            gWAGRAppClassCache = snapshot;
+            gWAGRAppClassCacheGeneration = generation;
+        }
+    }
+    return snapshot;
 }
 
 static BOOL WAGRLiveMethodIsSupported(Method method, NSString **selectorName, NSString **typeCode) {
@@ -257,6 +299,18 @@ static BOOL WAGRLiveMethodIsSupported(Method method, NSString **selectorName, NS
     if (selectorName) *selectorName = selector;
     if (typeCode) *typeCode = type;
     return YES;
+}
+
+static NSString *WAGRLiveMethodImagePath(Method method, Class fallbackClass) {
+    IMP implementation = method ? method_getImplementation(method) : NULL;
+    Dl_info info = {0};
+    if (implementation && dladdr((const void *)implementation, &info) && info.dli_fname) {
+        NSString *path = [NSString stringWithUTF8String:info.dli_fname];
+        if (path.length) return WAGRLiveCanonicalImagePath(path);
+    }
+    const char *rawPath = fallbackClass ? class_getImageName(fallbackClass) : NULL;
+    NSString *path = rawPath ? [NSString stringWithUTF8String:rawPath] : @"";
+    return WAGRLiveCanonicalImagePath(path);
 }
 
 static NSUInteger WAGRLiveSupportedMethodCount(Class cls) {
@@ -299,6 +353,13 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
 @implementation WAGRScanner
 
 + (NSArray<WAGRSurfaceSpec *> *)runtimeImageSurfaces {
+    uint32_t generation = WAGRLiveImageGeneration();
+    @synchronized (WAGRLiveCacheLock()) {
+        if (gWAGRImageSurfaceCache && gWAGRImageSurfaceCacheGeneration == generation) {
+            return gWAGRImageSurfaceCache;
+        }
+    }
+    @autoreleasepool {
     NSMutableDictionary<NSString *, NSMutableDictionary *> *groups = [NSMutableDictionary dictionary];
     for (NSString *path in WAGRLiveBundledImagePaths()) {
         groups[path] = [@{ @"classes": [NSMutableSet set], @"methods": @0, @"loaded": @NO } mutableCopy];
@@ -308,18 +369,29 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
         groups[path] = [@{ @"classes": [NSMutableSet set], @"methods": @0, @"loaded": @YES } mutableCopy];
     }
     for (Class cls in WAGRLiveAppClasses()) {
-        NSUInteger methods = WAGRLiveSupportedMethodCount(cls);
+        NSString *className = NSStringFromClass(cls) ?: @"Unknown";
         const char *rawPath = class_getImageName(cls);
-        NSString *path = WAGRLiveCanonicalImagePath(rawPath ? [NSString stringWithUTF8String:rawPath] : @"");
-        if (!path.length) continue;
-        NSMutableDictionary *group = groups[path];
-        if (!group) {
-            group = [@{ @"classes": [NSMutableSet set], @"methods": @0, @"loaded": @YES } mutableCopy];
-            groups[path] = group;
+        NSString *classPath = WAGRLiveCanonicalImagePath(rawPath ? [NSString stringWithUTF8String:rawPath] : @"");
+        if (groups[classPath]) [groups[classPath][@"classes"] addObject:className];
+        for (NSUInteger meta = 0; meta <= 1; meta++) {
+            unsigned int count = 0;
+            Method *methods = class_copyMethodList(meta ? object_getClass(cls) : cls, &count);
+            for (unsigned int index = 0; index < count; index++) {
+                Method method = methods[index];
+                if (!WAGRLiveMethodIsSupported(method, NULL, NULL)) continue;
+                NSString *path = WAGRLiveMethodImagePath(method, cls);
+                if (!WAGRRuntimePathIsAppOwned(path)) continue;
+                NSMutableDictionary *group = groups[path];
+                if (!group) {
+                    group = [@{ @"classes": [NSMutableSet set], @"methods": @0, @"loaded": @YES } mutableCopy];
+                    groups[path] = group;
+                }
+                group[@"loaded"] = @YES;
+                [group[@"classes"] addObject:className];
+                group[@"methods"] = @([group[@"methods"] unsignedIntegerValue] + 1);
+            }
+            free(methods);
         }
-        group[@"loaded"] = @YES;
-        [group[@"classes"] addObject:NSStringFromClass(cls) ?: @"Unknown"];
-        group[@"methods"] = @([group[@"methods"] unsignedIntegerValue] + methods);
     }
 
     NSMutableArray<WAGRSurfaceSpec *> *surfaces = [NSMutableArray array];
@@ -354,15 +426,22 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
         }
         return [left.title localizedCaseInsensitiveCompare:right.title];
     }];
-    return surfaces;
+    NSArray<WAGRSurfaceSpec *> *snapshot = [surfaces copy];
+    @synchronized (WAGRLiveCacheLock()) {
+        if (generation == WAGRLiveImageGeneration()) {
+            gWAGRImageSurfaceCache = snapshot;
+            gWAGRImageSurfaceCacheGeneration = generation;
+        }
+    }
+    return snapshot;
+    }
 }
 
 + (NSArray<WAGRSurfaceSpec *> *)runtimeFamilySurfaces {
+    @autoreleasepool {
     NSMutableDictionary<NSString *, NSMutableDictionary *> *groups = [NSMutableDictionary dictionary];
     for (Class cls in WAGRLiveAppClasses()) {
         NSString *className = NSStringFromClass(cls) ?: @"Unknown";
-        const char *rawPath = class_getImageName(cls);
-        NSString *path = rawPath ? [NSString stringWithUTF8String:rawPath] : @"";
         for (NSUInteger meta = 0; meta <= 1; meta++) {
             Class owner = meta ? object_getClass(cls) : cls;
             unsigned int count = 0;
@@ -370,8 +449,10 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
             if (!methods) continue;
             for (unsigned int index = 0; index < count; index++) {
                 NSString *selector = nil;
-                if (!WAGRLiveMethodIsSupported(methods[index], &selector, NULL)) continue;
-                NSString *family = WAGRLiveRuntimeFamilyForSelector(selector, className);
+                Method method = methods[index];
+                if (!WAGRLiveMethodIsSupported(method, &selector, NULL)) continue;
+                NSString *methodPath = WAGRLiveMethodImagePath(method, cls);
+                NSString *family = WAGRLiveRuntimeFamilyForSelectorInImage(selector, className, methodPath);
                 if (!family.length) continue;
                 NSMutableDictionary *group = groups[family];
                 if (!group) {
@@ -379,7 +460,7 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
                     groups[family] = group;
                 }
                 [group[@"classes"] addObject:className];
-                if (path.length) [group[@"images"] addObject:path];
+                if (methodPath.length) [group[@"images"] addObject:methodPath];
                 group[@"methods"] = @([group[@"methods"] unsignedIntegerValue] + 1);
             }
             free(methods);
@@ -409,7 +490,17 @@ static WAGRSurfaceSpec *WAGRLiveSurface(NSString *identifier,
         }
         return [left.title localizedCaseInsensitiveCompare:right.title];
     }];
-    return surfaces;
+    return [surfaces copy];
+    }
+}
+
++ (void)invalidateRuntimeImageCache {
+    @synchronized (WAGRLiveCacheLock()) {
+        gWAGRImageSurfaceCache = nil;
+        gWAGRImageSurfaceCacheGeneration = UINT32_MAX;
+        gWAGRAppClassCache = nil;
+        gWAGRAppClassCacheGeneration = UINT32_MAX;
+    }
 }
 
 static BOOL WAGRTokenMatch(NSArray<NSString *> *tokens, NSString *haystack) {
@@ -427,7 +518,9 @@ static BOOL WAGRClassMatchesSurface(WAGRSurfaceSpec *spec, Class cls) {
     const char *rawPath = class_getImageName(cls);
     NSString *path = rawPath ? [NSString stringWithUTF8String:rawPath] : @"";
 
-    if (spec.runtimeImagePath.length) return [WAGRLiveCanonicalImagePath(path) isEqualToString:spec.runtimeImagePath];
+    // A category may contribute methods from a different Mach-O than the class.
+    // WAGRAddEntry checks exact image membership from the resolved method IMP.
+    if (spec.runtimeImagePath.length) return WAGRRuntimePathIsAppOwned(path);
     if (spec.runtimeFamilyKey.length) return WAGRRuntimePathIsAppOwned(path);
 
     for (NSString *name in spec.classNames) {
@@ -452,10 +545,13 @@ static void WAGRAddEntry(NSMutableArray<WAGREntry *> *output,
     if (!typeName.length) return;
     NSString *className = NSStringFromClass(cls);
     if (!className.length) return;
-    const char *rawPath = class_getImageName(cls);
-    NSString *imagePath = rawPath ? [NSString stringWithUTF8String:rawPath] : @"";
+    Method method = meta ? class_getClassMethod(cls, NSSelectorFromString(selector))
+                         : class_getInstanceMethod(cls, NSSelectorFromString(selector));
+    NSString *imagePath = WAGRLiveMethodImagePath(method, cls);
+    if (!WAGRRuntimeMethodMatchesImageCString(imagePath.UTF8String,
+                                               spec.runtimeImagePath.UTF8String)) return;
     NSString *imageName = WAGRLiveRuntimeImageNameForPath(imagePath);
-    NSString *family = WAGRLiveRuntimeFamilyForSelector(selector, className);
+    NSString *family = WAGRLiveRuntimeFamilyForSelectorInImage(selector, className, imagePath);
     if (spec.runtimeFamilyKey.length && ![family isEqualToString:spec.runtimeFamilyKey]) return;
 
     NSString *display = WAGRCleanDisplayName(selector);

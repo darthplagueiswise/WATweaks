@@ -62,3 +62,4 @@ __pycache__/
 WhatsApp*.ipa
 net.whatsapp.WhatsApp*.ipa
 [0-9]*.ipa
+.worktrees/

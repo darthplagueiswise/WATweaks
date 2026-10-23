@@ -1,128 +1,44 @@
-// WAGREmployeeHooks.xm
-// Semantic orchestration for Employee / Internal / Tester / Dogfood.
-// Persisted feature state is owned by WAGRGateStore -> RuntimeValueStore for
-// WAABProperties. There is deliberately no second Employee master store here.
+// WhatsApp 26.40.10 internal/employee state is server/account-owned.
+// This compatibility API remains for callers, but deliberately installs no
+// override hook and never expands local flags into eligibility.
 
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
-#import "../WAGramPrefix.h"
+#import <objc/message.h>
 
-extern "C" void WAGRGateHooksEnsureInstalled(void);
-extern "C" NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
-extern "C" void WAGRNativeDevMenuEnsureHooksInstalled(void);
-extern "C" NSUInteger WAGREmployeeSweepEnsureInstalled(void);
-extern "C" NSString *WAGREmployeeSweepDiagnosticText(void);
-extern "C" void WAGRDogfoodKnownWAABEnsureInstalled(void);
-extern "C" NSString *WAGRDogfoodKnownWAABDiagnosticText(void);
-extern "C" void WAGRDebugBuildEnsureInstalled(void);
-extern "C" NSString *WAGRDebugBuildDiagnosticText(void);
-extern "C" NSUInteger WAGRInternalToolsSweepSetEnabled(BOOL enabled);
-extern "C" NSString *WAGRInternalToolsSweepDiagnosticText(void);
-
-@interface WAServerProperties : NSObject
-+ (BOOL)isInternalUser;
-@end
-
-static BOOL gWAGRKnownEmployeeInstalled = NO;
-
-static NSArray<NSString *> *WAGRInternalActivationSelectors(void) {
-    static NSArray *selectors = nil;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        selectors = @[
-            @"isInternalUser",
-            @"isMetaEmployeeOrInternalTester",
-            @"is_meta_employee_or_internal_tester",
-            @"is_internal_tester",
-            @"waios_mc_debug_ui_enabled",
-            @"whatsbroken_enabled",
-            @"private_experimentation_should_sync",
-            @"dogfooding_nudge_settings_entrypoint_enabled",
-            @"dogfooding_nudge_banner_home_screen_enabled",
-            @"ios_internal_in_app_bug_reporting_enable",
-            @"ios_internal_rage_shake_enabled",
-        ];
-    });
-    return selectors;
-}
-
-static BOOL WAGRInternalActivationRequested(void) {
-    for (NSString *selector in WAGRInternalActivationSelectors()) {
-        if (WAGRGateIsSet(selector) && WAGRGateGet(selector)) return YES;
-    }
-    return NO;
-}
-
-%group WAGRKnownEmployee
-%hook WAServerProperties
-+ (BOOL)isInternalUser {
-    if (WAGRGateIsSet(@"isInternalUser")) return WAGRGateGet(@"isInternalUser");
-    return %orig;
-}
-%end
-%end
-
-static BOOL WAGRMethodIsZeroArgBOOL(Method method) {
-    if (!method || method_getNumberOfArguments(method) != 2) return NO;
-    char returnType[16] = {0};
-    method_getReturnType(method, returnType, sizeof(returnType));
-    return returnType[0] == 'B' || returnType[0] == 'c';
-}
-
-static void WAGRInstallKnownEmployeeHook(void) {
-    if (gWAGRKnownEmployeeInstalled) return;
-    Class cls = objc_getClass("WAServerProperties");
-    SEL selector = sel_registerName("isInternalUser");
+static NSString *WAGRNativeEligibilityValue(Class cls, NSString *selectorName) {
+    SEL selector = NSSelectorFromString(selectorName);
     Method method = cls ? class_getClassMethod(cls, selector) : NULL;
-    if (!WAGRMethodIsZeroArgBOOL(method)) {
-        NSLog(@"[WATweaks][Employee] WAServerProperties +isInternalUser unavailable or ABI changed");
-        return;
+    if (!method || method_getNumberOfArguments(method) != 2) return @"unavailable";
+    char result[8] = {0};
+    method_getReturnType(method, result, sizeof(result));
+    if (result[0] != 'B' && result[0] != 'c') return @"ABI mismatch";
+    @try {
+        BOOL value = ((BOOL (*)(id, SEL))objc_msgSend)(cls, selector);
+        return value ? @"YES" : @"NO";
+    } @catch (__unused NSException *exception) {
+        return @"exception";
     }
-    %init(WAGRKnownEmployee);
-    gWAGRKnownEmployeeInstalled = YES;
-    NSLog(@"[WATweaks][Employee] installed WAServerProperties +isInternalUser");
 }
 
 extern "C" void WAGRDogfoodEnsureHooksInstalled(void) {
-    BOOL active = WAGRInternalActivationRequested();
-    BOOL sweepEnabled = WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP);
-
-    // Sweeps are explicitly opt-in diagnostics; they no longer own or expand the
-    // Employee master state. Exact gate overrides remain authoritative.
-    WAGRInternalToolsSweepSetEnabled(sweepEnabled && active);
-    if (sweepEnabled && active) (void)WAGREmployeeSweepEnsureInstalled();
-
-    if (!active) return;
-    WAGRInstallKnownEmployeeHook();
-    WAGRDebugBuildEnsureInstalled();
-    WAGRDogfoodKnownWAABEnsureInstalled();
-    WAGRGateHooksEnsureInstalled();
-    (void)WAGRWAABInstallHooksForAllRuntimeImages();
-    WAGRNativeDevMenuEnsureHooksInstalled();
+    // Intentionally empty: the verified dogfood URL is the activation surface.
+    // Native eligibility must remain the value returned by WhatsApp.
 }
 
 extern "C" NSString *WAGRDogfoodDiagnosticText(void) {
-    NSMutableArray<NSString *> *activeSelectors = [NSMutableArray array];
-    for (NSString *selector in WAGRInternalActivationSelectors()) {
-        if (WAGRGateIsSet(selector) && WAGRGateGet(selector)) [activeSelectors addObject:selector];
-    }
+    Class serverProperties = objc_getClass("WAServerProperties");
     return [NSString stringWithFormat:
-        @"parallelMaster=NO\nmanagedBackup=NO\ncanonicalState=GateStore/RuntimeValueStore\nactive=%@\nknownClass=%@\nknownHook=%@\nsweepOptIn=%@\n\n[Debug build object]\n%@\n\n[Known WAAB]\n%@\n\n[Internal/Debug/Dogfood live sweep]\n%@\n\n[Employee sweep]\n%@",
-        activeSelectors.count ? [activeSelectors componentsJoinedByString:@", "] : @"none",
-        objc_getClass("WAServerProperties") ? @"YES" : @"NO",
-        gWAGRKnownEmployeeInstalled ? @"YES" : @"NO",
-        WAPreferenceEnabled(WA_PREF_EMPLOYEE_SWEEP) ? @"ON" : @"OFF",
-        WAGRDebugBuildDiagnosticText() ?: @"n/a",
-        WAGRDogfoodKnownWAABDiagnosticText() ?: @"n/a",
-        WAGRInternalToolsSweepDiagnosticText() ?: @"n/a",
-        WAGREmployeeSweepDiagnosticText() ?: @"n/a"];
+        @"mode=read-only\n"
+         "eligibilityOwner=server/account\n"
+         "localEligibilityHooks=NO\n"
+         "WAServerProperties=%@\n"
+         "isInternalUser=%@",
+        serverProperties ? @"available" : @"unavailable",
+        WAGRNativeEligibilityValue(serverProperties, @"isInternalUser")];
 }
 
 __attribute__((constructor))
 static void WAGREmployeeHooksCtor(void) {
-    @autoreleasepool {
-        // No master expansion and no object sweep at cold start. Install only the
-        // exact semantic bridge when canonical persisted gates request it.
-        if (WAGRInternalActivationRequested()) WAGRDogfoodEnsureHooksInstalled();
-    }
+    // No startup hooks or account-eligibility mutation.
 }

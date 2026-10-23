@@ -7,14 +7,19 @@
 #import "../Runtime/WAGRGateStore.h"
 #import "WAGRABPropsRootVC.h"
 #import "WAGRFeatureBundlesVC.h"
+#import "WAGRConfigControlsVC.h"
+#import "WAGRScopedReset.h"
 #import "WAGRMobileConfigExportVC.h"
 #import "WAGRRuntimeGatesVC.h"
-#import "WAGRSurfaceBrowserVC.h"
+#import "WAGRSurfaceListVC.h"
 #import "WAGRLogViewController.h"
 #import "WAGRDebugDiagnosticsVC.h"
 #import "WAGRMainSettingsVC.h"
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRSurface.h"
+#import "../Runtime/WAGRNativeAccountState.h"
+#import "../Runtime/WAGRABPropsNativeOverrideEngine.h"
+#import "../Runtime/WAGRRuntimeValueStore.h"
 
 extern NSString *WAGRLGDiagnosticText(void);
 extern NSString *WAGRDogfoodDiagnosticText(void);
@@ -29,6 +34,7 @@ extern void WAGRLGPrefsDidChange(void);
 extern void WAGRGateHooksEnsureInstalled(void);
 extern NSUInteger WAGRWAABInstallHooksForAllRuntimeImages(void);
 extern id WAGRCurrentUserContext(void);
+extern BOOL WAGRLaunchNativeDeveloperMenu(UIViewController *fromVC, NSError **outError);
 
 typedef NS_ENUM(NSInteger, WATCellType) {
     WATCellSwitch,
@@ -65,12 +71,6 @@ static WATCell *dtr(NSString *t, NSString *s, NSString *ico, void(^tap)(UIViewCo
     c.title=t; c.subtitle=s; c.icon=ico; c.onTap=tap; return c;
 }
 
-static WAGRSurfaceSpec *surface(NSString *sid) {
-    for (WAGRSurfaceSpec *s in [WAGRSurfaceSpec allSurfaces])
-        if ([s.surfaceID isEqualToString:sid]) return s;
-    return nil;
-}
-
 static void alert(UIViewController *from, NSString *title, NSString *msg) {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIAlertController *a=[UIAlertController alertControllerWithTitle:title?:@"WATweaks"
@@ -83,10 +83,55 @@ static void alert(UIViewController *from, NSString *title, NSString *msg) {
     });
 }
 
+static NSDictionary *WAGRResetManagedConfiguration(id context) {
+    NSString *diagnostic = nil;
+    NSInteger cleared = WAGRABPropsNativeClearTrackedOverrides(context, &diagnostic);
+    NSUInteger remaining = WAGRABPropsNativeTrackedOverrides().count;
+    if (remaining) {
+        // Keep the retry registry and local settings if any native removal failed.
+        return @{ @"success": @NO, @"native_cleared": @(cleared),
+            @"native_remaining": @(remaining), @"diagnostic": diagnostic ?: @"Remoção MC incompleta." };
+    }
+    NSArray *runtimeSpecs = WAGRRuntimeValueAllOverrideSpecs();
+    for (NSDictionary *spec in runtimeSpecs) {
+        WAGRRuntimeValueClearOverride(spec[@"class"], spec[@"selector"], [spec[@"meta"] boolValue]);
+    }
+    NSUInteger removed = WAGRGateClearAll();
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    for (NSString *key in defaults.dictionaryRepresentation.allKeys) {
+        if ([key hasPrefix:@"watweak_"] || [key hasPrefix:@"watweak."] || [key hasPrefix:@"watweaks."]) {
+            [defaults removeObjectForKey:key];
+            removed++;
+        }
+    }
+    [defaults synchronize];
+    return @{ @"success": @YES, @"native_cleared": @(cleared),
+        @"runtime_cleared": @(runtimeSpecs.count), @"managed_keys_removed": @(removed),
+        @"diagnostic": diagnostic ?: @"Sem overrides MC rastreados." };
+}
+
 static WATSection *secFeatures(void) {
     WATSection *s=[WATSection new];
     s.header=@"Features / Experimentos";
     s.rows=@[
+        act(@"Launcher dogfood",
+            @"Abre o entrypoint nativo verificado desta build · elegibilidade continua no servidor/conta",
+            @"person.badge.key.fill",
+            ^(UIViewController *from){
+                NSError *error = nil;
+                if (!WAGRLaunchNativeDeveloperMenu(from, &error)) {
+                    alert(from, @"Launcher dogfood", error.localizedDescription ?: @"Não foi possível abrir o entrypoint.");
+                }
+            }),
+        act(@"Eligibility Employee / Internal",
+            @"Estado nativo da conta · adm · isInternalUser · gates de experimento",
+            @"person.crop.circle.badge.checkmark",
+            ^(UIViewController *from){
+                NSDictionary *state = WAGRNativeAccountStateDocument(WAGRCurrentUserContext());
+                NSData *data = [NSJSONSerialization dataWithJSONObject:state options:NSJSONWritingPrettyPrinted error:nil];
+                NSString *text = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : state.description;
+                alert(from, @"Eligibility Employee / Internal", text);
+            }),
         nav(@"Features / Experimentos",
             @"Descoberta live por versão · sem lista fixa de selectors/AB IDs",
             @"slider.horizontal.3",
@@ -114,6 +159,23 @@ static WATSection *secWAAB(void) {
     return s;
 }
 
+static WATSection *secConfigControls(void) {
+    WATSection *section = [WATSection new];
+    section.header = @"Controles de configuração";
+    NSMutableArray<WATCell *> *rows = [NSMutableArray array];
+    for (NSInteger value = 0; value < WAGRConfigGroupCount; value++) {
+        WAGRConfigControlGroup group = (WAGRConfigControlGroup)value;
+        NSString *title = [NSString stringWithUTF8String:WAGRConfigControlGroupTitle(group)];
+        [rows addObject:nav(title, @"Nativo / OFF / ON · leitura local ou MC nativo", @"slider.horizontal.3",
+            ^(UIViewController *from) {
+                [from.navigationController pushViewController:[[WAGRConfigControlsVC alloc]
+                    initWithUserContext:WAGRCurrentUserContext() group:group] animated:YES];
+            })];
+    }
+    section.rows = rows;
+    return section;
+}
+
 static WATSection *secRuntime(void) {
     WATSection *s=[WATSection new];
     s.header=@"Runtime";
@@ -122,17 +184,9 @@ static WATSection *secRuntime(void) {
             ^(UIViewController *from){
                 [from.navigationController pushViewController:[WAGRRuntimeGatesVC new] animated:YES];
             }),
-        nav(@"WhatsApp Executable",@"Runtime Browser do executável principal", @"app.dashed",
+        nav(@"Imagens Mach-O",@"Todos os frameworks e dylibs do processo principal · carregados e dormentes", @"shippingbox",
             ^(UIViewController *from){
-                WAGRSurfaceSpec *sp=surface(@"exec");
-                if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
-                else alert(from,@"Runtime",@"Surface 'exec' não encontrada.");
-            }),
-        nav(@"SharedModules",@"Runtime Browser do framework SharedModules", @"shippingbox.fill",
-            ^(UIViewController *from){
-                WAGRSurfaceSpec *sp=surface(@"sharedmodules");
-                if(sp) [from.navigationController pushViewController:[[WAGRSurfaceBrowserVC alloc] initWithSpec:sp] animated:YES];
-                else alert(from,@"Runtime",@"Surface 'sharedmodules' não encontrada.");
+                [from.navigationController pushViewController:[WAGRRuntimeImagesVC new] animated:YES];
             }),
     ];
     return s;
@@ -166,18 +220,19 @@ static WATSection *secTools(void) {
                     message:@"Remove todos os overrides WATweaks gerenciados.\nReinicie o WhatsApp depois."
                     preferredStyle:UIAlertControllerStyleAlert];
                 [a addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(__unused id _){
-                    NSUInteger n=WAGRGateClearAll();
-                    NSUserDefaults *ud=NSUserDefaults.standardUserDefaults;
-                    for(NSString*k in ud.dictionaryRepresentation.allKeys)
-                        if([k hasPrefix:@"watweak_"]||[k hasPrefix:@"watweak."]){[ud removeObjectForKey:k];n++;}
-                    [ud synchronize];
-                    NSLog(@"[WATweaks] reset removed %lu managed keys", (unsigned long)n);
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.8*NSEC_PER_SEC)),
-                                   dispatch_get_main_queue(),^{exit(0);});
+                    NSDictionary *result = WAGRResetManagedConfiguration(WAGRCurrentUserContext());
+                    BOOL success = [result[@"success"] boolValue];
+                    NSString *message = success
+                        ? [NSString stringWithFormat:@"Overrides MC removidos: %@\nOverrides runtime removidos: %@\nPreferências removidas: %@\n\nReinicie o WhatsApp para reconstruir os caches nativos.",
+                           result[@"native_cleared"], result[@"runtime_cleared"], result[@"managed_keys_removed"]]
+                        : [NSString stringWithFormat:@"Não foi possível remover todos os overrides MC. O registro foi preservado para repetir a remoção.\n\n%@", result[@"diagnostic"]];
+                    alert(from, success ? @"Reset concluído" : @"Reset incompleto", message);
                 }]];
                 [a addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
                 [from presentViewController:a animated:YES completion:nil];
             }),
+        act(@"Remover por categoria", @"Escopo explícito · runtime e overrides MC rastreados", @"line.3.horizontal.decrease.circle",
+            ^(UIViewController *from) { WAGRPresentScopedReset(from); }),
         dtr(@"Reiniciar WhatsApp",@"Fecha o app e descarrega hooks desta sessão", @"power",
             ^(__unused UIViewController *from){
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.3*NSEC_PER_SEC)),
@@ -235,7 +290,7 @@ static WATSection *secTools(void) {
 }
 
 - (void)rebuildSections {
-    _sections=@[secFeatures(),secWAAB(),secRuntime(),secTools()];
+    _sections=@[secFeatures(),secConfigControls(),secWAAB(),secRuntime(),secTools()];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tv {

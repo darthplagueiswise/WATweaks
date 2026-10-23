@@ -110,12 +110,7 @@ static NSError *WAGRABNativeError(NSInteger code, NSString *message) {
 }
 
 static uint64_t WAGRABNativeSpecifier(uint64_t waStableID) {
-    Class cls = NSClassFromString(@"WAMCEvaluation") ?: objc_getClass("WAMCEvaluation");
-    SEL selector = NSSelectorFromString(@"getMCSpecifierForStableId:");
-    Method method = cls ? class_getClassMethod(cls, selector) : NULL;
-    if (!cls || !WAGRABNativeWordToWordMethod(method)) return 0;
-    @try { return ((uint64_t (*)(id, SEL, uint64_t))objc_msgSend)((id)cls, selector, waStableID); }
-    @catch (__unused NSException *exception) { return 0; }
+    return WAGRMobileConfigSpecifierForWAStableID(waStableID);
 }
 
 #pragma mark - Physical mc_overrides observation (read-only)

@@ -30,6 +30,16 @@ def c_run(body):
 
 
 class NativeCompletionContract(unittest.TestCase):
+    def test_observerless_top_completion_is_terminal_and_releases_gate(self):
+        text = SOURCE.read_text()
+        fetch = text.split('static BOOL WAGRABPropsABTLiveFetchVariantInternal(', 1)[1]
+        top = fetch.split('WAGRABTNativeCompletion topCompletion =', 1)[1].split('\n    };\n    @try', 1)[0]
+        self.assertIn('if (!correlationObserversInstalled)', top)
+        self.assertIn('gNativeCompletionTime = Now()', top)
+        self.assertIn('gNativeCompletion = payload', top)
+        self.assertIn('Finish(token)', top,
+            'observerless native completion must finish and release the transaction gate')
+
     def test_forwards_success_change_and_config_key_without_changing_them(self):
         """Losing any of the native callback arguments must fail this fixture."""
         text = SOURCE.read_text()
@@ -99,6 +109,7 @@ int main(void) {
 #include <string.h>
 int main(void) {
     bool verified = false, nativeCompletionObserved = true, nativeCompletionSucceeded = false;
+    bool correlationObserversInstalled = false;
     bool exactRequestSucceeded = true, correlatedHandler = true, handlerErrorPresent = false;
     bool exactStore = true, nativeBranchMatches = true, wireShapeMatches = true;
     bool fullResponseConfirmed = true, resetHashRefilled = true;

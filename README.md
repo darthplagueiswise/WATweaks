@@ -71,7 +71,10 @@ WATweaks groups hookable runtime entries into user-facing bundles:
 Each bundle scans only relevant class names, class-name fragments, selector tokens, and categories to reduce runtime noise.
 
 ### Advanced runtime browser **\***
-Advanced mode exposes raw technical surfaces for debugging and research:
+Advanced mode exposes every inspectable Mach-O image in the main process,
+including loaded and dormant frameworks. Scans run in the background and are
+cached by dyld generation; extension images remain in their separate processes.
+It also exposes technical family surfaces for debugging and research:
 
 - WAABProperties
 - WAContextMain
@@ -107,6 +110,7 @@ WATweaks ships curated WAAB catalogs under `resources/`:
 ```text
 waab_selected_categories_bool_only_catalog.json.gz
 waab_selected_categories_getter_validated_catalog.json.gz
+waab_family_catalog_26_40_10.json
 ```
 
 The build process expands/copies those resources into:
@@ -114,6 +118,10 @@ The build process expands/copies those resources into:
 ```text
 /Library/Application Support/WATweaks/
 ```
+
+`build-fast.sh` copies the build-specific family catalog into the sideloaded app
+bundle. Runtime lookup rejects the catalog when the installed WhatsApp version
+or build does not match its metadata.
 
 The included documentation report tracks selected getter categories and validation metadata.
 
@@ -136,37 +144,22 @@ Observed values are stored as:
 wagr.observed|objc|<Class>|<inst|class>|<selector>
 ```
 
-### Native Developer menu gates **\***
-Dedicated hook owner for WhatsApp’s native Developer menu gates.
+### Dogfood launcher **\***
 
-Primary class:
-
-```text
-_TtC15WADebugMenuMain17DebugMenuProvider
-```
-
-Selectors:
-
-```text
-isDebugMenuAllowed
-isDebugMenuShortcutEnabled
-```
-
-Behavior:
-
-- Forces the native Developer menu gates when the relevant WATweaks toggles are enabled
-- Uses deterministic class targets instead of broad startup scans **\***
-- Retries installation after launch to handle late Swift runtime loading **\***
+- Opens the WhatsApp 26.40.10 Settings/dogfood entrypoint
+  `https://fburl.com/df_iphone`.
+- Does not instantiate private controller names absent from the supplied build.
+- Does not manufacture server/account eligibility.
+- Reports `isInternalUser` and `serverPropsDisableExperimental` read-only when
+  the live account context exposes them.
 
 ### Employee / Dogfood / Internal gates **\***
-- Hooks the confirmed `WAServerProperties +isInternalUser` gate **\***
-- Keeps forward-compatible trampolines for:
-  - `isMetaEmployeeOrInternalTester`
-  - `is_meta_employee_or_internal_tester`
-  - `graphQLEmployeeC1Disabled`
-- Removes the old runtime-wide broad scan approach **\***
-- Uses deterministic candidate classes only **\***
-- Exposes dogfood diagnostics from the menu
+
+- Shows native `isInternalUser`, account `adm`, employee/tester and experimental
+  gates in the account diagnostics and fetch transaction report.
+- The native fetch pipeline owns server eligibility and authentication.
+- Protected identity overrides and persisted hook specifications are rejected
+  at the common storage/hook boundaries.
 
 ### WAContextMain gates **\***
 - Narrows the context hook owner to the confirmed surface:
@@ -403,6 +396,14 @@ The script checks the core project layout, expected source files, tweak plist, r
 - The Settings row avoids WhatsApp data-source mutation.
 
 # Known issues
+
+WhatsApp 26.40.10 configuration panels expose 35 three-state boolean controls
+and 7 typed numeric fields for MC, ABProps, dogfood, internal tools and Tigon.
+Choose local getter or verified native MC overrides explicitly. `Native`
+removes the selected-layer override; `OFF` persists false. These controls do not
+grant employee identity or server eligibility. Native fetch is visible in the
+MC screen. See [the IPA report](docs/WHATSAPP_26_40_UPDATE_PTBR.md) for selectors,
+scope and validation limits.
 
 - WATweaks is a research/debugging tool, so some flags may do nothing until the original WhatsApp code path is reached.
 - Some Swift-only or `objc_direct` paths may not appear in the Objective-C runtime browser.

@@ -1,6 +1,7 @@
 #pragma once
 
 #import <Foundation/Foundation.h>
+#include "WAGRConfigControlPolicy.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -21,6 +22,10 @@ BOOL WAGRRuntimeValueTypeIsUnsignedInteger(NSString *typeCode);
 BOOL WAGRRuntimeValueTypeIsFloatingPoint(NSString *typeCode);
 BOOL WAGRRuntimeValueTypeIsObject(NSString *typeCode);
 BOOL WAGRRuntimeValueSelectorIsSafeGetter(NSString *selectorName);
+BOOL WAGRRuntimeValueCanOverrideTarget(NSString *className, NSString *selectorName);
+/// Installed confirms installation, not a server response or effective readback.
+WAGRRuntimeOverrideOutcome WAGRRuntimeValueTrySetOverride(NSString *className,
+    NSString *selectorName, BOOL isClassMethod, NSString *typeCode, id value);
 
 BOOL WAGRRuntimeValueHasOverride(NSString *className,
                                  NSString *selectorName,
