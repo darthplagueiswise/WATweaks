@@ -297,7 +297,9 @@ def main() -> int:
         reject(release_linkage, token, "WAGRABPropsReleaseNativeLinkage.m", errors)
 
     for token in (
-        "Fetch from server · native",
+        'self.fetchButton',
+        'initWithTitle:@"Fetch MC"',
+        'action:@selector(fetchServerNow)',
         "Export native id_name_mapping.json",
         "Export native mc_overrides.json · read-only",
         "Export native StartupConfigsOverride",

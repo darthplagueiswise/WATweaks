@@ -42,6 +42,27 @@ BOOL WAGRRuntimeValueSelectorIsSafeGetter(NSString *selectorName) {
     return WAGRRuntimeSelectorIsSafeGetterCString(selectorName.UTF8String);
 }
 
+BOOL WAGRRuntimeValueCanOverrideTarget(NSString *className, NSString *selectorName) {
+    return className.length && WAGRRuntimeValueSelectorIsSafeGetter(selectorName) &&
+        !WAGREligibilityOverrideIsProtectedCString(className.UTF8String, selectorName.UTF8String);
+}
+
+WAGRRuntimeOverrideOutcome WAGRRuntimeValueTrySetOverride(NSString *className,
+    NSString *selectorName, BOOL isClassMethod, NSString *typeCode, id value) {
+    if (!WAGRRuntimeValueCanOverrideTarget(className, selectorName) ||
+        !WAGRRuntimeValueTypeIsSupported(typeCode)) return WAGRRuntimeOverrideRejected;
+    WAGRRuntimeValueSetOverride(className, selectorName, isClassMethod, typeCode, value);
+    BOOL persisted = WAGRRuntimeValueHasOverride(className, selectorName, isClassMethod);
+    id stored = WAGRRuntimeValueOverride(className, selectorName, isClassMethod);
+    // SetOverride can reject encoding/type conversion without replacing an old
+    // value. Do not report the old value as a newly saved pending override.
+    id expected = value == NSNull.null ? nil : value;
+    persisted = persisted && (stored == expected || [stored isEqual:expected]);
+    BOOL installed = persisted && WAGRRuntimeValueInstallHook(className, selectorName,
+                                                              isClassMethod, typeCode);
+    return WAGRConfigControlOutcome(persisted, installed);
+}
+
 static id WAGRRuntimeValueEncodeNested(id value);
 static id WAGRRuntimeValueDecodeNested(id value);
 

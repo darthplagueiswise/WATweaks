@@ -128,7 +128,7 @@
 }
 
 - (NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (section == 0) return @"Escopo desta build: namespace ABT. id_name_mapping.json e mc_overrides.json pertencem ao próximo checkpoint MobileConfig.";
+    if (section == 0) return @"Este laboratório opera no namespace ABT. Fetch MC e exportação de id_name_mapping.json/mc_overrides.json ficam em MobileConfig / arquivos; são pipelines distintos.";
     if (section == 1) return self.statusText;
     if (section == 2) return @"As políticas são aplicadas no initializer exato, em todos os retries e somente durante esta transação. Combinações não canônicas podem retornar erro do servidor; o erro será registrado, não mascarado.";
     if (section == 3) return @"VERIFICADO exige request exato, didSucceed, handler correlacionado, completion nativo e confirmação do WAPropertiesStore. Mudança de fingerprint é apenas evidência secundária.";

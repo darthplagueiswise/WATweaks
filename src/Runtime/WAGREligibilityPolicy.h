@@ -25,6 +25,12 @@ static inline bool WAGREligibilityContainsCString(const char *value, const char 
 static inline bool WAGREligibilityOverrideIsProtectedCString(const char *className,
                                                               const char *selectorName) {
     if (WAGREligibilityContainsCString(className, "eligibility")) return true;
+    // IPA-confirmed feature controls, not account identity getters. The old
+    // substring match incorrectly made these ordinary WAAB experiments read-only.
+    if (className && strcmp(className, "WAABProperties") == 0 && selectorName &&
+        (strcmp(selectorName, "give_dogfooders_task_id_for_bug_reporting") == 0 ||
+         strcmp(selectorName, "employees_split_thread_fix_enabled") == 0 ||
+         strcmp(selectorName, "ios_contact_suggestions_internal_tool_exclude_employees_enabled") == 0)) return false;
     if (selectorName && strcmp(selectorName, "adm") == 0) return true;
     return WAGREligibilityContainsCString(selectorName, "eligible") ||
            WAGREligibilityContainsCString(selectorName, "eligibility") ||

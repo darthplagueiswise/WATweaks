@@ -332,8 +332,8 @@ int main(int argc, char **argv) {
         self.assertIn("Objective-C", empty)
         fast = source("src/Menu/WAGRRuntimeBrowserFastTypedUI.m")
         self.assertIn("updateEmptyState", body(fast, "static void WAGRFastScheduleSurfaceFilter"))
-        self.assertIn("WAGRRuntimeValueSetOverride(", body(fast, "static BOOL WAGRFastInstallValue"))
-        self.assertIn("WAGRRuntimeValueInstallHook(", body(fast, "static BOOL WAGRFastInstallValue"))
+        self.assertIn("WAGRRuntimeValueTrySetOverride(", body(fast, "static BOOL WAGRFastInstallValue"))
+        self.assertIn("WAGRRuntimeOverridePending", body(fast, "static BOOL WAGRFastInstallValue"))
 
 
 if __name__ == "__main__":

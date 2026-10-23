@@ -137,6 +137,11 @@ void WAGRPresentABPropsNativeEditor(UIViewController *presenter,
                                     dispatch_block_t runtimeFallback,
                                     dispatch_block_t completion) {
     if (!presenter || !entry) return;
+    if (!WAGRRuntimeValueCanOverrideTarget(entry.className, entry.selectorName)) {
+        WAGRABNativeShowResult(presenter, @"Somente leitura", NO, nil,
+            @"Este campo descreve o estado nativo da conta.", nil);
+        return;
+    }
 
     NSString *stableID = stableIDHint.length ? stableIDHint :
         WAGRABPropsStableIDForTarget(entry.className, entry.selectorName, entry.classMethod);
@@ -177,6 +182,7 @@ void WAGRPresentABPropsNativeEditor(UIViewController *presenter,
     id raw = nil;
     NSString *currentText = WAGRABPropsCurrentValue(entry, runtimeObjects ?: @[], &raw);
     NSString *nativeRow = WAGRABPropsNativeOverrideRow(stableID, userContext, NULL);
+    id trackedOverride = WAGRABPropsNativeTrackedOverrides()[stableID];
     NSString *nativeValue = WAGRABNativeValueFromRow(nativeRow);
     uint8_t nativeType = (uint8_t)[mapping[@"native_type"] unsignedIntegerValue];
     NSString *header = [NSString stringWithFormat:
@@ -203,7 +209,7 @@ void WAGRPresentABPropsNativeEditor(UIViewController *presenter,
                 BOOL ok = WAGRABPropsNativeSetOverride(stableID, @NO, userContext, &error, &diagnostic);
                 WAGRABNativeShowResult(presenter, @"ABProps native override", ok, error, diagnostic, completion);
             }]];
-        if (nativeRow.length) {
+        if (trackedOverride != nil) {
             [alert addAction:[UIAlertAction actionWithTitle:@"Remover override nativo"
                 style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
                     NSError *error = nil; NSString *diagnostic = nil;
@@ -248,7 +254,7 @@ void WAGRPresentABPropsNativeEditor(UIViewController *presenter,
                 BOOL ok = WAGRABPropsNativeSetOverride(stableID, value, userContext, &error, &diagnostic);
                 WAGRABNativeShowResult(presenter, @"ABProps native override", ok, error, diagnostic, completion);
             }]];
-        if (nativeRow.length) {
+        if (trackedOverride != nil) {
             [alert addAction:[UIAlertAction actionWithTitle:@"Remover override nativo"
                 style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
                     NSError *error = nil; NSString *diagnostic = nil;

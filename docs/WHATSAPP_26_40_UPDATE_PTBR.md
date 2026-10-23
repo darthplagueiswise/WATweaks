@@ -60,6 +60,63 @@ de memória nem teste de tráfego pelo túnel.
 
 ## Resultado das correções
 
+### Controles de configuração adicionados
+
+O menu principal agora tem seis painéis específicos, derivados de getters
+`WAABProperties` da IPA: 42 controles (35 booleanos e 7 inteiros).
+
+| Painel | Quantidade | Conteúdo |
+|---|---:|---|
+| MobileConfig / sincronização | 10 | MC autenticado, rollout, rollback, lazy init, WWW, cache guest/sessionless, extensão e fases de inicialização |
+| ABProps ↔ MC / diagnóstico | 11 | Shadow testing, logs, comparação/intervalos, consistência e lookup de descritores |
+| Dogfood / nudges | 4 | Entrada Settings, banner, HN e Malibu |
+| Internal / ferramentas | 9 | Bug report, Rage Shake, formulário, fishfooding, task ID, propriedade de desenvolvimento e indicador de grupo |
+| ABProps / atualização | 4 | Push MC, propriedades de grupos e retomada offline |
+| Tigon / transporte | 4 | Diagnóstico/cancelamento e timeouts QUIC/TCP |
+
+O catálogo C em `WAGRConfigControlCatalog.h` conserva selector, tipo, imagem e
+categoria. Cada registro foi confrontado com a metadata da IPA. A interface
+exige a build correspondente e só oferece entradas presentes com tipo
+compatível; ela não cria alvos ausentes nem ativa os controles em lote.
+
+Booleanos têm **Nativo / OFF / ON**. Nativo remove o override da camada
+selecionada; OFF mantém um override explícito `false`. Os números usam o editor
+tipado existente. **Leitura local** usa o store comum de getters no processo do
+WhatsApp; **MC nativo** usa o writer StartupConfigs existente, com confirmação de
+persistência/leitura efetiva e rollback em caso de falha. Não há fallback
+automático entre as camadas, e um override rastreado na outra camada impede
+empilhar uma nova alteração. A escolha do backend persiste entre aberturas.
+
+Esses controles modificam leituras locais de funcionalidades, não a identidade
+employee da conta. Três flags funcionais contendo `employee`/`dogfooders` no
+nome deixaram de ser bloqueadas pelo filtro amplo de identidade: task ID do
+bug report, split-thread fix e exclusão de employees em sugestões de contatos.
+Os getters de identidade continuam somente leitura.
+
+O editor existente distingue gravação rejeitada, override salvo com hook
+pendente e hook instalado. Valor nativo desconhecido não vira `false`. O botão
+**Fetch MC** fica visível na tela MC; após fetch confirmado, um scan local relê
+os nomes. Isso não comprova um endpoint independente para baixar nomes.
+
+O reset agora remove primeiro os overrides StartupConfigs rastreados. Se alguma
+remoção falhar, preserva o registro e informa o resultado; não esquece os IDs e
+não fecha o app silenciosamente. A remoção individual no editor nativo depende
+do store StartupConfigs rastreado, não da existência de uma linha no arquivo
+C++ `mc_overrides.json`.
+
+A revisão identificou substituições tardias dos métodos do browser por camadas
+antigas de apresentação. Elas anulavam filtros, estados e escolha de backend.
+Seis overlays legados deixaram de entrar no build; os installers compartilhados
+com o browser genérico não substituem mais os métodos do browser ABProps.
+O filtro canônico roda em fila serial, usa snapshots/valores limitados e rejeita
+resultados de gerações antigas. O editor de objetos/JSON em tela cheia continua
+acessível por chamada explícita, após os mesmos guardas de backend e conflito.
+
+O reset por categoria também fica acessível explicitamente no menu. Os escopos
+Tudo e ABProps removem primeiro os overrides MC rastreados; os demais escopos
+são identificados como remoção local/GateStore. Não existe mais um hook tardio
+que desvie o botão Reset para outra implementação.
+
 | Área | Causa | Correção |
 |---|---|---|
 | Fetch ABProps | O pedido nativo era bloqueado se qualquer hook de correlação/observação não instalasse. | Os observers agora são best-effort e passivos. O request nativo preserva seu ABI e é enviado mesmo sem telemetria completa. |

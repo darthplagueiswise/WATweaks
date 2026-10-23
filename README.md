@@ -397,6 +397,14 @@ The script checks the core project layout, expected source files, tweak plist, r
 
 # Known issues
 
+WhatsApp 26.40.10 configuration panels expose 35 three-state boolean controls
+and 7 typed numeric fields for MC, ABProps, dogfood, internal tools and Tigon.
+Choose local getter or verified native MC overrides explicitly. `Native`
+removes the selected-layer override; `OFF` persists false. These controls do not
+grant employee identity or server eligibility. Native fetch is visible in the
+MC screen. See [the IPA report](docs/WHATSAPP_26_40_UPDATE_PTBR.md) for selectors,
+scope and validation limits.
+
 - WATweaks is a research/debugging tool, so some flags may do nothing until the original WhatsApp code path is reached.
 - Some Swift-only or `objc_direct` paths may not appear in the Objective-C runtime browser.
 - WAAB flags that are never read by the running app session may not produce visible changes immediately.

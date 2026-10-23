@@ -3,6 +3,7 @@
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
+@class WAGRABPropEntry;
 
 @interface WAGRABPropsBrowserVC : UITableViewController <UISearchResultsUpdating, UISearchBarDelegate>
 @property(nonatomic, strong, readonly, nullable) id userContext;
@@ -21,6 +22,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)wagrScopesToExplicitABProperties;
 - (BOOL)wagrShowsABTFetchControl;
 - (BOOL)wagrShowsDiagnosticFooter;
+- (BOOL)wagrIncludesRuntimeEntry:(WAGRABPropEntry *)entry;
+- (NSString *)wagrDisplayTitleForEntry:(WAGRABPropEntry *)entry;
+- (BOOL)wagrUsesThreeStateControls;
+- (void)scanNow;
+- (BOOL)wagrHasActiveOperation;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -9,6 +9,16 @@ TWEAK_NAME = WATweaks
 
 # ── Source discovery ───────────────────────────────────────────────────────────
 WATWEAKS_SRC_FILES := $(shell find src -type f \( -iname \*.x -o -iname \*.xm -o -iname \*.m \))
+# Canonical controllers own filtering, editing and reset. These historical
+# constructor/Logos overlays would replace those methods after initialization.
+WATWEAKS_RETIRED_UI := \
+	src/Menu/WAGRABPropsInlineTypedUI.m \
+	src/Menu/WAGRABPropsBrowserPerformanceUI.m \
+	src/Menu/WAGRABPropsExactTypedValueUI.m \
+	src/Hooks/WAGRABPropsNativeEditorHook.xm \
+	src/Menu/WAGRScopedResetUI.m \
+	src/Menu/WAGRMobileConfigExportRuntimeUI.m
+WATWEAKS_SRC_FILES := $(filter-out $(WATWEAKS_RETIRED_UI),$(WATWEAKS_SRC_FILES))
 
 $(TWEAK_NAME)_FILES  = $(WATWEAKS_SRC_FILES) modules/fishhook/fishhook.c
 
@@ -57,6 +67,7 @@ before-all::
 	@python3 scripts/wagr_validate_abprops_fetch.py
 	@python3 scripts/wagr_test_abt_completion.py
 	@python3 scripts/wagr_test_mobileconfig_fetch.py
+	@python3 scripts/wagr_test_config_controls.py
 	@python3 scripts/wagr_validate_runtime_browser.py
 
 include $(THEOS_MAKE_PATH)/tweak.mk

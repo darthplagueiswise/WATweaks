@@ -298,7 +298,17 @@ static UITableViewCell *WAGRFastSurfaceCell(id self, SEL _cmd, UITableView *tabl
     cell.detailTextLabel.textColor = pending ? UIColor.systemOrangeColor
         : (overridden ? UIColor.systemBlueColor : UIColor.secondaryLabelColor);
 
+    if (!WAGRRuntimeValueCanOverrideTarget(entry.className, entry.selectorName)) {
+        cell.detailTextLabel.text = [cell.detailTextLabel.text stringByAppendingString:@" · somente leitura"];
+        return cell;
+    }
+
     if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
+        if (!overridden && ![effective isKindOfClass:NSNumber.class]) {
+            cell.detailTextLabel.text = [cell.detailTextLabel.text stringByAppendingString:@" · valor ainda não lido"];
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+            return cell;
+        }
         UISwitch *toggle = [UISwitch new];
         toggle.on = effective && [effective respondsToSelector:@selector(boolValue)] ? [effective boolValue] : NO;
         toggle.onTintColor = pending ? UIColor.systemOrangeColor
@@ -326,12 +336,11 @@ static UITableViewCell *WAGRFastSurfaceCell(id self, SEL _cmd, UITableView *tabl
 
 static BOOL WAGRFastInstallValue(WAGREntry *entry, id value) {
     if (!entry || !value) return NO;
-    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName,
+    WAGRRuntimeOverrideOutcome outcome = WAGRRuntimeValueTrySetOverride(entry.className, entry.selectorName,
                                 entry.isClassMethod, entry.typeCode, value);
-    BOOL installed = WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
-                                                  entry.isClassMethod, entry.typeCode);
-    WAGRFastSetPending(entry.className, entry.selectorName, entry.isClassMethod, !installed);
-    return installed;
+    WAGRFastSetPending(entry.className, entry.selectorName, entry.isClassMethod,
+                       outcome == WAGRRuntimeOverridePending);
+    return outcome == WAGRRuntimeOverrideInstalled;
 }
 
 static void WAGRFastSurfaceSwitch(id self, SEL _cmd, UISwitch *sender) {
@@ -467,14 +476,7 @@ static void WAGRFastInstall(void) {
                              (IMP)WAGRFastSurfaceFieldCommit, "v@:@");
     }
 
-    Class ab = NSClassFromString(@"WAGRABPropsBrowserVC");
-    if (ab) {
-        WAGRFastReplace(ab, @selector(updateSearchResultsForSearchController:), (IMP)WAGRFastABSearchUpdated);
-        // These selectors are installed by WAGRABPropsInlineTypedUI. Replace only
-        // their commit path: the existing ABI-aware cell renderer stays intact.
-        WAGRFastReplace(ab, NSSelectorFromString(@"wagr_inlineABSwitchChanged:"), (IMP)WAGRFastABSwitch);
-        WAGRFastReplace(ab, NSSelectorFromString(@"wagr_inlineABFieldCommit:"), (IMP)WAGRFastABField);
-    }
+    // ABProps mutations are owned by its canonical backend-aware controller.
 }
 
 __attribute__((constructor))

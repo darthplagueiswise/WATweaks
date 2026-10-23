@@ -2,6 +2,7 @@
 #import "WAGRMenuTheme.h"
 #import "WAGRABPropsNativeEditor.h"
 #import "WAGRRuntimeValueEditor.h"
+#import "WAGRRuntimeObjectFullscreenEditor.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsABTLiveService.h"
 #import "../Runtime/WAGRABPropsNativeOverrideEngine.h"
@@ -35,6 +36,9 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 @property(nonatomic, assign) BOOL didScan;
 @property(nonatomic, assign) BOOL scanning;
 @property(nonatomic, assign) BOOL fetching;
+@property(nonatomic, assign) BOOL filtering;
+@property(nonatomic, assign) NSUInteger filterGeneration;
+@property(nonatomic, strong) dispatch_queue_t filterQueue;
 @property(nonatomic, copy) NSString *lastFetchNote;
 @end
 
@@ -54,6 +58,7 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
     _sectionKeys = @[];
     _sections = @{};
     _nativeEntriesBySelector = @{};
+    _filterQueue = dispatch_queue_create("com.watweaks.abprops.filter", DISPATCH_QUEUE_SERIAL);
     _lastFetchNote = @"";
     self.title = [self wagrInitialABPropertiesTitle];
     return self;
@@ -86,6 +91,11 @@ static const void *kWAGRABLongPressKey = &kWAGRABLongPressKey;
 - (BOOL)wagrShowsDiagnosticFooter {
     return YES;
 }
+
+- (BOOL)wagrIncludesRuntimeEntry:(__unused WAGRABPropEntry *)entry { return YES; }
+- (NSString *)wagrDisplayTitleForEntry:(WAGRABPropEntry *)entry { return entry.selectorName; }
+- (BOOL)wagrUsesThreeStateControls { return NO; }
+- (BOOL)wagrHasActiveOperation { return self.scanning || self.fetching || self.filtering; }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -205,6 +215,7 @@ static BOOL WAGRABDocumentsIdentifySameStoreState(NSDictionary *left,
 - (void)scanNow {
     if (self.scanning) return;
     self.scanning = YES;
+    self.filterGeneration++;
     self.didScan = YES;
     self.title = @"Lendo WAAB + cache…";
 
@@ -357,45 +368,57 @@ static BOOL WAGRABEntryMatchesScope(WAGRABPropEntry *entry, WAGRABBrowserScope s
     NSArray<NSString *> *tokens = WAGRABSearchTokens(query);
     WAGRABBrowserScope scope = (WAGRABBrowserScope)self.searchController.searchBar.selectedScopeButtonIndex;
 
-    NSMutableArray<WAGRABPropEntry *> *filtered = [NSMutableArray array];
-    NSDictionary<NSString *, id> *nativeOverrides = [self wagrUsesNativeABPropertiesWriter]
-        ? WAGRABPropsNativeTrackedOverrides() : @{};
-    for (WAGRABPropEntry *entry in self.allEntries) {
-        if (!WAGRABEntryMatchesScope(entry, scope)) continue;
-        if (scope == WAGRABBrowserScopeOverrides) {
-            BOOL hasOverride = [self wagrUsesNativeABPropertiesWriter]
-                ? (entry.stableID.length && nativeOverrides[entry.stableID] != nil)
-                : WAGRRuntimeValueHasOverride(entry.className, entry.selectorName,
-                                              entry.classMethod);
-            if (!hasOverride) continue;
-        }
-        NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
-        NSString *liveFamily = entry.categoryName;
-        NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@",
-            liveFamily ?: @"", entry.categoryName ?: @"", entry.selectorName ?: @"",
-            entry.className ?: @"", entry.typeName ?: @"", entry.sourceImage ?: @"",
-            native[@"code"] ?: @"", native[@"value"] ?: @""].lowercaseString;
-        BOOL matches = YES;
-        for (NSString *token in tokens) {
-            if (![haystack containsString:token]) { matches = NO; break; }
-        }
-        if (matches) [filtered addObject:entry];
+    NSArray<WAGRABPropEntry *> *entries = [self.allEntries copy];
+    NSDictionary *nativeIndex = [self.nativeEntriesBySelector copy];
+    BOOL nativeWriter = [self wagrUsesNativeABPropertiesWriter];
+    NSDictionary *nativeOverrides = nativeWriter ? WAGRABPropsNativeTrackedOverrides() : @{};
+    NSMutableSet *runtimeOverrides = [NSMutableSet set];
+    for (NSDictionary *spec in WAGRRuntimeValueAllOverrideSpecs()) {
+        [runtimeOverrides addObject:WAGRRuntimeValueUID(spec[@"class"], spec[@"selector"], [spec[@"meta"] boolValue])];
     }
-
-    NSMutableDictionary<NSString *, NSMutableArray<WAGRABPropEntry *> *> *groups =
-        [NSMutableDictionary dictionary];
-    for (WAGRABPropEntry *entry in filtered) {
-        NSString *family = entry.categoryName;
-        if (!family.length) family = @"Other Runtime";
-        if (!groups[family]) groups[family] = [NSMutableArray array];
-        [groups[family] addObject:entry];
-    }
-    self.sectionKeys = [groups.allKeys sortedArrayUsingSelector:
-                        @selector(localizedCaseInsensitiveCompare:)];
-    self.sections = groups;
-
-    self.title = [self wagrABPropertiesTitleForEntryCount:filtered.count];
-    [self.tableView reloadData];
+    NSUInteger generation = ++self.filterGeneration;
+    self.filtering = YES;
+    dispatch_async(self.filterQueue, ^{
+        @autoreleasepool {
+            NSMutableArray<WAGRABPropEntry *> *filtered = [NSMutableArray array];
+            for (WAGRABPropEntry *entry in entries) {
+                if (![self wagrIncludesRuntimeEntry:entry] || !WAGRABEntryMatchesScope(entry, scope)) continue;
+                if (scope == WAGRABBrowserScopeOverrides) {
+                    BOOL overridden = nativeWriter ? nativeOverrides[entry.stableID ?: @""] != nil
+                        : [runtimeOverrides containsObject:WAGRRuntimeValueUID(entry.className, entry.selectorName, entry.classMethod)];
+                    if (!overridden) continue;
+                }
+                // Use the immutable native snapshot, never call live MC getters
+                // or copy an embedded multi-megabyte JSON while filtering.
+                NSDictionary *native = nativeIndex[entry.selectorName] ?: @{};
+                id value = native[@"value"];
+                NSString *valueText = [value isKindOfClass:NSString.class] ? value :
+                    ([value isKindOfClass:NSNumber.class] ? [value description] : @"");
+                if (valueText.length > 128) valueText = [valueText substringToIndex:128];
+                NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@",
+                    entry.categoryName ?: @"", entry.selectorName ?: @"", entry.className ?: @"",
+                    entry.typeName ?: @"", entry.sourceImage ?: @"", entry.stableID ?: @"", valueText].lowercaseString;
+                BOOL matches = YES;
+                for (NSString *token in tokens) if (![haystack containsString:token]) { matches = NO; break; }
+                if (matches) [filtered addObject:entry];
+            }
+            NSMutableDictionary *groups = [NSMutableDictionary dictionary];
+            for (WAGRABPropEntry *entry in filtered) {
+                NSString *family = entry.categoryName.length ? entry.categoryName : @"Other Runtime";
+                if (!groups[family]) groups[family] = [NSMutableArray array];
+                [groups[family] addObject:entry];
+            }
+            NSArray *keys = [groups.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (generation != self.filterGeneration) return;
+                self.filtering = NO;
+                self.sectionKeys = keys;
+                self.sections = groups;
+                self.title = [self wagrABPropertiesTitleForEntryCount:filtered.count];
+                [self.tableView reloadData];
+            });
+        }
+    });
 }
 
 - (void)updateSearchResultsForSearchController:(__unused UISearchController *)searchController {
@@ -513,7 +536,7 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     NSDictionary *native = [self nativeEntryForRuntimeEntry:entry];
 
     cell.textLabel.text = [NSString stringWithFormat:@"%@%@",
-        entry.classMethod ? @"+ " : @"- ", entry.selectorName];
+        entry.classMethod ? @"+ " : @"- ", [self wagrDisplayTitleForEntry:entry]];
 
     NSString *state = nativeWriter
         ? (overridden ? @"STARTUPCONFIGS OVERRIDE" : @"EFFECTIVE")
@@ -545,7 +568,20 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
         ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
         : (cacheMismatch ? UIColor.systemOrangeColor : WAGRMenuSecondaryTextColor());
 
-    if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode)) {
+    BOOL editable = WAGRRuntimeValueCanOverrideTarget(entry.className, entry.selectorName);
+    if (!editable) [detail appendString:@"\nEstado nativo da conta · somente leitura"];
+    cell.detailTextLabel.text = detail;
+    if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode) && editable && [self wagrUsesThreeStateControls]) {
+        UISegmentedControl *control = [[UISegmentedControl alloc] initWithItems:@[@"Nativo", @"OFF", @"ON"]];
+        control.frame = CGRectMake(0, 0, 180, 32);
+        control.selectedSegmentIndex = WAGRConfigControlSelection(overridden, [forced boolValue]);
+        control.enabled = !self.scanning && !self.fetching && (overridden || [raw isKindOfClass:NSNumber.class]);
+        control.accessibilityLabel = [self wagrDisplayTitleForEntry:entry];
+        objc_setAssociatedObject(control, kWAGRABSwitchEntryKey, entry, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [control addTarget:self action:@selector(threeStateChanged:) forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = control;
+        cell.accessoryType = UITableViewCellAccessoryNone;
+    } else if (WAGRRuntimeValueTypeIsBoolean(entry.typeCode) && editable) {
         UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class]
             ? (UISwitch *)cell.accessoryView : [UISwitch new];
         if (toggle != cell.accessoryView) {
@@ -556,6 +592,7 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
         objc_setAssociatedObject(toggle, kWAGRABSwitchEntryKey, entry,
                                  OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         toggle.on = overridden ? [forced boolValue] : [raw boolValue];
+        toggle.enabled = !self.scanning && !self.fetching && (overridden || [raw isKindOfClass:NSNumber.class]);
         toggle.onTintColor = overridden
             ? (installed ? UIColor.systemCyanColor : UIColor.systemOrangeColor)
             : UIColor.systemGreenColor;
@@ -595,6 +632,15 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     WAGRABPropEntry *entry = objc_getAssociatedObject(sender, kWAGRABSwitchEntryKey);
     if (!entry) return;
     BOOL requested = sender.isOn;
+    if ([self wagrHasActiveOperation] || ![self canChangeEntry:entry selection:requested ? 2 : 1]) {
+        [self applyCurrentFilter];
+        return;
+    }
+    if (!WAGRRuntimeValueCanOverrideTarget(entry.className, entry.selectorName)) {
+        [self showControlError:@"Estado nativo da conta · somente leitura."];
+        [self applyCurrentFilter];
+        return;
+    }
     if ([self wagrUsesNativeABPropertiesWriter]) {
         sender.enabled = NO;
         NSError *error = nil;
@@ -620,11 +666,14 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
         [self scanNow];
         return;
     }
-    WAGRRuntimeValueSetOverride(entry.className, entry.selectorName,
-                                entry.classMethod, entry.typeCode, @(requested));
-    BOOL installed = WAGRRuntimeValueInstallHook(entry.className, entry.selectorName,
-                                                  entry.classMethod, entry.typeCode);
-    if (!installed) {
+    WAGRRuntimeOverrideOutcome outcome = WAGRRuntimeValueTrySetOverride(entry.className,
+        entry.selectorName, entry.classMethod, entry.typeCode, @(requested));
+    if (outcome == WAGRRuntimeOverrideRejected) {
+        [self showControlError:@"Override rejeitado; o valor solicitado não foi salvo."];
+        [self applyCurrentFilter];
+        return;
+    }
+    if (outcome == WAGRRuntimeOverridePending) {
         sender.on = requested;
         [self presentPendingForEntry:entry readback:nil];
         [self applyCurrentFilter];
@@ -642,8 +691,67 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     [self applyCurrentFilter];
 }
 
+- (void)showControlError:(NSString *)message {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Configuração"
+        message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (BOOL)canChangeEntry:(WAGRABPropEntry *)entry selection:(NSInteger)selection {
+    BOOL native = [self wagrUsesNativeABPropertiesWriter];
+    BOOL other = native
+        ? WAGRRuntimeValueHasOverride(entry.className, entry.selectorName, entry.classMethod)
+        : (entry.stableID.length && WAGRABPropsNativeTrackedOverrides()[entry.stableID] != nil);
+    if (WAGRConfigControlMutationAllowed((int)selection, other)) return YES;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Conflito de overrides"
+        message:@"Existe um override deste parâmetro na outra camada. Remova-o antes de aplicar aqui. Você também pode remover o override da camada atual."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Nativo nesta camada" style:UIAlertActionStyleDestructive
+        handler:^(__unused UIAlertAction *action) { [self removeOverrideForEntry:entry]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+    return NO;
+}
+
+- (void)threeStateChanged:(UISegmentedControl *)sender {
+    WAGRABPropEntry *entry = objc_getAssociatedObject(sender, kWAGRABSwitchEntryKey);
+    NSInteger selection = sender.selectedSegmentIndex;
+    if (!entry || [self wagrHasActiveOperation] || ![self canChangeEntry:entry selection:selection]) {
+        [self applyCurrentFilter];
+        return;
+    }
+    if (selection != 0) {
+        UISwitch *request = [UISwitch new];
+        request.on = selection == 2;
+        objc_setAssociatedObject(request, kWAGRABSwitchEntryKey, entry, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [self boolSwitchChanged:request];
+        return;
+    }
+    [self removeOverrideForEntry:entry];
+}
+
+- (void)removeOverrideForEntry:(WAGRABPropEntry *)entry {
+    if ([self wagrUsesNativeABPropertiesWriter]) {
+        NSError *error = nil; NSString *diagnostic = nil;
+        if (!entry.stableID.length || !WAGRABPropsNativeClearOverride(entry.stableID, self.userContext, &error, &diagnostic)) {
+            [self showControlError:error.localizedDescription ?: diagnostic ?: @"Não foi possível remover o override MC."];
+        }
+        [self scanNow];
+    } else {
+        WAGRRuntimeValueClearOverride(entry.className, entry.selectorName, entry.classMethod);
+        [self applyCurrentFilter];
+    }
+}
+
 - (void)presentEditorForEntry:(WAGRABPropEntry *)entry fromView:(UIView *)sourceView {
     if (!entry) return;
+    if ([self wagrHasActiveOperation]) return;
+    if (!WAGRRuntimeValueCanOverrideTarget(entry.className, entry.selectorName)) {
+        [self showControlError:@"Este campo descreve o estado nativo da conta e é somente leitura."];
+        return;
+    }
+    if (![self canChangeEntry:entry selection:1]) return;
     __weak typeof(self) weakSelf = self;
     if ([self wagrUsesNativeABPropertiesWriter]) {
         dispatch_block_t runtimeFallback = nil;
@@ -668,6 +776,9 @@ static NSString *WAGRABOverrideDescription(id value, BOOL overridden) {
     }
     id raw = nil;
     NSString *current = WAGRABPropsCurrentValue(entry, self.runtimeObjects, &raw);
+    if (WAGRRuntimeValueTypeIsObject(entry.typeCode) &&
+        WAGRPresentRuntimeFullObjectEditor(self, entry.className, entry.selectorName,
+            entry.classMethod, entry.typeCode, raw, ^{ [weakSelf applyCurrentFilter]; })) return;
     WAGRPresentRuntimeValueEditor(self, sourceView,
         entry.className, entry.selectorName, entry.classMethod, entry.typeCode,
         current, raw, ^{

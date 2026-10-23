@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import "WAGRRuntimeObjectFullscreenEditor.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <CoreFoundation/CoreFoundation.h>
@@ -429,18 +430,16 @@ static NSString *WAGRFullInitialText(id value, BOOL *preserveString, BOOL *json)
         value = text;
     }
 
-    WAGRRuntimeValueSetOverride(self.targetClassName,
+    WAGRRuntimeOverrideOutcome outcome = WAGRRuntimeValueTrySetOverride(self.targetClassName,
                                 self.targetSelectorName,
                                 self.targetMeta,
                                 self.targetTypeCode,
                                 value);
-    BOOL installed = WAGRRuntimeValueInstallHook(self.targetClassName,
-                                                  self.targetSelectorName,
-                                                  self.targetMeta,
-                                                  self.targetTypeCode);
     if (self.completion) self.completion();
-    if (!installed) {
-        [self showError:@"O valor foi salvo como override, mas o hook imediato não pôde ser instalado. Ele foi mantido para uma nova tentativa em Aplicar/reinício."];
+    if (outcome != WAGRRuntimeOverrideInstalled) {
+        [self showError:outcome == WAGRRuntimeOverrideRejected
+            ? @"Override rejeitado; o valor solicitado não foi salvo."
+            : @"Override salvo; hook pendente. O valor efetivo ainda não foi confirmado."];
         return;
     }
     [self.navigationController popViewControllerAnimated:YES];
@@ -482,6 +481,14 @@ static void WAGRPushFullEditor(UIViewController *presenter,
                           [selectorName.lowercaseString containsString:@"abprops_list"];
     editor.completion = completion;
     [presenter.navigationController pushViewController:editor animated:YES];
+}
+
+BOOL WAGRPresentRuntimeFullObjectEditor(UIViewController *presenter,
+    NSString *className, NSString *selectorName, BOOL meta, NSString *typeCode,
+    id raw, dispatch_block_t completion) {
+    if (!presenter.navigationController || !WAGRRuntimeValueCanOverrideTarget(className, selectorName)) return NO;
+    WAGRPushFullEditor(presenter, className, selectorName, meta, typeCode, raw, completion);
+    return YES;
 }
 
 static void (*gWAGROriginalABPresentEditor)(id, SEL, WAGRABPropEntry *, UIView *) = NULL;
@@ -568,19 +575,8 @@ static void WAGRFullInstallOnClass(Class cls,
 }
 
 static void WAGRInstallFullRuntimeEditors(void) {
-    Class ab = NSClassFromString(@"WAGRABPropsBrowserVC");
-    WAGRFullInstallOnClass(ab,
-        NSSelectorFromString(@"presentEditorForEntry:fromView:"),
-        (IMP)WAGRFullABPresentEditor,
-        (IMP *)&gWAGROriginalABPresentEditor);
-
-    // Capture the final ABI-aware cell renderer, then decorate only long object
-    // rows. This makes wamo_abprops_list visibly navigable instead of squeezing
-    // thousands of JSON characters into a small inline text field.
-    WAGRFullInstallOnClass(ab,
-        @selector(tableView:cellForRowAtIndexPath:),
-        (IMP)WAGRFullABCell,
-        (IMP *)&gWAGROriginalABCell);
+    // The canonical ABProps editor invokes the full editor explicitly after
+    // checking backend/conflicts. Never replace its method implementation.
 
     Class surface = NSClassFromString(@"WAGRSurfaceBrowserVC");
     WAGRFullInstallOnClass(surface,

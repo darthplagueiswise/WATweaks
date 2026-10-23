@@ -1,5 +1,6 @@
 #import "WAGRFeatureBundlesVC.h"
 #import "WAGRABPropsFilteredBrowserVC.h"
+#import "WAGRConfigControlsVC.h"
 #import "WAGRMenuTheme.h"
 #import "../Runtime/WAGRABPropsRuntime.h"
 #import "../Runtime/WAGRABPropsStableIDResolver.h"
@@ -23,6 +24,7 @@ static NSArray<WAGRLiveFeatureFamily *> *WAGRFeatureSemanticFamilies(void) {
         @[@"Employee", @"employee", @"person.crop.circle.badge.checkmark"],
         @[@"Dogfood", @"dogfood", @"pawprint.fill"],
         @[@"Fishfood", @"fishfood", @"fish.fill"],
+        @[@"MobileConfig", @"mobileconfig", @"arrow.triangle.2.circlepath"],
         @[@"Liquid Glass", @"liquid_glass", @"circle.hexagongrid.fill"],
         @[@"Aura / WA Plus", @"aura", @"sparkles"],
         @[@"Private Experimentation", @"private", @"flask.fill"],
@@ -77,6 +79,8 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:style];
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
         initWithCustomView:self.spinner];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Controles MC"
+        style:UIBarButtonItemStylePlain target:self action:@selector(openMCControls)];
 
     UIRefreshControl *refresh = [UIRefreshControl new];
     [refresh addTarget:self action:@selector(scanLiveFamilies)
@@ -95,9 +99,9 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
     [self.spinner startAnimating];
     self.title = @"Descobrindo features…";
     id context = WAGRCurrentUserContext();
+    NSArray *objects = WAGRABPropsResolveRuntimeObjects(context);
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSArray *objects = WAGRABPropsResolveRuntimeObjects(context);
         NSArray<WAGRABPropEntry *> *entries = WAGRABPropsScan(objects);
         NSArray<WAGRLiveFeatureFamily *> *definitions = WAGRFeatureSemanticFamilies();
 
@@ -136,6 +140,11 @@ static NSString *WAGRFeatureHaystack(WAGRABPropEntry *entry) {
             [self.tableView reloadData];
         });
     });
+}
+
+- (void)openMCControls {
+    [self.navigationController pushViewController:[[WAGRConfigControlsVC alloc]
+        initWithUserContext:WAGRCurrentUserContext() group:WAGRConfigGroupMobileConfig] animated:YES];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(__unused UITableView *)tableView {

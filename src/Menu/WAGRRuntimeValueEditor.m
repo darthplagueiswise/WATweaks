@@ -7,10 +7,18 @@ static void WAGRRuntimeEditorApply(NSString *className,
                                    BOOL meta,
                                    NSString *typeCode,
                                    id value,
+                                   UIViewController *presenter,
                                    dispatch_block_t completion) {
-    WAGRRuntimeValueSetOverride(className, selectorName, meta, typeCode, value);
-    if (WAGRRuntimeValueHasOverride(className, selectorName, meta)) {
-        (void)WAGRRuntimeValueInstallHook(className, selectorName, meta, typeCode);
+    WAGRRuntimeOverrideOutcome outcome = WAGRRuntimeValueTrySetOverride(className,
+        selectorName, meta, typeCode, value);
+    if (outcome != WAGRRuntimeOverrideInstalled) {
+        NSString *message = outcome == WAGRRuntimeOverrideRejected
+            ? @"O override foi rejeitado. O valor solicitado não foi salvo."
+            : @"Override salvo; instalação do hook ainda pendente. Não foi confirmado como valor efetivo.";
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Override runtime"
+            message:message preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+        [presenter presentViewController:alert animated:YES completion:nil];
     }
     if (completion) completion();
 }
@@ -187,6 +195,14 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
                                    id currentRawValue,
                                    dispatch_block_t completion) {
     if (!presenter || !className.length || !selectorName.length || !typeCode.length) return;
+    if (!WAGRRuntimeValueCanOverrideTarget(className, selectorName)) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:selectorName
+            message:@"Estado nativo da conta · somente leitura."
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+        [presenter presentViewController:alert animated:YES completion:nil];
+        return;
+    }
 
     BOOL overridden = WAGRRuntimeValueHasOverride(className, selectorName, isClassMethod);
     id override = WAGRRuntimeValueOverride(className, selectorName, isClassMethod);
@@ -208,10 +224,10 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
 
     if (WAGRRuntimeValueTypeIsBoolean(typeCode)) {
         [sheet addAction:[UIAlertAction actionWithTitle:@"Force YES" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @YES, completion);
+            WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @YES, presenter, completion);
         }]];
         [sheet addAction:[UIAlertAction actionWithTitle:@"Force NO" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @NO, completion);
+            WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @NO, presenter, completion);
         }]];
     } else if (WAGRRuntimeValueTypeIsSignedInteger(typeCode)) {
         [sheet addAction:[UIAlertAction actionWithTitle:@"Definir inteiro…" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
@@ -223,7 +239,7 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
                     WAGRRuntimeShowParseError(presenter, @"Inteiro decimal inválido.");
                     return;
                 }
-                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @(value), completion);
+                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @(value), presenter, completion);
             });
         }]];
     } else if (WAGRRuntimeValueTypeIsUnsignedInteger(typeCode)) {
@@ -240,7 +256,7 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
                     WAGRRuntimeShowParseError(presenter, @"Inteiro decimal inválido.");
                     return;
                 }
-                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @(value), completion);
+                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @(value), presenter, completion);
             });
         }]];
     } else if (WAGRRuntimeValueTypeIsFloatingPoint(typeCode)) {
@@ -253,7 +269,7 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
                     WAGRRuntimeShowParseError(presenter, @"Número decimal inválido.");
                     return;
                 }
-                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @(value), completion);
+                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, @(value), presenter, completion);
             });
         }]];
     } else if (WAGRRuntimeValueTypeIsObject(typeCode)) {
@@ -267,11 +283,11 @@ void WAGRPresentRuntimeValueEditor(UIViewController *presenter,
                     WAGRRuntimeShowParseError(presenter, parseError);
                     return;
                 }
-                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, value, completion);
+                WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, value, presenter, completion);
             });
         }]];
         [sheet addAction:[UIAlertAction actionWithTitle:@"Force nil" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-            WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, NSNull.null, completion);
+            WAGRRuntimeEditorApply(className, selectorName, isClassMethod, typeCode, NSNull.null, presenter, completion);
         }]];
     }
 

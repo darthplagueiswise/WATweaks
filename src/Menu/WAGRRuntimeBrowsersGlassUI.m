@@ -371,7 +371,7 @@ static void WAGRRuntimeBrowsersGlassInstall(void) {
 
         WAGRBrowserInstallForClass(@"WAGRMainSettingsVC", NO, NO);
         WAGRBrowserInstallForClass(@"WAGRABPropsRootVC", NO, NO);
-        WAGRBrowserInstallForClass(@"WAGRABPropsBrowserVC", YES, YES);
+        WAGRBrowserInstallForClass(@"WAGRABPropsBrowserVC", YES, NO);
         WAGRBrowserInstallForClass(@"WAGRSurfaceBrowserVC", YES, YES);
     });
 }
